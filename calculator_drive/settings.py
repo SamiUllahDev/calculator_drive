@@ -284,7 +284,7 @@ GOOGLE_ADSENSE_TRACK_DISPLAYS = False  # Set to True to track ad displays (requi
 # Site Configuration for Sitemap
 # Set your actual domain here (without http:// or https://)
 # Example: 'yourdomain.com' or 'www.yourdomain.com'
-SITE_URL = 'www.calculatordrive.com'  # Change this to your actual domain
+SITE_URL = 'calculatordrive.com'  # Change this to your actual domain
 SITE_PROTOCOL = 'https'  # Use 'https' for production, 'http' for development
 
 # Cache Configuration
