@@ -31,7 +31,7 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # Security: Set allowed hosts in production
 # Use environment variable: export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'www.calculatordrive.com,calculatordrive.com').split(',') if os.environ.get('ALLOWED_HOSTS') else []
 
 
 # Application definition
