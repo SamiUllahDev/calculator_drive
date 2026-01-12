@@ -56,6 +56,8 @@ INSTALLED_APPS = [
     'blog',
     'user',
     'google_adsense',
+    'django_extensions',
+
 ]
 
 SITE_ID = 1
