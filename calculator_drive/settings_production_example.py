@@ -22,7 +22,7 @@ DEBUG = False
 
 # SECURITY: Set your actual domain(s)
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
-if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['www.calculatordrive.com', 'calculatordrive.com']:
     raise ValueError("ALLOWED_HOSTS must be set in production!")
 
 # HTTPS/SSL Settings (REQUIRED for production)
