@@ -25,7 +25,7 @@ class Command(BaseCommand):
         site = Site.objects.get_current()
         old_domain = site.domain
         site.domain = domain
-        site.name = 'CarePDF'  # Update name as well
+        site.name = 'CalculatorDrive'  # Update name as well
         site.save()
         
         self.stdout.write(

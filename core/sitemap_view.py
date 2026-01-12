@@ -22,11 +22,14 @@ def sitemap(request, sitemaps, **kwargs):
             try:
                 content = response.content.decode('utf-8')
                 
-                # Replace example.com with request domain
-                content = content.replace('http://example.com', f'{protocol}://{domain}')
-                content = content.replace('https://example.com', f'{protocol}://{domain}')
-                content = content.replace('http://www.example.com', f'{protocol}://{domain}')
-                content = content.replace('https://www.example.com', f'{protocol}://{domain}')
+                # Replace common placeholder domains with request domain
+                placeholder_domains = [
+                    'example.com', 'www.example.com',
+                    'yourdomain.com', 'www.yourdomain.com'
+                ]
+                for placeholder in placeholder_domains:
+                    content = content.replace(f'http://{placeholder}', f'{protocol}://{domain}')
+                    content = content.replace(f'https://{placeholder}', f'{protocol}://{domain}')
                 
                 # Replace any domain in <loc> tags with request domain
                 def replace_domain_in_loc(match):
