@@ -1,0 +1,755 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Hours Calculator - Calculate Time Difference, Add/Subtract Hours, Convert Time Units | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free hours calculator to calculate time difference between two times, add/subtract hours, convert between hours/minutes/seconds/days, calculate total hours, and hours worked. Perfect for time tracking, payroll, and work schedules." %}{% endblock %}
+{% block meta_keywords %}{% trans "hours calculator, time calculator, time difference calculator, hours worked calculator, time converter, add hours, subtract hours, time tracking, work hours calculator, time card calculator, hours minutes calculator, time addition calculator, time subtraction calculator, payroll hours calculator" %}{% endblock %}
+
+{% block og_title %}{% trans "Hours Calculator - Calculate Time Difference, Add/Subtract Hours, Convert Time Units" %}{% endblock %}
+{% block og_description %}{% trans "Calculate time differences, add/subtract hours, convert time units, and calculate hours worked. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/hours-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Hours Calculator - Calculate Time Difference, Add/Subtract Hours, Convert Time Units" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate time differences, add/subtract hours. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/hours-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Hours Calculator - Calculate Time Difference, Add/Subtract Hours, Convert Time Units' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1550"},
+  "description": "{% trans 'Free online hours calculator to calculate time difference between two times, add/subtract hours, convert between hours/minutes/seconds/days, calculate total hours, and hours worked with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Hours Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate time difference between two times, add/subtract hours, convert between hours/minutes/seconds/days, calculate total hours, and hours worked with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="hoursCalculatorForm" onsubmit="calculateHours(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="time_difference">{% trans "Time Difference" %}</option>
+                                <option value="add_subtract">{% trans "Add/Subtract Hours" %}</option>
+                                <option value="convert">{% trans "Convert Time Units" %}</option>
+                                <option value="total_hours">{% trans "Total Hours" %}</option>
+                                <option value="hours_worked">{% trans "Hours Worked" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Time Difference Mode -->
+                        <div id="form-time_difference" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="start_time" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Start Time" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="time" id="start_time" name="start_time" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Format: HH:MM or HH:MM:SS" %}</p>
+                            </div>
+                            <div>
+                                <label for="end_time" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "End Time" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="time" id="end_time" name="end_time" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="next_day" name="next_day" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <label for="next_day" class="ml-2 text-sm text-gray-700">{% trans "End time is next day" %}</label>
+                            </div>
+                        </div>
+
+                        <!-- Add/Subtract Hours Mode -->
+                        <div id="form-add_subtract" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="time_add" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Time" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="time" id="time_add" name="time" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="hours_add" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Hours" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="hours_add" name="hours" step="0.01" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2.5" required>
+                            </div>
+                            <div>
+                                <label for="operation" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Operation" %}
+                                </label>
+                                <select id="operation" name="operation" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="add" selected>{% trans "Add" %}</option>
+                                    <option value="subtract">{% trans "Subtract" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Convert Time Units Mode -->
+                        <div id="form-convert" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="value_convert" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Time Value" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="value_convert" name="value" step="0.01" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2.5" required>
+                            </div>
+                            <div>
+                                <label for="from_unit_convert" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Unit" %}
+                                </label>
+                                <select id="from_unit_convert" name="from_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="hours" selected>{% trans "Hours" %}</option>
+                                    <option value="minutes">{% trans "Minutes" %}</option>
+                                    <option value="seconds">{% trans "Seconds" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit_convert" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Unit" %}
+                                </label>
+                                <select id="to_unit_convert" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="minutes">{% trans "Minutes" %}</option>
+                                    <option value="hours" selected>{% trans "Hours" %}</option>
+                                    <option value="seconds">{% trans "Seconds" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Total Hours Mode -->
+                        <div id="form-total_hours" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-sm font-medium text-gray-700">{% trans "Time Periods" %}</label>
+                                    <span class="text-xs text-gray-500" id="periodCount">0 {% trans "periods" %}</span>
+                                </div>
+                                <div id="periodsContainer" class="space-y-3 max-h-96 overflow-y-auto">
+                                    <!-- Period rows will be added here -->
+                                </div>
+                                <button type="button" id="addPeriod" class="mt-3 w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-400 hover:text-blue-600 transition text-sm">
+                                    + {% trans "Add Period" %}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Hours Worked Mode -->
+                        <div id="form-hours_worked" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="start_time_worked" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Start Time" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="time" id="start_time_worked" name="start_time" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="end_time_worked" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "End Time" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="time" id="end_time_worked" name="end_time" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="break_minutes" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Break Time (minutes)" %}
+                                </label>
+                                <input type="number" id="break_minutes" name="break_minutes" step="1" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="30" value="0">
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="next_day_worked" name="next_day" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <label for="next_day_worked" class="ml-2 text-sm text-gray-700">{% trans "End time is next day" %}</label>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                        <div id="additionalInfo" class="mt-3"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="hoursChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Hours" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Hours Calculator?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "The Hours Calculator is a comprehensive tool for calculating time differences, adding or subtracting hours from times, converting between time units (hours, minutes, seconds, days), calculating total hours from multiple periods, and calculating hours worked with break time deductions. This calculator is essential for time tracking, scheduling, payroll, and time management." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Time Difference, Add/Subtract Hours, Convert Time Units, Total Hours, or Hours Worked)." %}</li>
+                        <li>{% trans "Enter the required times and values in the appropriate format (HH:MM or HH:MM:SS)." %}</li>
+                        <li>{% trans "For time differences, check 'End time is next day' if the end time is on the following day." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Time Difference" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Calculate the difference between two times. Supports same-day and next-day calculations. Returns hours, minutes, seconds, and days." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Add/Subtract Hours" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Add or subtract hours from a given time. Automatically handles day overflow/underflow. Useful for scheduling and time planning." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Convert Time Units" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Convert between hours, minutes, seconds, and days. Supports all common time unit conversions with precise calculations." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Total Hours" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Calculate total hours from multiple time periods. Add multiple start/end time pairs and get the sum of all periods." %}</p>
+                        </div>
+                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                            <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Hours Worked" %}</h4>
+                            <p class="text-sm text-indigo-800">{% trans "Calculate hours worked with break time deduction. Enter start time, end time, and break minutes to get net hours worked. Perfect for time tracking and payroll." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Time Formulas" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Time Difference:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Difference = End Time - Start Time</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Add/Subtract Hours:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Result = Time ± Hours</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Hours Worked:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Hours Worked = (End Time - Start Time) - Break Time</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Time Unit Conversions:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 hour = 60 minutes = 3600 seconds = 1/24 days</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 minute = 1/60 hours = 60 seconds</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 second = 1/3600 hours = 1/60 minutes</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 day = 24 hours = 1440 minutes = 86400 seconds</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Time Format" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2">{% trans "Times can be entered in the following formats:" %}</p>
+                        <ul class="text-sm text-gray-700 list-disc list-inside ml-2 space-y-1">
+                            <li>{% trans "HH:MM (e.g., 09:30, 14:45)" %}</li>
+                            <li>{% trans "HH:MM:SS (e.g., 09:30:00, 14:45:30)" %}</li>
+                        </ul>
+                        <p class="text-sm text-gray-700 mt-3">{% trans "The calculator uses 24-hour format (00:00 to 23:59)." %}</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "Times must be in 24-hour format (00:00 to 23:59)." %}</li>
+                        <li>{% trans "For time differences, if end time is before start time, check 'End time is next day' or the calculator will assume next day automatically." %}</li>
+                        <li>{% trans "Time differences are limited to 48 hours maximum." %}</li>
+                        <li>{% trans "When adding/subtracting hours, day overflow/underflow is handled automatically." %}</li>
+                        <li>{% trans "Break time in hours worked must not exceed total time." %}</li>
+                        <li>{% trans "All calculations are precise to 2 decimal places for hours." %}</li>
+                        <li>{% trans "Results are displayed in multiple formats: decimal hours, time format (HH:MM:SS), minutes, seconds, and days." %}</li>
+                        <li>{% trans "For total hours calculation, you can add up to 50 time periods." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Time tracking and timesheet calculations" %}</li>
+                        <li>{% trans "Payroll and wage calculations" %}</li>
+                        <li>{% trans "Project time management" %}</li>
+                        <li>{% trans "Scheduling and appointment planning" %}</li>
+                        <li>{% trans "Work shift calculations" %}</li>
+                        <li>{% trans "Overtime and break time tracking" %}</li>
+                        <li>{% trans "Time unit conversions for international standards" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'time_difference';
+let hoursChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function addPeriod() {
+    const container = document.getElementById('periodsContainer');
+    const count = container.querySelectorAll('.period-row').length;
+    
+    const periodHtml = `
+        <div class="period-row flex gap-2 items-center" data-id="${count + 1}">
+            <input type="time" class="period-start flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="09:00">
+            <span class="text-gray-500">to</span>
+            <input type="time" class="period-end flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="17:00">
+            <button type="button" class="remove-period text-red-500 hover:text-red-700 p-1 transition">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', periodHtml);
+    updatePeriodCount();
+}
+
+function updatePeriodCount() {
+    const count = document.querySelectorAll('#periodsContainer .period-row').length;
+    const countEl = document.getElementById('periodCount');
+    if (countEl) countEl.textContent = `${count} {% trans "periods" %}`;
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 2});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateHours(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect data based on mode
+    if (currentMode === 'time_difference') {
+        const startTime = document.getElementById('start_time').value;
+        const endTime = document.getElementById('end_time').value;
+        if (!startTime || !endTime) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.start_time = startTime;
+        requestData.end_time = endTime;
+        requestData.next_day = document.getElementById('next_day').checked;
+    } else if (currentMode === 'add_subtract') {
+        const time = document.getElementById('time_add').value;
+        const hours = parseFloat(document.getElementById('hours_add').value);
+        if (!time || isNaN(hours)) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.time = time;
+        requestData.hours = hours;
+        requestData.operation = document.getElementById('operation').value;
+    } else if (currentMode === 'convert') {
+        const value = parseFloat(document.getElementById('value_convert').value);
+        if (isNaN(value)) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.value = value;
+        requestData.from_unit = document.getElementById('from_unit_convert').value;
+        requestData.to_unit = document.getElementById('to_unit_convert').value;
+    } else if (currentMode === 'total_hours') {
+        const periods = [];
+        document.querySelectorAll('#periodsContainer .period-row').forEach(row => {
+            const start = row.querySelector('.period-start').value;
+            const end = row.querySelector('.period-end').value;
+            if (start && end) {
+                periods.push({
+                    start_time: start,
+                    end_time: end,
+                    next_day: false
+                });
+            }
+        });
+        if (periods.length === 0) {
+            errorEl.textContent = '{% trans "Please add at least one time period." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.time_periods = periods;
+    } else if (currentMode === 'hours_worked') {
+        const startTime = document.getElementById('start_time_worked').value;
+        const endTime = document.getElementById('end_time_worked').value;
+        if (!startTime || !endTime) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.start_time = startTime;
+        requestData.end_time = endTime;
+        requestData.break_minutes = parseFloat(document.getElementById('break_minutes').value) || 0;
+        requestData.next_day = document.getElementById('next_day_worked').checked;
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        let resultValue = '';
+        let resultUnit = '';
+        let detailsHtml = '';
+        let additionalInfo = '';
+        
+        if (data.calc_type === 'time_difference') {
+            resultValue = data.difference_time || formatNumber(data.difference_hours);
+            resultUnit = 'hours';
+            additionalInfo = `
+                <div class="mt-3 text-sm">
+                    <p>${formatNumber(data.difference_hours)} {% trans "hours" %} = ${formatNumber(data.difference_minutes)} {% trans "minutes" %} = ${formatNumber(data.difference_seconds)} {% trans "seconds" %}</p>
+                </div>
+            `;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.start_time}</p>
+                    <p class="text-sm text-gray-600">{% trans "Start Time" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.end_time}</p>
+                    <p class="text-sm text-gray-600">{% trans "End Time" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'add_subtract') {
+            resultValue = data.result_time;
+            resultUnit = '';
+            if (data.days !== 0) {
+                additionalInfo = `
+                    <div class="mt-3 text-sm">
+                        <p>${Math.abs(data.days)} {% trans "day(s)" %} ${data.days > 0 ? '{% trans "later" %}' : '{% trans "earlier" %}'}</p>
+                    </div>
+                `;
+            }
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.result_hours)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Hours" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'convert') {
+            resultValue = formatNumber(data.result);
+            const unitMap = {'hours': '{% trans "hours" %}', 'minutes': '{% trans "minutes" %}', 'seconds': '{% trans "seconds" %}', 'days': '{% trans "days" %}'};
+            resultUnit = unitMap[data.to_unit] || data.to_unit;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.value)}</p>
+                    <p class="text-sm text-gray-600">{% trans "From" %} ${unitMap[data.from_unit] || data.from_unit}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'total_hours') {
+            resultValue = data.total_time || formatNumber(data.total_hours);
+            resultUnit = 'hours';
+            additionalInfo = `
+                <div class="mt-3 text-sm">
+                    <p>${formatNumber(data.total_hours)} {% trans "hours" %} = ${formatNumber(data.total_minutes)} {% trans "minutes" %} = ${formatNumber(data.total_days)} {% trans "days" %}</p>
+                </div>
+            `;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.time_periods.length}</p>
+                    <p class="text-sm text-gray-600">{% trans "Time Periods" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'hours_worked') {
+            resultValue = data.hours_worked_time || formatNumber(data.hours_worked);
+            resultUnit = 'hours';
+            additionalInfo = `
+                <div class="mt-3 text-sm">
+                    <p>${formatNumber(data.hours_worked)} {% trans "hours" %} = ${formatNumber(data.hours_worked_minutes)} {% trans "minutes" %}</p>
+                </div>
+            `;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.total_hours)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Total Time" %}</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    <p class="text-2xl font-bold text-yellow-600">${formatNumber(data.break_hours)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Break Time" %}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('resultValue').textContent = resultValue;
+        document.getElementById('resultUnit').textContent = resultUnit;
+        document.getElementById('additionalInfo').innerHTML = additionalInfo;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('hoursChart');
+            if (chartEl) {
+                if (hoursChart) hoursChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.time_difference_chart) {
+                    chartConfig = data.chart_data.time_difference_chart;
+                } else if (data.chart_data.total_hours_chart) {
+                    chartConfig = data.chart_data.total_hours_chart;
+                } else if (data.chart_data.hours_worked_chart) {
+                    chartConfig = data.chart_data.hours_worked_chart;
+                }
+                
+                if (chartConfig) {
+                    hoursChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|Time|Difference|Hours|Worked)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('time_difference');
+    
+    // Add initial period for total hours mode
+    addPeriod();
+    addPeriod();
+    
+    // Add period button
+    document.getElementById('addPeriod').addEventListener('click', addPeriod);
+    
+    // Remove period handlers
+    document.getElementById('periodsContainer').addEventListener('click', function(e) {
+        if (e.target.closest('.remove-period')) {
+            const row = e.target.closest('.period-row');
+            if (this.children.length > 1) {
+                row.remove();
+                updatePeriodCount();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

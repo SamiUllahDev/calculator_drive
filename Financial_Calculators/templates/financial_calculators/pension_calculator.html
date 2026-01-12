@@ -1,0 +1,353 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Pension Calculator - Calculate Retirement Benefits" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your pension benefits for defined benefit plans. Compare lump sum vs annuity options and evaluate service credit purchases." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'pension calculator, defined benefit pension, retirement benefits, lump sum vs annuity, pension plan' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Pension Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Pension Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate your defined benefit pension, compare lump sum vs annuity options, or evaluate purchasing additional service credits." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-5">
+                <div class="bg-white border border-gray-200 rounded-lg p-6 sticky top-4">
+                    <form id="calculatorForm" class="space-y-6">
+                        {% csrf_token %}
+                        
+                        <!-- Calculator Mode -->
+                        <div class="border-b border-gray-200 pb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Calculator Type" %}</h3>
+                            <div class="space-y-2">
+                                <label class="flex items-center p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer calc-mode-option" data-mode="defined_benefit">
+                                    <input type="radio" name="calc_type" value="defined_benefit" class="h-4 w-4 text-blue-600" checked>
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Defined Benefit Pension" %}</span>
+                                </label>
+                                <label class="flex items-center p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer calc-mode-option" data-mode="lump_sum_vs_annuity">
+                                    <input type="radio" name="calc_type" value="lump_sum_vs_annuity" class="h-4 w-4 text-blue-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Lump Sum vs Annuity" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Defined Benefit Fields -->
+                        <div id="definedBenefitFields" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="final_salary">{% trans "Final Salary" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="final_salary" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="80,000">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="years_of_service">{% trans "Years of Service" %}</label>
+                                    <input type="number" id="years_of_service" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="25" min="1" max="50">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="benefit_multiplier">{% trans "Multiplier (%/yr)" %}</label>
+                                    <input type="number" id="benefit_multiplier" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="2" step="0.1" min="0.5" max="5">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="current_age">{% trans "Current Age" %}</label>
+                                    <input type="number" id="current_age" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="55" min="30" max="70">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="retirement_age">{% trans "Retirement Age" %}</label>
+                                    <input type="number" id="retirement_age" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="65" min="50" max="75">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="cola_rate">{% trans "Annual COLA (%)" %}</label>
+                                <input type="number" id="cola_rate" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="2" step="0.1" min="0" max="5">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Cost of living adjustment" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Lump Sum vs Annuity Fields -->
+                        <div id="lumpSumFields" class="hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="monthly_annuity">{% trans "Monthly Annuity Offered" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="monthly_annuity" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="3,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="lump_sum_offer">{% trans "Lump Sum Offered" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="lump_sum_offer" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="500,000">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="ls_retirement_age">{% trans "Retirement Age" %}</label>
+                                    <input type="number" id="ls_retirement_age" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="65">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="life_expectancy">{% trans "Life Expectancy" %}</label>
+                                    <input type="number" id="life_expectancy" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="85">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="expected_return">{% trans "Expected Return (%)" %}</label>
+                                <input type="number" id="expected_return" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="5" step="0.1">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "If you invest the lump sum" %}</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition">
+                            {% trans "Calculate Pension" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-7">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Enter Your Pension Details" %}</h3>
+                    <p class="text-gray-600">{% trans "Fill out the form to calculate your pension benefits." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white border border-red-200 rounded-lg p-6">
+                    <p class="text-red-600" id="errorMessage"></p>
+                </div>
+
+                <!-- Defined Benefit Results -->
+                <div id="definedBenefitResults" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-xl p-6 text-center">
+                            <p class="text-green-100 text-sm mb-1">{% trans "Annual Pension" %}</p>
+                            <p class="text-3xl font-bold" id="annualPension">$0</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-xl p-6 text-center">
+                            <p class="text-blue-100 text-sm mb-1">{% trans "Monthly Pension" %}</p>
+                            <p class="text-3xl font-bold" id="monthlyPension">$0</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Pension Details" %}</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between"><span class="text-gray-600">{% trans "Replacement Ratio:" %}</span><span class="font-bold" id="replacementRatio">0%</span></div>
+                            <div class="flex justify-between"><span class="text-gray-600">{% trans "Total over 30 years:" %}</span><span class="font-bold" id="totalBenefits">$0</span></div>
+                            <div class="flex justify-between"><span class="text-gray-600">{% trans "Present Value:" %}</span><span class="font-bold" id="presentValue">$0</span></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 font-mono" id="formulaDisplay"></p>
+                    </div>
+                </div>
+
+                <!-- Lump Sum vs Annuity Results -->
+                <div id="lumpSumResults" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                            <h4 class="font-semibold text-blue-800 mb-3">{% trans "Annuity Option" %}</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Monthly:" %}</span><span class="font-bold" id="annuityMonthly">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Annual:" %}</span><span class="font-bold" id="annuityAnnual">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Lifetime Total:" %}</span><span class="font-bold" id="annuityLifetime">$0</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                            <h4 class="font-semibold text-green-800 mb-3">{% trans "Lump Sum Option" %}</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Amount:" %}</span><span class="font-bold" id="lumpSumAmount">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Expected Return:" %}</span><span class="font-bold" id="lumpSumReturn">0%</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Final Balance:" %}</span><span class="font-bold" id="lumpSumFinal">$0</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="recommendationCard" class="rounded-xl p-6 text-center">
+                        <p class="text-lg font-semibold" id="recommendation">-</p>
+                        <p class="text-sm mt-2" id="recommendationReason">-</p>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+        <!-- Educational Content -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Understanding Defined Benefit Pensions" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600">
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-2">{% trans "Typical Formula" %}</h3>
+                    <p class="font-mono bg-gray-50 p-3 rounded">{% trans "Annual Pension = Final Salary × Years × Multiplier" %}</p>
+                    <p class="mt-2">{% trans "Common multipliers range from 1.5% to 2.5% per year of service." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-2">{% trans "COLA Adjustments" %}</h3>
+                    <p>{% trans "Many pensions include Cost of Living Adjustments (COLA) that increase your benefit annually to keep pace with inflation." %}</p>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    
+    // Mode switching
+    document.querySelectorAll('input[name="calc_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const mode = this.value;
+            document.getElementById('definedBenefitFields').classList.toggle('hidden', mode !== 'defined_benefit');
+            document.getElementById('lumpSumFields').classList.toggle('hidden', mode !== 'lump_sum_vs_annuity');
+        });
+    });
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(num);
+    }
+    
+    function parseNumber(str) {
+        return parseFloat(str.toString().replace(/[^0-9.-]/g, '')) || 0;
+    }
+    
+    function showState(state) {
+        document.getElementById('initialState').classList.add('hidden');
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.add('hidden');
+        document.getElementById('definedBenefitResults').classList.add('hidden');
+        document.getElementById('lumpSumResults').classList.add('hidden');
+        
+        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
+        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
+        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
+        else if (state === 'defined_benefit') document.getElementById('definedBenefitResults').classList.remove('hidden');
+        else if (state === 'lump_sum') document.getElementById('lumpSumResults').classList.remove('hidden');
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState('loading');
+        
+        const calcType = document.querySelector('input[name="calc_type"]:checked').value;
+        let data = { calc_type: calcType };
+        
+        if (calcType === 'defined_benefit') {
+            data.final_salary = parseNumber(document.getElementById('final_salary').value);
+            data.years_of_service = parseInt(document.getElementById('years_of_service').value);
+            data.benefit_multiplier = parseFloat(document.getElementById('benefit_multiplier').value);
+            data.current_age = parseInt(document.getElementById('current_age').value);
+            data.retirement_age = parseInt(document.getElementById('retirement_age').value);
+            data.cola_rate = parseFloat(document.getElementById('cola_rate').value);
+        } else {
+            data.monthly_annuity = parseNumber(document.getElementById('monthly_annuity').value);
+            data.lump_sum_offer = parseNumber(document.getElementById('lump_sum_offer').value);
+            data.retirement_age = parseInt(document.getElementById('ls_retirement_age').value);
+            data.life_expectancy = parseInt(document.getElementById('life_expectancy').value);
+            data.expected_return = parseFloat(document.getElementById('expected_return').value);
+        }
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (calcType === 'defined_benefit') {
+                    displayDefinedBenefitResults(result);
+                    showState('defined_benefit');
+                } else {
+                    displayLumpSumResults(result);
+                    showState('lump_sum');
+                }
+            } else {
+                document.getElementById('errorMessage').textContent = result.error;
+                showState('error');
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'An error occurred.';
+            showState('error');
+        }
+    });
+    
+    function displayDefinedBenefitResults(result) {
+        document.getElementById('annualPension').textContent = formatCurrency(result.pension.annual);
+        document.getElementById('monthlyPension').textContent = formatCurrency(result.pension.monthly);
+        document.getElementById('replacementRatio').textContent = result.pension.replacement_ratio + '%';
+        document.getElementById('totalBenefits').textContent = formatCurrency(result.projection.total_benefits);
+        document.getElementById('presentValue').textContent = formatCurrency(result.projection.present_value);
+        document.getElementById('formulaDisplay').textContent = result.formula;
+    }
+    
+    function displayLumpSumResults(result) {
+        document.getElementById('annuityMonthly').textContent = formatCurrency(result.annuity.monthly);
+        document.getElementById('annuityAnnual').textContent = formatCurrency(result.annuity.annual);
+        document.getElementById('annuityLifetime').textContent = formatCurrency(result.annuity.total_lifetime);
+        
+        document.getElementById('lumpSumAmount').textContent = formatCurrency(result.lump_sum.offer);
+        document.getElementById('lumpSumReturn').textContent = result.lump_sum.expected_return + '%';
+        document.getElementById('lumpSumFinal').textContent = formatCurrency(result.lump_sum.final_balance);
+        
+        const recCard = document.getElementById('recommendationCard');
+        if (result.comparison.recommendation === 'lump_sum') {
+            recCard.className = 'bg-green-100 border-2 border-green-300 rounded-xl p-6 text-center';
+            document.getElementById('recommendation').className = 'text-lg font-semibold text-green-800';
+            document.getElementById('recommendation').textContent = 'Lump Sum May Be Better';
+        } else {
+            recCard.className = 'bg-blue-100 border-2 border-blue-300 rounded-xl p-6 text-center';
+            document.getElementById('recommendation').className = 'text-lg font-semibold text-blue-800';
+            document.getElementById('recommendation').textContent = 'Annuity May Be Better';
+        }
+        document.getElementById('recommendationReason').textContent = result.comparison.reason;
+    }
+        });
+    </script>
+{% endblock %}

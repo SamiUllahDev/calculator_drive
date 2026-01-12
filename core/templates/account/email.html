@@ -1,0 +1,131 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Email Addresses" %} | {{ block.super }}{% endblock %}
+
+{% block meta_description %}{% trans "Manage your email addresses" %}{% endblock %}
+
+{% block content %}
+<section class="max-w-7xl mx-auto px-4 py-8 sm:py-12 lg:py-16">
+    <div class="max-w-2xl mx-auto space-y-6">
+        <!-- Header -->
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                    <i class="bi bi-envelope text-blue-600 text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold text-gray-900 mb-2">
+                    {% trans "Email Addresses" %}
+                </h1>
+                <p class="text-sm text-gray-600">
+                    {% trans "Manage your email addresses" %}
+                </p>
+            </div>
+
+            {% if user.emailaddress_set.all %}
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "The following email addresses are associated with your account:" %}</h3>
+                
+                <form action="{% url 'account_email' %}" class="email_list space-y-4" method="post">
+                    {% csrf_token %}
+                    <fieldset class="blockLabels">
+                        {% for emailaddress in user.emailaddress_set.all %}
+                        <div class="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg">
+                            <label for="email_radio_{{ forloop.counter }}" class="flex items-center flex-1 cursor-pointer">
+                                <input id="email_radio_{{ forloop.counter }}" type="radio" name="email" 
+                                       {% if emailaddress.primary or user.emailaddress_set.count == 1 %}checked="checked"{% endif %} 
+                                       value="{{ emailaddress.email }}" class="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                <div class="flex-1">
+                                    <span class="font-medium text-gray-900">{{ emailaddress.email }}</span>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        {% if emailaddress.verified %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <i class="bi bi-check-circle mr-1"></i>
+                                            {% trans "Verified" %}
+                                        </span>
+                                        {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            <i class="bi bi-exclamation-circle mr-1"></i>
+                                            {% trans "Unverified" %}
+                                        </span>
+                                        {% endif %}
+                                        {% if emailaddress.primary %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {% trans "Primary" %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        {% endfor %}
+
+                        <div class="flex flex-col sm:flex-row gap-3 mt-6">
+                            <button class="primaryAction inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md" 
+                                    type="submit" name="action_primary">
+                                <i class="bi bi-star"></i>
+                                {% trans "Make Primary" %}
+                            </button>
+                            <button class="action_remove inline-flex items-center justify-center gap-2 px-4 py-3 border border-red-300 bg-white text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors duration-200" 
+                                    type="submit" name="action_remove">
+                                <i class="bi bi-trash"></i>
+                                {% trans "Remove" %}
+                            </button>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Add Email Form -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Add Email Address" %}</h3>
+                
+                <form method="post" action="{% url 'account_email' %}" class="add_email space-y-4">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                    <div class="rounded-lg bg-red-50 border border-red-200 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-exclamation-circle text-red-400 text-xl"></i>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <h3 class="text-sm font-medium text-red-800">
+                                    {% trans "There were errors with your submission" %}
+                                </h3>
+                                <div class="mt-2 text-sm text-red-700">
+                                    <ul class="list-disc pl-5 space-y-1">
+                                        {% for field, errors in form.errors.items %}
+                                            {% for error in errors %}
+                                                <li>{{ error }}</li>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div>
+                        <label for="id_email" class="block text-sm font-medium text-gray-700 mb-2">
+                            {% trans "Email" %} <span class="text-red-500">*</span>
+                        </label>
+                        <input id="id_email" name="email" type="email" required
+                               class="block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                               placeholder="{% trans 'your@email.com' %}" 
+                               value="{{ form.email.value|default:'' }}">
+                    </div>
+
+                    <button name="action_add" type="submit" 
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md">
+                        <i class="bi bi-plus-circle"></i>
+                        {% trans "Add Email" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

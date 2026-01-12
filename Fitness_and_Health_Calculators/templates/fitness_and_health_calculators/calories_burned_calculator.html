@@ -1,0 +1,890 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Calories Burned Calculator" %} - {% trans "Calculate Calories Burned During Exercise" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate calories burned during various activities using MET values. Free online calculator for exercise calorie tracking." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "calories burned calculator, exercise calories, MET calculator, activity calories" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "Calories Burned Calculator" %} - {% trans "Calculate Calories Burned During Exercise" %}">
+<meta property="og:description" content="{% trans "Calculate calories burned during various activities using MET values." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "Calories Burned Calculator" %}",
+    "description": "{% trans "Calculate calories burned during various activities using MET values." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Calories Burned Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Calories Burned Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate calories burned during exercise based on activity type, intensity, and duration." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Activity Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2" id="unitMetric">
+                                    <span class="text-sm">{% trans "Metric" %} (kg)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2" id="unitImperial">
+                                    <span class="text-sm">{% trans "Imperial" %} (lbs)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Weight" %}</label>
+                            <div class="relative">
+                                <input type="number" id="weight" name="weight" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-12" 
+                                       value="70" min="1" max="300" step="0.1" required>
+                                <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" id="weightUnit">kg</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-300 kg" %}</p>
+                        </div>
+
+                        <!-- Activity -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Activity" %}</label>
+                            <select id="activity" name="activity" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" required>
+                                <option value="walking">{% trans "Walking" %}</option>
+                                <option value="running">{% trans "Running" %}</option>
+                                <option value="cycling">{% trans "Cycling" %}</option>
+                                <option value="swimming">{% trans "Swimming" %}</option>
+                                <option value="weightlifting">{% trans "Weightlifting" %}</option>
+                                <option value="yoga">{% trans "Yoga" %}</option>
+                                <option value="dancing">{% trans "Dancing" %}</option>
+                                <option value="basketball">{% trans "Basketball" %}</option>
+                                <option value="tennis">{% trans "Tennis" %}</option>
+                                <option value="soccer">{% trans "Soccer" %}</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Select your activity type" %}</p>
+                        </div>
+
+                        <!-- Intensity -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Intensity" %}</label>
+                            <select id="intensity" name="intensity" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" required>
+                                <option value="moderate">{% trans "Moderate" %}</option>
+                                <option value="slow">{% trans "Slow" %}</option>
+                                <option value="fast">{% trans "Fast" %}</option>
+                                <option value="very_fast">{% trans "Very Fast" %}</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1" id="intensityHint">{% trans "Intensity options vary by activity" %}</p>
+                        </div>
+
+                        <!-- Duration -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Duration" %} ({% trans "minutes" %})</label>
+                            <input type="number" id="duration" name="duration" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="30" min="1" max="600" step="1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-600 minutes" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Calories Burned" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your activity details to calculate calories burned with detailed analysis and comparisons." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Calories Burned" %}</p>
+                            <p id="caloriesBurned" class="text-5xl sm:text-6xl font-bold mb-2">0</p>
+                            <p class="text-sm opacity-90 mb-2">{% trans "calories" %}</p>
+                            <div id="activityBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 bg-white bg-opacity-20">
+                                <span id="activityDisplay">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Calories/Min" %}</p>
+                                <p id="caloriesPerMinute" class="text-sm font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "MET Value" %}</p>
+                                <p id="metValue" class="text-sm font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Duration" %}</p>
+                                <p id="durationDisplay" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Duration Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Duration Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="durationChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Intensity Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Intensity Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="intensityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Activity Comparison" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Duration Breakdown Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Calories by Duration" %}</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+                            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="duration15">0</p>
+                                <p class="text-xs text-gray-500 mt-1">15 {% trans "min" %}</p>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="duration30">0</p>
+                                <p class="text-xs text-gray-500 mt-1">30 {% trans "min" %}</p>
+                            </div>
+                            <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="duration45">0</p>
+                                <p class="text-xs text-gray-500 mt-1">45 {% trans "min" %}</p>
+                            </div>
+                            <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="duration60">0</p>
+                                <p class="text-xs text-gray-500 mt-1">60 {% trans "min" %}</p>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-4 border border-red-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="duration90">0</p>
+                                <p class="text-xs text-gray-500 mt-1">90 {% trans "min" %}</p>
+                            </div>
+                            <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="duration120">0</p>
+                                <p class="text-xs text-gray-500 mt-1">120 {% trans "min" %}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What are MET Values Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What are MET Values?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "MET (Metabolic Equivalent of Task) is a unit used to estimate the energy cost of physical activities. One MET is defined as the energy cost of sitting quietly, which is approximately 1 calorie per kilogram of body weight per hour." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "MET values allow you to compare the intensity of different activities. For example, an activity with a MET value of 4 means you're burning 4 times the energy you would burn while sitting quietly." %}
+                            </p>
+                        </div>
+
+                        <!-- How Calories are Calculated Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How Calories are Calculated" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "The formula used to calculate calories burned is:" %}
+                            </p>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                                <p class="font-mono text-sm text-center">{% trans "Calories Burned = MET × Weight (kg) × Time (hours)" %}</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "This formula takes into account your body weight, the intensity of the activity (MET value), and the duration of the exercise." %}
+                            </p>
+                        </div>
+
+                        <!-- Activity Types Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Activity Types and Intensities" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Walking" %}</h4>
+                                    <p class="text-sm text-blue-800 mb-2">
+                                        {% trans "MET values: Slow (2.0), Moderate (3.5), Fast (4.5), Very Fast (5.0)" %}
+                                    </p>
+                                    <p class="text-xs text-blue-700">{% trans "Great for beginners and low-impact exercise." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Running" %}</h4>
+                                    <p class="text-sm text-green-800 mb-2">
+                                        {% trans "MET values: Jogging (7.0), Moderate (8.3), Fast (9.8), Very Fast (11.0)" %}
+                                    </p>
+                                    <p class="text-xs text-green-700">{% trans "High-intensity cardiovascular exercise." %}</p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Cycling" %}</h4>
+                                    <p class="text-sm text-orange-800 mb-2">
+                                        {% trans "MET values: Leisure (4.0), Moderate (6.0), Vigorous (8.0), Racing (10.0)" %}
+                                    </p>
+                                    <p class="text-xs text-orange-700">{% trans "Low-impact exercise suitable for all fitness levels." %}</p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Swimming" %}</h4>
+                                    <p class="text-sm text-red-800 mb-2">
+                                        {% trans "MET values: Leisure (6.0), Moderate (8.0), Vigorous (10.0), Butterfly (13.8)" %}
+                                    </p>
+                                    <p class="text-xs text-red-700">{% trans "Full-body workout with minimal joint impact." %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Other Activities" %}</h4>
+                                    <p class="text-sm text-purple-800 mb-2">
+                                        {% trans "Weightlifting, Yoga, Dancing, Basketball, Tennis, Soccer - each with varying intensity levels." %}
+                                    </p>
+                                    <p class="text-xs text-purple-700">{% trans "Intensity options vary by activity type." %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your preferred unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter your body weight" %}</li>
+                                <li>{% trans "Select the activity type you performed" %}</li>
+                                <li>{% trans "Choose the intensity level that best matches your effort" %}</li>
+                                <li>{% trans "Enter the duration of your activity in minutes" %}</li>
+                                <li>{% trans "Click 'Calculate Calories Burned' to see your results" %}</li>
+                                <li>{% trans "Review the charts to compare different durations, intensities, and activities" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Calories Burned" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The total number of calories you burned during your activity session. This is calculated based on your weight, the activity's MET value, and duration." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Calories per Minute" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The average number of calories burned per minute during your activity. This helps you understand the intensity of your workout." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "MET Value" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The Metabolic Equivalent of Task value for your selected activity and intensity. Higher MET values indicate more intense activities." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Duration Comparison" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows how many calories you would burn for the same activity at different durations (15, 30, 45, 60, 90, 120 minutes)." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Intensity Comparison" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Compares calories burned for different intensity levels of the same activity. This helps you see how intensity affects calorie burn." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Activity Comparison" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Compares calories burned across different activities for the same duration and weight. This helps you choose activities that match your calorie-burning goals." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Factors Affecting Calories Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Factors Affecting Calories Burned" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Body Weight:" %}</strong> {% trans "Heavier individuals burn more calories doing the same activity because they require more energy to move their body." %}</p>
+                                <p><strong>{% trans "Activity Intensity:" %}</strong> {% trans "Higher intensity activities have higher MET values and burn more calories per minute." %}</p>
+                                <p><strong>{% trans "Duration:" %}</strong> {% trans "Longer exercise sessions burn more total calories, though the rate per minute remains constant for the same intensity." %}</p>
+                                <p><strong>{% trans "Fitness Level:" %}</strong> {% trans "More fit individuals may burn slightly fewer calories at the same intensity because their bodies are more efficient. However, they can exercise at higher intensities." %}</p>
+                                <p><strong>{% trans "Age and Gender:" %}</strong> {% trans "Metabolism varies with age and gender, though MET values provide a standardized way to estimate calorie burn." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Tips for Maximizing Calorie Burn Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips for Maximizing Calorie Burn" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Increase Intensity:" %}</strong> {% trans "Choose higher intensity levels when possible. Even small increases in intensity can significantly boost calorie burn." %}</p>
+                                <p><strong>{% trans "Extend Duration:" %}</strong> {% trans "Longer workouts burn more total calories. Aim for at least 30 minutes of moderate activity most days." %}</p>
+                                <p><strong>{% trans "Mix Activities:" %}</strong> {% trans "Combine different types of activities to work different muscle groups and prevent boredom." %}</p>
+                                <p><strong>{% trans "Progressive Overload:" %}</strong> {% trans "Gradually increase intensity or duration over time to continue challenging your body." %}</p>
+                                <p><strong>{% trans "Stay Consistent:" %}</strong> {% trans "Regular exercise is more important than occasional intense sessions for long-term calorie burn and health benefits." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Calorie burn estimates are based on average MET values and may vary based on individual factors like fitness level, body composition, and exercise efficiency." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "MET values are standardized estimates. Actual calorie burn may vary by 10-20% depending on individual factors." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator provides estimates for the calories burned during exercise only. It does not account for calories burned through daily activities or the afterburn effect (EPOC)." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. Consult with fitness professionals for personalized exercise and nutrition advice." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let durationChart = null;
+let intensityChart = null;
+let activityChart = null;
+
+// Activity intensity mappings
+const activityIntensities = {
+    'walking': ['slow', 'moderate', 'fast', 'very_fast'],
+    'running': ['jogging', 'moderate', 'fast', 'very_fast'],
+    'cycling': ['leisure', 'moderate', 'vigorous', 'racing'],
+    'swimming': ['leisure', 'moderate', 'vigorous', 'butterfly'],
+    'weightlifting': ['light', 'moderate', 'vigorous'],
+    'yoga': ['hatha', 'power', 'ashtanga'],
+    'dancing': ['slow', 'moderate', 'fast'],
+    'basketball': ['casual', 'competitive'],
+    'tennis': ['doubles', 'singles'],
+    'soccer': ['casual', 'competitive']
+};
+
+// Intensity display names
+const intensityNames = {
+    'slow': '{% trans "Slow" %}',
+    'moderate': '{% trans "Moderate" %}',
+    'fast': '{% trans "Fast" %}',
+    'very_fast': '{% trans "Very Fast" %}',
+    'jogging': '{% trans "Jogging" %}',
+    'leisure': '{% trans "Leisure" %}',
+    'vigorous': '{% trans "Vigorous" %}',
+    'racing': '{% trans "Racing" %}',
+    'light': '{% trans "Light" %}',
+    'hatha': '{% trans "Hatha" %}',
+    'power': '{% trans "Power" %}',
+    'ashtanga': '{% trans "Ashtanga" %}',
+    'casual': '{% trans "Casual" %}',
+    'competitive': '{% trans "Competitive" %}',
+    'doubles': '{% trans "Doubles" %}',
+    'singles': '{% trans "Singles" %}',
+    'butterfly': '{% trans "Butterfly" %}'
+};
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const unitMetric = document.getElementById('unitMetric');
+    const unitImperial = document.getElementById('unitImperial');
+    const weightUnit = document.getElementById('weightUnit');
+    const activitySelect = document.getElementById('activity');
+    const intensitySelect = document.getElementById('intensity');
+    const intensityHint = document.getElementById('intensityHint');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Update intensity options based on activity
+    function updateIntensityOptions() {
+        const activity = activitySelect.value;
+        const availableIntensities = activityIntensities[activity] || ['moderate'];
+        const currentIntensity = intensitySelect.value;
+        
+        intensitySelect.innerHTML = '';
+        availableIntensities.forEach(intensity => {
+            const option = document.createElement('option');
+            option.value = intensity;
+            option.textContent = intensityNames[intensity] || intensity.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            if (intensity === currentIntensity || (intensity === 'moderate' && !availableIntensities.includes(currentIntensity))) {
+                option.selected = true;
+            }
+            intensitySelect.appendChild(option);
+        });
+        
+        intensityHint.textContent = `{% trans "Available intensities for" %} ${activitySelect.options[activitySelect.selectedIndex].textContent}`;
+    }
+
+    activitySelect.addEventListener('change', updateIntensityOptions);
+    updateIntensityOptions();
+
+    // Unit system toggle
+    function updateUnitInputs() {
+        if (unitImperial.checked) {
+            weightUnit.textContent = 'lbs';
+            document.getElementById('weight').min = '2';
+            document.getElementById('weight').max = '660';
+            document.getElementById('weight').value = '160';
+        } else {
+            weightUnit.textContent = 'kg';
+            document.getElementById('weight').min = '1';
+            document.getElementById('weight').max = '300';
+            document.getElementById('weight').value = '70';
+        }
+        // Clear results when switching units
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    }
+
+    unitMetric.addEventListener('change', updateUnitInputs);
+    unitImperial.addEventListener('change', updateUnitInputs);
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
+            weight: parseFloat(document.getElementById('weight').value),
+            activity: activitySelect.value,
+            intensity: intensitySelect.value,
+            duration: parseFloat(document.getElementById('duration').value)
+        };
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Calories Burned" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        document.getElementById('calculateBtn').disabled = true;
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update main result
+            const caloriesBurnedEl = document.getElementById('caloriesBurned');
+            const activityDisplayEl = document.getElementById('activityDisplay');
+            const caloriesPerMinuteEl = document.getElementById('caloriesPerMinute');
+            const metValueEl = document.getElementById('metValue');
+            const durationDisplayEl = document.getElementById('durationDisplay');
+
+            if (caloriesBurnedEl) caloriesBurnedEl.textContent = Math.round(data.calories_burned).toLocaleString();
+            if (activityDisplayEl) {
+                activityDisplayEl.textContent = `${data.activity_name} - ${intensityNames[data.intensity] || data.intensity.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+            }
+            if (caloriesPerMinuteEl) caloriesPerMinuteEl.textContent = data.calories_per_minute.toFixed(2);
+            if (metValueEl) metValueEl.textContent = data.met_value;
+            if (durationDisplayEl) durationDisplayEl.textContent = Math.round(data.duration_minutes) + ' {% trans "min" %}';
+
+            // Update duration breakdown
+            const duration15El = document.getElementById('duration15');
+            const duration30El = document.getElementById('duration30');
+            const duration45El = document.getElementById('duration45');
+            const duration60El = document.getElementById('duration60');
+            const duration90El = document.getElementById('duration90');
+            const duration120El = document.getElementById('duration120');
+
+            if (duration15El) duration15El.textContent = Math.round(data.durations['15min']).toLocaleString();
+            if (duration30El) duration30El.textContent = Math.round(data.durations['30min']).toLocaleString();
+            if (duration45El) duration45El.textContent = Math.round(data.durations['45min']).toLocaleString();
+            if (duration60El) duration60El.textContent = Math.round(data.durations['60min']).toLocaleString();
+            if (duration90El) duration90El.textContent = Math.round(data.durations['90min']).toLocaleString();
+            if (duration120El) duration120El.textContent = Math.round(data.durations['120min']).toLocaleString();
+
+            // Update result card color
+            const colors = {
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'red': 'bg-gradient-to-br from-red-600 to-red-700'
+            };
+            const resultCard = document.getElementById('resultCard');
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.activity_color] || 'bg-gradient-to-br from-blue-600 to-indigo-600');
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.duration_chart) {
+                    createDurationChart(data.chart_data.duration_chart);
+                }
+                if (data.chart_data.intensity_chart) {
+                    createIntensityChart(data.chart_data.intensity_chart);
+                }
+                if (data.chart_data.activity_chart) {
+                    createActivityChart(data.chart_data.activity_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createDurationChart(chartData) {
+        const ctx = document.getElementById('durationChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (durationChart) durationChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            durationChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${Math.round(context.parsed.y).toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value).toLocaleString();
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating duration chart:', error);
+        }
+    }
+
+    function createIntensityChart(chartData) {
+        const ctx = document.getElementById('intensityChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (intensityChart) intensityChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            intensityChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${Math.round(context.parsed.y).toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value).toLocaleString();
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating intensity chart:', error);
+        }
+    }
+
+    function createActivityChart(chartData) {
+        const ctx = document.getElementById('activityChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (activityChart) activityChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            activityChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${Math.round(context.parsed.x).toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value).toLocaleString();
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating activity chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1385 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Electricity Calculator - Calculate Power, Voltage, Current, Resistance Online" %}{% endblock %}
+{% block meta_description %}{% trans "Free online electricity calculator to calculate power, voltage, current, resistance, energy, and cost. Supports multiple calculation methods with step-by-step solutions and visualizations." %}{% endblock %}
+{% block meta_keywords %}{% trans "electricity calculator, calculate power, power calculator, voltage calculator, current calculator, resistance calculator, ohm's law calculator, electrical calculations, energy calculator, electricity cost calculator, electrical power calculator, watts calculator, amps calculator, volts calculator, electrical engineering calculator, PIVR calculator, electricity finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Electricity Calculator - Calculate Power, Voltage, Current, Resistance" %}{% endblock %}
+{% block og_description %}{% trans "Calculate power, voltage, current, resistance, energy, and cost with step-by-step solutions and visualizations." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/electricity-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Electricity Calculator - Calculate Power, Voltage, Current, Resistance" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate electrical parameters with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/electricity-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Electricity Calculator - Calculate Power, Voltage, Current, Resistance' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "2150"},
+  "description": "{% trans 'Free online electricity calculator to calculate power, voltage, current, resistance, energy, and cost with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Electricity Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate power, voltage, current, resistance, energy, and cost using Ohm's law and electrical formulas. Supports multiple calculation methods with step-by-step solutions and visualizations." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Calculate" %}
+                    </h2>
+
+                    <form id="electricityForm" onsubmit="calculateElectricity(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-type-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-type-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="power">{% trans "Calculate Power" %}</option>
+                                <option value="voltage">{% trans "Calculate Voltage" %}</option>
+                                <option value="current">{% trans "Calculate Current" %}</option>
+                                <option value="resistance">{% trans "Calculate Resistance" %}</option>
+                                <option value="energy">{% trans "Calculate Energy" %}</option>
+                                <option value="cost">{% trans "Calculate Cost" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Power Calculation Mode -->
+                        <div id="form-power" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="power_method" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Method" %} <span class="text-red-500">*</span>
+                                </label>
+                                <select id="power_method" name="method" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="vi">{% trans "From Voltage & Current (P = V × I)" %}</option>
+                                    <option value="vr">{% trans "From Voltage & Resistance (P = V² / R)" %}</option>
+                                    <option value="ir">{% trans "From Current & Resistance (P = I² × R)" %}</option>
+                                </select>
+                            </div>
+                            
+                            <div id="power-vi" class="space-y-4">
+                                <div>
+                                    <label for="voltage_power_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage (V)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="voltage_power_vi" name="voltage" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12" required>
+                                </div>
+                                <div>
+                                    <label for="voltage_unit_power_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage Unit" %}
+                                    </label>
+                                    <select id="voltage_unit_power_vi" name="voltage_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="V">V</option>
+                                        <option value="kV">kV</option>
+                                        <option value="mV">mV</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="current_power_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current (I)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="current_power_vi" name="current" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                </div>
+                                <div>
+                                    <label for="current_unit_power_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current Unit" %}
+                                    </label>
+                                    <select id="current_unit_power_vi" name="current_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">A</option>
+                                        <option value="mA">mA</option>
+                                        <option value="kA">kA</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="power-vr" class="space-y-4 hidden">
+                                <div>
+                                    <label for="voltage_power_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage (V)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="voltage_power_vr" name="voltage" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12">
+                                </div>
+                                <div>
+                                    <label for="voltage_unit_power_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage Unit" %}
+                                    </label>
+                                    <select id="voltage_unit_power_vr" name="voltage_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="V">V</option>
+                                        <option value="kV">kV</option>
+                                        <option value="mV">mV</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="resistance_power_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance (R)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="resistance_power_vr" name="resistance" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6">
+                                </div>
+                                <div>
+                                    <label for="resistance_unit_power_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance Unit" %}
+                                    </label>
+                                    <select id="resistance_unit_power_vr" name="resistance_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="ohm">Ω</option>
+                                        <option value="kohm">kΩ</option>
+                                        <option value="Mohm">MΩ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="power-ir" class="space-y-4 hidden">
+                                <div>
+                                    <label for="current_power_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current (I)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="current_power_ir" name="current" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2">
+                                </div>
+                                <div>
+                                    <label for="current_unit_power_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current Unit" %}
+                                    </label>
+                                    <select id="current_unit_power_ir" name="current_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">A</option>
+                                        <option value="mA">mA</option>
+                                        <option value="kA">kA</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="resistance_power_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance (R)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="resistance_power_ir" name="resistance" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6">
+                                </div>
+                                <div>
+                                    <label for="resistance_unit_power_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance Unit" %}
+                                    </label>
+                                    <select id="resistance_unit_power_ir" name="resistance_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="ohm">Ω</option>
+                                        <option value="kohm">kΩ</option>
+                                        <option value="Mohm">MΩ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="result_unit_power" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_power" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="W">W</option>
+                                    <option value="kW">kW</option>
+                                    <option value="MW">MW</option>
+                                    <option value="hp">hp</option>
+                                    <option value="BTU_per_hour">BTU/h</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Voltage Calculation Mode -->
+                        <div id="form-voltage" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="voltage_method" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Method" %} <span class="text-red-500">*</span>
+                                </label>
+                                <select id="voltage_method" name="method" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="pi">{% trans "From Power & Current (V = P / I)" %}</option>
+                                    <option value="ir">{% trans "From Current & Resistance (V = I × R)" %}</option>
+                                    <option value="pr">{% trans "From Power & Resistance (V = √(P × R))" %}</option>
+                                </select>
+                            </div>
+                            
+                            <div id="voltage-pi" class="space-y-4">
+                                <div>
+                                    <label for="power_voltage_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="power_voltage_pi" name="power" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24" required>
+                                </div>
+                                <div>
+                                    <label for="power_unit_voltage_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power Unit" %}
+                                    </label>
+                                    <select id="power_unit_voltage_pi" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="W">W</option>
+                                        <option value="kW">kW</option>
+                                        <option value="MW">MW</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="current_voltage_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current (I)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="current_voltage_pi" name="current" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                </div>
+                                <div>
+                                    <label for="current_unit_voltage_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current Unit" %}
+                                    </label>
+                                    <select id="current_unit_voltage_pi" name="current_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">A</option>
+                                        <option value="mA">mA</option>
+                                        <option value="kA">kA</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="voltage-ir" class="space-y-4 hidden">
+                                <div>
+                                    <label for="current_voltage_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current (I)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="current_voltage_ir" name="current" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2">
+                                </div>
+                                <div>
+                                    <label for="current_unit_voltage_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current Unit" %}
+                                    </label>
+                                    <select id="current_unit_voltage_ir" name="current_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">A</option>
+                                        <option value="mA">mA</option>
+                                        <option value="kA">kA</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="resistance_voltage_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance (R)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="resistance_voltage_ir" name="resistance" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6">
+                                </div>
+                                <div>
+                                    <label for="resistance_unit_voltage_ir" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance Unit" %}
+                                    </label>
+                                    <select id="resistance_unit_voltage_ir" name="resistance_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="ohm">Ω</option>
+                                        <option value="kohm">kΩ</option>
+                                        <option value="Mohm">MΩ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="voltage-pr" class="space-y-4 hidden">
+                                <div>
+                                    <label for="power_voltage_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="power_voltage_pr" name="power" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24">
+                                </div>
+                                <div>
+                                    <label for="power_unit_voltage_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power Unit" %}
+                                    </label>
+                                    <select id="power_unit_voltage_pr" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="W">W</option>
+                                        <option value="kW">kW</option>
+                                        <option value="MW">MW</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="resistance_voltage_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance (R)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="resistance_voltage_pr" name="resistance" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6">
+                                </div>
+                                <div>
+                                    <label for="resistance_unit_voltage_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance Unit" %}
+                                    </label>
+                                    <select id="resistance_unit_voltage_pr" name="resistance_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="ohm">Ω</option>
+                                        <option value="kohm">kΩ</option>
+                                        <option value="Mohm">MΩ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="result_unit_voltage" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_voltage" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="V">V</option>
+                                    <option value="kV">kV</option>
+                                    <option value="mV">mV</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Current Calculation Mode -->
+                        <div id="form-current" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="current_method" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Method" %} <span class="text-red-500">*</span>
+                                </label>
+                                <select id="current_method" name="method" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="pv">{% trans "From Power & Voltage (I = P / V)" %}</option>
+                                    <option value="vr">{% trans "From Voltage & Resistance (I = V / R)" %}</option>
+                                    <option value="pr">{% trans "From Power & Resistance (I = √(P / R))" %}</option>
+                                </select>
+                            </div>
+                            
+                            <div id="current-pv" class="space-y-4">
+                                <div>
+                                    <label for="power_current_pv" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="power_current_pv" name="power" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24" required>
+                                </div>
+                                <div>
+                                    <label for="power_unit_current_pv" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power Unit" %}
+                                    </label>
+                                    <select id="power_unit_current_pv" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="W">W</option>
+                                        <option value="kW">kW</option>
+                                        <option value="MW">MW</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="voltage_current_pv" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage (V)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="voltage_current_pv" name="voltage" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12" required>
+                                </div>
+                                <div>
+                                    <label for="voltage_unit_current_pv" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage Unit" %}
+                                    </label>
+                                    <select id="voltage_unit_current_pv" name="voltage_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="V">V</option>
+                                        <option value="kV">kV</option>
+                                        <option value="mV">mV</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="current-vr" class="space-y-4 hidden">
+                                <div>
+                                    <label for="voltage_current_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage (V)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="voltage_current_vr" name="voltage" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12">
+                                </div>
+                                <div>
+                                    <label for="voltage_unit_current_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage Unit" %}
+                                    </label>
+                                    <select id="voltage_unit_current_vr" name="voltage_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="V">V</option>
+                                        <option value="kV">kV</option>
+                                        <option value="mV">mV</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="resistance_current_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance (R)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="resistance_current_vr" name="resistance" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6">
+                                </div>
+                                <div>
+                                    <label for="resistance_unit_current_vr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance Unit" %}
+                                    </label>
+                                    <select id="resistance_unit_current_vr" name="resistance_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="ohm">Ω</option>
+                                        <option value="kohm">kΩ</option>
+                                        <option value="Mohm">MΩ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="current-pr" class="space-y-4 hidden">
+                                <div>
+                                    <label for="power_current_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="power_current_pr" name="power" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24">
+                                </div>
+                                <div>
+                                    <label for="power_unit_current_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power Unit" %}
+                                    </label>
+                                    <select id="power_unit_current_pr" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="W">W</option>
+                                        <option value="kW">kW</option>
+                                        <option value="MW">MW</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="resistance_current_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance (R)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="resistance_current_pr" name="resistance" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6">
+                                </div>
+                                <div>
+                                    <label for="resistance_unit_current_pr" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Resistance Unit" %}
+                                    </label>
+                                    <select id="resistance_unit_current_pr" name="resistance_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="ohm">Ω</option>
+                                        <option value="kohm">kΩ</option>
+                                        <option value="Mohm">MΩ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="result_unit_current" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_current" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="A">A</option>
+                                    <option value="mA">mA</option>
+                                    <option value="kA">kA</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Resistance Calculation Mode -->
+                        <div id="form-resistance" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="resistance_method" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Method" %} <span class="text-red-500">*</span>
+                                </label>
+                                <select id="resistance_method" name="method" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="vi">{% trans "From Voltage & Current (R = V / I)" %}</option>
+                                    <option value="vp">{% trans "From Voltage & Power (R = V² / P)" %}</option>
+                                    <option value="pi">{% trans "From Power & Current (R = P / I²)" %}</option>
+                                </select>
+                            </div>
+                            
+                            <div id="resistance-vi" class="space-y-4">
+                                <div>
+                                    <label for="voltage_resistance_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage (V)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="voltage_resistance_vi" name="voltage" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12" required>
+                                </div>
+                                <div>
+                                    <label for="voltage_unit_resistance_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage Unit" %}
+                                    </label>
+                                    <select id="voltage_unit_resistance_vi" name="voltage_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="V">V</option>
+                                        <option value="kV">kV</option>
+                                        <option value="mV">mV</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="current_resistance_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current (I)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="current_resistance_vi" name="current" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                </div>
+                                <div>
+                                    <label for="current_unit_resistance_vi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current Unit" %}
+                                    </label>
+                                    <select id="current_unit_resistance_vi" name="current_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">A</option>
+                                        <option value="mA">mA</option>
+                                        <option value="kA">kA</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="resistance-vp" class="space-y-4 hidden">
+                                <div>
+                                    <label for="voltage_resistance_vp" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage (V)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="voltage_resistance_vp" name="voltage" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12">
+                                </div>
+                                <div>
+                                    <label for="voltage_unit_resistance_vp" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Voltage Unit" %}
+                                    </label>
+                                    <select id="voltage_unit_resistance_vp" name="voltage_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="V">V</option>
+                                        <option value="kV">kV</option>
+                                        <option value="mV">mV</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="power_resistance_vp" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="power_resistance_vp" name="power" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24">
+                                </div>
+                                <div>
+                                    <label for="power_unit_resistance_vp" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power Unit" %}
+                                    </label>
+                                    <select id="power_unit_resistance_vp" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="W">W</option>
+                                        <option value="kW">kW</option>
+                                        <option value="MW">MW</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="resistance-pi" class="space-y-4 hidden">
+                                <div>
+                                    <label for="power_resistance_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="power_resistance_pi" name="power" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24">
+                                </div>
+                                <div>
+                                    <label for="power_unit_resistance_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Power Unit" %}
+                                    </label>
+                                    <select id="power_unit_resistance_pi" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="W">W</option>
+                                        <option value="kW">kW</option>
+                                        <option value="MW">MW</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="current_resistance_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current (I)" %} <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="current_resistance_pi" name="current" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2">
+                                </div>
+                                <div>
+                                    <label for="current_unit_resistance_pi" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Current Unit" %}
+                                    </label>
+                                    <select id="current_unit_resistance_pi" name="current_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">A</option>
+                                        <option value="mA">mA</option>
+                                        <option value="kA">kA</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="result_unit_resistance" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_resistance" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="ohm">Ω</option>
+                                    <option value="kohm">kΩ</option>
+                                    <option value="Mohm">MΩ</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Energy Calculation Mode -->
+                        <div id="form-energy" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="power_energy" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Power (P)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="power_energy" name="power" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" required>
+                            </div>
+                            <div>
+                                <label for="power_unit_energy" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Power Unit" %}
+                                </label>
+                                <select id="power_unit_energy" name="power_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="W">W</option>
+                                    <option value="kW">kW</option>
+                                    <option value="MW">MW</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="time_energy" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Time" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="time_energy" name="time" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                            </div>
+                            <div>
+                                <label for="time_unit_energy" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Time Unit" %}
+                                </label>
+                                <select id="time_unit_energy" name="time_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="hours">{% trans "Hours" %}</option>
+                                    <option value="minutes">{% trans "Minutes" %}</option>
+                                    <option value="seconds">{% trans "Seconds" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="result_unit_energy" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_energy" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="kWh">kWh</option>
+                                    <option value="Wh">Wh</option>
+                                    <option value="MWh">MWh</option>
+                                    <option value="J">J</option>
+                                    <option value="MJ">MJ</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Cost Calculation Mode -->
+                        <div id="form-cost" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="energy_cost" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Energy" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="energy_cost" name="energy" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" required>
+                            </div>
+                            <div>
+                                <label for="energy_unit_cost" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Energy Unit" %}
+                                </label>
+                                <select id="energy_unit_cost" name="energy_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="kWh">kWh</option>
+                                    <option value="Wh">Wh</option>
+                                    <option value="MWh">MWh</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="rate_cost" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Rate (per kWh)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="rate_cost" name="rate" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.12" required>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" id="calculateBtn" class="w-full mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Results Card -->
+                <div id="resultsCard" class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Result" %}
+                    </h2>
+                    <div id="resultContent" class="space-y-4"></div>
+                </div>
+
+                <!-- Chart Card -->
+                <div id="chartCard" class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        {% trans "Visualization" %}
+                    </h2>
+                    <div class="h-64 sm:h-80">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Steps Card -->
+                <div id="stepsCard" class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                        </svg>
+                        {% trans "Step-by-Step Solution" %}
+                    </h2>
+                    <div id="stepsContent" class="space-y-2"></div>
+                </div>
+
+                <!-- User Guide -->
+                <div class="bg-white rounded-xl shadow-xl border-2 border-gray-200 p-6 sm:p-8 mt-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Electricity Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "The Electricity Calculator is a comprehensive tool for calculating electrical parameters using Ohm's law and power formulas. It can calculate power, voltage, current, resistance, energy consumption, and electricity costs. This calculator is essential for electrical engineers, students, electricians, and anyone working with electrical circuits." %}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select a calculation type from the dropdown (Power, Voltage, Current, Resistance, Energy, or Cost)." %}</li>
+                                <li>{% trans "Choose the calculation method based on the values you have available." %}</li>
+                                <li>{% trans "Enter the required values in the input fields. All values must be positive numbers." %}</li>
+                                <li>{% trans "Select appropriate units for your inputs and desired result unit." %}</li>
+                                <li>{% trans "Click 'Calculate' to see the results with detailed step-by-step solutions and visualizations." %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Calculate Power" %}</h4>
+                                    <p class="text-sm text-blue-800">{% trans "Calculate electrical power from voltage and current (P = V × I), voltage and resistance (P = V² / R), or current and resistance (P = I² × R)." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Calculate Voltage" %}</h4>
+                                    <p class="text-sm text-green-800">{% trans "Calculate voltage from power and current (V = P / I), current and resistance (V = I × R), or power and resistance (V = √(P × R))." %}</p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Calculate Current" %}</h4>
+                                    <p class="text-sm text-yellow-800">{% trans "Calculate current from power and voltage (I = P / V), voltage and resistance (I = V / R), or power and resistance (I = √(P / R))." %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Calculate Resistance" %}</h4>
+                                    <p class="text-sm text-purple-800">{% trans "Calculate resistance from voltage and current (R = V / I), voltage and power (R = V² / P), or power and current (R = P / I²)." %}</p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Calculate Energy" %}</h4>
+                                    <p class="text-sm text-indigo-800">{% trans "Calculate energy consumption from power and time using the formula E = P × t. Supports various time units (seconds, minutes, hours, days)." %}</p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Calculate Cost" %}</h4>
+                                    <p class="text-sm text-red-800">{% trans "Calculate electricity cost from energy consumption and rate per kWh using the formula Cost = Energy × Rate." %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Ohm's Law and Power Formulas" %}</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                                <p class="text-sm text-gray-700 mb-3"><strong>{% trans "Ohm's Law:" %}</strong></p>
+                                <p class="text-lg font-mono text-gray-900 mb-3">V = I × R</p>
+                                <p class="text-sm text-gray-700 mb-2">{% trans "Where:" %}</p>
+                                <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                                    <li>V = {% trans "Voltage" %} ({% trans "Volts" %})</li>
+                                    <li>I = {% trans "Current" %} ({% trans "Amperes" %})</li>
+                                    <li>R = {% trans "Resistance" %} ({% trans "Ohms" %})</li>
+                                </ul>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                                <p class="text-sm text-gray-700 mb-3"><strong>{% trans "Power Formulas:" %}</strong></p>
+                                <ul class="list-disc list-inside space-y-2 text-sm text-gray-700 ml-4">
+                                    <li>P = V × I {% trans "(Power from voltage and current)" %}</li>
+                                    <li>P = V² / R {% trans "(Power from voltage and resistance)" %}</li>
+                                    <li>P = I² × R {% trans "(Power from current and resistance)" %}</li>
+                                    <li>E = P × t {% trans "(Energy from power and time)" %}</li>
+                                </ul>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Ohm's law is a fundamental principle in electrical engineering that describes the relationship between voltage, current, and resistance in an electrical circuit. The power formulas allow you to calculate electrical power consumption in various ways depending on the known parameters." %}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Supported Units" %}</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <h4 class="font-semibold text-blue-900 mb-2">{% trans "Power Units" %}</h4>
+                                    <ul class="text-sm text-blue-800 space-y-1">
+                                        <li>W ({% trans "Watts" %})</li>
+                                        <li>kW ({% trans "Kilowatts" %})</li>
+                                        <li>MW ({% trans "Megawatts" %})</li>
+                                        <li>hp ({% trans "Horsepower" %})</li>
+                                        <li>BTU/h ({% trans "BTU per hour" %})</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                    <h4 class="font-semibold text-green-900 mb-2">{% trans "Voltage Units" %}</h4>
+                                    <ul class="text-sm text-green-800 space-y-1">
+                                        <li>V ({% trans "Volts" %})</li>
+                                        <li>kV ({% trans "Kilovolts" %})</li>
+                                        <li>mV ({% trans "Millivolts" %})</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                    <h4 class="font-semibold text-yellow-900 mb-2">{% trans "Current Units" %}</h4>
+                                    <ul class="text-sm text-yellow-800 space-y-1">
+                                        <li>A ({% trans "Amperes" %})</li>
+                                        <li>mA ({% trans "Milliamperes" %})</li>
+                                        <li>kA ({% trans "Kiloamperes" %})</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                    <h4 class="font-semibold text-purple-900 mb-2">{% trans "Resistance Units" %}</h4>
+                                    <ul class="text-sm text-purple-800 space-y-1">
+                                        <li>Ω ({% trans "Ohms" %})</li>
+                                        <li>kΩ ({% trans "Kiloohms" %})</li>
+                                        <li>MΩ ({% trans "Megaohms" %})</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li>{% trans "All input values must be positive numbers (non-negative)." %}</li>
+                                <li>{% trans "Resistance must be greater than zero for calculations involving division by resistance." %}</li>
+                                <li>{% trans "Current and voltage must be greater than zero when used as divisors in calculations." %}</li>
+                                <li>{% trans "The calculator automatically handles unit conversions between different measurement systems." %}</li>
+                                <li>{% trans "For energy calculations, time can be entered in seconds, minutes, hours, or days." %}</li>
+                                <li>{% trans "For cost calculations, enter the electricity rate per kWh in your local currency." %}</li>
+                                <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                                <li>{% trans "Visual charts help understand the relationship between different electrical parameters." %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Circuit design and analysis for electrical engineers" %}</li>
+                                <li>{% trans "Calculating power consumption for household appliances" %}</li>
+                                <li>{% trans "Estimating electricity costs for budgeting" %}</li>
+                                <li>{% trans "Educational purposes for students learning electrical principles" %}</li>
+                                <li>{% trans "Troubleshooting electrical circuits" %}</li>
+                                <li>{% trans "Selecting appropriate wire gauges and circuit breakers" %}</li>
+                                <li>{% trans "Designing solar power systems and battery banks" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let resultChart = null;
+
+function switchMode(mode) {
+    // Hide all forms
+    document.querySelectorAll('[id^="form-"]').forEach(form => {
+        form.classList.add('hidden');
+    });
+    
+    // Show selected form
+    const selectedForm = document.getElementById(`form-${mode}`);
+    if (selectedForm) {
+        selectedForm.classList.remove('hidden');
+    }
+    
+    // Handle method-specific forms for each mode
+    if (mode === 'power') {
+        switchPowerMethod('vi');
+    } else if (mode === 'voltage') {
+        switchVoltageMethod('pi');
+    } else if (mode === 'current') {
+        switchCurrentMethod('pv');
+    } else if (mode === 'resistance') {
+        switchResistanceMethod('vi');
+    }
+    
+    // Clear results
+    clearResults();
+}
+
+function switchPowerMethod(method) {
+    document.querySelectorAll('[id^="power-"]').forEach(div => {
+        if (div.id !== 'power_method') {
+            div.classList.add('hidden');
+        }
+    });
+    const selected = document.getElementById(`power-${method}`);
+    if (selected) {
+        selected.classList.remove('hidden');
+    }
+}
+
+function switchVoltageMethod(method) {
+    document.querySelectorAll('[id^="voltage-"]').forEach(div => {
+        if (div.id !== 'voltage_method') {
+            div.classList.add('hidden');
+        }
+    });
+    const selected = document.getElementById(`voltage-${method}`);
+    if (selected) {
+        selected.classList.remove('hidden');
+    }
+}
+
+function switchCurrentMethod(method) {
+    document.querySelectorAll('[id^="current-"]').forEach(div => {
+        if (div.id !== 'current_method') {
+            div.classList.add('hidden');
+        }
+    });
+    const selected = document.getElementById(`current-${method}`);
+    if (selected) {
+        selected.classList.remove('hidden');
+    }
+}
+
+function switchResistanceMethod(method) {
+    document.querySelectorAll('[id^="resistance-"]').forEach(div => {
+        if (div.id !== 'resistance_method') {
+            div.classList.add('hidden');
+        }
+    });
+    const selected = document.getElementById(`resistance-${method}`);
+    if (selected) {
+        selected.classList.remove('hidden');
+    }
+}
+
+// Event listeners for method changes
+document.addEventListener('DOMContentLoaded', function() {
+    const powerMethod = document.getElementById('power_method');
+    if (powerMethod) {
+        powerMethod.addEventListener('change', function() {
+            switchPowerMethod(this.value);
+        });
+    }
+    
+    const voltageMethod = document.getElementById('voltage_method');
+    if (voltageMethod) {
+        voltageMethod.addEventListener('change', function() {
+            switchVoltageMethod(this.value);
+        });
+    }
+    
+    const currentMethod = document.getElementById('current_method');
+    if (currentMethod) {
+        currentMethod.addEventListener('change', function() {
+            switchCurrentMethod(this.value);
+        });
+    }
+    
+    const resistanceMethod = document.getElementById('resistance_method');
+    if (resistanceMethod) {
+        resistanceMethod.addEventListener('change', function() {
+            switchResistanceMethod(this.value);
+        });
+    }
+    
+    // Initialize with power mode
+    switchMode('power');
+    
+    // Add real-time validation
+    addValidationListeners();
+});
+
+// Add real-time validation feedback
+function addValidationListeners() {
+    // Add validation to all number inputs
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('blur', function() {
+            validateNumberInput(this);
+        });
+        input.addEventListener('input', function() {
+            this.classList.remove('border-red-500');
+            const errorMsg = this.parentElement.querySelector('.validation-error');
+            if (errorMsg) errorMsg.remove();
+        });
+    });
+}
+
+function validateNumberInput(input) {
+    const value = parseFloat(input.value);
+    
+    if (input.value === '' || isNaN(value)) {
+        if (input.hasAttribute('required')) {
+            showInputError(input, '{% trans "This field is required." %}');
+            return false;
+        }
+        return true;
+    }
+    
+    if (value < 0) {
+        showInputError(input, '{% trans "Value must be non-negative." %}');
+        return false;
+    }
+    
+    // Check min attribute
+    if (input.hasAttribute('min')) {
+        const min = parseFloat(input.getAttribute('min'));
+        if (value < min) {
+            showInputError(input, `{% trans "Value must be at least" %} ${min}.`);
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+function showInputError(input, message) {
+    input.classList.add('border-red-500');
+    input.classList.remove('border-gray-300');
+    
+    // Remove existing error message
+    const existingError = input.parentElement.querySelector('.validation-error');
+    if (existingError) existingError.remove();
+    
+    // Add error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'validation-error text-red-600 text-xs mt-1';
+    errorDiv.textContent = message;
+    input.parentElement.appendChild(errorDiv);
+}
+
+function formatNumber(num) {
+    if (num === null || num === undefined || isNaN(num)) return '0';
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 6});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function validateInput(value, fieldName, min, max, unit = '') {
+    if (value === '' || value === null || value === undefined || isNaN(value)) {
+        return { valid: false, error: `${fieldName} is required.` };
+    }
+    
+    const numValue = parseFloat(value);
+    
+    if (isNaN(numValue)) {
+        return { valid: false, error: `${fieldName} must be a valid number.` };
+    }
+    
+    if (min !== null && numValue < min) {
+        return { valid: false, error: `${fieldName} must be at least ${min}${unit}.` };
+    }
+    
+    if (max !== null && numValue > max) {
+        return { valid: false, error: `${fieldName} must be at most ${max}${unit}.` };
+    }
+    
+    return { valid: true };
+}
+
+async function calculateElectricity(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    const calcType = document.getElementById('calc-type-selector').value;
+    let requestData = { calc_type: calcType };
+    let validationError = null;
+    
+    // Collect and validate data based on calc type
+    const visibleForm = document.getElementById(`form-${calcType}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Add method if applicable
+    const methodSelect = visibleForm.querySelector(`#${calcType}_method`);
+    if (methodSelect) {
+        requestData.method = methodSelect.value;
+    }
+    
+    // Collect all visible inputs
+    const visibleInputs = visibleForm.querySelectorAll('input[type="number"], select');
+    visibleInputs.forEach(input => {
+        if (input.name && input.value !== '') {
+            if (input.type === 'number') {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    requestData[input.name] = value;
+                }
+            } else {
+                requestData[input.name] = input.value;
+            }
+        }
+    });
+    
+    // Basic validation
+    const requiredInputs = visibleForm.querySelectorAll('input[type="number"][required]');
+    for (let input of requiredInputs) {
+        if (!input.value || input.value === '') {
+            validationError = `{% trans "Please fill in all required fields." %}`;
+            break;
+        }
+        const value = parseFloat(input.value);
+        if (isNaN(value) || value < 0) {
+            validationError = `{% trans "Please enter valid positive numbers." %}`;
+            break;
+        }
+    }
+    
+    if (validationError) {
+        errorEl.textContent = validationError;
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        displayResults(data);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+function displayResults(result) {
+    // Display main result
+    const resultsCard = document.getElementById('resultsCard');
+    const resultContent = document.getElementById('resultContent');
+    
+    if (!resultsCard || !resultContent) return;
+    
+    resultContent.innerHTML = `
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+            <div class="flex items-center justify-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+            </div>
+            <div class="text-4xl sm:text-5xl font-bold mb-2">${formatNumber(result.result)}</div>
+            <div class="text-blue-100 text-lg">${result.result_unit || ''}</div>
+            ${result.formula ? `<div class="mt-4 text-sm text-blue-100 font-mono">${escapeHtml(result.formula)}</div>` : ''}
+        </div>
+    `;
+    
+    resultsCard.classList.remove('hidden');
+    
+    // Display chart
+    if (result.chart_data) {
+        displayChart(result.chart_data);
+    } else {
+        const chartCard = document.getElementById('chartCard');
+        if (chartCard) chartCard.classList.add('hidden');
+    }
+    
+    // Display steps
+    if (result.step_by_step && result.step_by_step.length > 0) {
+        const stepsCard = document.getElementById('stepsCard');
+        const stepsContent = document.getElementById('stepsContent');
+        
+        if (stepsCard && stepsContent) {
+            let stepNum = 0;
+            stepsContent.innerHTML = result.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/√²]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+            
+            stepsCard.classList.remove('hidden');
+        }
+    } else if (result.steps && result.steps.length > 0) {
+        // Fallback for old format
+        const stepsCard = document.getElementById('stepsCard');
+        const stepsContent = document.getElementById('stepsContent');
+        
+        if (stepsCard && stepsContent) {
+            stepsContent.innerHTML = result.steps.map((step, index) => `
+                <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg mb-2">
+                    <span class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">${index + 1}</span>
+                    <p class="text-gray-700 flex-1">${escapeHtml(step)}</p>
+                </div>
+            `).join('');
+            
+            stepsCard.classList.remove('hidden');
+        }
+    }
+}
+
+function displayChart(chartData) {
+    const chartCard = document.getElementById('chartCard');
+    const canvas = document.getElementById('resultChart');
+    if (!canvas || !chartData) {
+        if (chartCard) chartCard.classList.add('hidden');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+    
+    // Handle different chart data formats
+    let chartConfig = null;
+    if (chartData.power_chart) {
+        chartConfig = chartData.power_chart;
+    } else if (chartData.voltage_chart) {
+        chartConfig = chartData.voltage_chart;
+    } else if (chartData.current_chart) {
+        chartConfig = chartData.current_chart;
+    } else if (chartData.resistance_chart) {
+        chartConfig = chartData.resistance_chart;
+    } else if (chartData.energy_chart) {
+        chartConfig = chartData.energy_chart;
+    } else if (chartData.cost_chart) {
+        chartConfig = chartData.cost_chart;
+    } else if (chartData.type) {
+        // Fallback for old format
+        chartConfig = {
+            type: chartData.type || 'bar',
+            data: {
+                labels: chartData.labels || [],
+                datasets: [{
+                    label: '{% trans "Value" %}',
+                    data: chartData.data || [],
+                    backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'].slice(0, (chartData.data || []).length),
+                    borderColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'].slice(0, (chartData.data || []).length),
+                    borderWidth: 2,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                },
+                scales: chartData.type === 'bar' ? {
+                    y: { beginAtZero: true },
+                } : undefined,
+            },
+        };
+    }
+    
+    if (chartConfig) {
+        resultChart = new Chart(ctx, chartConfig);
+        if (chartCard) chartCard.classList.remove('hidden');
+    } else {
+        if (chartCard) chartCard.classList.add('hidden');
+    }
+}
+
+// formatNumber is already defined above
+
+function clearResults() {
+    document.getElementById('resultsCard').classList.add('hidden');
+    document.getElementById('chartCard').classList.add('hidden');
+    document.getElementById('stepsCard').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+</script>
+{% endblock %}

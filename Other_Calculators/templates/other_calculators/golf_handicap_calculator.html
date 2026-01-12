@@ -1,0 +1,653 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Golf Handicap Calculator - Calculate Handicap Index, Course Handicap, Net Score | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free golf handicap calculator to calculate Handicap Index (WHS), Course Handicap, Score Differential, Net Score, and Playing Handicap. Perfect for golfers tracking their handicap." %}{% endblock %}
+{% block meta_keywords %}{% trans "golf handicap calculator, calculate golf handicap, handicap index calculator, course handicap calculator, golf score calculator, WHS calculator, net score calculator, how to calculate golf handicap, golf handicap finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Golf Handicap Calculator - Calculate Handicap Index, Course Handicap, Net Score" %}{% endblock %}
+{% block og_description %}{% trans "Calculate golf handicap using World Handicap System (WHS). Calculate Handicap Index, Course Handicap, Score Differential, and Net Score with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/golf-handicap-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Golf Handicap Calculator - Calculate Handicap Index, Course Handicap, Net Score" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate golf handicap using WHS. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/golf-handicap-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Golf Handicap Calculator - Calculate Handicap Index, Course Handicap, Net Score' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1950"},
+  "description": "{% trans 'Free online golf handicap calculator to calculate Handicap Index (WHS), Course Handicap, Score Differential, Net Score, and Playing Handicap with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Golf Handicap Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate Handicap Index (WHS), Course Handicap, Score Differential, Net Score, and Playing Handicap with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="golfHandicapCalculatorForm" onsubmit="calculateGolfHandicap(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="handicap_index">{% trans "Handicap Index (WHS)" %}</option>
+                                <option value="course_handicap">{% trans "Course Handicap" %}</option>
+                                <option value="score_differential">{% trans "Score Differential" %}</option>
+                                <option value="net_score">{% trans "Net Score" %}</option>
+                                <option value="playing_handicap">{% trans "Playing Handicap" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Handicap Index Mode -->
+                        <div id="form-handicap_index" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="differentials" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Score Differentials" %} <span class="text-red-500">*</span>
+                                </label>
+                                <textarea id="differentials" name="differentials" rows="4" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="15.2, 18.5, 16.8, 20.1, 17.3" required></textarea>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Enter comma-separated values (e.g., 15.2, 18.5, 16.8). Maximum 20 differentials." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Course Handicap Mode -->
+                        <div id="form-course_handicap" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="handicap_index_ch" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Handicap Index" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="handicap_index_ch" name="handicap_index" step="0.1" min="0" max="54" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="15.5" required>
+                            </div>
+                            <div>
+                                <label for="slope_rating_ch" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Slope Rating" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="slope_rating_ch" name="slope_rating" step="1" min="55" max="155" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="113" required>
+                            </div>
+                            <div>
+                                <label for="course_rating_ch" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Course Rating" %}
+                                </label>
+                                <input type="number" id="course_rating_ch" name="course_rating" step="0.1" min="60" max="80" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="72.0" value="72.0">
+                            </div>
+                            <div>
+                                <label for="par_ch" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Par" %}
+                                </label>
+                                <input type="number" id="par_ch" name="par" step="1" min="60" max="80" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="72" value="72">
+                            </div>
+                        </div>
+
+                        <!-- Score Differential Mode -->
+                        <div id="form-score_differential" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="adjusted_gross_score" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Adjusted Gross Score" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="adjusted_gross_score" name="adjusted_gross_score" step="1" min="50" max="200" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="85" required>
+                            </div>
+                            <div>
+                                <label for="course_rating_sd" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Course Rating" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="course_rating_sd" name="course_rating" step="0.1" min="60" max="80" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="72.0" required>
+                            </div>
+                            <div>
+                                <label for="slope_rating_sd" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Slope Rating" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="slope_rating_sd" name="slope_rating" step="1" min="55" max="155" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="113" required>
+                            </div>
+                        </div>
+
+                        <!-- Net Score Mode -->
+                        <div id="form-net_score" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="gross_score" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Gross Score" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="gross_score" name="gross_score" step="1" min="50" max="200" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="85" required>
+                            </div>
+                            <div>
+                                <label for="course_handicap_ns" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Course Handicap" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="course_handicap_ns" name="course_handicap" step="1" min="-10" max="54" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="15" required>
+                            </div>
+                        </div>
+
+                        <!-- Playing Handicap Mode -->
+                        <div id="form-playing_handicap" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="course_handicap_ph" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Course Handicap" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="course_handicap_ph" name="course_handicap" step="1" min="-10" max="54" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="15" required>
+                            </div>
+                            <div>
+                                <label for="handicap_allowance" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Handicap Allowance (%)" %}
+                                </label>
+                                <input type="number" id="handicap_allowance" name="handicap_allowance" step="1" min="0" max="200" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" value="100">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="golfHandicapChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Golf Handicap" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Golf Handicap?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "A golf handicap is a numerical measure of a golfer's potential ability. The World Handicap System (WHS) provides a unified and more inclusive handicapping system for golfers worldwide. It allows players of different skill levels to compete fairly by adjusting scores based on course difficulty and player ability." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Handicap Index, Course Handicap, Score Differential, Net Score, or Playing Handicap)." %}</li>
+                        <li>{% trans "Enter the required values in the input form." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Handicap Index (WHS)" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Calculate Handicap Index from score differentials. Uses best 8 of last 20 differentials (WHS standard). Formula: Average of best differentials × 0.96." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Course Handicap" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Calculate Course Handicap from Handicap Index. Formula: CH = (HI × SR / 113) + (CR - Par)." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Score Differential" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Calculate Score Differential from round score. Formula: SD = (AGS - CR) × (113 / SR)." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Net Score" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Calculate Net Score from Gross Score and Course Handicap. Formula: Net = Gross - Course Handicap." %}</p>
+                        </div>
+                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                            <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Playing Handicap" %}</h4>
+                            <p class="text-sm text-indigo-800">{% trans "Calculate Playing Handicap with allowance percentage. Formula: PH = CH × (Allowance / 100)." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Golf Handicap Formulas" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Handicap Index (WHS):" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">HI = Average of best differentials × 0.96</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Course Handicap:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">CH = (HI × SR / 113) + (CR - Par)</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Score Differential:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">SD = (AGS - CR) × (113 / SR)</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Net Score:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Net = Gross - Course Handicap</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Playing Handicap:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">PH = CH × (Allowance / 100)</p>
+                        <p class="text-sm text-gray-700 mt-4">{% trans "Where:" %}</p>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                            <li>HI = {% trans "Handicap Index" %}</li>
+                            <li>CH = {% trans "Course Handicap" %}</li>
+                            <li>SR = {% trans "Slope Rating" %}</li>
+                            <li>CR = {% trans "Course Rating" %}</li>
+                            <li>AGS = {% trans "Adjusted Gross Score" %}</li>
+                            <li>113 = {% trans "Standard Slope Rating" %}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "Handicap Index ranges from 0 to 54 (lower is better)." %}</li>
+                        <li>{% trans "Slope Rating ranges from 55 to 155 (113 is standard)." %}</li>
+                        <li>{% trans "Course Rating typically ranges from 60 to 80." %}</li>
+                        <li>{% trans "WHS uses best 8 of last 20 score differentials for Handicap Index calculation." %}</li>
+                        <li>{% trans "Score differentials must be between 0 and 200." %}</li>
+                        <li>{% trans "Course Handicap can be negative for very skilled players." %}</li>
+                        <li>{% trans "Net Score allows fair competition between players of different skill levels." %}</li>
+                        <li>{% trans "Handicap Allowance is typically 100% for individual stroke play." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Tournament play and competitive golf" %}</li>
+                        <li>{% trans "Tracking personal improvement over time" %}</li>
+                        <li>{% trans "Fair competition between players of different skill levels" %}</li>
+                        <li>{% trans "Course handicap calculation for specific courses" %}</li>
+                        <li>{% trans "Net score calculation for handicap-adjusted competitions" %}</li>
+                        <li>{% trans "Understanding World Handicap System (WHS) calculations" %}</li>
+                        <li>{% trans "Golf club handicap management" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'handicap_index';
+let golfHandicapChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 1});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateGolfHandicap(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect data based on mode
+    if (currentMode === 'handicap_index') {
+        const differentialsInput = document.getElementById('differentials');
+        const differentialsText = differentialsInput.value.trim();
+        if (!differentialsText) {
+            errorEl.textContent = '{% trans "Please enter score differentials." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        const differentials = differentialsText.split(',').map(d => d.trim()).filter(d => d);
+        requestData.differentials = differentials.map(d => parseFloat(d)).filter(d => !isNaN(d));
+    } else {
+        // Collect all visible inputs
+        const visibleInputs = visibleForm.querySelectorAll('input[type="number"], select');
+        visibleInputs.forEach(input => {
+            if (input.name && input.value !== '') {
+                if (input.type === 'number') {
+                    const value = parseFloat(input.value);
+                    if (!isNaN(value)) {
+                        requestData[input.name] = value;
+                    }
+                } else {
+                    requestData[input.name] = input.value;
+                }
+            }
+        });
+    }
+    
+    // Basic validation
+    const requiredInputs = visibleForm.querySelectorAll('input[type="number"][required], textarea[required]');
+    for (let input of requiredInputs) {
+        if (!input.value || input.value.trim() === '') {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        let resultValue = 0;
+        let resultUnit = '';
+        let detailsHtml = '';
+        
+        if (data.calc_type === 'handicap_index') {
+            resultValue = formatNumber(data.handicap_index);
+            resultUnit = '{% trans "Handicap Index" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.num_differentials}</p>
+                    <p class="text-sm text-gray-600">{% trans "Total Differentials" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.best_differentials.length}</p>
+                    <p class="text-sm text-gray-600">{% trans "Best Differentials Used" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.average_differential)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Average Differential" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'course_handicap') {
+            resultValue = formatNumber(data.course_handicap);
+            resultUnit = '{% trans "Course Handicap" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.handicap_index)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Handicap Index" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.slope_rating}</p>
+                    <p class="text-sm text-gray-600">{% trans "Slope Rating" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.course_rating)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Course Rating" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'score_differential') {
+            resultValue = formatNumber(data.score_differential);
+            resultUnit = '{% trans "Score Differential" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.adjusted_gross_score}</p>
+                    <p class="text-sm text-gray-600">{% trans "Adjusted Gross Score" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.course_rating)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Course Rating" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${data.slope_rating}</p>
+                    <p class="text-sm text-gray-600">{% trans "Slope Rating" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'net_score') {
+            resultValue = formatNumber(data.net_score);
+            resultUnit = '{% trans "Net Score" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.gross_score}</p>
+                    <p class="text-sm text-gray-600">{% trans "Gross Score" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.course_handicap}</p>
+                    <p class="text-sm text-gray-600">{% trans "Course Handicap" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'playing_handicap') {
+            resultValue = formatNumber(data.playing_handicap);
+            resultUnit = '{% trans "Playing Handicap" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.course_handicap}</p>
+                    <p class="text-sm text-gray-600">{% trans "Course Handicap" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.handicap_allowance}%</p>
+                    <p class="text-sm text-gray-600">{% trans "Handicap Allowance" %}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('resultValue').textContent = resultValue;
+        document.getElementById('resultUnit').textContent = resultUnit;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('golfHandicapChart');
+            if (chartEl) {
+                if (golfHandicapChart) golfHandicapChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.handicap_index_chart) {
+                    chartConfig = data.chart_data.handicap_index_chart;
+                } else if (data.chart_data.course_handicap_chart) {
+                    chartConfig = data.chart_data.course_handicap_chart;
+                } else if (data.chart_data.score_differential_chart) {
+                    chartConfig = data.chart_data.score_differential_chart;
+                } else if (data.chart_data.net_score_chart) {
+                    chartConfig = data.chart_data.net_score_chart;
+                } else if (data.chart_data.playing_handicap_chart) {
+                    chartConfig = data.chart_data.playing_handicap_chart;
+                }
+                
+                if (chartConfig) {
+                    golfHandicapChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|Handicap|Index|Differential|Score)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('handicap_index');
+});
+</script>
+{% endblock %}

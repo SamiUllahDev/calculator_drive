@@ -1,0 +1,490 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Interest Calculator - Simple & Compound Interest" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate simple and compound interest. See how your money grows over time with detailed breakdowns and comparisons." %}{% endblock %}
+{% block meta_keywords %}{% trans "interest calculator, compound interest, simple interest, interest rate calculator, money growth calculator" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Interest Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate simple and compound interest with detailed breakdowns.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Interest Calculator' %}",
+    "description": "{% trans 'Calculate simple and compound interest with detailed breakdowns.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/financial-calculators/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'Interest Calculator' %}", "item": "/financial-calculators/interest-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Interest Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Interest Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate simple or compound interest and see how your money grows over time." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Enter Details" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div>
+                            <label for="principal" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Principal Amount" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="principal" name="principal" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="10,000" inputmode="decimal" value="10,000" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Annual Interest Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate" name="interest_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="5" inputmode="decimal" value="5" required>
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="time_period" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Time Period" %}</label>
+                                <input type="number" id="time_period" name="time_period" 
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                       placeholder="5" value="5" min="1" required>
+                            </div>
+                            <div>
+                                <label for="time_unit" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Unit" %}</label>
+                                <select id="time_unit" class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="years" selected>{% trans "Years" %}</option>
+                                    <option value="months">{% trans "Months" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Interest Type" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center justify-center p-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500">
+                                    <input type="radio" name="interest_type" value="simple" class="sr-only">
+                                    <span class="text-sm font-medium">{% trans "Simple" %}</span>
+                                </label>
+                                <label class="flex items-center justify-center p-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500">
+                                    <input type="radio" name="interest_type" value="compound" checked class="sr-only">
+                                    <span class="text-sm font-medium">{% trans "Compound" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="compoundOptions">
+                            <label for="compound_frequency" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Compound Frequency" %}</label>
+                            <select id="compound_frequency" class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="annually">{% trans "Annually" %}</option>
+                                <option value="semi-annually">{% trans "Semi-Annually" %}</option>
+                                <option value="quarterly">{% trans "Quarterly" %}</option>
+                                <option value="monthly" selected>{% trans "Monthly" %}</option>
+                                <option value="daily">{% trans "Daily" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition">
+                            {% trans "Calculate Interest" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- Main Results -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-blue-600 text-white rounded-lg p-5 text-center">
+                            <p class="text-blue-100 text-sm mb-1">{% trans "Final Amount" %}</p>
+                            <p id="finalAmountResult" class="text-3xl font-bold">$0</p>
+                        </div>
+                        <div class="bg-green-600 text-white rounded-lg p-5 text-center">
+                            <p class="text-green-100 text-sm mb-1">{% trans "Interest Earned" %}</p>
+                            <p id="interestEarnedResult" class="text-3xl font-bold">$0</p>
+                        </div>
+                        <div class="bg-gray-700 text-white rounded-lg p-5 text-center">
+                            <p class="text-gray-300 text-sm mb-1">{% trans "Effective Rate" %}</p>
+                            <p id="effectiveRateResult" class="text-3xl font-bold">0%</p>
+                        </div>
+                    </div>
+
+                    <!-- Comparison -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Simple vs Compound Interest" %}</h3>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-sm text-gray-500">{% trans "Simple Interest" %}</p>
+                                <p id="simpleResult" class="text-lg font-bold text-gray-900">$0</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">{% trans "Compound Interest" %}</p>
+                                <p id="compoundResult" class="text-lg font-bold text-gray-900">$0</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">{% trans "Difference" %}</p>
+                                <p id="differenceResult" class="text-lg font-bold text-green-600">$0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Principal vs Interest" %}</h3>
+                            <div class="relative h-48">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Balance Growth" %}</h3>
+                            <div class="relative h-48">
+                                <canvas id="growthChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Yearly Breakdown -->
+                    <div class="bg-white border border-gray-200 rounded-lg">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="font-semibold text-gray-900">{% trans "Yearly Breakdown" %}</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">{% trans "Year" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Interest" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Total Interest" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Balance" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="yearlyBody" class="divide-y divide-gray-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Calculate Your Interest" %}</h3>
+                        <p class="text-gray-500">{% trans "Enter your principal, rate, and time to see how your money grows." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How to Use -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "How to Use This Calculator" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">1</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Enter Amount" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Input your principal (starting) amount." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Set Rate & Time" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Enter the annual interest rate and time period." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">3</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Choose Type" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Select simple or compound interest." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What's the difference between simple and compound interest?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Simple interest is calculated only on the principal. Compound interest is calculated on the principal plus accumulated interest. Compound interest grows faster because you earn 'interest on interest'." %}</p>
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What is effective interest rate?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "The effective rate is the actual annual return when compounding is factored in. For simple interest, it equals the stated rate. For compound interest, it's higher due to compounding effects." %}</p>
+                    </div>
+                </div>
+                
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "How does compounding frequency matter?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "More frequent compounding means more interest. Daily compounding earns slightly more than monthly, which earns more than annually. However, the difference becomes smaller at higher frequencies." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips Section -->
+        <div class="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-green-900 mb-4">{% trans "Interest Tips" %}</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "For savings, look for accounts with daily compounding to maximize returns." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "The Rule of 72: Divide 72 by your interest rate to estimate years to double." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Start saving early - time is the most powerful factor in compound growth." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "For loans, prefer simple interest to pay less over time." %}</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    let pieChart = null;
+    let growthChart = null;
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency', currency: 'USD',
+            minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    document.getElementById('principal').addEventListener('input', function() { formatInput(this); });
+    
+    // Toggle compound options
+    document.querySelectorAll('input[name="interest_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('compoundOptions').style.display = 
+                this.value === 'compound' ? 'block' : 'none';
+        });
+    });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.nextElementSibling.classList.toggle('hidden');
+            this.querySelector('svg').classList.toggle('rotate-180');
+        });
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    principal: document.getElementById('principal').value.replace(/,/g, ''),
+                    interest_rate: document.getElementById('interest_rate').value,
+                    time_period: document.getElementById('time_period').value,
+                    time_unit: document.getElementById('time_unit').value,
+                    interest_type: document.querySelector('input[name="interest_type"]:checked').value,
+                    compound_frequency: document.getElementById('compound_frequency').value,
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error);
+                return;
+            }
+            
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // Update main results
+            document.getElementById('finalAmountResult').textContent = formatCurrency(data.summary.final_amount);
+            document.getElementById('interestEarnedResult').textContent = formatCurrency(data.summary.interest_earned);
+            document.getElementById('effectiveRateResult').textContent = data.summary.effective_rate.toFixed(2) + '%';
+            
+            // Update comparison
+            document.getElementById('simpleResult').textContent = formatCurrency(data.comparison.simple);
+            document.getElementById('compoundResult').textContent = formatCurrency(data.comparison.compound);
+            document.getElementById('differenceResult').textContent = formatCurrency(data.comparison.difference);
+            
+            // Render yearly table
+            const yearlyBody = document.getElementById('yearlyBody');
+            yearlyBody.innerHTML = '';
+            data.yearly_data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-4 py-2 font-medium">${row.year}</td>
+                    <td class="px-4 py-2 text-right text-green-600">${formatCurrency(row.interest)}</td>
+                    <td class="px-4 py-2 text-right">${formatCurrency(row.total_interest)}</td>
+                    <td class="px-4 py-2 text-right font-medium">${formatCurrency(row.balance)}</td>
+                `;
+                yearlyBody.appendChild(tr);
+            });
+            
+            // Render charts
+            if (pieChart) pieChart.destroy();
+            if (growthChart) growthChart.destroy();
+            
+            const chartData = data.chart_data;
+            
+            pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['{% trans "Principal" %}', '{% trans "Interest" %}'],
+                    datasets: [{
+                        data: [chartData.breakdown.principal, chartData.breakdown.interest],
+                        backgroundColor: ['#3b82f6', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+            
+            growthChart = new Chart(document.getElementById('growthChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: chartData.growth.labels,
+                    datasets: [{
+                        label: '{% trans "Balance" %}',
+                        data: chartData.growth.balances,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' }
+                        }
+                    }
+                }
+            });
+            
+        } catch (error) {
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '{% trans "Calculate Interest" %}';
+        }
+    });
+});
+</script>
+{% endblock %}

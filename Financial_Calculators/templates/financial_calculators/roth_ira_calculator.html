@@ -1,0 +1,689 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Roth IRA Calculator - Tax-Free Retirement Savings" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your Roth IRA tax-free retirement savings. See projected balance, income limits, and compare with Traditional IRA using our free calculator." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'Roth IRA calculator, Roth IRA contribution limits, tax-free retirement, Roth vs Traditional IRA, retirement calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Roth IRA Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate your Roth IRA tax-free retirement balance and compare with Traditional IRA.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Roth IRA Calculator' %}",
+    "description": "{% trans 'Calculate Roth IRA tax-free retirement savings' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/finance/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'Roth IRA Calculator' %}", "item": "/finance/roth-ira-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Roth IRA Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Roth IRA Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate your Roth IRA tax-free retirement savings. Contribute after-tax dollars and withdraw tax-free in retirement." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6 sticky top-4">
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Personal Information -->
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Personal Information" %}</h3>
+                            
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="current_age">{% trans "Current Age" %}</label>
+                                    <input type="number" id="current_age" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="30" min="18" max="100">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="retirement_age">{% trans "Retirement Age" %}</label>
+                                    <input type="number" id="retirement_age" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="65" min="50" max="100">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="filing_status">{% trans "Filing Status" %}</label>
+                                <select id="filing_status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white">
+                                    <option value="single">{% trans "Single" %}</option>
+                                    <option value="married">{% trans "Married Filing Jointly" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Income Information -->
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Income & Taxes" %}</h3>
+                            
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="annual_income">{% trans "Annual Income (MAGI)" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="annual_income" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="60,000">
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Used to determine contribution eligibility" %}</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="current_tax_rate">{% trans "Current Tax Rate" %}</label>
+                                    <div class="relative">
+                                        <input type="number" id="current_tax_rate" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="22" step="1" min="0" max="50">
+                                        <span class="absolute right-3 top-2 text-gray-500">%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="retirement_tax_rate">{% trans "Expected Tax Rate" %}</label>
+                                    <div class="relative">
+                                        <input type="number" id="retirement_tax_rate" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="25" step="1" min="0" max="50">
+                                        <span class="absolute right-3 top-2 text-gray-500">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contributions -->
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Roth IRA Contributions" %}</h3>
+                            
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="current_balance">{% trans "Current Roth IRA Balance" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="current_balance" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="0">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="annual_contribution">{% trans "Annual Contribution" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="annual_contribution" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="7,000">
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "2024 limit: $7,000 ($8,000 if 50+)" %}</p>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" id="include_catch_up" class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded" checked>
+                                <label class="ml-2 text-sm text-gray-700" for="include_catch_up">{% trans "Include catch-up contributions (age 50+)" %}</label>
+                            </div>
+                        </div>
+
+                        <!-- Investment Returns -->
+                        <div class="mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Investment Returns" %}</h3>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="annual_return">{% trans "Expected Annual Return" %}</label>
+                                <div class="relative">
+                                    <input type="number" id="annual_return" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500" value="7" step="0.5" min="-20" max="30">
+                                    <span class="absolute right-3 top-2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition focus:ring-4 focus:ring-green-200">
+                            {% trans "Calculate Roth IRA" %}
+                        </button>
+                    </form>
+                    
+                    <!-- Key Benefit Box -->
+                    <div class="mt-4 p-3 bg-green-50 rounded-lg">
+                        <h4 class="font-medium text-green-800 text-sm mb-2">{% trans "Roth IRA Key Benefit" %}</h4>
+                        <p class="text-xs text-green-700">{% trans "All growth is 100% tax-free! Pay taxes now on contributions, never pay taxes on gains or withdrawals." %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Enter Your Information" %}</h3>
+                    <p class="text-gray-600">{% trans "Fill out the form to see your projected Roth IRA tax-free balance at retirement." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="animate-spin w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating your Roth IRA projection..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white border border-red-200 rounded-lg p-6">
+                    <div class="flex items-center text-red-600 mb-2">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="font-semibold">{% trans "Error" %}</span>
+                    </div>
+                    <p id="errorMessage" class="text-gray-700"></p>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsState" class="hidden space-y-6">
+                    
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Tax-Free Balance -->
+                        <div class="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-lg p-6">
+                            <p class="text-green-100 text-sm mb-1">{% trans "Tax-Free Balance at Retirement" %}</p>
+                            <p class="text-3xl font-bold" id="projectedBalance">$0</p>
+                            <p class="text-green-200 text-sm mt-2">{% trans "100% yours - no taxes owed!" %}</p>
+                        </div>
+                        
+                        <!-- Monthly Income -->
+                        <div class="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg p-6">
+                            <p class="text-blue-100 text-sm mb-1">{% trans "Tax-Free Monthly Income" %}</p>
+                            <p class="text-3xl font-bold" id="monthlyIncome">$0</p>
+                            <p class="text-blue-200 text-sm mt-2">{% trans "using 4% rule" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Eligibility Alert -->
+                    <div id="eligibilityAlert" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <svg class="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <h4 class="font-semibold text-yellow-800">{% trans "Income Limit Affects Eligibility" %}</h4>
+                                <p class="text-yellow-700 text-sm" id="eligibilityMessage"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Years to Retirement" %}</p>
+                            <p class="text-xl font-bold text-gray-900" id="yearsToRetirement">0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Total Contributions" %}</p>
+                            <p class="text-xl font-bold text-gray-900" id="totalContributions">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Tax-Free Gains" %}</p>
+                            <p class="text-xl font-bold text-green-600" id="taxFreeGains">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Eligibility" %}</p>
+                            <p class="text-xl font-bold text-blue-600" id="eligibilityPercent">100%</p>
+                        </div>
+                    </div>
+
+                    <!-- Roth vs Traditional Comparison -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Roth IRA vs Traditional IRA Comparison" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="text-center p-4 bg-green-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Roth IRA (Tax-Free)" %}</p>
+                                <p class="text-2xl font-bold text-green-600" id="rothBalance">$0</p>
+                            </div>
+                            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Traditional (After-Tax)" %}</p>
+                                <p class="text-2xl font-bold text-blue-600" id="traditionalBalance">$0</p>
+                            </div>
+                            <div class="text-center p-4 rounded-lg" id="advantageCard">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Roth Advantage" %}</p>
+                                <p class="text-2xl font-bold" id="rothAdvantage">$0</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-4">{% trans "Comparison assumes Traditional IRA withdrawals are taxed at your expected retirement tax rate." %}</p>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Balance Growth Chart -->
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">{% trans "Roth IRA Growth" %}</h3>
+                            <div class="h-64">
+                                <canvas id="balanceChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Breakdown Chart -->
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">{% trans "Contributions vs Tax-Free Gains" %}</h3>
+                            <div class="h-64">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Year by Year Breakdown -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Year-by-Year Projection" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700">{% trans "Age" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium text-gray-700">{% trans "Contribution" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium text-gray-700">{% trans "Tax-Free Gains" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium text-gray-700">{% trans "Balance" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="yearlyBreakdown" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Roth IRA Benefits -->
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Why Choose a Roth IRA?" %}</h2>
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">{% trans "Tax-Free Withdrawals" %}</h3>
+                            <p class="text-gray-600 text-sm">{% trans "Qualified withdrawals in retirement are 100% tax-free, including all investment gains." %}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">{% trans "No Required Minimum Distributions" %}</h3>
+                            <p class="text-gray-600 text-sm">{% trans "Unlike Traditional IRAs, Roth IRAs have no RMDs during your lifetime, giving you more control." %}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">{% trans "Contribution Flexibility" %}</h3>
+                            <p class="text-gray-600 text-sm">{% trans "You can withdraw contributions (not earnings) at any time without penalties." %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Income Limits -->
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "2024 Roth IRA Income Limits" %}</h2>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">{% trans "Single Filers" %}</h3>
+                        <div class="p-3 bg-gray-50 rounded-lg text-sm">
+                            <div class="flex justify-between mb-1">
+                                <span>{% trans "Full contribution" %}</span>
+                                <span class="font-medium">{% trans "Under $146,000" %}</span>
+                            </div>
+                            <div class="flex justify-between mb-1">
+                                <span>{% trans "Reduced contribution" %}</span>
+                                <span class="font-medium">{% trans "$146,000 - $161,000" %}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>{% trans "Not eligible" %}</span>
+                                <span class="font-medium">{% trans "Over $161,000" %}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">{% trans "Married Filing Jointly" %}</h3>
+                        <div class="p-3 bg-gray-50 rounded-lg text-sm">
+                            <div class="flex justify-between mb-1">
+                                <span>{% trans "Full contribution" %}</span>
+                                <span class="font-medium">{% trans "Under $230,000" %}</span>
+                            </div>
+                            <div class="flex justify-between mb-1">
+                                <span>{% trans "Reduced contribution" %}</span>
+                                <span class="font-medium">{% trans "$230,000 - $240,000" %}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>{% trans "Not eligible" %}</span>
+                                <span class="font-medium">{% trans "Over $240,000" %}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-6">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <details class="group">
+                    <summary class="flex items-center justify-between cursor-pointer p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <span class="font-medium text-gray-900">{% trans "What is the 5-year rule for Roth IRAs?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </summary>
+                    <p class="px-4 py-3 text-gray-600">{% trans "To withdraw earnings tax-free, your Roth IRA must be open for at least 5 years AND you must be 59½ or older. Contributions can always be withdrawn tax and penalty-free." %}</p>
+                </details>
+                
+                <details class="group">
+                    <summary class="flex items-center justify-between cursor-pointer p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <span class="font-medium text-gray-900">{% trans "Can I have both a Roth and Traditional IRA?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </summary>
+                    <p class="px-4 py-3 text-gray-600">{% trans "Yes! You can contribute to both, but your combined contributions cannot exceed the annual limit ($7,000 in 2024, or $8,000 if 50+). Many people split contributions to diversify their tax exposure." %}</p>
+                </details>
+                
+                <details class="group">
+                    <summary class="flex items-center justify-between cursor-pointer p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <span class="font-medium text-gray-900">{% trans "What is a Backdoor Roth IRA?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </summary>
+                    <p class="px-4 py-3 text-gray-600">{% trans "A Backdoor Roth is a strategy for high earners who exceed income limits. You contribute to a Traditional IRA (non-deductible) and then convert it to a Roth IRA. Consult a tax advisor as this has tax implications." %}</p>
+                </details>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const resultsState = document.getElementById('resultsState');
+    
+    let balanceChart = null;
+    let breakdownChart = null;
+    
+    // Format currency inputs
+    const currencyInputs = ['annual_income', 'current_balance', 'annual_contribution'];
+    currencyInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('blur', function() {
+                const value = parseFloat(this.value.replace(/[^0-9.-]/g, ''));
+                if (!isNaN(value)) {
+                    this.value = formatNumber(value);
+                }
+            });
+        }
+    });
+    
+    function formatNumber(num) {
+        return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    function parseNumber(str) {
+        return parseFloat(str.toString().replace(/[^0-9.-]/g, '')) || 0;
+    }
+    
+    function showState(state) {
+        initialState.classList.add('hidden');
+        loadingState.classList.add('hidden');
+        errorState.classList.add('hidden');
+        resultsState.classList.add('hidden');
+        
+        if (state === 'initial') initialState.classList.remove('hidden');
+        else if (state === 'loading') loadingState.classList.remove('hidden');
+        else if (state === 'error') errorState.classList.remove('hidden');
+        else if (state === 'results') resultsState.classList.remove('hidden');
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState('loading');
+        
+        const data = {
+            current_age: parseInt(document.getElementById('current_age').value) || 30,
+            retirement_age: parseInt(document.getElementById('retirement_age').value) || 65,
+            annual_income: parseNumber(document.getElementById('annual_income').value),
+            current_tax_rate: parseFloat(document.getElementById('current_tax_rate').value) || 22,
+            retirement_tax_rate: parseFloat(document.getElementById('retirement_tax_rate').value) || 25,
+            filing_status: document.getElementById('filing_status').value,
+            current_balance: parseNumber(document.getElementById('current_balance').value),
+            annual_contribution: parseNumber(document.getElementById('annual_contribution').value),
+            include_catch_up: document.getElementById('include_catch_up').checked,
+            annual_return: parseFloat(document.getElementById('annual_return').value) || 7
+        };
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                displayResults(result);
+                showState('results');
+            } else {
+                document.getElementById('errorMessage').textContent = result.errors.join(', ');
+                showState('error');
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+            showState('error');
+        }
+    });
+    
+    function displayResults(result) {
+        // Update summary cards
+        document.getElementById('projectedBalance').textContent = formatCurrency(result.projected_balance);
+        document.getElementById('monthlyIncome').textContent = formatCurrency(result.monthly_income);
+        
+        // Info cards
+        document.getElementById('yearsToRetirement').textContent = result.years_to_retirement;
+        document.getElementById('totalContributions').textContent = formatCurrency(result.total_contributions);
+        document.getElementById('taxFreeGains').textContent = formatCurrency(result.tax_free_gains);
+        document.getElementById('eligibilityPercent').textContent = result.eligibility_percent + '%';
+        
+        // Eligibility alert
+        const eligibilityAlert = document.getElementById('eligibilityAlert');
+        if (result.eligibility_percent < 100) {
+            document.getElementById('eligibilityMessage').textContent = 
+                result.eligibility_percent === 0 
+                    ? 'Your income exceeds Roth IRA limits. Consider a Backdoor Roth IRA strategy.'
+                    : `Your income limits your contribution to ${formatCurrency(result.max_allowed_contribution)} per year. Consider a Backdoor Roth for full contributions.`;
+            eligibilityAlert.classList.remove('hidden');
+        } else {
+            eligibilityAlert.classList.add('hidden');
+        }
+        
+        // Roth vs Traditional comparison
+        document.getElementById('rothBalance').textContent = formatCurrency(result.tax_free_balance);
+        document.getElementById('traditionalBalance').textContent = formatCurrency(result.traditional_comparison);
+        document.getElementById('rothAdvantage').textContent = formatCurrency(Math.abs(result.roth_advantage));
+        
+        const advantageCard = document.getElementById('advantageCard');
+        const advantageText = document.getElementById('rothAdvantage');
+        if (result.roth_advantage >= 0) {
+            advantageCard.className = 'text-center p-4 bg-green-50 rounded-lg';
+            advantageText.className = 'text-2xl font-bold text-green-600';
+        } else {
+            advantageCard.className = 'text-center p-4 bg-red-50 rounded-lg';
+            advantageText.className = 'text-2xl font-bold text-red-600';
+        }
+        
+        // Update charts
+        updateCharts(result);
+        
+        // Update yearly breakdown table
+        updateYearlyBreakdown(result.yearly_breakdown);
+    }
+    
+    function updateCharts(result) {
+        const chartData = result.chart_data;
+        
+        // Balance Growth Chart
+        const balanceCtx = document.getElementById('balanceChart').getContext('2d');
+        if (balanceChart) balanceChart.destroy();
+        
+        balanceChart = new Chart(balanceCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: '{% trans "Tax-Free Balance" %}',
+                    data: chartData.balances,
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return formatCurrency(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) return '$' + (value/1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return '$' + (value/1000).toFixed(0) + 'K';
+                                return '$' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Breakdown Donut Chart
+        const breakdownCtx = document.getElementById('breakdownChart').getContext('2d');
+        if (breakdownChart) breakdownChart.destroy();
+        
+        breakdownChart = new Chart(breakdownCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['{% trans "Your Contributions" %}', '{% trans "Tax-Free Gains" %}'],
+                datasets: [{
+                    data: [
+                        result.total_contributions,
+                        result.total_investment_gains
+                    ],
+                    backgroundColor: ['#6B7280', '#10B981'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return `${context.label}: ${formatCurrency(context.raw)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateYearlyBreakdown(breakdown) {
+        const tbody = document.getElementById('yearlyBreakdown');
+        tbody.innerHTML = '';
+        
+        breakdown.forEach((year, index) => {
+            const row = document.createElement('tr');
+            row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            row.innerHTML = `
+                <td class="px-4 py-3 text-gray-900 font-medium">${year.age}</td>
+                <td class="px-4 py-3 text-right text-gray-700">${formatCurrency(year.contribution)}</td>
+                <td class="px-4 py-3 text-right text-green-600">${formatCurrency(year.investment_gain)}</td>
+                <td class="px-4 py-3 text-right text-gray-900 font-medium">${formatCurrency(year.year_end_balance)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+});
+</script>
+{% endblock %}

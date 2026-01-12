@@ -1,0 +1,800 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Ovulation Calculator" %} - {% trans "Calculate Ovulation Date & Fertile Window" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your ovulation date and fertile window based on your menstrual cycle. Get detailed cycle analysis and fertility predictions." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'ovulation calculator, fertile window, ovulation date, menstrual cycle calculator, fertility calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Ovulation Calculator' %} - {% trans 'Calculate Ovulation Date' %}">
+<meta property="og:description" content="{% trans 'Calculate your ovulation date and fertile window based on your menstrual cycle.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Ovulation Calculator' %}",
+    "description": "{% trans 'Calculate ovulation date and fertile window' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-pink-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600">{% trans "Ovulation Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your ovulation date and fertile window based on your menstrual cycle. Get detailed cycle analysis, fertility predictions, and personalized recommendations." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Cycle Information" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Last Period Date -->
+                        <div>
+                            <label for="last_period" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Last Period Date" %}</label>
+                            <input type="date" id="last_period" name="last_period" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base"
+                                required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "First day of your last menstrual period" %}</p>
+                        </div>
+
+                        <!-- Cycle Length -->
+                        <div>
+                            <label for="cycle_length" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Cycle Length" %} ({% trans "days" %})</label>
+                            <div class="relative">
+                                <input type="number" id="cycle_length" name="cycle_length" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base"
+                                    value="28" min="21" max="35" step="1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">days</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 21-35 days (average: 28 days)" %}</p>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate Ovulation" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                        </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-pink-50 border-2 border-pink-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto mb-4"></div>
+                            <p class="text-pink-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your last period date and cycle length, then click Calculate to see your ovulation date, fertile window, and detailed cycle analysis." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Predicted Ovulation Date" %}</p>
+                            <p id="ovulationDateValue" class="text-4xl sm:text-5xl font-bold mb-2">-</p>
+                            <p id="ovulationDateDay" class="text-sm opacity-90">-</p>
+                            <div id="ovulationStatusBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="ovulationStatusText">-</span>
+                            </div>
+                        </div>
+                </div>
+
+                    <!-- Important Dates Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-pink-50 rounded-lg p-4 border-2 border-pink-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-pink-700 font-medium mb-1">{% trans "Fertile Window" %}</p>
+                                <p id="fertileWindow" class="text-sm font-bold text-pink-900">-</p>
+                                <p class="text-xs text-pink-600 mt-1" id="fertileWindowDuration">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4 border-2 border-purple-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-purple-700 font-medium mb-1">{% trans "Next Period" %}</p>
+                                <p id="nextPeriod" class="text-sm font-bold text-purple-900">-</p>
+                                <p class="text-xs text-purple-600 mt-1" id="daysUntilPeriod">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 border-2 border-blue-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-blue-700 font-medium mb-1">{% trans "Cycle Day" %}</p>
+                                <p id="currentCycleDay" class="text-lg font-bold text-blue-900">-</p>
+                                <p class="text-xs text-blue-600 mt-1" id="cyclePhase">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Phase Distribution Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Phase Distribution" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="phaseDistributionChart"></canvas>
+                    </div>
+                </div>
+
+                        <!-- Fertility Probability Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Fertility Probability" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="fertilityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cycle Timeline Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Cycle Timeline" %}
+                        </h3>
+                        <div class="relative h-[200px] min-h-[200px]">
+                            <canvas id="cycleTimelineChart"></canvas>
+                        </div>
+                        <div class="mt-4 flex justify-center gap-4 text-xs">
+                            <div class="flex items-center gap-1">
+                                <div class="w-3 h-3 bg-red-500 rounded"></div>
+                                <span>{% trans "Menstruation" %}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <div class="w-3 h-3 bg-blue-500 rounded"></div>
+                                <span>{% trans "Follicular" %}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <div class="w-3 h-3 bg-pink-500 rounded"></div>
+                                <span>{% trans "Fertile" %}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <div class="w-3 h-3 bg-purple-500 rounded"></div>
+                                <span>{% trans "Luteal" %}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cycle Phase Card -->
+                    <div id="cyclePhaseCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Current Cycle Phase" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="cyclePhaseBadge" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="cyclePhaseDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Ovulation Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Ovulation?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Ovulation is the process in which a mature egg is released from one of the ovaries. This typically occurs once per menstrual cycle, approximately 14 days before the start of your next period. The egg travels down the fallopian tube where it can be fertilized by sperm." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Understanding when you ovulate is crucial for both conception planning and natural family planning. The fertile window includes the days leading up to and including ovulation, when conception is most likely to occur." %}
+                            </p>
+                        </div>
+
+                        <!-- Menstrual Cycle Phases Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Menstrual Cycle Phases" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Menstruation (Days 1-5)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "The uterine lining is shed. This marks day 1 of your cycle. Typically lasts 3-7 days." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Follicular Phase (Days 1-13)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Follicles in the ovaries begin to mature. Estrogen levels rise, preparing the uterine lining for potential pregnancy." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                                    <h4 class="font-semibold text-pink-900 mb-1">{% trans "Ovulation (Day 14, approximately)" %}</h4>
+                                    <p class="text-sm text-pink-800">
+                                        {% trans "A mature egg is released from the ovary. This is your most fertile day. The egg survives for 12-24 hours after release." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                                    <h4 class="font-semibold text-pink-900 mb-1">{% trans "Fertile Window (5 days before + ovulation + 1 day after)" %}</h4>
+                                    <p class="text-sm text-pink-800">
+                                        {% trans "The best time for conception. Sperm can survive up to 5 days in the female reproductive tract, so having intercourse in the days leading up to ovulation increases chances of conception." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Luteal Phase (Days 15-28)" %}</h4>
+                                    <p class="text-sm text-purple-800">
+                                        {% trans "After ovulation, the corpus luteum produces progesterone. If pregnancy doesn't occur, hormone levels drop and menstruation begins." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the first day of your last menstrual period (the day bleeding started)" %}</li>
+                                <li>{% trans "Enter your average cycle length (number of days from day 1 of one period to day 1 of the next)" %}</li>
+                                <li>{% trans "Click 'Calculate Ovulation' to see your predicted ovulation date" %}</li>
+                                <li>{% trans "Review your fertile window (the best days for conception)" %}</li>
+                                <li>{% trans "Check the cycle timeline to see all phases of your cycle" %}</li>
+                                <li>{% trans "Use the fertility probability chart to understand your peak fertility days" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Ovulation Date" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The predicted day when ovulation occurs. This is calculated as 14 days before your next expected period. This is your most fertile day." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Fertile Window" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The 6-7 day period when conception is most likely. This includes 5 days before ovulation, the day of ovulation, and 1 day after. Sperm can survive up to 5 days, so having intercourse during this window maximizes chances of conception." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Cycle Timeline" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A visual representation of your entire cycle showing all phases: menstruation, follicular, fertile window, ovulation, and luteal phase." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Fertility Probability" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows the estimated probability of conception on each day of your cycle. Peak fertility occurs on ovulation day and the days immediately before it." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Signs of Ovulation Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Signs of Ovulation" %}</h3>
+                            <div class="bg-pink-50 border-l-4 border-pink-500 p-4 rounded-r">
+                                <p class="text-sm text-pink-800 mb-2">{% trans "Common signs that ovulation may be occurring:" %}</p>
+                                <ul class="space-y-1 text-sm text-pink-800 list-disc list-inside">
+                                    <li>{% trans "Change in cervical mucus (becomes clear, stretchy, like egg white)" %}</li>
+                                    <li>{% trans "Slight increase in basal body temperature" %}</li>
+                                    <li>{% trans "Mild pelvic or abdominal pain (mittelschmerz)" %}</li>
+                                    <li>{% trans "Increased libido" %}</li>
+                                    <li>{% trans "Positive ovulation predictor kit (OPK) result" %}</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Ovulation calculators provide estimates based on average cycle patterns. Actual ovulation timing can vary due to stress, illness, travel, or hormonal changes." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "For more accurate tracking, combine calendar method with other methods like basal body temperature (BBT) charting, cervical mucus monitoring, or ovulation predictor kits." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "If you have irregular cycles, PCOS, or other reproductive health concerns, consult with a healthcare provider or fertility specialist for personalized guidance." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for informational purposes only and should not replace professional medical advice. Always consult healthcare providers for fertility planning and reproductive health concerns." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let phaseDistributionChart = null;
+let fertilityChart = null;
+let cycleTimelineChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('last_period').value = today;
+
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('last_period').value = today;
+        document.getElementById('cycle_length').value = '28';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (phaseDistributionChart) phaseDistributionChart.destroy();
+        if (fertilityChart) fertilityChart.destroy();
+        if (cycleTimelineChart) cycleTimelineChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            last_period: document.getElementById('last_period').value,
+            cycle_length: parseInt(document.getElementById('cycle_length').value)
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Ovulation" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Update main ovulation date
+            const ovulationDateValueEl = document.getElementById('ovulationDateValue');
+            const ovulationDateDayEl = document.getElementById('ovulationDateDay');
+            if (ovulationDateValueEl) {
+                const ovDate = new Date(data.ovulation_date);
+                ovulationDateValueEl.textContent = ovDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            }
+            if (ovulationDateDayEl) {
+                const ovDate = new Date(data.ovulation_date);
+                ovulationDateDayEl.textContent = ovDate.toLocaleDateString('en-US', { weekday: 'long' });
+            }
+            
+            // Update ovulation status badge
+            const ovulationStatusBadge = document.getElementById('ovulationStatusBadge');
+            const ovulationStatusText = document.getElementById('ovulationStatusText');
+            if (ovulationStatusText) {
+                if (data.statistics.ovulation_status === 'today') {
+                    ovulationStatusText.textContent = '{% trans "Today!" %}';
+                } else if (data.statistics.ovulation_status === 'upcoming') {
+                    ovulationStatusText.textContent = data.statistics.days_until_ovulation + ' {% trans "days away" %}';
+                } else {
+                    ovulationStatusText.textContent = data.statistics.days_until_ovulation + ' {% trans "days ago" %}';
+                }
+            }
+            if (ovulationStatusBadge && data.color_info) {
+                ovulationStatusBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+        }
+            
+            // Update important dates cards
+            const fertileWindowEl = document.getElementById('fertileWindow');
+            const fertileWindowDurationEl = document.getElementById('fertileWindowDuration');
+            if (fertileWindowEl) {
+                const startDate = new Date(data.fertile_window.start);
+                const endDate = new Date(data.fertile_window.end);
+                fertileWindowEl.textContent = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' - ' + endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+            if (fertileWindowDurationEl) {
+                fertileWindowDurationEl.textContent = data.fertile_window.duration + ' {% trans "days" %}';
+            }
+            
+            const nextPeriodEl = document.getElementById('nextPeriod');
+            const daysUntilPeriodEl = document.getElementById('daysUntilPeriod');
+            if (nextPeriodEl) {
+                const nextPeriodDate = new Date(data.next_period);
+                nextPeriodEl.textContent = nextPeriodDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+            if (daysUntilPeriodEl) {
+                daysUntilPeriodEl.textContent = data.statistics.days_until_period + ' {% trans "days away" %}';
+            }
+            
+            const currentCycleDayEl = document.getElementById('currentCycleDay');
+            const cyclePhaseEl = document.getElementById('cyclePhase');
+            if (currentCycleDayEl) {
+                currentCycleDayEl.textContent = data.statistics.cycle_day || '-';
+            }
+            if (cyclePhaseEl) {
+                cyclePhaseEl.textContent = data.cycle_phase_category || '-';
+            }
+            
+            // Update cycle phase card
+            const cyclePhaseBadge = document.getElementById('cyclePhaseBadge');
+            const cyclePhaseDescription = document.getElementById('cyclePhaseDescription');
+            if (cyclePhaseBadge && data.color_info) {
+                const colors = {
+                    'red': 'bg-red-600',
+                    'blue': 'bg-blue-600',
+                    'pink': 'bg-pink-600',
+                    'purple': 'bg-purple-600',
+                    'gray': 'bg-gray-600'
+                };
+                cyclePhaseBadge.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.cycle_phase_color] || 'bg-gray-600');
+                cyclePhaseBadge.textContent = data.cycle_phase_category;
+            }
+            if (cyclePhaseDescription && data.cycle_phase_description) {
+                cyclePhaseDescription.textContent = data.cycle_phase_description;
+            }
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'red': 'bg-gradient-to-br from-red-600 to-red-700',
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'pink': 'bg-gradient-to-br from-pink-600 to-pink-700',
+                'purple': 'bg-gradient-to-br from-purple-600 to-purple-700',
+                'gray': 'bg-gradient-to-br from-gray-600 to-gray-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.cycle_phase_color] || 'bg-gradient-to-br from-pink-600 to-pink-700');
+            }
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.phase_distribution_chart) {
+                    createPhaseDistributionChart(data.chart_data.phase_distribution_chart);
+                }
+                if (data.chart_data.fertility_chart) {
+                    createFertilityChart(data.chart_data.fertility_chart);
+                }
+                if (data.chart_data.cycle_timeline_chart) {
+                    createCycleTimelineChart(data.chart_data.cycle_timeline_chart);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createPhaseDistributionChart(chartData) {
+        const ctx = document.getElementById('phaseDistributionChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (phaseDistributionChart) {
+            phaseDistributionChart.destroy();
+        }
+        
+        if (!chartData || !chartData.center_text) return;
+        
+        const centerText = chartData.center_text;
+        const centerColor = centerText.color;
+        
+        try {
+            phaseDistributionChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percent = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value + ' days (' + percent + '%)';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 28px Arial';
+                        ctx.fillStyle = centerColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value, centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating phase distribution chart:', error);
+        }
+    }
+    
+    function createFertilityChart(chartData) {
+        const ctx = document.getElementById('fertilityChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (fertilityChart) {
+            fertilityChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            fertilityChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Fertility: ' + context.parsed.y + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10 },
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating fertility chart:', error);
+        }
+    }
+    
+    function createCycleTimelineChart(chartData) {
+        const ctx = document.getElementById('cycleTimelineChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (cycleTimelineChart) {
+            cycleTimelineChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            cycleTimelineChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Day ' + context.label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 9 }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating cycle timeline chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "My Favorite Calculators" %}{% endblock %}
+{% block description %}{% trans "View and manage your favorite calculators." %}{% endblock %}
+
+{% block content %}
+<style>
+    /* Make favorite cards fully clickable */
+    article[class*="cursor-pointer"] {
+        position: relative;
+    }
+    
+    article[class*="cursor-pointer"] a[class*="absolute"] {
+        z-index: 1;
+    }
+    
+    article[class*="cursor-pointer"] .favorite-btn {
+        position: relative;
+        z-index: 20;
+    }
+    
+    article[class*="cursor-pointer"]:hover {
+        transform: translateY(-2px);
+    }
+</style>
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Heading -->
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900">{% trans "My Favorite Calculators" %}</h1>
+        <p class="text-gray-500">{% trans "Your saved calculators" %} ({{ total_favorites }})</p>
+    </div>
+
+    {% if favorites %}
+        {% for app_key, app_favorites in favorites_by_app.items %}
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">
+                    {% if app_key == 'math' %}
+                        <i class="bi bi-calculator text-purple-600 mr-2"></i>{% trans "Math Calculators" %}
+                    {% elif app_key == 'finance' %}
+                        <i class="bi bi-graph-up text-blue-600 mr-2"></i>{% trans "Financial Calculators" %}
+                    {% elif app_key == 'health' %}
+                        <i class="bi bi-heart-pulse text-green-600 mr-2"></i>{% trans "Health & Fitness Calculators" %}
+                    {% else %}
+                        <i class="bi bi-tools text-orange-600 mr-2"></i>{% trans "Other Calculators" %}
+                    {% endif %}
+                    <span class="text-sm font-normal text-gray-500">({{ app_favorites|length }})</span>
+                </h2>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {% for favorite in app_favorites %}
+                    <article class="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-xl transition-all duration-300 h-full flex flex-col relative group cursor-pointer">
+                        <a href="{{ favorite.calculator_url }}" class="absolute inset-0 z-0" aria-label="{% trans 'Go to calculator' %}"></a>
+                        <div class="relative z-10 flex flex-col h-full">
+                            <div class="flex items-start mb-4 gap-4">
+                                <div class="w-12 h-12 bg-gradient-to-br 
+                                    {% if app_key == 'math' %}from-purple-500 to-purple-600
+                                    {% elif app_key == 'finance' %}from-blue-500 to-blue-600
+                                    {% elif app_key == 'health' %}from-green-500 to-green-600
+                                    {% else %}from-orange-500 to-orange-600{% endif %}
+                                    rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                                    <i class="bi 
+                                        {% if app_key == 'math' %}bi-calculator
+                                        {% elif app_key == 'finance' %}bi-graph-up
+                                        {% elif app_key == 'health' %}bi-heart-pulse
+                                        {% else %}bi-tools{% endif %}
+                                        text-white text-lg"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-bold text-gray-900 mb-2 text-lg leading-tight group-hover:text-blue-600 transition-colors">
+                                        {{ favorite.calculator_name }}
+                                    </h3>
+                                </div>
+                                <button 
+                                    type="button"
+                                    class="favorite-btn p-2 rounded-full hover:bg-gray-100 transition-colors z-20 relative"
+                                    data-calculator-name="{{ favorite.calculator_name }}"
+                                    data-calculator-url="{{ favorite.calculator_url }}"
+                                    data-calculator-category="{{ favorite.calculator_category }}"
+                                    data-calculator-app="{{ favorite.calculator_app }}"
+                                    data-calculator-description="{{ favorite.calculator_description }}"
+                                    data-is-authenticated="true"
+                                    onclick="toggleFavorite(this, event);"
+                                    aria-label="{% trans 'Remove from favorites' %}">
+                                    <i class="bi bi-heart-fill text-red-500 text-lg favorite-icon"></i>
+                                </button>
+                            </div>
+                            {% if favorite.calculator_description %}
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">
+                                {{ favorite.calculator_description }}
+                            </p>
+                            {% endif %}
+                            <div class="flex items-center gap-2 
+                                {% if app_key == 'math' %}text-purple-600
+                                {% elif app_key == 'finance' %}text-blue-600
+                                {% elif app_key == 'health' %}text-green-600
+                                {% else %}text-orange-600{% endif %}
+                                font-semibold text-sm mt-auto">
+                                <span>{% trans "Use Calculator" %}</span>
+                                <i class="bi bi-arrow-right group-hover:translate-x-1 transition-transform duration-200"></i>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="bg-white rounded-xl shadow p-12 text-center">
+            <i class="bi bi-heart text-gray-300 text-6xl mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "No favorites yet" %}</h3>
+            <p class="text-gray-500 mb-6">{% trans "Start adding calculators to your favorites by clicking the heart icon on any calculator card." %}</p>
+            <div class="flex gap-4 justify-center">
+                <a href="{% url 'math_calculators:index' %}" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                    {% trans "Browse Math Calculators" %}
+                </a>
+                <a href="{% url 'finance_calculators:index' %}" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    {% trans "Browse Financial Calculators" %}
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</section>
+
+<script>
+// Update favorite button after removal
+function handleFavoriteRemoval(button) {
+    const article = button.closest('article');
+    if (!article) {
+        console.error('No article found for button');
+        return;
+    }
+    
+    // Get the category section
+    const categorySection = article.closest('.mb-8');
+    if (!categorySection) {
+        console.error('No category section found');
+        return;
+    }
+    
+    // Fade out animation
+    article.style.transition = 'opacity 0.3s, transform 0.3s';
+    article.style.opacity = '0';
+    article.style.transform = 'scale(0.9)';
+    
+    setTimeout(() => {
+        // Remove the article
+        article.remove();
+        
+        // Update category count in header
+        const categoryHeader = categorySection.querySelector('h2');
+        if (categoryHeader) {
+            const countSpan = categoryHeader.querySelector('span');
+            if (countSpan) {
+                const remainingInCategory = categorySection.querySelectorAll('article').length;
+                if (remainingInCategory > 0) {
+                    countSpan.textContent = `(${remainingInCategory})`;
+                } else {
+                    // Remove entire category section if empty
+                    categorySection.style.transition = 'opacity 0.3s';
+                    categorySection.style.opacity = '0';
+                    setTimeout(() => {
+                        categorySection.remove();
+                    }, 300);
+                }
+            }
+        }
+        
+        // Update total count in page header
+        const totalCountElement = document.querySelector('.text-gray-500');
+        if (totalCountElement) {
+            const remainingFavorites = document.querySelectorAll('article').length;
+            if (remainingFavorites > 0) {
+                totalCountElement.textContent = '{% trans "Your saved calculators" %} (' + remainingFavorites + ')';
+            } else {
+                // Reload page if no favorites left to show empty state
+                location.reload();
+            }
+        }
+    }, 300);
+}
+
+// Listen for favorite removal events
+document.addEventListener('favoriteRemoved', function(event) {
+    console.log('favoriteRemoved event received', event.detail);
+    const button = event.detail.button;
+    if (!button) {
+        console.error('No button in event detail');
+        return;
+    }
+    
+    // Check if this button is on the favorites page
+    const article = button.closest('article');
+    if (!article) {
+        console.log('Button not in article, not on favorites page');
+        return;
+    }
+    
+    // Check if icon changed to empty heart (removed from favorites)
+    const icon = button.querySelector('.favorite-icon');
+    if (!icon) {
+        console.error('No icon found in button');
+        return;
+    }
+    
+    // Small delay to ensure icon has been updated
+    setTimeout(() => {
+        if (icon.classList.contains('bi-heart')) {
+            // Icon changed to empty heart, remove the card
+            console.log('Removing favorite card');
+            handleFavoriteRemoval(button);
+        }
+    }, 100);
+});
+</script>
+{% endblock %}

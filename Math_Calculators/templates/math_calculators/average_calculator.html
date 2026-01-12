@@ -1,0 +1,759 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Average Calculator - Calculate Mean, Median, Mode" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free average calculator to calculate arithmetic mean, median, mode, geometric mean, and harmonic mean. Find average of numbers with step-by-step solutions. Perfect for statistics and math homework." %}{% endblock %}
+{% block meta_keywords %}{% trans "average calculator, calculate average, mean calculator, median calculator, mode calculator, arithmetic mean calculator, geometric mean calculator, harmonic mean calculator, how to calculate average, average finder, mean median mode calculator, statistics calculator, average of numbers, find average" %}{% endblock %}
+
+{% block og_title %}{% trans "Average Calculator - Calculate Mean, Median, Mode" %}{% endblock %}
+{% block og_description %}{% trans "Free average calculator to calculate arithmetic mean, median, mode, geometric mean, and harmonic mean. Find average of numbers with step-by-step solutions." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Average Calculator - Calculate Mean, Median, Mode" %}{% endblock %}
+{% block twitter_description %}{% trans "Free average calculator to calculate arithmetic mean, median, mode, geometric mean, and harmonic mean. Find average of numbers with step-by-step solutions." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+    }
+    .step-by-step {
+        background: linear-gradient(to right, #f0f9ff, #e0f2fe);
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 4px;
+    }
+    .history-item {
+        background: #f9fafb;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .history-item:hover {
+        background: #f3f4f6;
+    }
+    .number-input-group {
+        position: relative;
+    }
+    .remove-number-btn {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        opacity: 0.7;
+    }
+    .remove-number-btn:hover {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Average Calculator' %}",
+  "description": "{% trans 'Free average calculator to calculate arithmetic mean, median, mode, geometric mean, and harmonic mean. Find average of numbers with step-by-step solutions. Perfect for statistics and math homework.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "3700"},
+  "featureList": ["{% trans 'Arithmetic mean' %}", "{% trans 'Geometric mean' %}", "{% trans 'Harmonic mean' %}", "{% trans 'Median calculation' %}", "{% trans 'Mode calculation' %}", "{% trans 'Step-by-step solutions' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Average Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate various types of averages including mean, median, mode, geometric mean, harmonic mean, and more. Features include charts, visualizations, step-by-step solutions, and calculation history." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Input Method Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="bi bi-input-cursor-text text-blue-600 mr-1"></i>
+                                {% trans "Input Method" %}
+                            </label>
+                            <select id="inputMethod" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition">
+                                <option value="individual">{% trans "Individual Inputs" %}</option>
+                                <option value="comma">{% trans "Comma-Separated" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Comma-Separated Input -->
+                        <div id="commaInputContainer" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Enter Numbers (comma-separated)" %}
+                            </label>
+                            <textarea id="commaInput" rows="3" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="e.g., 10, 20, 30, 40, 50"></textarea>
+                        </div>
+
+                        <!-- Individual Number Inputs -->
+                        <div id="individualInputContainer">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Enter Numbers" %}
+                            </label>
+                            <div id="numberInputs" class="space-y-3">
+                                <div class="number-input-group">
+                                    <input type="number" class="number-input w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="{% trans 'Enter number' %}" step="any">
+                                </div>
+                                <div class="number-input-group">
+                                    <input type="number" class="number-input w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="{% trans 'Enter number' %}" step="any">
+                                </div>
+                            </div>
+                            <button type="button" id="addNumberBtn" class="mt-2 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                                <i class="bi bi-plus-circle mr-1"></i>
+                                {% trans "Add Another Number" %}
+                            </button>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate averages' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Averages" %}</span>
+                        </button>
+                        
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <i class="bi bi-lightbulb mr-1"></i>
+                            {% trans "Load Example Values" %}
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error Display -->
+                    <div id="errorDisplay" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p class="text-red-700 font-medium" id="errorMessage"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden">
+                    <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Results" %}
+                        </h2>
+
+                        <!-- Main Result Card -->
+                        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border-2 border-blue-200">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-600 mb-2">{% trans "Arithmetic Mean" %}</p>
+                                <p class="text-4xl sm:text-5xl font-bold text-blue-600 mb-2" id="meanResult">0</p>
+                                <p class="text-sm text-gray-500">{% trans "Primary Average" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Statistics Cards -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                <p class="text-xs text-gray-600 mb-1">{% trans "Count" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="countDisplay">0</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                <p class="text-xs text-gray-600 mb-1">{% trans "Min" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="minDisplay">-</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                <p class="text-xs text-gray-600 mb-1">{% trans "Max" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="maxDisplay">-</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                <p class="text-xs text-gray-600 mb-1">{% trans "Range" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="rangeDisplay">-</p>
+                            </div>
+                        </div>
+
+                        <!-- Detailed Results -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "All Average Types" %}</h3>
+                            <div id="detailedResults" class="bg-gray-50 rounded-lg p-4 space-y-3">
+                                <!-- Results will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Charts -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <!-- Mean Gauge Chart -->
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3">{% trans "Mean Gauge" %}</h4>
+                                <div class="chart-container">
+                                    <canvas id="gaugeChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Average Types Comparison -->
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3">{% trans "Average Types Comparison" %}</h4>
+                                <div class="chart-container">
+                                    <canvas id="comparisonChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Distribution Chart -->
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                            <h4 class="text-sm font-bold text-gray-700 mb-3">{% trans "Data Distribution" %}</h4>
+                            <div class="chart-container">
+                                <canvas id="distributionChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Data Points Chart -->
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                            <h4 class="text-sm font-bold text-gray-700 mb-3">{% trans "Data Points with Mean & Median" %}</h4>
+                            <div class="chart-container">
+                                <canvas id="dataPointsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Step-by-Step Solution -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                            <div id="stepByStep" class="space-y-2">
+                                <!-- Steps will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap gap-3">
+                            <button id="clearBtn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">
+                                <i class="bi bi-x-circle mr-1"></i>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 bg-green-100 hover:bg-green-200 text-green-700 font-medium py-2 px-4 rounded-lg transition-colors">
+                                <i class="bi bi-download mr-1"></i>
+                                {% trans "Export Results (JSON)" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- How to Use -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                                <li>{% trans "Choose your input method: Individual inputs or comma-separated values" %}</li>
+                                <li>{% trans "Enter your numbers in the input fields" %}</li>
+                                <li>{% trans "Click 'Calculate Averages' to see all results" %}</li>
+                                <li>{% trans "View charts, step-by-step solutions, and detailed statistics" %}</li>
+                                <li>{% trans "Use 'Load Example Values' to see a sample calculation" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Features -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "Features" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>{% trans "Multiple average types: Mean, Median, Mode, Geometric Mean, Harmonic Mean, Quadratic Mean" %}</li>
+                                <li>{% trans "Interactive charts showing data distribution and comparisons" %}</li>
+                                <li>{% trans "Step-by-step solutions for all calculations" %}</li>
+                                <li>{% trans "Comprehensive statistics: Min, Max, Range, Sum" %}</li>
+                                <li>{% trans "Flexible input methods" %}</li>
+                                <li>{% trans "Export results as JSON" %}</li>
+                            </ul>
+                        </div>
+
+                        <!-- Average Types -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "Average Types Explained" %}</h3>
+                            <div class="space-y-4">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-blue-900 mb-2">{% trans "Arithmetic Mean" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "Sum of all numbers divided by the count. Most commonly used average." %}</p>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">Formula: (x₁ + x₂ + ... + xₙ) / n</p>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-green-900 mb-2">{% trans "Median" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "Middle value when numbers are sorted. Less affected by outliers." %}</p>
+                                </div>
+                                <div class="bg-yellow-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-yellow-900 mb-2">{% trans "Mode" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "Most frequently occurring value(s). May have multiple modes or none." %}</p>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-purple-900 mb-2">{% trans "Geometric Mean" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "nth root of the product of all numbers. Useful for rates and ratios." %}</p>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">Formula: ⁿ√(x₁ × x₂ × ... × xₙ)</p>
+                                </div>
+                                <div class="bg-pink-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-pink-900 mb-2">{% trans "Harmonic Mean" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "Reciprocal of the arithmetic mean of reciprocals. Used for rates." %}</p>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">Formula: n / (1/x₁ + 1/x₂ + ... + 1/xₙ)</p>
+                                </div>
+                                <div class="bg-cyan-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-cyan-900 mb-2">{% trans "Quadratic Mean (RMS)" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "Square root of the mean of squares. Used in physics and engineering." %}</p>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">Formula: √((x₁² + x₂² + ... + xₙ²) / n)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>{% trans "Geometric mean requires all numbers to be positive" %}</li>
+                                <li>{% trans "Harmonic mean requires all numbers to be non-zero" %}</li>
+                                <li>{% trans "Mode may not exist if all values are unique" %}</li>
+                                <li>{% trans "Median is more robust to outliers than mean" %}</li>
+                                <li>{% trans "You can add or remove input fields as needed" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Chart instances
+    let gaugeChartInstance = null;
+    let comparisonChartInstance = null;
+    let distributionChartInstance = null;
+    let dataPointsChartInstance = null;
+    
+    // Store current results
+    let currentResults = null;
+
+    // DOM Elements
+    const calculatorForm = document.getElementById('calculatorForm');
+    const inputMethod = document.getElementById('inputMethod');
+    const commaInputContainer = document.getElementById('commaInputContainer');
+    const individualInputContainer = document.getElementById('individualInputContainer');
+    const commaInput = document.getElementById('commaInput');
+    const numberInputs = document.getElementById('numberInputs');
+    const addNumberBtn = document.getElementById('addNumberBtn');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const resultsSection = document.getElementById('resultsSection');
+    const loadingState = document.getElementById('loadingState');
+    const errorDisplay = document.getElementById('errorDisplay');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    // Input method change handler
+    inputMethod.addEventListener('change', function() {
+        if (this.value === 'comma') {
+            commaInputContainer.classList.remove('hidden');
+            individualInputContainer.classList.add('hidden');
+        } else {
+            commaInputContainer.classList.add('hidden');
+            individualInputContainer.classList.remove('hidden');
+        }
+    });
+
+    // Add number input field
+    addNumberBtn.addEventListener('click', function() {
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'number-input-group';
+        inputGroup.innerHTML = `
+            <input type="number" class="number-input w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="{% trans 'Enter number' %}" step="any">
+            <button type="button" class="remove-number-btn" onclick="this.parentElement.remove()">×</button>
+        `;
+        numberInputs.appendChild(inputGroup);
+    });
+
+    // Load example values
+    exampleBtn.addEventListener('click', function() {
+        const exampleNumbers = [10, 20, 30, 40, 50, 25, 35, 15, 45, 20];
+        if (inputMethod.value === 'comma') {
+            commaInput.value = exampleNumbers.join(', ');
+        } else {
+            numberInputs.innerHTML = '';
+            exampleNumbers.forEach((num, index) => {
+                const inputGroup = document.createElement('div');
+                inputGroup.className = 'number-input-group';
+                const removeBtn = index < 2 ? '' : '<button type="button" class="remove-number-btn" onclick="this.parentElement.remove()">×</button>';
+                inputGroup.innerHTML = `
+                    <input type="number" class="number-input w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="${num}" step="any">
+                    ${removeBtn}
+                `;
+                numberInputs.appendChild(inputGroup);
+            });
+        }
+    });
+
+    // Get numbers from inputs
+    function getNumbers() {
+        if (inputMethod.value === 'comma') {
+            const text = commaInput.value.trim();
+            if (!text) return [];
+            return text.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+        } else {
+            const inputs = numberInputs.querySelectorAll('.number-input');
+            return Array.from(inputs).map(input => parseFloat(input.value.trim())).filter(val => !isNaN(val));
+        }
+    }
+
+    // Format number helper
+    function formatNumber(num) {
+        if (typeof num !== 'number' || isNaN(num) || !isFinite(num)) return 'N/A';
+        if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+        if (Math.abs(num) >= 1000) return (num / 1000).toFixed(2) + 'K';
+        return num.toLocaleString('en-US', {maximumFractionDigits: 6});
+    }
+
+    // Create charts
+    function createGaugeChart(chartData) {
+        const ctx = document.getElementById('gaugeChart');
+        if (!ctx || !chartData) return;
+        
+        if (gaugeChartInstance) {
+            gaugeChartInstance.destroy();
+        }
+
+        const centerText = chartData.center_text || {};
+        gaugeChartInstance = new Chart(ctx, {
+            type: chartData.type,
+            data: chartData.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: true }
+                },
+                cutout: chartData.data.datasets[0].cutout || '75%'
+            },
+            plugins: [{
+                id: 'centerText',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                    const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                    ctx.save();
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillStyle = centerText.color || '#3b82f6';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(centerText.value || '0', centerX, centerY - 10);
+                    ctx.font = '12px Arial';
+                    ctx.fillText(centerText.label || '', centerX, centerY + 10);
+                    ctx.restore();
+                }
+            }]
+        });
+    }
+
+    function createComparisonChart(chartData) {
+        const ctx = document.getElementById('comparisonChart');
+        if (!ctx || !chartData) return;
+        
+        if (comparisonChartInstance) {
+            comparisonChartInstance.destroy();
+        }
+
+        comparisonChartInstance = new Chart(ctx, {
+            type: chartData.type,
+            data: chartData.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { enabled: true }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    function createDistributionChart(chartData) {
+        const ctx = document.getElementById('distributionChart');
+        if (!ctx || !chartData) return;
+        
+        if (distributionChartInstance) {
+            distributionChartInstance.destroy();
+        }
+
+        distributionChartInstance = new Chart(ctx, {
+            type: chartData.type,
+            data: chartData.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { enabled: true }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+
+    function createDataPointsChart(chartData) {
+        const ctx = document.getElementById('dataPointsChart');
+        if (!ctx || !chartData) return;
+        
+        if (dataPointsChartInstance) {
+            dataPointsChartInstance.destroy();
+        }
+
+        dataPointsChartInstance = new Chart(ctx, {
+            type: chartData.type,
+            data: chartData.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { enabled: true }
+                },
+                scales: {
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+    }
+
+    // Display results
+    function displayResults(data) {
+        try {
+            if (!data || !data.success) {
+                throw new Error(data?.error || 'Invalid data received');
+            }
+
+            const displayData = data.display_data || {};
+            const results = data.results || {};
+
+            // Main mean result
+            const meanResult = document.getElementById('meanResult');
+            if (meanResult && results.mean !== undefined) {
+                meanResult.textContent = formatNumber(results.mean);
+            }
+
+            // Statistics
+            const stats = displayData.statistics || {};
+            const countDisplay = document.getElementById('countDisplay');
+            const minDisplay = document.getElementById('minDisplay');
+            const maxDisplay = document.getElementById('maxDisplay');
+            const rangeDisplay = document.getElementById('rangeDisplay');
+
+            if (countDisplay) countDisplay.textContent = displayData.numbers_count || 0;
+            if (minDisplay) minDisplay.textContent = stats.min || '-';
+            if (maxDisplay) maxDisplay.textContent = stats.max || '-';
+            if (rangeDisplay) rangeDisplay.textContent = stats.range || '-';
+
+            // Detailed results
+            const detailedResults = document.getElementById('detailedResults');
+            if (detailedResults && displayData.detailed_results) {
+                let html = '';
+                displayData.detailed_results.forEach((item, index) => {
+                    const isLast = index === displayData.detailed_results.length - 1;
+                    const borderClass = isLast ? '' : 'border-b border-gray-200';
+                    const textClass = item.is_primary ? 'font-bold text-lg text-blue-600' : 'font-medium text-gray-900';
+                    const paddingClass = item.is_primary ? 'py-3' : 'py-2';
+                    
+                    html += `
+                        <div class="flex justify-between items-start ${paddingClass} ${borderClass}">
+                            <div>
+                                <span class="text-gray-700 ${item.is_primary ? 'font-semibold' : ''}">${item.label}</span>
+                                <p class="text-xs text-gray-500 mt-1">${item.formula || ''}</p>
+                            </div>
+                            <span class="${textClass}">${item.value}</span>
+                        </div>
+                    `;
+                });
+                detailedResults.innerHTML = html;
+            }
+
+            // Step-by-step
+            const stepByStep = document.getElementById('stepByStep');
+            if (stepByStep) {
+                if (data.step_by_step_html && data.step_by_step_html.length > 0) {
+                    stepByStep.innerHTML = data.step_by_step_html.map((item) => `
+                        <div class="step-by-step">
+                            <span class="font-semibold text-blue-600">${item.content}</span>
+                        </div>
+                    `).join('');
+                } else if (data.step_by_step && data.step_by_step.length > 0) {
+                    stepByStep.innerHTML = data.step_by_step.map((step) => `
+                        <div class="step-by-step">
+                            <span class="font-semibold text-blue-600">${step}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Charts
+            const chartData = data.chart_data || {};
+            if (chartData.gauge_chart) createGaugeChart(chartData.gauge_chart);
+            if (chartData.comparison_chart) createComparisonChart(chartData.comparison_chart);
+            if (chartData.distribution_chart) createDistributionChart(chartData.distribution_chart);
+            if (chartData.data_points_chart) createDataPointsChart(chartData.data_points_chart);
+
+            // Store results for export
+            currentResults = data;
+            
+            // Show results
+            resultsSection.classList.remove('hidden');
+            errorDisplay.classList.add('hidden');
+
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            errorDisplay.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = error.message || 'An error occurred';
+        }
+    }
+
+    // Form submission
+    calculatorForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const numbers = getNumbers();
+        if (numbers.length === 0) {
+            errorDisplay.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = 'Please enter at least one number.';
+            return;
+        }
+
+        loadingState.classList.remove('hidden');
+        errorDisplay.classList.add('hidden');
+        resultsSection.classList.add('hidden');
+
+        try {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ numbers: numbers })
+            });
+
+            const data = await response.json();
+            loadingState.classList.add('hidden');
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorDisplay.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = data.error || 'Calculation failed';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            loadingState.classList.add('hidden');
+            errorDisplay.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = 'Network error. Please try again.';
+        }
+    });
+
+    // Clear button
+    clearBtn.addEventListener('click', function() {
+        resultsSection.classList.add('hidden');
+        errorDisplay.classList.add('hidden');
+        if (inputMethod.value === 'comma') {
+            commaInput.value = '';
+        } else {
+            numberInputs.querySelectorAll('.number-input').forEach(input => input.value = '');
+        }
+    });
+
+    // Export button
+    exportBtn.addEventListener('click', function() {
+        if (!currentResults) {
+            alert('No results to export. Please calculate first.');
+            return;
+        }
+        
+        const resultsData = {
+            timestamp: new Date().toISOString(),
+            numbers: currentResults.numbers || [],
+            results: currentResults.results || {},
+            display_data: currentResults.display_data || {},
+            step_by_step: currentResults.step_by_step || []
+        };
+        
+        const blob = new Blob([JSON.stringify(resultsData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'average_calculator_results.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+</script>
+{% endblock %}

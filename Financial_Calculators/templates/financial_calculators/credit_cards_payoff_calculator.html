@@ -1,0 +1,509 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Credit Card Payoff Calculator - Pay Off Debt Faster" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate how long to pay off credit card debt. Compare debt snowball vs avalanche strategies. See how extra payments reduce interest." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'credit card payoff calculator, debt payoff, debt snowball, debt avalanche, credit card interest, pay off debt' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Credit Card Payoff Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate how to pay off credit card debt faster.' %}">
+<meta property="og:type" content="website">
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Credit Card Payoff Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Credit Card Payoff Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "See how long it will take to pay off your credit card debt and how much interest you'll pay. Compare strategies to become debt-free faster." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-5">
+                <div class="bg-white border border-gray-200 rounded-lg p-6 sticky top-4">
+                    <form id="calculatorForm" class="space-y-6">
+                        {% csrf_token %}
+                        
+                        <!-- Calculator Mode -->
+                        <div class="border-b border-gray-200 pb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Calculator Type" %}</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" class="calc-mode-btn active p-3 text-sm rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium" data-mode="single_card">{% trans "Single Card" %}</button>
+                                <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="multiple_cards">{% trans "Multiple Cards" %}</button>
+                            </div>
+                            <input type="hidden" id="calc_type" value="single_card">
+                        </div>
+
+                        <!-- Single Card Fields -->
+                        <div id="singleCardFields" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="balance">{% trans "Current Balance" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                    <input type="text" id="balance" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="5,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="apr">{% trans "APR (Interest Rate)" %}</label>
+                                <div class="relative">
+                                    <input type="number" id="apr" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="18.99" step="0.01" min="0" max="100">
+                                    <span class="absolute right-3 top-3 text-gray-500">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="fixed_payment">{% trans "Monthly Payment (Optional)" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                    <input type="text" id="fixed_payment" class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="200" placeholder="Fixed monthly payment">
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Leave empty to calculate with minimum payments only" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Multiple Cards Fields -->
+                        <div id="multipleCardsFields" class="hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Payoff Strategy" %}</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer">
+                                        <input type="radio" name="strategy" value="avalanche" class="h-4 w-4 text-blue-600" checked>
+                                        <div class="ml-2">
+                                            <span class="block text-sm font-medium text-gray-700">{% trans "Avalanche" %}</span>
+                                            <span class="text-xs text-gray-500">{% trans "Highest APR first" %}</span>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer">
+                                        <input type="radio" name="strategy" value="snowball" class="h-4 w-4 text-blue-600">
+                                        <div class="ml-2">
+                                            <span class="block text-sm font-medium text-gray-700">{% trans "Snowball" %}</span>
+                                            <span class="text-xs text-gray-500">{% trans "Lowest balance first" %}</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div id="cardsContainer" class="space-y-3">
+                                <!-- Card entries added dynamically -->
+                            </div>
+                            
+                            <button type="button" id="addCardBtn" class="w-full py-2 px-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition">
+                                + {% trans "Add Another Card" %}
+                            </button>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="extra_payment">{% trans "Extra Monthly Payment" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="extra_payment" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg" value="100">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition focus:ring-4 focus:ring-blue-200">
+                            {% trans "Calculate Payoff" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-7">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Enter Your Credit Card Details" %}</h3>
+                    <p class="text-gray-600">{% trans "Fill out the form to see your payoff timeline and total interest costs." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating payoff..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white border border-red-200 rounded-lg p-6">
+                    <div class="flex items-center text-red-600 mb-2">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="font-semibold">{% trans "Error" %}</span>
+                    </div>
+                    <p id="errorMessage" class="text-gray-700"></p>
+                </div>
+
+                <!-- Single Card Results -->
+                <div id="singleCardResults" class="hidden space-y-6">
+                    <!-- Savings Alert -->
+                    <div id="savingsAlert" class="hidden bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <svg class="w-6 h-6 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <p class="font-semibold text-green-800">{% trans "You'll save" %} <span id="interestSaved">$0</span> {% trans "in interest!" %}</p>
+                                <p class="text-sm text-green-700">{% trans "And pay off" %} <span id="monthsSaved">0</span> {% trans "months faster" %}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-xl p-5">
+                            <p class="text-gray-300 text-sm mb-1">{% trans "Minimum Payments Only" %}</p>
+                            <p class="text-3xl font-bold" id="minMonths">0 months</p>
+                            <div class="mt-3 pt-3 border-t border-white/20 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-300">{% trans "Total Interest:" %}</span><span id="minInterest">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-300">{% trans "Payoff Date:" %}</span><span id="minDate">-</span></div>
+                            </div>
+                        </div>
+                        <div id="fixedPaymentCard" class="hidden bg-gradient-to-br from-green-600 to-green-700 text-white rounded-xl p-5">
+                            <p class="text-green-100 text-sm mb-1">{% trans "With Fixed Payment" %}</p>
+                            <p class="text-3xl font-bold" id="fixedMonths">0 months</p>
+                            <div class="mt-3 pt-3 border-t border-white/20 text-sm">
+                                <div class="flex justify-between"><span class="text-green-100">{% trans "Total Interest:" %}</span><span id="fixedInterest">$0</span></div>
+                                <div class="flex justify-between"><span class="text-green-100">{% trans "Payoff Date:" %}</span><span id="fixedDate">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Schedule -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Payment Schedule" %}</h3>
+                        <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-700">{% trans "Month" %}</th>
+                                        <th class="px-3 py-2 text-right font-medium text-gray-700">{% trans "Payment" %}</th>
+                                        <th class="px-3 py-2 text-right font-medium text-gray-700">{% trans "Principal" %}</th>
+                                        <th class="px-3 py-2 text-right font-medium text-gray-700">{% trans "Interest" %}</th>
+                                        <th class="px-3 py-2 text-right font-medium text-gray-700">{% trans "Balance" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleBody" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multiple Cards Results -->
+                <div id="multipleCardsResults" class="hidden space-y-6">
+                    <div class="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-xl p-6 text-center">
+                        <p class="text-blue-100 text-sm mb-1">{% trans "Debt-Free In" %}</p>
+                        <p class="text-4xl font-bold" id="totalMonths">0 months</p>
+                        <p class="text-blue-200 mt-2" id="totalPayoffDate">{% trans "Payoff Date:" %} -</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Total Debt" %}</p>
+                            <p class="text-xl font-bold text-gray-900" id="totalDebt">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Total Interest" %}</p>
+                            <p class="text-xl font-bold text-red-600" id="multiInterest">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Total Paid" %}</p>
+                            <p class="text-xl font-bold text-gray-900" id="multiTotalPaid">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Payoff Order -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Payoff Order" %}</h3>
+                        <div id="payoffOrder" class="space-y-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Debt Avalanche vs Snowball" %}</h2>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <p class="font-semibold text-blue-800">{% trans "Avalanche Method" %}</p>
+                        <p class="text-blue-700">{% trans "Pay off highest APR first. Saves the most money on interest." %}</p>
+                    </div>
+                    <div class="p-3 bg-green-50 rounded-lg">
+                        <p class="font-semibold text-green-800">{% trans "Snowball Method" %}</p>
+                        <p class="text-green-700">{% trans "Pay off smallest balance first. Provides quick wins for motivation." %}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Tips to Pay Off Debt Faster" %}</h2>
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li class="flex items-start">
+                        <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>{% trans "Pay more than the minimum whenever possible" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>{% trans "Consider a balance transfer to a 0% APR card" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>{% trans "Stop using cards while paying them off" %}</span>
+                    </li>
+                </ul>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const modeBtns = document.querySelectorAll('.calc-mode-btn');
+    let cardCount = 0;
+    
+    // Initialize with one card for multiple cards mode
+    function addCard(name = '', balance = '', apr = '', minPayment = '') {
+        cardCount++;
+        const container = document.getElementById('cardsContainer');
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'p-3 bg-gray-50 rounded-lg space-y-2 card-entry';
+        cardDiv.innerHTML = `
+            <div class="flex justify-between items-center">
+                <input type="text" class="card-name px-2 py-1 text-sm border border-gray-300 rounded w-32" placeholder="Card name" value="${name || 'Card ' + cardCount}">
+                <button type="button" class="remove-card text-red-500 hover:text-red-700 text-sm">✕ Remove</button>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="block text-xs text-gray-500">Balance</label>
+                    <input type="text" class="card-balance w-full px-2 py-1 text-sm border border-gray-300 rounded" value="${balance || '2,000'}">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">APR %</label>
+                    <input type="number" class="card-apr w-full px-2 py-1 text-sm border border-gray-300 rounded" value="${apr || '19.99'}" step="0.01">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">Min Payment</label>
+                    <input type="text" class="card-min w-full px-2 py-1 text-sm border border-gray-300 rounded" value="${minPayment || '50'}">
+                </div>
+            </div>
+        `;
+        container.appendChild(cardDiv);
+        
+        cardDiv.querySelector('.remove-card').addEventListener('click', () => {
+            if (document.querySelectorAll('.card-entry').length > 1) {
+                cardDiv.remove();
+            }
+        });
+    }
+    
+    document.getElementById('addCardBtn').addEventListener('click', () => addCard());
+    
+    // Mode switching
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            modeBtns.forEach(b => {
+                b.classList.remove('active', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+                b.classList.add('border-gray-200', 'text-gray-600');
+            });
+            this.classList.add('active', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+            this.classList.remove('border-gray-200', 'text-gray-600');
+            
+            const mode = this.dataset.mode;
+            document.getElementById('calc_type').value = mode;
+            
+            document.getElementById('singleCardFields').classList.toggle('hidden', mode !== 'single_card');
+            document.getElementById('multipleCardsFields').classList.toggle('hidden', mode !== 'multiple_cards');
+            
+            if (mode === 'multiple_cards' && cardCount === 0) {
+                addCard('Credit Card 1', '3,000', '22.99', '75');
+                addCard('Credit Card 2', '1,500', '18.99', '50');
+            }
+        });
+    });
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+    }
+    
+    function parseNumber(str) {
+        return parseFloat(str.toString().replace(/[^0-9.-]/g, '')) || 0;
+    }
+    
+    function showState(state) {
+        document.getElementById('initialState').classList.add('hidden');
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.add('hidden');
+        document.getElementById('singleCardResults').classList.add('hidden');
+        document.getElementById('multipleCardsResults').classList.add('hidden');
+        
+        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
+        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
+        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
+        else if (state === 'single') document.getElementById('singleCardResults').classList.remove('hidden');
+        else if (state === 'multiple') document.getElementById('multipleCardsResults').classList.remove('hidden');
+    }
+    
+    form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+        showState('loading');
+        
+        const calcType = document.getElementById('calc_type').value;
+        let data = { calc_type: calcType };
+        
+        if (calcType === 'single_card') {
+            data.balance = parseNumber(document.getElementById('balance').value);
+            data.apr = parseFloat(document.getElementById('apr').value) || 0;
+            data.fixed_payment = parseNumber(document.getElementById('fixed_payment').value);
+        } else {
+            data.strategy = document.querySelector('input[name="strategy"]:checked').value;
+            data.extra_payment = parseNumber(document.getElementById('extra_payment').value);
+            data.cards = [];
+            document.querySelectorAll('.card-entry').forEach(entry => {
+                data.cards.push({
+                    name: entry.querySelector('.card-name').value,
+                    balance: parseNumber(entry.querySelector('.card-balance').value),
+                    apr: parseFloat(entry.querySelector('.card-apr').value) || 0,
+                    min_payment: parseNumber(entry.querySelector('.card-min').value)
+                });
+            });
+        }
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (calcType === 'single_card') {
+                    displaySingleResults(result);
+                    showState('single');
+                } else {
+                    displayMultipleResults(result);
+                    showState('multiple');
+                }
+            } else {
+                document.getElementById('errorMessage').textContent = result.error || 'An error occurred';
+                showState('error');
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+            showState('error');
+        }
+    });
+    
+    function displaySingleResults(result) {
+        // Minimum payment results
+        document.getElementById('minMonths').textContent = result.minimum_payment.months + ' months';
+        document.getElementById('minInterest').textContent = formatCurrency(result.minimum_payment.total_interest);
+        document.getElementById('minDate').textContent = result.minimum_payment.payoff_date;
+        
+        // Fixed payment results
+        const fixedCard = document.getElementById('fixedPaymentCard');
+        const savingsAlert = document.getElementById('savingsAlert');
+        
+        if (result.fixed_payment) {
+            fixedCard.classList.remove('hidden');
+            document.getElementById('fixedMonths').textContent = result.fixed_payment.months + ' months';
+            document.getElementById('fixedInterest').textContent = formatCurrency(result.fixed_payment.total_interest);
+            document.getElementById('fixedDate').textContent = result.fixed_payment.payoff_date;
+            
+            if (result.savings && result.savings.interest_saved > 0) {
+                savingsAlert.classList.remove('hidden');
+                document.getElementById('interestSaved').textContent = formatCurrency(result.savings.interest_saved);
+                document.getElementById('monthsSaved').textContent = result.savings.months_saved;
+            } else {
+                savingsAlert.classList.add('hidden');
+            }
+        } else {
+            fixedCard.classList.add('hidden');
+            savingsAlert.classList.add('hidden');
+        }
+        
+        // Schedule
+        const tbody = document.getElementById('scheduleBody');
+        tbody.innerHTML = '';
+        result.schedule.forEach((row, idx) => {
+            const tr = document.createElement('tr');
+            tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            tr.innerHTML = `
+                <td class="px-3 py-2 text-gray-900">${row.month}</td>
+                <td class="px-3 py-2 text-right">${formatCurrency(row.payment)}</td>
+                <td class="px-3 py-2 text-right text-green-600">${formatCurrency(row.principal)}</td>
+                <td class="px-3 py-2 text-right text-red-600">${formatCurrency(row.interest)}</td>
+                <td class="px-3 py-2 text-right font-medium">${formatCurrency(row.balance)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function displayMultipleResults(result) {
+        document.getElementById('totalMonths').textContent = result.payoff.months + ' months';
+        document.getElementById('totalPayoffDate').textContent = 'Debt-free by ' + result.payoff.payoff_date;
+        document.getElementById('totalDebt').textContent = formatCurrency(result.total_balance);
+        document.getElementById('multiInterest').textContent = formatCurrency(result.payoff.total_interest);
+        document.getElementById('multiTotalPaid').textContent = formatCurrency(result.payoff.total_paid);
+        
+        // Payoff order
+        const orderDiv = document.getElementById('payoffOrder');
+        orderDiv.innerHTML = '';
+        result.payoff.paid_off_order.forEach((card, idx) => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+            div.innerHTML = `
+                <div class="flex items-center">
+                    <span class="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-medium mr-3">${idx + 1}</span>
+                    <span class="font-medium text-gray-900">${card.name}</span>
+    </div>
+                <div class="text-right">
+                    <span class="text-sm text-gray-600">Month ${card.month}</span>
+                    <span class="text-sm text-gray-500 ml-2">(${card.date})</span>
+</div>
+            `;
+            orderDiv.appendChild(div);
+        });
+    }
+});
+</script>
+{% endblock %}

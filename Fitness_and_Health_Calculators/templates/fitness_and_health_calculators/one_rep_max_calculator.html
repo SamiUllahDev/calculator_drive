@@ -1,0 +1,850 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "One Rep Max Calculator" %} - {% trans "Calculate 1RM" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your one rep max (1RM) using multiple proven formulas. Includes training percentages, rep estimates, and comprehensive strength analysis." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'one rep max calculator, 1RM calculator, max strength calculator, training percentages, strength calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'One Rep Max Calculator' %} - {% trans 'Calculate 1RM' %}">
+<meta property="og:description" content="{% trans 'Calculate your one rep max using multiple proven formulas.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'One Rep Max Calculator' %}",
+    "description": "{% trans 'Calculate one rep max using multiple formulas' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "One Rep Max Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Estimate your one rep max (1RM) using multiple proven formulas. Get training percentages, rep estimates, and comprehensive strength analysis." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Lift" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Metric" %} (kg)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2">
+                                    <span class="text-sm">{% trans "Imperial" %} (lbs)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Weight Lifted" %} <span id="weightUnit">(kg)</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="weight" name="weight" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="100" value="100" min="0.1" max="1000" step="0.1" required>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Enter the weight you lifted" %}</p>
+                        </div>
+
+                        <!-- Reps -->
+                        <div>
+                            <label for="reps" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Reps Performed" %}</label>
+                            <div class="relative">
+                                <input type="number" id="reps" name="reps" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="10" value="10" min="1" max="30" step="1" required>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-30 reps" %}</p>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate 1RM" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                        </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter the weight you lifted and the number of reps performed, then click Calculate to see your estimated one rep max with detailed analysis." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Estimated One Rep Max" %}</p>
+                            <p id="oneRmValue" class="text-5xl sm:text-6xl font-bold mb-2">0.0</p>
+                            <p class="text-sm opacity-90"><span id="oneRmUnit">kg</span></p>
+                            <p class="text-sm opacity-90 mt-2" id="oneRmNote">{% trans "Average of all formulas" %}</p>
+                            <div id="categoryBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="categoryTextBadge">-</span>
+                            </div>
+                        </div>
+                </div>
+
+                    <!-- Input Summary Cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Weight Lifted" %}</p>
+                                <p id="inputWeight" class="text-lg font-bold text-gray-900">0 <span id="inputWeightUnit">kg</span></p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Reps Performed" %}</p>
+                                <p id="inputReps" class="text-lg font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- 1RM Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "1RM Gauge" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="gaugeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Formulas Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Formulas Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="formulasChart"></canvas>
+                            </div>
+                    </div>
+                </div>
+
+                    <!-- Training Percentages Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Training Percentages" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="trainingChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Training Percentages Grid -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Training Percentages" %}</h3>
+                        <div id="trainingPercentages" class="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Max Reps Estimates -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Estimated Max Reps at Different Percentages" %}</h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="repsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Category Description -->
+                    <div id="categoryCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Strength Level Category" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="categoryBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="categoryDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is 1RM Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is One Rep Max (1RM)?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "One Rep Max (1RM) is the maximum amount of weight you can lift for a single repetition of a given exercise. It's a fundamental metric in strength training used to:" %}
+                            </p>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm mb-3">
+                                <li>{% trans "Determine training intensities (percentages of 1RM)" %}</li>
+                                <li>{% trans "Track strength progress over time" %}</li>
+                                <li>{% trans "Design periodized training programs" %}</li>
+                                <li>{% trans "Compare strength levels" %}</li>
+                            </ul>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Since testing your true 1RM can be dangerous and requires proper preparation, calculators use formulas to estimate it based on submaximal lifts (lighter weights for multiple reps)." %}
+                            </p>
+                        </div>
+
+                        <!-- Formulas Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "1RM Calculation Formulas" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Brzycki Formula" %}</h4>
+                                    <p class="text-sm text-blue-800 mb-1">1RM = Weight / (1.0278 - 0.0278 × Reps)</p>
+                                    <p class="text-xs text-blue-700">{% trans "Most popular formula. Generally accurate for 1-10 reps." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Epley Formula" %}</h4>
+                                    <p class="text-sm text-green-800 mb-1">1RM = Weight × (1 + Reps/30)</p>
+                                    <p class="text-xs text-green-700">{% trans "Simple and widely used. Good for moderate rep ranges." %}</p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Lombardi Formula" %}</h4>
+                                    <p class="text-sm text-yellow-800 mb-1">1RM = Weight × Reps^0.10</p>
+                                    <p class="text-xs text-yellow-700">{% trans "Power-based formula. Works well for higher rep ranges." %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "O'Conner Formula" %}</h4>
+                                    <p class="text-sm text-purple-800 mb-1">1RM = Weight × (1 + Reps/40)</p>
+                                    <p class="text-xs text-purple-700">{% trans "Conservative estimate. Good for beginners." %}</p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Mayhew Formula" %}</h4>
+                                    <p class="text-sm text-red-800 mb-1">1RM = (Weight × 100) / (52.2 + 41.9 × e^(-0.055 × Reps))</p>
+                                    <p class="text-xs text-red-700">{% trans "Exponential formula. Accurate across wide rep ranges." %}</p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Wathan Formula" %}</h4>
+                                    <p class="text-sm text-indigo-800 mb-1">1RM = (Weight × 100) / (48.8 + 53.8 × e^(-0.075 × Reps))</p>
+                                    <p class="text-xs text-indigo-700">{% trans "Another exponential formula. Good alternative to Mayhew." %}</p>
+                                </div>
+                            </div>
+                            <p class="text-gray-700 text-sm mt-3">
+                                {% trans "The calculator uses the average of all formulas for the most accurate estimate. Different formulas may give slightly different results, which is why using multiple formulas and averaging provides the best estimate." %}
+                            </p>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter the weight you successfully lifted (use a weight you can lift for the specified reps with good form)" %}</li>
+                                <li>{% trans "Enter the number of reps you performed (1-30 reps)" %}</li>
+                                <li>{% trans "Click 'Calculate 1RM' to see your estimated one rep max" %}</li>
+                                <li>{% trans "Review the training percentages and rep estimates for program design" %}</li>
+                                <li>{% trans "Use the results to plan your training intensities" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Estimated 1RM" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The average of all formulas. This is your best estimate of your true one rep max. Use this as your reference point for training." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Training Percentages" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The weight you should lift at different percentages of your 1RM. Common training zones: 50-60% (endurance), 70-80% (hypertrophy), 85-95% (strength), 100% (maximal strength)." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Estimated Max Reps" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Approximate number of reps you could perform at different percentages of your 1RM. Useful for rep-based training programs." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Formula Comparison" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows how different formulas estimate your 1RM. The range gives you an idea of the uncertainty in the estimate." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Training Zones Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Training Zones by Percentage" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "50-60%: Endurance Zone" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "High volume, low intensity. Builds muscular endurance and work capacity. 12-20+ reps." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "70-80%: Hypertrophy Zone" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Moderate volume and intensity. Optimal for muscle growth. 8-12 reps." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "85-95%: Strength Zone" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "High intensity, lower volume. Builds maximal strength. 1-5 reps." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "95-100%: Maximal Strength" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Peak intensity. Used sparingly for testing or peaking. 1 rep only." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "1RM estimates are most accurate when using 1-10 reps. Accuracy decreases with higher rep counts." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Always use a weight you can lift with proper form. Poor form leads to inaccurate estimates and injury risk." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "1RM varies by exercise. Bench press, squat, and deadlift will have different 1RMs. Calculate separately for each." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "If you want to test your true 1RM, do so with proper warm-up, spotters, and safety equipment. Consider working with a qualified strength coach." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let gaugeChart = null;
+let formulasChart = null;
+let trainingChart = null;
+let repsChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const weightUnit = document.getElementById('weightUnit');
+
+    // Unit system toggle
+    document.querySelectorAll('input[name="unit_system"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const unit = this.value === 'metric' ? '(kg)' : '(lbs)';
+            weightUnit.textContent = unit;
+            // Clear results when switching units
+            if (results) results.classList.add('hidden');
+            if (initialState) initialState.classList.remove('hidden');
+        });
+    });
+
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('weight').value = '100';
+        document.getElementById('reps').value = '10';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (gaugeChart) gaugeChart.destroy();
+        if (formulasChart) formulasChart.destroy();
+        if (trainingChart) trainingChart.destroy();
+        if (repsChart) repsChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
+            weight: parseFloat(document.getElementById('weight').value),
+            reps: parseInt(document.getElementById('reps').value)
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate 1RM" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Update main 1RM value
+            const oneRmValueEl = document.getElementById('oneRmValue');
+            const oneRmUnitEl = document.getElementById('oneRmUnit');
+            if (oneRmValueEl) oneRmValueEl.textContent = data.one_rm.toLocaleString();
+            if (oneRmUnitEl) oneRmUnitEl.textContent = data.unit;
+            
+            // Update input summary
+            document.getElementById('inputWeight').innerHTML = data.weight.toLocaleString() + ' <span>' + data.unit + '</span>';
+            document.getElementById('inputReps').textContent = data.reps;
+            
+            // Update category badge
+            const categoryBadge = document.getElementById('categoryBadge');
+            const categoryTextBadge = document.getElementById('categoryTextBadge');
+            const categoryBadgeCard = document.getElementById('categoryBadgeCard');
+            const categoryDescription = document.getElementById('categoryDescription');
+            
+            if (categoryTextBadge) categoryTextBadge.textContent = data.category;
+            if (categoryDescription && data.category_description) {
+                categoryDescription.textContent = data.category_description;
+            }
+            if (categoryBadge && data.color_info) {
+                categoryBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+            }
+            if (categoryBadgeCard && data.color_info) {
+                const colors = {
+                    'blue': 'bg-blue-600',
+                    'green': 'bg-green-600',
+                    'yellow': 'bg-yellow-600',
+                    'orange': 'bg-orange-600',
+                    'red': 'bg-red-600'
+                };
+                categoryBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.category_color] || 'bg-gray-600');
+                categoryBadgeCard.textContent = data.category;
+            }
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'red': 'bg-gradient-to-br from-red-600 to-red-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.category_color] || 'bg-gradient-to-br from-gray-600 to-gray-700');
+            }
+            
+            // Update training percentages grid
+            const percentagesDiv = document.getElementById('trainingPercentages');
+            percentagesDiv.innerHTML = Object.entries(data.training_percentages).map(([pct, weight]) => `
+                <div class="border-2 border-gray-200 rounded-lg p-3 text-center hover:border-blue-500 transition-all">
+                    <p class="text-xs text-gray-600 mb-1 font-medium">${pct}%</p>
+                    <p class="font-bold text-gray-900 text-sm">${weight.toLocaleString()} ${data.unit}</p>
+                    ${data.max_reps_estimates[pct] ? `<p class="text-xs text-gray-500 mt-1">~${data.max_reps_estimates[pct]} reps</p>` : ''}
+                </div>
+            `).join('');
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.gauge_chart) {
+                    createGaugeChart(data.chart_data.gauge_chart);
+                }
+                if (data.chart_data.formulas_chart) {
+                    createFormulasChart(data.chart_data.formulas_chart);
+                }
+                if (data.chart_data.training_chart) {
+                    createTrainingChart(data.chart_data.training_chart, data.unit);
+                }
+                if (data.chart_data.reps_chart) {
+                    createRepsChart(data.chart_data.reps_chart);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createGaugeChart(chartData) {
+        const ctx = document.getElementById('gaugeChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (gaugeChart) {
+            gaugeChart.destroy();
+        }
+        
+        if (!chartData || !chartData.center_text) return;
+        
+        const centerText = chartData.center_text;
+        const oneRmColor = centerText.color;
+        
+        try {
+            gaugeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = oneRmColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value.toLocaleString(), centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating gauge chart:', error);
+        }
+    }
+    
+    function createFormulasChart(chartData) {
+        const ctx = document.getElementById('formulasChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (formulasChart) {
+            formulasChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            formulasChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating formulas chart:', error);
+        }
+    }
+    
+    function createTrainingChart(chartData, unit) {
+        const ctx = document.getElementById('trainingChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (trainingChart) {
+            trainingChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            trainingChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toLocaleString() + ' ' + unit;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' ' + unit;
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating training chart:', error);
+        }
+    }
+    
+    function createRepsChart(chartData) {
+        const ctx = document.getElementById('repsChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (repsChart) {
+            repsChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            repsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ~' + context.parsed.y + ' reps';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                stepSize: 1,
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating reps chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

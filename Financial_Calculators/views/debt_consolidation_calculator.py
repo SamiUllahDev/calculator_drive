@@ -1,0 +1,198 @@
+from django.views import View
+from django.shortcuts import render
+from django.http import JsonResponse
+import json
+import numpy as np
+
+
+class DebtConsolidationCalculator(View):
+    """
+    Class-based view for Debt Consolidation Calculator
+    Analyzes consolidating multiple debts into a single loan.
+    """
+    template_name = 'financial_calculators/debt_consolidation_calculator.html'
+
+    def get(self, request):
+        """Handle GET request"""
+        context = {
+            'calculator_name': 'Debt Consolidation Calculator',
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        """Handle POST request for debt consolidation calculations"""
+        try:
+            data = json.loads(request.body)
+
+            # Get existing debts
+            debts = data.get('debts', [])
+            
+            if not debts or len(debts) == 0:
+                return JsonResponse({'success': False, 'error': 'Please add at least one debt.'}, status=400)
+
+            # Consolidation loan details
+            consolidation_rate = float(str(data.get('consolidation_rate', 0)).replace(',', ''))
+            consolidation_term = int(data.get('consolidation_term', 60))  # months
+            consolidation_fees = float(str(data.get('consolidation_fees', 0)).replace(',', ''))
+
+            # Process existing debts
+            debt_details = []
+            total_balance = 0
+            total_monthly_payment = 0
+            weighted_rate_sum = 0
+
+            for debt in debts:
+                balance = float(str(debt.get('balance', 0)).replace(',', ''))
+                rate = float(str(debt.get('rate', 0)).replace(',', ''))
+                payment = float(str(debt.get('payment', 0)).replace(',', ''))
+                name = debt.get('name', f'Debt {len(debt_details) + 1}')
+
+                if balance <= 0:
+                    continue
+
+                # Calculate payoff time and total interest for this debt
+                monthly_rate = rate / 100 / 12
+                months = 0
+                remaining = balance
+                total_interest = 0
+
+                while remaining > 0 and months < 600:
+                    interest = remaining * monthly_rate
+                    principal = payment - interest
+                    if principal <= 0:
+                        months = 999  # Infinite - payment too low
+                        break
+                    remaining -= principal
+                    total_interest += interest
+                    months += 1
+
+                total_balance += balance
+                total_monthly_payment += payment
+                weighted_rate_sum += balance * rate
+
+                debt_details.append({
+                    'name': name,
+                    'balance': round(balance, 2),
+                    'rate': rate,
+                    'payment': round(payment, 2),
+                    'months_to_payoff': months if months < 999 else 'N/A',
+                    'total_interest': round(total_interest, 2) if months < 999 else 'N/A',
+                    'total_cost': round(balance + total_interest, 2) if months < 999 else 'N/A'
+                })
+
+            if total_balance <= 0:
+                return JsonResponse({'success': False, 'error': 'Total debt balance must be greater than zero.'}, status=400)
+
+            # Weighted average interest rate
+            weighted_avg_rate = weighted_rate_sum / total_balance if total_balance > 0 else 0
+
+            # Calculate current situation totals
+            current_total_interest = sum([d['total_interest'] for d in debt_details if d['total_interest'] != 'N/A'])
+            current_max_months = max([d['months_to_payoff'] for d in debt_details if d['months_to_payoff'] != 'N/A'], default=0)
+
+            # Consolidation loan calculation
+            consolidation_balance = total_balance + consolidation_fees
+            monthly_rate_consol = consolidation_rate / 100 / 12
+
+            if monthly_rate_consol > 0:
+                consolidation_payment = consolidation_balance * (monthly_rate_consol * np.power(1 + monthly_rate_consol, consolidation_term)) / (np.power(1 + monthly_rate_consol, consolidation_term) - 1)
+            else:
+                consolidation_payment = consolidation_balance / consolidation_term
+
+            consolidation_total = consolidation_payment * consolidation_term
+            consolidation_interest = consolidation_total - consolidation_balance
+
+            # Comparison
+            monthly_savings = total_monthly_payment - consolidation_payment
+            total_interest_savings = current_total_interest - consolidation_interest
+            time_difference = current_max_months - consolidation_term
+
+            # Break-even analysis (if there are upfront fees)
+            if consolidation_fees > 0 and monthly_savings > 0:
+                break_even_months = consolidation_fees / monthly_savings
+            else:
+                break_even_months = 0
+
+            # Generate amortization schedule for consolidated loan
+            schedule = []
+            balance = consolidation_balance
+            total_int_paid = 0
+
+            for month in range(1, consolidation_term + 1):
+                interest = balance * monthly_rate_consol
+                principal = consolidation_payment - interest
+                if principal > balance:
+                    principal = balance
+                balance = max(0, balance - principal)
+                total_int_paid += interest
+
+                if month <= 12 or month % 12 == 0 or month == consolidation_term:
+                    schedule.append({
+                        'month': month,
+                        'payment': round(consolidation_payment, 2),
+                        'principal': round(principal, 2),
+                        'interest': round(interest, 2),
+                        'balance': round(balance, 2),
+                        'total_interest': round(total_int_paid, 2)
+                    })
+
+            # Recommendation
+            if total_interest_savings > 0 and monthly_savings > 0:
+                recommendation = "Consolidation is beneficial - you'll save money and pay off debt faster."
+                recommendation_class = "positive"
+            elif total_interest_savings > 0:
+                recommendation = "Consolidation saves interest but increases monthly payment."
+                recommendation_class = "neutral"
+            elif monthly_savings > 0:
+                recommendation = "Consolidation lowers monthly payment but costs more in total interest."
+                recommendation_class = "neutral"
+            else:
+                recommendation = "Consolidation may not be beneficial with these terms."
+                recommendation_class = "negative"
+
+            result = {
+                'success': True,
+                'current_debts': {
+                    'details': debt_details,
+                    'total_balance': round(total_balance, 2),
+                    'total_monthly_payment': round(total_monthly_payment, 2),
+                    'weighted_avg_rate': round(weighted_avg_rate, 2),
+                    'total_interest': round(current_total_interest, 2),
+                    'longest_payoff_months': current_max_months,
+                    'longest_payoff_years': round(current_max_months / 12, 1)
+                },
+                'consolidation_loan': {
+                    'total_balance': round(consolidation_balance, 2),
+                    'original_debt': round(total_balance, 2),
+                    'fees': round(consolidation_fees, 2),
+                    'interest_rate': consolidation_rate,
+                    'term_months': consolidation_term,
+                    'term_years': round(consolidation_term / 12, 1),
+                    'monthly_payment': round(consolidation_payment, 2),
+                    'total_interest': round(consolidation_interest, 2),
+                    'total_cost': round(consolidation_total, 2)
+                },
+                'comparison': {
+                    'monthly_savings': round(monthly_savings, 2),
+                    'total_interest_savings': round(total_interest_savings, 2),
+                    'time_difference_months': time_difference,
+                    'rate_difference': round(weighted_avg_rate - consolidation_rate, 2),
+                    'break_even_months': round(break_even_months, 1) if break_even_months > 0 else None
+                },
+                'recommendation': recommendation,
+                'recommendation_class': recommendation_class,
+                'schedule': schedule,
+                'chart_data': {
+                    'current_interest': round(current_total_interest, 2),
+                    'consolidation_interest': round(consolidation_interest, 2),
+                    'current_principal': round(total_balance, 2),
+                    'consolidation_principal': round(consolidation_balance, 2)
+                }
+            }
+
+            return JsonResponse(result)
+
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)

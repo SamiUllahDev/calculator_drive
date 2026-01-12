@@ -1,0 +1,825 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Army Body Fat Calculator" %} - {% trans "US Army Body Fat Standards" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate body fat percentage using US Army measurement standards. Check if you meet Army body fat requirements." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Army Body Fat Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate body fat percentage using US Army measurement standards. Check if you meet Army body fat requirements." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Measurements" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gender" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="male" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Male" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="female" class="mr-2">
+                                    <span class="text-sm">{% trans "Female" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Age -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Age" %}</label>
+                            <input type="number" id="age" name="age" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="25" min="17" max="65" step="1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 17-65 years" %}</p>
+                        </div>
+
+                        <!-- Height -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %} ({% trans "inches" %})</label>
+                            <input type="number" id="height" name="height" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="70" min="48" max="84" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 48-84 inches" %}</p>
+                        </div>
+
+                        <!-- Neck -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Neck" %} ({% trans "inches" %})</label>
+                            <input type="number" id="neck" name="neck" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="15" min="10" max="25" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Measure around the neck, just below the larynx" %}</p>
+                        </div>
+
+                        <!-- Waist -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Waist" %} ({% trans "inches" %})</label>
+                            <input type="number" id="waist" name="waist" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="32" min="20" max="60" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Measure at the navel level" %}</p>
+                        </div>
+
+                        <!-- Hip (for females) -->
+                        <div id="hipContainer" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Hip" %} ({% trans "inches" %}) 
+                                <span class="text-xs text-gray-500">{% trans "Required for females" %}</span>
+                            </label>
+                            <input type="number" id="hip" name="hip" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="38" min="20" max="60" step="0.1">
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Measure at the widest point" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Body Fat" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your measurements and click Calculate to see your body fat percentage and Army standards assessment." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Body Fat Percentage" %}</p>
+                            <p id="bodyFatPercent" class="text-5xl sm:text-6xl font-bold mb-2">0.0%</p>
+                            <div id="statusBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="statusText">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Category" %}</p>
+                                <p id="category" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Max Allowed" %}</p>
+                                <p id="maxAllowed" class="text-sm font-bold text-gray-900">0%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Difference" %}</p>
+                                <p id="difference" class="text-sm font-bold text-gray-900">0%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Status" %}</p>
+                                <p id="statusDisplay" class="text-xs font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Body Fat Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Body Fat Gauge" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="bodyFatGaugeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Standards Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Army Standards" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="standardsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Your Body Fat vs Max Allowed" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Body Fat Scale Visualization -->
+                    <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 sm:p-6 border-2 border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Body Fat Scale" %}</h3>
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between text-xs text-gray-600 mb-2 px-1">
+                                <span>{% trans "Excellent" %}</span>
+                                <span>{% trans "Good" %}</span>
+                                <span>{% trans "Acceptable" %}</span>
+                                <span>{% trans "Over Limit" %}</span>
+                            </div>
+                            <div class="relative h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                                <div class="absolute inset-0 flex">
+                                    <div class="flex-1 bg-green-500"></div>
+                                    <div class="flex-1 bg-green-400"></div>
+                                    <div class="flex-1 bg-yellow-400"></div>
+                                    <div class="flex-1 bg-red-500"></div>
+                                </div>
+                                <div id="bodyFatIndicator" class="absolute top-0 w-1.5 h-full bg-gray-900 shadow-lg transform -translate-x-1/2 transition-all duration-500 z-10 left-0"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500 mt-1 px-1">
+                                <span id="scaleMin">0%</span>
+                                <span id="scaleMax">0%</span>
+                            </div>
+                        </div>
+                        <p id="scaleDescription" class="text-center text-sm text-gray-600 mt-4"></p>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Army Body Fat Calculator Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Army Body Fat Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "The US Army Body Fat Calculator uses a specific measurement-based formula to estimate body fat percentage. This method is used by the US Army to determine if service members meet body composition standards required for military service." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Unlike BMI, this calculator uses actual body measurements (neck, waist, and hip circumference) along with height to provide a more accurate assessment of body fat percentage." %}
+                            </p>
+                        </div>
+
+                        <!-- Army Standards Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "US Army Body Fat Standards" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Males" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Ages 17-20: Max 20% | Ages 21-27: Max 22% | Ages 28-39: Max 24% | Ages 40+: Max 26%" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Females" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Ages 17-20: Max 30% | Ages 21-27: Max 32% | Ages 28-39: Max 34% | Ages 40+: Max 36%" %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your gender (Male or Female)" %}</li>
+                                <li>{% trans "Enter your age (17-65 years)" %}</li>
+                                <li>{% trans "Enter your height in inches" %}</li>
+                                <li>{% trans "Measure and enter your neck circumference (just below the larynx)" %}</li>
+                                <li>{% trans "Measure and enter your waist circumference (at the navel level)" %}</li>
+                                <li>{% trans "For females, measure and enter your hip circumference (widest point)" %}</li>
+                                <li>{% trans "Click 'Calculate Body Fat' to see your results" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Measurement Instructions Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Take Measurements" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Neck Measurement" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Measure around the neck, just below the larynx (Adam's apple). Keep the tape measure horizontal and snug but not tight." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Waist Measurement" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Measure at the navel level (belly button), not at the narrowest point. Stand straight, breathe normally, and measure at the end of a normal breath." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Hip Measurement (Females Only)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Measure around the hips at the widest point. This is typically around the buttocks area. Keep the tape measure horizontal." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Body Fat Percentage" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your calculated body fat percentage based on the US Army formula. This is an estimate and may vary from other measurement methods." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Maximum Allowed" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The maximum body fat percentage allowed for your age and gender according to US Army standards. If your percentage is below this, you pass." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Pass/Fail Status" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Indicates whether you meet the Army body fat standards. 'Pass' means you're within the allowed range, 'Fail' means you exceed it." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Difference" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The difference between your body fat percentage and the maximum allowed. Positive values mean you're over the limit, negative values mean you're under." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Explanation Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Body Fat Gauge Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A circular gauge showing your body fat percentage visually. The color corresponds to your status (green for pass, yellow/orange/red for fail)." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Army Standards Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows different body fat ranges (Excellent, Good, Acceptable, Over Limit). Your current percentage is highlighted in the appropriate range." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Comparison Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A direct comparison between your body fat percentage and the maximum allowed for your age and gender group." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Body Fat Scale" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A visual scale showing body fat ranges with a marker indicating your current position relative to Army standards." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Army Formula Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "US Army Body Fat Formula" %}</h3>
+                            <div class="space-y-3">
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "For Males:" %}</p>
+                                    <p class="font-mono text-sm">{% trans "Body Fat % = 86.010 × log10(waist - neck) - 70.041 × log10(height) + 36.76" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "For Females:" %}</p>
+                                    <p class="font-mono text-sm">{% trans "Body Fat % = 163.205 × log10(waist + hip - neck) - 97.684 × log10(height) - 78.387" %}</p>
+                                </div>
+                                <p class="text-gray-700 text-sm">
+                                    {% trans "All measurements are in inches. The formula uses logarithmic calculations to estimate body fat percentage based on body circumference measurements." %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator uses the US Army body fat estimation formula. Actual body fat percentage may vary when measured with more precise methods like DEXA scan or hydrostatic weighing." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Accurate measurements are crucial. Measure at the same time of day, preferably in the morning before eating." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. Official Army body fat assessments are conducted by trained personnel using standardized procedures." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Body fat standards may change. Always refer to the latest official US Army regulations for current requirements." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Tips for Meeting Standards Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips for Meeting Army Standards" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p>{% trans "If you're over the body fat limit, consider:" %}</p>
+                                <ul class="list-disc list-inside space-y-1 ml-4">
+                                    <li>{% trans "Regular cardiovascular exercise (running, cycling, swimming)" %}</li>
+                                    <li>{% trans "Strength training to build lean muscle mass" %}</li>
+                                    <li>{% trans "A balanced diet with appropriate calorie intake" %}</li>
+                                    <li>{% trans "Consistent sleep schedule and stress management" %}</li>
+                                    <li>{% trans "Consulting with a healthcare provider or fitness professional" %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let bodyFatGaugeChart = null;
+let standardsChart = null;
+let comparisonChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const hipContainer = document.getElementById('hipContainer');
+    const resultCard = document.getElementById('resultCard');
+
+    // Gender toggle - show/hide hip field
+    document.querySelectorAll('input[name="gender"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'female') {
+                hipContainer.classList.remove('hidden');
+                document.getElementById('hip').required = true;
+            } else {
+                hipContainer.classList.add('hidden');
+                document.getElementById('hip').required = false;
+                document.getElementById('hip').value = 0;
+            }
+            // Clear results when switching gender
+            if (results) results.classList.add('hidden');
+            if (initialState) initialState.classList.remove('hidden');
+        });
+    });
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            gender: document.querySelector('input[name="gender"]:checked').value,
+            age: parseInt(document.getElementById('age').value),
+            height: parseFloat(document.getElementById('height').value),
+            neck: parseFloat(document.getElementById('neck').value),
+            waist: parseFloat(document.getElementById('waist').value),
+            hip: parseFloat(document.getElementById('hip').value) || 0
+        };
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : 'Calculate Body Fat';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update body fat percentage
+            const bodyFatPercentEl = document.getElementById('bodyFatPercent');
+            if (bodyFatPercentEl) bodyFatPercentEl.textContent = data.body_fat_percent.toFixed(1) + '%';
+
+            // Update status badge
+            const statusBadge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            if (statusText) statusText.textContent = data.status;
+            if (statusBadge && data.color_info) {
+                statusBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+            }
+
+            // Update stats
+            const categoryEl = document.getElementById('category');
+            const maxAllowedEl = document.getElementById('maxAllowed');
+            const differenceEl = document.getElementById('difference');
+            const statusDisplayEl = document.getElementById('statusDisplay');
+
+            if (categoryEl && data.category) categoryEl.textContent = data.category;
+            if (maxAllowedEl) maxAllowedEl.textContent = data.max_allowed + '%';
+            if (differenceEl) {
+                const diff = data.difference;
+                differenceEl.textContent = (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
+                differenceEl.className = diff > 0 ? 'text-sm font-bold text-red-700' : 'text-sm font-bold text-green-700';
+            }
+            if (statusDisplayEl) statusDisplayEl.textContent = data.status;
+
+            // Update result card color
+            const colors = {
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'red': 'bg-gradient-to-br from-red-600 to-red-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.category_color] || 'bg-gradient-to-br from-gray-600 to-gray-700');
+            }
+
+            // Update body fat scale indicator
+            const bodyFatIndicator = document.getElementById('bodyFatIndicator');
+            const scaleMin = document.getElementById('scaleMin');
+            const scaleMax = document.getElementById('scaleMax');
+            const scaleDescription = document.getElementById('scaleDescription');
+            
+            if (bodyFatIndicator && data.scale_position !== undefined) {
+                bodyFatIndicator.style.left = data.scale_position + '%';
+            }
+            if (scaleMin) scaleMin.textContent = '0%';
+            if (scaleMax) scaleMax.textContent = (data.max_allowed * 1.5).toFixed(0) + '%';
+            if (scaleDescription) {
+                scaleDescription.textContent = `Your body fat: ${data.body_fat_percent.toFixed(1)}% | Max allowed: ${data.max_allowed}%`;
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.gauge_chart) {
+                    createBodyFatGaugeChart(data.chart_data.gauge_chart);
+                }
+                if (data.chart_data.standards_chart) {
+                    createStandardsChart(data.chart_data.standards_chart);
+                }
+                if (data.chart_data.comparison_chart) {
+                    createComparisonChart(data.chart_data.comparison_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createBodyFatGaugeChart(chartData) {
+        const ctx = document.getElementById('bodyFatGaugeChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (bodyFatGaugeChart) {
+            bodyFatGaugeChart.destroy();
+        }
+
+        if (!chartData || !chartData.center_text) return;
+
+        const centerText = chartData.center_text;
+        const bodyFatColor = centerText.color;
+
+        try {
+            bodyFatGaugeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = bodyFatColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value, centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating gauge chart:', error);
+        }
+    }
+
+    function createStandardsChart(chartData) {
+        const ctx = document.getElementById('standardsChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (standardsChart) {
+            standardsChart.destroy();
+        }
+
+        if (!chartData || !chartData.data || !chartData.data.datasets) return;
+
+        try {
+            standardsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.parsed.x === 0) return '';
+                                    return `Body Fat: ${context.parsed.x.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 50,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                stepSize: 5,
+                                font: { size: 11 }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating standards chart:', error);
+        }
+    }
+
+    function createComparisonChart(chartData) {
+        const ctx = document.getElementById('comparisonChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (comparisonChart) {
+            comparisonChart.destroy();
+        }
+
+        if (!chartData || !chartData.data) return;
+
+        try {
+            comparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Body Fat: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 50,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating comparison chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

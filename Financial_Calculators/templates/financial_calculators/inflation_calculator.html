@@ -1,0 +1,376 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Inflation Calculator - Calculate Purchasing Power" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate how inflation affects your money's purchasing power over time. See the real value of your savings adjusted for inflation." %}{% endblock %}
+{% block meta_keywords %}{% trans "inflation calculator, purchasing power calculator, inflation rate, cost of living, money value calculator" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Inflation Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate how inflation affects your purchasing power.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Inflation Calculator' %}",
+    "description": "{% trans 'Calculate the effect of inflation on purchasing power.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Inflation Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Inflation Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate how inflation affects your money's purchasing power over time." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Enter Details" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center justify-center p-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500">
+                                    <input type="radio" name="calc_type" value="future" checked class="sr-only">
+                                    <span class="text-sm font-medium">{% trans "Future Cost" %}</span>
+                                </label>
+                                <label class="flex items-center justify-center p-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500">
+                                    <input type="radio" name="calc_type" value="past" class="sr-only">
+                                    <span class="text-sm font-medium">{% trans "Past Value" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Amount" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="amount" name="amount" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="100" inputmode="decimal" value="100" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="inflation_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Annual Inflation Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="inflation_rate" name="inflation_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="3" inputmode="decimal" value="3" required>
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "US average: ~3% historically" %}</p>
+                        </div>
+
+                        <div>
+                            <label for="years" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Time Period (Years)" %}</label>
+                            <input type="number" id="years" name="years" 
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                   placeholder="10" value="10" min="1" max="100" required>
+                        </div>
+
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- Main Results -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-blue-600 text-white rounded-lg p-5 text-center">
+                            <p class="text-blue-100 text-sm mb-1" id="futureLabel">{% trans "Future Cost" %}</p>
+                            <p id="futureValueResult" class="text-3xl font-bold">$0</p>
+                        </div>
+                        <div class="bg-red-600 text-white rounded-lg p-5 text-center">
+                            <p class="text-red-100 text-sm mb-1">{% trans "Purchasing Power Lost" %}</p>
+                            <p id="lostResult" class="text-3xl font-bold">$0</p>
+                        </div>
+                        <div class="bg-gray-700 text-white rounded-lg p-5 text-center">
+                            <p class="text-gray-300 text-sm mb-1">{% trans "Cumulative Inflation" %}</p>
+                            <p id="cumulativeResult" class="text-3xl font-bold">0%</p>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Value Over Time" %}</h3>
+                        <div class="relative h-64">
+                            <canvas id="lineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Rate Comparison -->
+                    <div class="bg-white border border-gray-200 rounded-lg mb-6">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="font-semibold text-gray-900">{% trans "Compare Inflation Rates" %}</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">{% trans "Rate" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Future Cost" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Real Value" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparisonBody" class="divide-y divide-gray-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Yearly Breakdown (collapsible) -->
+                    <div class="bg-white border border-gray-200 rounded-lg">
+                        <button id="toggleYearly" class="w-full p-4 flex items-center justify-between text-left">
+                            <h3 class="font-semibold text-gray-900">{% trans "Yearly Breakdown" %}</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="yearlySection" class="hidden border-t border-gray-200">
+                            <div class="overflow-x-auto max-h-64">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left font-medium">{% trans "Year" %}</th>
+                                            <th class="px-4 py-3 text-right font-medium">{% trans "Nominal Value" %}</th>
+                                            <th class="px-4 py-3 text-right font-medium">{% trans "Real Value" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="yearlyBody" class="divide-y divide-gray-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Calculate Inflation Impact" %}</h3>
+                        <p class="text-gray-500">{% trans "See how inflation erodes your money's purchasing power over time." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What is inflation?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Inflation is the rate at which prices increase over time, reducing the purchasing power of money. A 3% inflation rate means prices rise 3% per year on average." %}</p>
+                    </div>
+            </div>
+
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "How can I protect against inflation?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Invest in assets that historically outpace inflation: stocks, real estate, I-bonds, TIPS. Keeping all savings in cash loses value over time due to inflation." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    let lineChart = null;
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency', currency: 'USD',
+            minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    document.getElementById('amount').addEventListener('input', function() { formatInput(this); });
+    
+    // Toggle yearly section
+    document.getElementById('toggleYearly').addEventListener('click', function() {
+        document.getElementById('yearlySection').classList.toggle('hidden');
+        this.querySelector('svg').classList.toggle('rotate-180');
+    });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.nextElementSibling.classList.toggle('hidden');
+            this.querySelector('svg').classList.toggle('rotate-180');
+        });
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    amount: document.getElementById('amount').value.replace(/,/g, ''),
+                    inflation_rate: document.getElementById('inflation_rate').value,
+                    years: document.getElementById('years').value,
+                    calc_type: document.querySelector('input[name="calc_type"]:checked').value,
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error);
+                return;
+            }
+            
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // Update results
+            document.getElementById('futureLabel').textContent = data.summary.calc_type === 'future' ? '{% trans "Future Cost" %}' : '{% trans "Today\'s Value" %}';
+            document.getElementById('futureValueResult').textContent = formatCurrency(data.summary.future_value);
+            document.getElementById('lostResult').textContent = formatCurrency(data.summary.purchasing_power_change);
+            document.getElementById('cumulativeResult').textContent = data.summary.cumulative_inflation.toFixed(1) + '%';
+            
+            // Comparison table
+            const compBody = document.getElementById('comparisonBody');
+            compBody.innerHTML = '';
+            data.comparison.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = row.rate == data.summary.inflation_rate ? 'bg-blue-50' : 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-4 py-2 font-medium">${row.rate}%</td>
+                    <td class="px-4 py-2 text-right">${formatCurrency(row.future_value)}</td>
+                    <td class="px-4 py-2 text-right text-red-600">${formatCurrency(row.purchasing_power)}</td>
+                `;
+                compBody.appendChild(tr);
+            });
+            
+            // Yearly table
+            const yearlyBody = document.getElementById('yearlyBody');
+            yearlyBody.innerHTML = '';
+            data.yearly_data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-4 py-2">${row.year}</td>
+                    <td class="px-4 py-2 text-right">${formatCurrency(row.value)}</td>
+                    <td class="px-4 py-2 text-right text-red-600">${formatCurrency(row.purchasing_power)}</td>
+                `;
+                yearlyBody.appendChild(tr);
+            });
+            
+            // Chart
+            if (lineChart) lineChart.destroy();
+            
+            lineChart = new Chart(document.getElementById('lineChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: data.chart_data.labels,
+                    datasets: [
+                        {
+                            label: '{% trans "Nominal Value" %}',
+                            data: data.chart_data.values,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: '{% trans "Real Value" %}',
+                            data: data.chart_data.purchasing_power,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: {
+                        y: { ticks: { callback: v => '$' + v } }
+                    }
+                }
+            });
+            
+        } catch (error) {
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '{% trans "Calculate" %}';
+        }
+    });
+        });
+    </script>
+{% endblock %}

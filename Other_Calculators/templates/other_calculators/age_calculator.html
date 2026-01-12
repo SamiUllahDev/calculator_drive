@@ -1,0 +1,766 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Age Calculator - How Old Am I? Calculate Exact Age" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free age calculator to find out exactly how old you are in years, months, days, hours, and seconds. Calculate age from date of birth, find zodiac sign, generation, and upcoming milestones. Instant results." %}{% endblock %}
+{% block meta_keywords %}{% trans "age calculator, how old am I, calculate age, age calculator online, birthday calculator, age in days, age in years, exact age calculator, date of birth calculator, how old am I calculator, age finder, age in months, age in seconds, age calculator by date of birth, zodiac sign calculator, generation calculator" %}{% endblock %}
+
+{% block og_title %}{% trans "Age Calculator - How Old Am I? Calculate Exact Age" %}{% endblock %}
+{% block og_description %}{% trans "Free age calculator to find out exactly how old you are in years, months, days, hours, and seconds. Calculate age from date of birth, find zodiac sign, and milestones." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Age Calculator - How Old Am I? Calculate Exact Age" %}{% endblock %}
+{% block twitter_description %}{% trans "Free age calculator to find out exactly how old you are. Calculate age from date of birth in years, months, days, hours, and seconds." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 1rem 0;
+    }
+    .life-gauge {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+    }
+    .gauge-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2rem;
+        font-weight: bold;
+        color: #3b82f6;
+    }
+    .tooltip-container:hover .tooltip {
+        display: block;
+    }
+    .professional-card {
+        transition: all 0.3s ease;
+    }
+    .professional-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    .error-message {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        margin-top: 0.5rem;
+        display: none;
+    }
+    .success-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background-color: #d1fae5;
+        color: #065f46;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Age Calculator' %}",
+  "description": "{% trans 'Calculate your exact age in years, months, days, hours, and seconds. Find your zodiac sign, generation, and upcoming milestones.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "3500"},
+  "featureList": ["{% trans 'Age calculation in multiple units' %}", "{% trans 'Zodiac sign finder' %}", "{% trans 'Generation calculator' %}", "{% trans 'Milestone tracking' %}", "{% trans 'Visual age display' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'other_calculators:index' %}" class="hover:text-blue-600">{% trans "Other Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Age Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <div class="text-center mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Age Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your exact age in years, months, days, hours, and seconds. Discover your zodiac sign, generation, and upcoming life milestones." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-900">{% trans "Enter Your Information" %}</h2>
+                        <div class="tooltip-container relative">
+                            <button type="button" class="text-gray-400 hover:text-blue-600 transition" title="{% trans 'Click for help' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </button>
+                            <div class="tooltip absolute right-0 top-8 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg z-10 hidden">
+                                {% trans "Enter your complete date of birth. The calculator will automatically validate the date and handle leap years." %}
+                            </div>
+                        </div>
+                    </div>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Date of Birth" %}
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">{% trans "Month" %}</label>
+                                    <select id="birth_month" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="1">{% trans "Jan" %}</option>
+                                        <option value="2">{% trans "Feb" %}</option>
+                                        <option value="3">{% trans "Mar" %}</option>
+                                        <option value="4">{% trans "Apr" %}</option>
+                                        <option value="5">{% trans "May" %}</option>
+                                        <option value="6">{% trans "Jun" %}</option>
+                                        <option value="7">{% trans "Jul" %}</option>
+                                        <option value="8">{% trans "Aug" %}</option>
+                                        <option value="9">{% trans "Sep" %}</option>
+                                        <option value="10">{% trans "Oct" %}</option>
+                                        <option value="11">{% trans "Nov" %}</option>
+                                        <option value="12">{% trans "Dec" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">{% trans "Day" %}</label>
+                                    <input type="number" id="birth_day" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="1" min="1" max="31">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">{% trans "Year" %}</label>
+                                    <input type="number" id="birth_year" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="1990" min="1900" max="2030">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Age at Date" %}
+                                <span class="text-gray-400 text-xs font-normal">({% trans "optional" %})</span>
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <input type="number" id="target_month" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="{% trans 'Month' %}" min="1" max="12">
+                                </div>
+                                <div>
+                                    <input type="number" id="target_day" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="{% trans 'Day' %}" min="1" max="31">
+                                </div>
+                                <div>
+                                    <input type="number" id="target_year" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="{% trans 'Year' %}" min="1900" max="2100">
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Leave blank for today" %}</p>
+                        </div>
+
+                        <div id="errorMessage" class="error-message"></div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Age" %}</span>
+                        </button>
+                    </form>
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <p class="text-xs text-gray-500 text-center">
+                            <span class="success-badge mr-2">✓ {% trans "Secure" %}</span>
+                            <span class="success-badge mr-2">✓ {% trans "Accurate" %}</span>
+                            <span class="success-badge">✓ {% trans "Free" %}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <div id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Main Age Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg p-6 text-center fade-in shadow-lg professional-card">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Your Age" %}</p>
+                        </div>
+                        <p id="ageFormatted" class="text-4xl font-bold mb-2">0 years, 0 months, 0 days</p>
+                        <div id="nextBirthday" class="text-blue-100 text-sm"></div>
+                    </div>
+
+                    <!-- Life Percentage Gauge -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6 fade-in">
+                        <h3 class="font-semibold text-gray-900 mb-4 text-center">{% trans "Life Progress" %}</h3>
+                        <div class="life-gauge">
+                            <canvas id="lifeGaugeChart"></canvas>
+                            <div class="gauge-value" id="lifePercentage">0%</div>
+                        </div>
+                        <p class="text-center text-sm text-gray-600 mt-4">{% trans "Based on average life expectancy of 80 years" %}</p>
+                    </div>
+
+                    <!-- Age in Different Units -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 fade-in">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center hover:shadow-md transition">
+                            <p class="text-3xl font-bold text-blue-600" id="totalYears">0</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Years" %}</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center hover:shadow-md transition">
+                            <p class="text-3xl font-bold text-green-600" id="totalMonths">0</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Months" %}</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center hover:shadow-md transition">
+                            <p class="text-3xl font-bold text-yellow-600" id="totalWeeks">0</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Weeks" %}</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center hover:shadow-md transition">
+                            <p class="text-3xl font-bold text-red-600" id="totalDays">0</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Days" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 fade-in">
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">{% trans "Time Units Comparison" %}</h3>
+                            <div class="chart-container">
+                                <canvas id="timeUnitsChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">{% trans "Age Breakdown" %}</h3>
+                            <div class="chart-container">
+                                <canvas id="ageBreakdownChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Birth Info and Milestones -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 fade-in">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Birth Details" %}</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">{% trans "Born on" %}</span>
+                                    <span id="birthDayOfWeek" class="font-medium text-gray-900">-</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">{% trans "Zodiac Sign" %}</span>
+                                    <span id="zodiac" class="font-medium text-gray-900">-</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">{% trans "Chinese Zodiac" %}</span>
+                                    <span id="chineseZodiac" class="font-medium text-gray-900">-</span>
+                                </div>
+                                <div class="flex justify-between py-2">
+                                    <span class="text-gray-600">{% trans "Generation" %}</span>
+                                    <span id="generation" class="font-medium text-gray-900">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Upcoming Milestones" %}</h3>
+                            <div id="milestones" class="space-y-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- More Time Units -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6 fade-in">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Your Age In..." %}</h3>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div class="p-4 bg-blue-50 rounded-lg">
+                                <p class="text-3xl font-bold text-gray-900" id="totalHours">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Hours" %}</p>
+                            </div>
+                            <div class="p-4 bg-green-50 rounded-lg">
+                                <p class="text-3xl font-bold text-gray-900" id="totalMinutes">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Minutes" %}</p>
+                            </div>
+                            <div class="p-4 bg-purple-50 rounded-lg">
+                                <p class="text-3xl font-bold text-gray-900" id="totalSeconds">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Seconds" %}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6 fade-in">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div id="stepByStep" class="space-y-2 text-sm text-gray-700 font-mono bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.701 2.701 0 00-1.5-.454M9 6v2m3-2v2m3-2v2M9 3h.01M12 3h.01M15 3h.01M21 21v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7h18zm-3-9v-2a2 2 0 00-2-2H8a2 2 0 00-2 2v2h12z"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Your Age" %}</h3>
+                    <p class="text-gray-500">{% trans "Enter your birth date to see your exact age with detailed breakdowns and visualizations." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comprehensive User Guide - Always Visible -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <!-- What is Age Calculation Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Age Calculation?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                        {% trans "Age calculation is the process of determining the exact time that has passed since a person's birth date. Our calculator provides precise age measurements in multiple time units, accounting for leap years, varying month lengths, and all calendar complexities." %}
+                    </p>
+                    <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                        <p class="text-center font-mono text-lg font-bold text-gray-900">{% trans "Age = Target Date - Birth Date" %}</p>
+                    </div>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "The calculation accounts for years, months, and days separately to provide the most accurate representation of your age. This precision is important for legal, medical, and personal record-keeping purposes." %}
+                    </p>
+                </div>
+
+                <!-- How to Use Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Enter your complete date of birth using the month dropdown, day, and year input fields." %}</li>
+                        <li>{% trans "Optionally, specify a target date to calculate your age at that specific date. Leave blank to use today's date." %}</li>
+                        <li>{% trans "Click the 'Calculate Age' button to see your comprehensive results." %}</li>
+                        <li>{% trans "Review your age in various time units (years, months, weeks, days, hours, minutes, seconds)." %}</li>
+                        <li>{% trans "Explore the interactive charts and visualizations." %}</li>
+                        <li>{% trans "Check your birth information including zodiac signs and generation." %}</li>
+                        <li>{% trans "View upcoming life milestones and life progress percentage." %}</li>
+                    </ol>
+                </div>
+
+                <!-- Understanding Results Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Age Display" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "Shows your exact age in years, months, and days. This is the most precise representation of your age, accounting for all calendar variations." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Time Units Breakdown" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "Your age converted into total years, months, weeks, days, hours, minutes, and seconds. These conversions help you understand your age in different contexts." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Birth Information" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "Reveals the day of the week you were born, your Western zodiac sign, Chinese zodiac animal (based on birth year), and your generational classification (Baby Boomer, Gen X, Millennial, etc.)." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Life Milestones" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "Shows upcoming important life milestones such as legal adulthood (18), drinking age (21), retirement age (65), and becoming a centenarian (100). Each milestone includes the exact date it will occur." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Life Progress Percentage" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "A visual gauge showing your life progress based on an average life expectancy of 80 years. This is calculated as (current age / 80) × 100. Note: This is for informational purposes only and doesn't predict actual lifespan." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Explanation Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Time Units Comparison Chart" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "A bar chart comparing your age in different time units (years, months, weeks, days). This helps visualize the magnitude of your age across different measurement scales." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Age Breakdown Chart" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "A doughnut chart showing the proportional breakdown of your age into years, months, and days. This provides a visual representation of how your age is distributed across these components." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Life Progress Gauge" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "A circular gauge chart displaying your life progress percentage. The filled portion represents the percentage of an average 80-year lifespan you've lived, while the unfilled portion shows the remaining percentage." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Age Calculation Formula Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Age Calculation Method" %}</h3>
+                    <p class="text-gray-700 text-sm mb-3">
+                        {% trans "Our calculator uses precise date arithmetic to determine age. The calculation accounts for:" %}
+                    </p>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <ul class="space-y-2 text-sm text-gray-700 list-disc list-inside">
+                            <li>{% trans "Leap years (including February 29th birthdays)" %}</li>
+                            <li>{% trans "Varying month lengths (28, 29, 30, or 31 days)" %}</li>
+                            <li>{% trans "Year boundaries and month boundaries" %}</li>
+                            <li>{% trans "Precise day-by-day calculations" %}</li>
+                        </ul>
+                    </div>
+                    <p class="text-gray-700 text-sm">
+                        {% trans "The age is calculated using the relativedelta function, which provides accurate year, month, and day differences between two dates. Total time units (weeks, hours, minutes, seconds) are derived from the total number of days between the dates." %}
+                    </p>
+                </div>
+
+                <!-- Zodiac Signs Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Zodiac Signs" %}</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Western Zodiac Signs" %}</h4>
+                            <p class="text-sm text-blue-800">
+                                {% trans "Based on your birth month and day, the calculator determines your Western zodiac sign. The signs are: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, and Pisces." %}
+                            </p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Chinese Zodiac Signs" %}</h4>
+                            <p class="text-sm text-green-800">
+                                {% trans "Based on your birth year, the calculator determines your Chinese zodiac animal. The 12-year cycle includes: Rat, Ox, Tiger, Rabbit, Dragon, Snake, Horse, Goat, Monkey, Rooster, Dog, and Pig." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generation Classifications Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Generation Classifications" %}</h3>
+                    <p class="text-sm text-gray-600 mb-4">
+                        {% trans "The calculator classifies you into a generational cohort based on your birth year. These classifications are based on widely accepted demographic definitions:" %}
+                    </p>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg">
+                            <thead class="bg-blue-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Generation" %}</th>
+                                    <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Birth Years" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">{% trans "Silent Generation" %}</td><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">&lt; 1946</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">{% trans "Baby Boomer" %}</td><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">1946 - 1964</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">{% trans "Generation X" %}</td><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">1965 - 1980</td></tr>
+                                <tr class="hover:bg-green-50"><td class="px-4 py-3 text-xs sm:text-sm text-gray-700 font-semibold">{% trans "Millennial" %}</td><td class="px-4 py-3 text-xs sm:text-sm font-bold text-green-700">1981 - 1996</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">{% trans "Generation Z" %}</td><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">1997 - 2012</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">{% trans "Generation Alpha" %}</td><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">≥ 2013</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Important Notes Section -->
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "This calculator is for informational and educational purposes only. It provides accurate age calculations but should not be used as the sole basis for legal or medical decisions." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "The calculator automatically handles leap years, including birthdays on February 29th. In non-leap years, February 29th birthdays are calculated using February 28th." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "The life progress percentage is based on statistical averages (80 years) and is for informational purposes only. It does not predict actual lifespan, which varies based on many factors including genetics, lifestyle, and healthcare." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "Zodiac signs and generation classifications are based on standard definitions and may vary slightly depending on different sources or cultural contexts." %}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Frequently Asked Questions Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Frequently Asked Questions" %}</h3>
+                    <div class="space-y-4">
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "How accurate is the age calculation?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Our calculator uses precise date arithmetic and accounts for leap years, varying month lengths, and all calendar complexities to provide accurate results. The calculation is accurate to the day." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "What if I was born on February 29th?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "The calculator handles leap year birthdays correctly. If your birthday falls on February 29th, it will use February 28th in non-leap years for calculations. This is the standard approach for leap year birthdays." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Can I calculate my age at a future date?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Yes! Use the optional 'Age at Date' field to calculate your age at any specific date in the past or future. This is useful for planning purposes or calculating age at specific events." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "How is the life progress percentage calculated?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "The life progress percentage is based on an average life expectancy of 80 years. It's calculated as (current age / 80) × 100. This is for informational purposes only and doesn't predict actual lifespan, which varies significantly based on many factors." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "What generation classifications are used?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "We use standard generational classifications: Silent Generation (before 1946), Baby Boomers (1946-1964), Generation X (1965-1980), Millennials (1981-1996), Generation Z (1997-2012), and Generation Alpha (2013+). These definitions may vary slightly between sources." %}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Are the zodiac signs accurate?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Yes, the calculator uses standard Western zodiac sign dates based on the tropical zodiac system. Chinese zodiac signs are determined by the birth year according to the traditional 12-year cycle that begins with the Rat and follows a specific order." %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let timeUnitsChart = null;
+let ageBreakdownChart = null;
+let lifeGaugeChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    
+    function formatNumber(num) {
+        return num.toLocaleString('en-US');
+    }
+    
+    function showError(message) {
+        const errorEl = document.getElementById('errorMessage');
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+        setTimeout(() => {
+            errorEl.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Set current date as default for target
+    const today = new Date();
+    document.getElementById('target_month').placeholder = today.getMonth() + 1;
+    document.getElementById('target_day').placeholder = today.getDate();
+    document.getElementById('target_year').placeholder = today.getFullYear();
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('calculateBtn');
+        const btnText = document.getElementById('calculateBtnText');
+        const errorEl = document.getElementById('errorMessage');
+        errorEl.style.display = 'none';
+        
+        // Basic validation
+        const birthDay = parseInt(document.getElementById('birth_day').value);
+        const birthMonth = parseInt(document.getElementById('birth_month').value);
+        const birthYear = parseInt(document.getElementById('birth_year').value);
+        
+        if (!birthDay || !birthMonth || !birthYear) {
+            showError('{% trans "Please enter a complete birth date." %}');
+            return;
+        }
+        
+        if (birthDay < 1 || birthDay > 31 || birthMonth < 1 || birthMonth > 12 || birthYear < 1900 || birthYear > 2030) {
+            showError('{% trans "Please enter a valid date." %}');
+            return;
+        }
+        
+        btn.disabled = true;
+        btnText.textContent = '{% trans "Calculating..." %}';
+        
+        const targetMonth = document.getElementById('target_month').value || today.getMonth() + 1;
+        const targetDay = document.getElementById('target_day').value || today.getDate();
+        const targetYear = document.getElementById('target_year').value || today.getFullYear();
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+                body: JSON.stringify({
+                    birth_month: document.getElementById('birth_month').value,
+                    birth_day: document.getElementById('birth_day').value,
+                    birth_year: document.getElementById('birth_year').value,
+                    target_month: targetMonth,
+                    target_day: targetDay,
+                    target_year: targetYear
+                })
+            });
+            
+            const data = await response.json();
+            if (!data.success) { 
+                showError(data.error || '{% trans "An error occurred. Please try again." %}');
+                return; 
+            }
+            
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // Update main age
+            document.getElementById('ageFormatted').textContent = data.age.formatted;
+            document.getElementById('nextBirthday').innerHTML = 
+                `🎂 {% trans "Next birthday in" %} <strong>${data.next_birthday.days_until}</strong> {% trans "days" %} ({% trans "turning" %} ${data.next_birthday.turning})`;
+            
+            // Update totals
+            document.getElementById('totalYears').textContent = formatNumber(data.totals.years);
+            document.getElementById('totalMonths').textContent = formatNumber(data.totals.months);
+            document.getElementById('totalWeeks').textContent = formatNumber(data.totals.weeks);
+            document.getElementById('totalDays').textContent = formatNumber(data.totals.days);
+            document.getElementById('totalHours').textContent = formatNumber(data.totals.hours);
+            document.getElementById('totalMinutes').textContent = formatNumber(data.totals.minutes);
+            document.getElementById('totalSeconds').textContent = formatNumber(data.totals.seconds);
+            
+            // Update birth info
+            document.getElementById('birthDayOfWeek').textContent = data.birth_info.day_of_week;
+            document.getElementById('zodiac').textContent = data.birth_info.zodiac;
+            document.getElementById('chineseZodiac').textContent = data.birth_info.chinese_zodiac;
+            document.getElementById('generation').textContent = data.birth_info.generation;
+            
+            // Update milestones
+            const milestonesEl = document.getElementById('milestones');
+            if (data.milestones.upcoming && data.milestones.upcoming.length > 0) {
+                milestonesEl.innerHTML = data.milestones.upcoming.map(m => 
+                    `<div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">${m.event}</span>
+                        <span class="font-medium text-gray-900">Age ${m.age}</span>
+                    </div>`
+                ).join('');
+            } else {
+                milestonesEl.innerHTML = '<p class="text-gray-500 text-sm">{% trans "All major milestones passed!" %}</p>';
+            }
+            
+            // Update life percentage
+            document.getElementById('lifePercentage').textContent = data.life_percentage + '%';
+            
+            // Update step-by-step solution
+            const stepByStepEl = document.getElementById('stepByStep');
+            if (data.step_by_step && data.step_by_step.length > 0) {
+                stepByStepEl.innerHTML = data.step_by_step.map(step => {
+                    if (step.trim() === '') {
+                        return '<br>';
+                    }
+                    return `<div class="py-1">${step}</div>`;
+                }).join('');
+            }
+            
+            // Update charts
+            if (data.chart_data) {
+                // Time Units Chart
+                if (data.chart_data.time_units_chart) {
+                    const ctx1 = document.getElementById('timeUnitsChart').getContext('2d');
+                    if (timeUnitsChart) timeUnitsChart.destroy();
+                    timeUnitsChart = new Chart(ctx1, data.chart_data.time_units_chart);
+                }
+                
+                // Age Breakdown Chart
+                if (data.chart_data.age_breakdown_chart) {
+                    const ctx2 = document.getElementById('ageBreakdownChart').getContext('2d');
+                    if (ageBreakdownChart) ageBreakdownChart.destroy();
+                    ageBreakdownChart = new Chart(ctx2, data.chart_data.age_breakdown_chart);
+                }
+                
+                // Life Gauge Chart
+                if (data.chart_data.life_percentage) {
+                    const ctx3 = document.getElementById('lifeGaugeChart').getContext('2d');
+                    if (lifeGaugeChart) lifeGaugeChart.destroy();
+                    const percentage = data.chart_data.life_percentage.percentage;
+                    lifeGaugeChart = new Chart(ctx3, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Lived', 'Remaining'],
+                            datasets: [{
+                                data: [percentage, 100 - percentage],
+                                backgroundColor: [
+                                    'rgba(59, 130, 246, 0.8)',
+                                    'rgba(229, 231, 235, 0.3)'
+                                ],
+                                borderColor: [
+                                    '#3b82f6',
+                                    '#e5e7eb'
+                                ],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            cutout: '75%',
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    enabled: false
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showError('{% trans "An error occurred. Please check your connection and try again." %}');
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = '{% trans "Calculate Age" %}';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,857 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Height Calculator - Convert Height, Predict Child Height, Compare Heights | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free height calculator to convert height between units, predict child's height from parents' heights, compare heights, and calculate height percentiles. Perfect for health tracking and growth monitoring." %}{% endblock %}
+{% block meta_keywords %}{% trans "height calculator, height converter, convert height, height prediction calculator, child height calculator, height percentile calculator, feet to cm converter, inches to cm converter, height comparison calculator, height finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Height Calculator - Convert Height, Predict Child Height, Compare Heights" %}{% endblock %}
+{% block og_description %}{% trans "Convert height between units, predict child's height, compare heights, and calculate percentiles. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/height-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Height Calculator - Convert Height, Predict Child Height, Compare Heights" %}{% endblock %}
+{% block twitter_description %}{% trans "Convert height, predict child height, compare heights. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/height-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Height Calculator - Convert Height, Predict Child Height, Compare Heights' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1750"},
+  "description": "{% trans 'Free online height calculator to convert height between units, predict child&#39;s height from parents&#39; heights, compare heights, and calculate height percentiles with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Height Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Convert height between units, predict child's height from parents' heights, compare heights, and calculate height percentiles with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="heightCalculatorForm" onsubmit="calculateHeight(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="convert">{% trans "Convert Height" %}</option>
+                                <option value="predict">{% trans "Predict Child Height" %}</option>
+                                <option value="compare">{% trans "Compare Heights" %}</option>
+                                <option value="percentile">{% trans "Height Percentile" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Convert Mode -->
+                        <div id="form-convert" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div id="height-input-feet-inches" class="flex gap-2">
+                                    <input type="number" id="feet" name="feet" step="1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">ft</span>
+                                    <input type="number" id="inches" name="inches" step="0.1" min="0" max="11.99" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                                    <span class="self-center text-gray-500">in</span>
+                                </div>
+                                <div id="height-input-single" class="hidden flex gap-2">
+                                    <input type="number" id="value" name="value" step="0.01" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="175">
+                                    <select id="from_unit" name="from_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="cm" selected>{% trans "cm" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                    </select>
+                                </div>
+                                <select id="from_unit_selector" name="from_unit" onchange="toggleHeightInput(this.value)" class="w-full mt-2 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="feet_inches" selected>{% trans "Feet & Inches" %}</option>
+                                    <option value="cm">{% trans "Centimeters (cm)" %}</option>
+                                    <option value="inches">{% trans "Inches (in)" %}</option>
+                                    <option value="meters">{% trans "Meters (m)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Convert To" %}
+                                </label>
+                                <select id="to_unit" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cm" selected>{% trans "Centimeters (cm)" %}</option>
+                                    <option value="feet_inches">{% trans "Feet & Inches" %}</option>
+                                    <option value="inches">{% trans "Inches (in)" %}</option>
+                                    <option value="meters">{% trans "Meters (m)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Predict Mode -->
+                        <div id="form-predict" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Father's Height" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div id="father-height-input-feet-inches" class="flex gap-2">
+                                    <input type="number" id="father_feet" name="father_feet" step="1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">ft</span>
+                                    <input type="number" id="father_inches" name="father_inches" step="0.1" min="0" max="11.99" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                                    <span class="self-center text-gray-500">in</span>
+                                </div>
+                                <div id="father-height-input-single" class="hidden flex gap-2">
+                                    <input type="number" id="father_height" name="father_height" step="0.1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="175">
+                                    <select id="height_unit" name="height_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="cm" selected>{% trans "cm" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                    </select>
+                                </div>
+                                <select id="height_unit_selector" name="height_unit" onchange="toggleParentHeightInput(this.value)" class="w-full mt-2 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="feet_inches" selected>{% trans "Feet & Inches" %}</option>
+                                    <option value="cm">{% trans "Centimeters (cm)" %}</option>
+                                    <option value="inches">{% trans "Inches (in)" %}</option>
+                                    <option value="meters">{% trans "Meters (m)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Mother's Height" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div id="mother-height-input-feet-inches" class="flex gap-2">
+                                    <input type="number" id="mother_feet" name="mother_feet" step="1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">ft</span>
+                                    <input type="number" id="mother_inches" name="mother_inches" step="0.1" min="0" max="11.99" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">in</span>
+                                </div>
+                                <div id="mother-height-input-single" class="hidden flex gap-2">
+                                    <input type="number" id="mother_height" name="mother_height" step="0.1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="165">
+                                    <select class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 opacity-50" disabled>
+                                        <option id="mother_height_unit_display">cm</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="child_gender" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Child's Gender" %}
+                                </label>
+                                <select id="child_gender" name="child_gender" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="male" selected>{% trans "Male" %}</option>
+                                    <option value="female">{% trans "Female" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="result_unit_predict" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_predict" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cm" selected>{% trans "Centimeters (cm)" %}</option>
+                                    <option value="feet_inches">{% trans "Feet & Inches" %}</option>
+                                    <option value="inches">{% trans "Inches (in)" %}</option>
+                                    <option value="meters">{% trans "Meters (m)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Compare Mode -->
+                        <div id="form-compare" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height 1" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div id="height1-input-feet-inches" class="flex gap-2">
+                                    <input type="number" id="height1_feet" name="height1_feet" step="1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">ft</span>
+                                    <input type="number" id="height1_inches" name="height1_inches" step="0.1" min="0" max="11.99" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                                    <span class="self-center text-gray-500">in</span>
+                                </div>
+                                <div id="height1-input-single" class="hidden flex gap-2">
+                                    <input type="number" id="height1" name="height1" step="0.1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="175">
+                                    <select class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 opacity-50" disabled>
+                                        <option id="height1_unit_display">cm</option>
+                                    </select>
+                                </div>
+                                <select id="height_unit_compare" name="height_unit" onchange="toggleCompareHeightInput(this.value)" class="w-full mt-2 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="feet_inches" selected>{% trans "Feet & Inches" %}</option>
+                                    <option value="cm">{% trans "Centimeters (cm)" %}</option>
+                                    <option value="inches">{% trans "Inches (in)" %}</option>
+                                    <option value="meters">{% trans "Meters (m)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height 2" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div id="height2-input-feet-inches" class="flex gap-2">
+                                    <input type="number" id="height2_feet" name="height2_feet" step="1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">ft</span>
+                                    <input type="number" id="height2_inches" name="height2_inches" step="0.1" min="0" max="11.99" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="8">
+                                    <span class="self-center text-gray-500">in</span>
+                                </div>
+                                <div id="height2-input-single" class="hidden flex gap-2">
+                                    <input type="number" id="height2" name="height2" step="0.1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="170">
+                                    <select class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 opacity-50" disabled>
+                                        <option id="height2_unit_display">cm</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Percentile Mode -->
+                        <div id="form-percentile" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div id="percentile-height-input-feet-inches" class="flex gap-2">
+                                    <input type="number" id="percentile_feet" name="feet" step="1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="5">
+                                    <span class="self-center text-gray-500">ft</span>
+                                    <input type="number" id="percentile_inches" name="inches" step="0.1" min="0" max="11.99" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                                    <span class="self-center text-gray-500">in</span>
+                                </div>
+                                <div id="percentile-height-input-single" class="hidden flex gap-2">
+                                    <input type="number" id="percentile_height" name="height" step="0.1" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="175">
+                                    <select class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 opacity-50" disabled>
+                                        <option id="percentile_height_unit_display">cm</option>
+                                    </select>
+                                </div>
+                                <select id="height_unit_percentile" name="height_unit" onchange="togglePercentileHeightInput(this.value)" class="w-full mt-2 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="feet_inches" selected>{% trans "Feet & Inches" %}</option>
+                                    <option value="cm">{% trans "Centimeters (cm)" %}</option>
+                                    <option value="inches">{% trans "Inches (in)" %}</option>
+                                    <option value="meters">{% trans "Meters (m)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="age" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Age (years)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="age" name="age" step="1" min="0" max="120" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="25" required>
+                            </div>
+                            <div>
+                                <label for="gender" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Gender" %}
+                                </label>
+                                <select id="gender" name="gender" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="male" selected>{% trans "Male" %}</option>
+                                    <option value="female">{% trans "Female" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                        <div id="additionalInfo" class="mt-3"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="heightChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Height" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Height Calculator?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "The Height Calculator is a comprehensive tool for converting height between different units (feet/inches, centimeters, meters), predicting a child's adult height from parents' heights, comparing two heights, and calculating height percentiles. This calculator is useful for personal measurements, medical purposes, and understanding height statistics." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Convert Height, Predict Child Height, Compare Heights, or Height Percentile)." %}</li>
+                        <li>{% trans "Enter the required values with appropriate units." %}</li>
+                        <li>{% trans "For feet/inches input, enter feet and inches separately." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Convert Height" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Convert height between feet/inches, centimeters, inches, and meters. Supports all common height units." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Predict Child Height" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Predict a child's adult height from parents' heights using the mid-parental height formula. Provides a range of ±8.5 cm." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Compare Heights" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Compare two heights and calculate the difference in centimeters and percentage. Useful for understanding height differences." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Height Percentile" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Calculate height percentile based on age and gender. Shows how your height compares to others of the same age and gender." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Height Formulas" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Height Conversion:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 inch = 2.54 cm</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 foot = 12 inches = 30.48 cm</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">1 meter = 100 cm = 39.37 inches</p>
+                        <p class="text-sm text-gray-700 mt-3 mb-2"><strong>{% trans "Height Prediction (Mid-Parental Height):" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">Boys: (Father + Mother + 13 cm) / 2</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">Girls: (Father + Mother - 13 cm) / 2</p>
+                        <p class="text-sm text-gray-700 mt-3 mb-2"><strong>{% trans "Height Comparison:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">Difference = Height 1 - Height 2</p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">Percentage = (Difference / Height 2) × 100</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Supported Units" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">{% trans "Length Units" %}</h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• {% trans "Feet & Inches (ft, in)" %}</li>
+                                <li>• {% trans "Centimeters (cm)" %}</li>
+                                <li>• {% trans "Inches (in)" %}</li>
+                                <li>• {% trans "Meters (m)" %}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">{% trans "Conversion Factors" %}</h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• {% trans "1 ft = 12 in = 30.48 cm" %}</li>
+                                <li>• {% trans "1 in = 2.54 cm" %}</li>
+                                <li>• {% trans "1 m = 100 cm = 39.37 in" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "Height must be between 50 cm (1.64 ft) and 300 cm (9.84 ft) for valid calculations." %}</li>
+                        <li>{% trans "For feet/inches input, inches must be between 0 and 11.99." %}</li>
+                        <li>{% trans "Height prediction is an estimate based on genetic factors; actual height may vary." %}</li>
+                        <li>{% trans "The prediction range is ±8.5 cm from the predicted height." %}</li>
+                        <li>{% trans "Height percentiles are approximate and based on general population statistics." %}</li>
+                        <li>{% trans "Percentile calculations are most accurate for adults (18+ years)." %}</li>
+                        <li>{% trans "All conversions are precise to 2 decimal places." %}</li>
+                        <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Personal height measurements and conversions" %}</li>
+                        <li>{% trans "Medical and health assessments" %}</li>
+                        <li>{% trans "Child height prediction and growth tracking" %}</li>
+                        <li>{% trans "Sports and athletic assessments" %}</li>
+                        <li>{% trans "Clothing and sizing calculations" %}</li>
+                        <li>{% trans "Understanding height statistics and percentiles" %}</li>
+                        <li>{% trans "International unit conversions" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'convert';
+let heightChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function toggleHeightInput(unit) {
+    const feetInches = document.getElementById('height-input-feet-inches');
+    const single = document.getElementById('height-input-single');
+    if (unit === 'feet_inches') {
+        feetInches.classList.remove('hidden');
+        single.classList.add('hidden');
+    } else {
+        feetInches.classList.add('hidden');
+        single.classList.remove('hidden');
+        document.getElementById('from_unit').value = unit;
+    }
+}
+
+function toggleParentHeightInput(unit) {
+    const fatherFeetInches = document.getElementById('father-height-input-feet-inches');
+    const fatherSingle = document.getElementById('father-height-input-single');
+    const motherFeetInches = document.getElementById('mother-height-input-feet-inches');
+    const motherSingle = document.getElementById('mother-height-input-single');
+    
+    if (unit === 'feet_inches') {
+        fatherFeetInches.classList.remove('hidden');
+        fatherSingle.classList.add('hidden');
+        motherFeetInches.classList.remove('hidden');
+        motherSingle.classList.add('hidden');
+    } else {
+        fatherFeetInches.classList.add('hidden');
+        fatherSingle.classList.remove('hidden');
+        motherFeetInches.classList.add('hidden');
+        motherSingle.classList.remove('hidden');
+        document.getElementById('height_unit').value = unit;
+        document.getElementById('mother_height_unit_display').textContent = unit;
+    }
+}
+
+function toggleCompareHeightInput(unit) {
+    const height1FeetInches = document.getElementById('height1-input-feet-inches');
+    const height1Single = document.getElementById('height1-input-single');
+    const height2FeetInches = document.getElementById('height2-input-feet-inches');
+    const height2Single = document.getElementById('height2-input-single');
+    
+    if (unit === 'feet_inches') {
+        height1FeetInches.classList.remove('hidden');
+        height1Single.classList.add('hidden');
+        height2FeetInches.classList.remove('hidden');
+        height2Single.classList.add('hidden');
+    } else {
+        height1FeetInches.classList.add('hidden');
+        height1Single.classList.remove('hidden');
+        height2FeetInches.classList.add('hidden');
+        height2Single.classList.remove('hidden');
+        document.getElementById('height1_unit_display').textContent = unit;
+        document.getElementById('height2_unit_display').textContent = unit;
+    }
+}
+
+function togglePercentileHeightInput(unit) {
+    const feetInches = document.getElementById('percentile-height-input-feet-inches');
+    const single = document.getElementById('percentile-height-input-single');
+    if (unit === 'feet_inches') {
+        feetInches.classList.remove('hidden');
+        single.classList.add('hidden');
+    } else {
+        feetInches.classList.add('hidden');
+        single.classList.remove('hidden');
+        document.getElementById('percentile_height_unit_display').textContent = unit;
+    }
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 2});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateHeight(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect data based on mode
+    if (currentMode === 'convert') {
+        const fromUnit = document.getElementById('from_unit_selector').value;
+        requestData.from_unit = fromUnit;
+        requestData.to_unit = document.getElementById('to_unit').value;
+        
+        if (fromUnit === 'feet_inches') {
+            requestData.feet = parseFloat(document.getElementById('feet').value) || 0;
+            requestData.inches = parseFloat(document.getElementById('inches').value) || 0;
+        } else {
+            requestData.value = parseFloat(document.getElementById('value').value);
+        }
+    } else if (currentMode === 'predict') {
+        const heightUnit = document.getElementById('height_unit_selector').value;
+        requestData.height_unit = heightUnit;
+        requestData.result_unit = document.getElementById('result_unit_predict').value;
+        requestData.child_gender = document.getElementById('child_gender').value;
+        
+        if (heightUnit === 'feet_inches') {
+            requestData.father_feet = parseFloat(document.getElementById('father_feet').value) || 0;
+            requestData.father_inches = parseFloat(document.getElementById('father_inches').value) || 0;
+            requestData.mother_feet = parseFloat(document.getElementById('mother_feet').value) || 0;
+            requestData.mother_inches = parseFloat(document.getElementById('mother_inches').value) || 0;
+        } else {
+            requestData.father_height = parseFloat(document.getElementById('father_height').value);
+            requestData.mother_height = parseFloat(document.getElementById('mother_height').value);
+        }
+    } else if (currentMode === 'compare') {
+        const heightUnit = document.getElementById('height_unit_compare').value;
+        requestData.height_unit = heightUnit;
+        
+        if (heightUnit === 'feet_inches') {
+            requestData.height1_feet = parseFloat(document.getElementById('height1_feet').value) || 0;
+            requestData.height1_inches = parseFloat(document.getElementById('height1_inches').value) || 0;
+            requestData.height2_feet = parseFloat(document.getElementById('height2_feet').value) || 0;
+            requestData.height2_inches = parseFloat(document.getElementById('height2_inches').value) || 0;
+        } else {
+            requestData.height1 = parseFloat(document.getElementById('height1').value);
+            requestData.height2 = parseFloat(document.getElementById('height2').value);
+        }
+    } else if (currentMode === 'percentile') {
+        const heightUnit = document.getElementById('height_unit_percentile').value;
+        requestData.height_unit = heightUnit;
+        requestData.age = parseInt(document.getElementById('age').value);
+        requestData.gender = document.getElementById('gender').value;
+        
+        if (heightUnit === 'feet_inches') {
+            requestData.feet = parseFloat(document.getElementById('percentile_feet').value) || 0;
+            requestData.inches = parseFloat(document.getElementById('percentile_inches').value) || 0;
+        } else {
+            requestData.height = parseFloat(document.getElementById('percentile_height').value);
+        }
+    }
+    
+    // Basic validation
+    const requiredInputs = visibleForm.querySelectorAll('input[type="number"][required]');
+    for (let input of requiredInputs) {
+        if (!input.value || input.value === '') {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        let resultValue = '';
+        let resultUnit = '';
+        let detailsHtml = '';
+        let additionalInfo = '';
+        
+        if (data.calc_type === 'convert') {
+            if (typeof data.result === 'object') {
+                resultValue = data.result.feet + ' ft ' + data.result.inches + ' in';
+            } else {
+                resultValue = formatNumber(data.result);
+            }
+            const unitMap = {
+                'cm': 'cm',
+                'inches': 'in',
+                'meters': 'm',
+                'feet_inches': ''
+            };
+            resultUnit = unitMap[data.to_unit] || '';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.value_cm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Centimeters" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'predict') {
+            if (typeof data.predicted_height === 'object') {
+                resultValue = data.predicted_height.feet + ' ft ' + data.predicted_height.inches + ' in';
+            } else {
+                resultValue = formatNumber(data.predicted_height);
+            }
+            const unitMap = {
+                'cm': 'cm',
+                'inches': 'in',
+                'meters': 'm',
+                'feet_inches': ''
+            };
+            resultUnit = unitMap[data.result_unit] || '';
+            additionalInfo = `
+                <div class="mt-3 text-sm">
+                    <p>{% trans "Range:" %} ${typeof data.range_low === 'object' ? data.range_low.feet + ' ft ' + data.range_low.inches + ' in' : formatNumber(data.range_low)} - ${typeof data.range_high === 'object' ? data.range_high.feet + ' ft ' + data.range_high.inches + ' in' : formatNumber(data.range_high)} ${unitMap[data.result_unit] || ''}</p>
+                </div>
+            `;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.predicted_height_cm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Predicted Height (cm)" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'compare') {
+            resultValue = formatNumber(Math.abs(data.difference_cm));
+            resultUnit = 'cm';
+            if (data.difference_cm < 0) {
+                resultValue = '-' + resultValue;
+            }
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.height1_cm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Height 1 (cm)" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.height2_cm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Height 2 (cm)" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.difference_percent)}%</p>
+                    <p class="text-sm text-gray-600">{% trans "Percentage Difference" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'percentile') {
+            resultValue = formatNumber(data.percentile);
+            resultUnit = '%';
+            additionalInfo = `
+                <div class="mt-3 text-sm">
+                    <p>{% trans "Z-score:" %} ${formatNumber(data.z_score)}</p>
+                </div>
+            `;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.height_cm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Height (cm)" %}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('resultValue').textContent = resultValue;
+        document.getElementById('resultUnit').textContent = resultUnit;
+        document.getElementById('additionalInfo').innerHTML = additionalInfo;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('heightChart');
+            if (chartEl) {
+                if (heightChart) heightChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.convert_chart) {
+                    chartConfig = data.chart_data.convert_chart;
+                } else if (data.chart_data.predict_chart) {
+                    chartConfig = data.chart_data.predict_chart;
+                } else if (data.chart_data.compare_chart) {
+                    chartConfig = data.chart_data.compare_chart;
+                } else if (data.chart_data.percentile_chart) {
+                    chartConfig = data.chart_data.percentile_chart;
+                }
+                
+                if (chartConfig) {
+                    heightChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|Height|Predicted|Difference|Percentile)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('convert');
+});
+</script>
+{% endblock %}

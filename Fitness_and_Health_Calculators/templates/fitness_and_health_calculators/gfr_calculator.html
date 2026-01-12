@@ -1,0 +1,871 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "GFR Calculator" %} - {% trans "Glomerular Filtration Rate" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "GFR calculator, eGFR calculator, kidney function, CKD-EPI, MDRD, glomerular filtration rate" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "GFR Calculator" %} - {% trans "Glomerular Filtration Rate" %}">
+<meta property="og:description" content="{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "GFR Calculator" %}",
+    "description": "{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "GFR Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "GFR Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate estimated glomerular filtration rate (eGFR) for kidney function assessment." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Information" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Age -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Age" %}</label>
+                            <input type="number" id="age" name="age" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="40" min="18" max="100" step="1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 18-100 years" %}</p>
+                        </div>
+
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gender" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="male" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Male" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="female" class="mr-2">
+                                    <span class="text-sm">{% trans "Female" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Race -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Race" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="race" value="non_black" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Non-Black" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="race" value="black" class="mr-2">
+                                    <span class="text-sm">{% trans "Black" %}</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Used for formula adjustment" %}</p>
+                        </div>
+
+                        <!-- Creatinine Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Creatinine Unit" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2" id="unitMetric">
+                                    <span class="text-sm">{% trans "mg/dL" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="si" class="mr-2" id="unitSI">
+                                    <span class="text-sm">{% trans "μmol/L" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Creatinine -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Creatinine" %}</label>
+                            <div class="relative">
+                                <input type="number" id="creatinine" name="creatinine" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-12" 
+                                       value="1.0" min="0.1" max="10" step="0.01" required>
+                                <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" id="creatinineUnit">mg/dL</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 0.1-10 mg/dL" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate eGFR" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your information to calculate your estimated glomerular filtration rate (eGFR) with detailed analysis and charts." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Estimated GFR (eGFR)" %}</p>
+                            <p id="egfrResult" class="text-5xl sm:text-6xl font-bold mb-2">0</p>
+                            <p class="text-sm opacity-90 mb-2">mL/min/1.73m²</p>
+                            <div id="stageBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 bg-white bg-opacity-20">
+                                <span id="stageText">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "CKD-EPI" %}</p>
+                                <p id="ckdepiValue" class="text-sm font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "MDRD" %}</p>
+                                <p id="mdrdValue" class="text-sm font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Stage" %}</p>
+                                <p id="stageDisplay" class="text-xs font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- eGFR Scale -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "eGFR Scale" %}</h3>
+                        <div class="relative h-12 bg-gradient-to-r from-red-500 via-orange-500 via-yellow-500 to-green-500 rounded-lg mb-2">
+                            <div id="scaleIndicator" class="absolute top-0 bottom-0 w-1 bg-black rounded-full transform -translate-x-1/2 transition-all duration-500" style="left: 0%;"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-600">
+                            <span>0</span>
+                            <span>15</span>
+                            <span>30</span>
+                            <span>45</span>
+                            <span>60</span>
+                            <span>90</span>
+                            <span>120+</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>{% trans "Stage 5" %}</span>
+                            <span>{% trans "Stage 4" %}</span>
+                            <span>{% trans "Stage 3b" %}</span>
+                            <span>{% trans "Stage 3a" %}</span>
+                            <span>{% trans "Stage 2" %}</span>
+                            <span>{% trans "Stage 1" %}</span>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Formulas Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Formulas Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="formulasChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- CKD Stages Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "CKD Stages" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="stagesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- eGFR Range Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Your eGFR Value" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="rangeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- CKD Stages Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Chronic Kidney Disease Stages" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Stage" %}</th>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "eGFR Range" %}</th>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Description" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stagesTable" class="divide-y divide-gray-200">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-medium text-green-700">{% trans "Stage 1" %}</td>
+                                        <td class="py-2 px-3 text-gray-900">≥ 90</td>
+                                        <td class="py-2 px-3 text-gray-700">{% trans "Normal or high kidney function" %}</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-medium text-yellow-700">{% trans "Stage 2" %}</td>
+                                        <td class="py-2 px-3 text-gray-900">60-89</td>
+                                        <td class="py-2 px-3 text-gray-700">{% trans "Mildly decreased kidney function" %}</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-medium text-orange-700">{% trans "Stage 3a" %}</td>
+                                        <td class="py-2 px-3 text-gray-900">45-59</td>
+                                        <td class="py-2 px-3 text-gray-700">{% trans "Mildly to moderately decreased kidney function" %}</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-medium text-orange-700">{% trans "Stage 3b" %}</td>
+                                        <td class="py-2 px-3 text-gray-900">30-44</td>
+                                        <td class="py-2 px-3 text-gray-700">{% trans "Moderately to severely decreased kidney function" %}</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-medium text-red-700">{% trans "Stage 4" %}</td>
+                                        <td class="py-2 px-3 text-gray-900">15-29</td>
+                                        <td class="py-2 px-3 text-gray-700">{% trans "Severely decreased kidney function" %}</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-medium text-red-700">{% trans "Stage 5" %}</td>
+                                        <td class="py-2 px-3 text-gray-900">&lt; 15</td>
+                                        <td class="py-2 px-3 text-gray-700">{% trans "Kidney failure" %}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is GFR Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is GFR?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "GFR (Glomerular Filtration Rate) is a measure of how well your kidneys are filtering waste from your blood. It represents the rate at which fluid is filtered through the glomeruli (tiny filters in the kidneys) per unit of time." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "eGFR (estimated GFR) is calculated using formulas that take into account your creatinine level, age, gender, and race. It's expressed in milliliters per minute per 1.73 square meters of body surface area (mL/min/1.73m²)." %}
+                            </p>
+                        </div>
+
+                        <!-- Why GFR is Important Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Why GFR is Important" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "GFR is the best overall indicator of kidney function. It helps healthcare providers:" %}
+                            </p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700 text-sm">
+                                <li>{% trans "Detect kidney disease early" %}</li>
+                                <li>{% trans "Monitor kidney function over time" %}</li>
+                                <li>{% trans "Determine the stage of chronic kidney disease (CKD)" %}</li>
+                                <li>{% trans "Make decisions about treatment and medication dosing" %}</li>
+                                <li>{% trans "Assess the risk of kidney disease progression" %}</li>
+                            </ul>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your age (18-100 years)" %}</li>
+                                <li>{% trans "Select your gender (male or female)" %}</li>
+                                <li>{% trans "Select your race (used for formula adjustment)" %}</li>
+                                <li>{% trans "Choose your creatinine unit (mg/dL or μmol/L)" %}</li>
+                                <li>{% trans "Enter your serum creatinine level from your blood test" %}</li>
+                                <li>{% trans "Click 'Calculate eGFR' to see your results" %}</li>
+                                <li>{% trans "Review your eGFR value, CKD stage, and kidney function assessment" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "eGFR Value" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your estimated glomerular filtration rate in mL/min/1.73m². Higher values indicate better kidney function. Normal eGFR is typically 90 or higher." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "CKD Stage" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your chronic kidney disease stage based on your eGFR value. Stages range from Stage 1 (normal/high) to Stage 5 (kidney failure)." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "CKD-EPI vs MDRD" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The calculator shows results from both formulas. CKD-EPI is the preferred formula as it's more accurate, especially at higher eGFR levels. MDRD is shown for comparison." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CKD Stages Explained Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Chronic Kidney Disease Stages Explained" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Stage 1 (eGFR ≥ 90)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Normal or high kidney function. May have kidney damage but function is preserved. Regular monitoring recommended." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Stage 2 (eGFR 60-89)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Mildly decreased kidney function. Kidney damage with mild loss of function. Monitoring and lifestyle changes recommended." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Stage 3a (eGFR 45-59)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Mildly to moderately decreased kidney function. More frequent monitoring and may need to see a nephrologist." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Stage 3b (eGFR 30-44)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Moderately to severely decreased kidney function. Regular nephrologist visits and treatment planning recommended." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Stage 4 (eGFR 15-29)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Severely decreased kidney function. Preparation for kidney replacement therapy (dialysis or transplant) should begin." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Stage 5 (eGFR < 15)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Kidney failure. Dialysis or kidney transplant is typically needed. Also called end-stage renal disease (ESRD)." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formulas Explained Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "eGFR Formulas Explained" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "CKD-EPI Formula" %}</h4>
+                                    <p class="text-sm text-blue-800 mb-2">
+                                        {% trans "The preferred formula for calculating eGFR. More accurate than MDRD, especially at higher eGFR levels (above 60). Recommended by most medical organizations." %}
+                                    </p>
+                                    <p class="text-xs text-blue-700">{% trans "Takes into account: Creatinine, age, gender, and race" %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "MDRD Formula" %}</h4>
+                                    <p class="text-sm text-purple-800 mb-2">
+                                        {% trans "An older formula still used for comparison. Less accurate at higher eGFR levels but useful for historical comparison." %}
+                                    </p>
+                                    <p class="text-xs text-purple-700">{% trans "Takes into account: Creatinine, age, gender, and race" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Factors Affecting GFR Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Factors Affecting GFR" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Age:" %}</strong> {% trans "GFR naturally decreases with age. Normal decline is about 1 mL/min/1.73m² per year after age 40." %}</p>
+                                <p><strong>{% trans "Gender:" %}</strong> {% trans "Men typically have higher muscle mass and creatinine levels, which affects the calculation." %}</p>
+                                <p><strong>{% trans "Race:" %}</strong> {% trans "The formulas include race adjustments based on research showing differences in muscle mass and creatinine production." %}</p>
+                                <p><strong>{% trans "Creatinine Level:" %}</strong> {% trans "Higher creatinine levels indicate reduced kidney function, as kidneys are less able to filter waste from the blood." %}</p>
+                                <p><strong>{% trans "Muscle Mass:" %}</strong> {% trans "People with higher muscle mass produce more creatinine, which can affect eGFR calculations." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "eGFR is an estimate. Actual GFR can only be measured directly through specialized tests. The calculator provides estimates based on standard formulas." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "eGFR may not be accurate for certain populations, including children, pregnant women, people with very high or low muscle mass, or those with rapidly changing kidney function." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "A single eGFR measurement may not be diagnostic. Healthcare providers typically look at trends over time and consider other factors like protein in urine." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. Always consult with healthcare providers for accurate kidney function assessment, diagnosis, and treatment decisions." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let formulasChart = null;
+let stagesChart = null;
+let rangeChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const unitMetric = document.getElementById('unitMetric');
+    const unitSI = document.getElementById('unitSI');
+    const creatinineUnit = document.getElementById('creatinineUnit');
+    const creatinineInput = document.getElementById('creatinine');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Unit system toggle
+    function updateUnitInputs() {
+        if (unitSI.checked) {
+            creatinineUnit.textContent = 'μmol/L';
+            creatinineInput.min = '8.84';
+            creatinineInput.max = '884';
+            creatinineInput.value = '88.4';
+            creatinineInput.step = '0.1';
+        } else {
+            creatinineUnit.textContent = 'mg/dL';
+            creatinineInput.min = '0.1';
+            creatinineInput.max = '10';
+            creatinineInput.value = '1.0';
+            creatinineInput.step = '0.01';
+        }
+        // Clear results when switching units
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    }
+
+    unitMetric.addEventListener('change', updateUnitInputs);
+    unitSI.addEventListener('change', updateUnitInputs);
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            age: parseInt(document.getElementById('age').value),
+            gender: document.querySelector('input[name="gender"]:checked').value,
+            race: document.querySelector('input[name="race"]:checked').value,
+            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
+            creatinine: parseFloat(creatinineInput.value)
+        };
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate eGFR" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        document.getElementById('calculateBtn').disabled = true;
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update main result
+            const egfrResultEl = document.getElementById('egfrResult');
+            const stageTextEl = document.getElementById('stageText');
+            const ckdepiValueEl = document.getElementById('ckdepiValue');
+            const mdrdValueEl = document.getElementById('mdrdValue');
+            const stageDisplayEl = document.getElementById('stageDisplay');
+
+            if (egfrResultEl) egfrResultEl.textContent = Math.round(data.egfr);
+            if (stageTextEl) stageTextEl.textContent = data.stage + ' - ' + data.stage_desc;
+            if (ckdepiValueEl) ckdepiValueEl.textContent = Math.round(data.egfr_ckdepi);
+            if (mdrdValueEl) mdrdValueEl.textContent = Math.round(data.egfr_mdrd);
+            if (stageDisplayEl) stageDisplayEl.textContent = data.stage;
+
+            // Update result card color
+            const colors = {
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'yellow': 'bg-gradient-to-br from-yellow-600 to-yellow-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'red': 'bg-gradient-to-br from-red-600 to-red-700'
+            };
+            const resultCard = document.getElementById('resultCard');
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.stage_color] || 'bg-gradient-to-br from-green-600 to-green-700');
+            }
+
+            // Update scale indicator
+            const scaleIndicator = document.getElementById('scaleIndicator');
+            if (scaleIndicator && data.scale_position !== undefined) {
+                scaleIndicator.style.left = data.scale_position + '%';
+            }
+
+            // Highlight current stage in table
+            const stagesTable = document.getElementById('stagesTable');
+            if (stagesTable) {
+                const rows = stagesTable.querySelectorAll('tr');
+                rows.forEach(row => {
+                    row.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500');
+                    const stageCell = row.querySelector('td');
+                    if (stageCell && stageCell.textContent.trim() === data.stage) {
+                        row.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
+                    }
+                });
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.formulas_chart) {
+                    createFormulasChart(data.chart_data.formulas_chart);
+                }
+                if (data.chart_data.stages_chart) {
+                    createStagesChart(data.chart_data.stages_chart);
+                }
+                if (data.chart_data.range_chart) {
+                    createRangeChart(data.chart_data.range_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createFormulasChart(chartData) {
+        const ctx = document.getElementById('formulasChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (formulasChart) formulasChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            formulasChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)} {% trans "mL/min/1.73m²" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating formulas chart:', error);
+        }
+    }
+
+    function createStagesChart(chartData) {
+        const ctx = document.getElementById('stagesChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (stagesChart) stagesChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            stagesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.parsed.y === 0) return '';
+                                    return '{% trans "Your Stage" %}';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating stages chart:', error);
+        }
+    }
+
+    function createRangeChart(chartData) {
+        const ctx = document.getElementById('rangeChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (rangeChart) rangeChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            rangeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)} {% trans "mL/min/1.73m²" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating range chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

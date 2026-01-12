@@ -1,0 +1,300 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Bond Calculator - Price, Yield & Duration{% endblock %}
+
+{% block meta_description %}Calculate bond price, yield to maturity, current yield, and duration. Analyze bond investments.{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-gray-900 via-emerald-900 to-teal-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3">📈 Bond Calculator</h1>
+            <p class="text-emerald-200 text-lg max-w-2xl mx-auto">Calculate bond price, yield to maturity, and key metrics</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Calculator Form -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+                <form id="calculator-form" class="space-y-6">
+                    <!-- Calculation Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-emerald-200 mb-3">Calculate</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="price" checked class="peer sr-only">
+                                <div class="p-4 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-emerald-400 peer-checked:bg-emerald-500/20 transition-all text-center">
+                                    <div class="text-2xl mb-1">💵</div>
+                                    <div class="font-medium text-white">Bond Price</div>
+                                    <div class="text-xs text-gray-400">From YTM</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="ytm" class="peer sr-only">
+                                <div class="p-4 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-emerald-400 peer-checked:bg-emerald-500/20 transition-all text-center">
+                                    <div class="text-2xl mb-1">📊</div>
+                                    <div class="font-medium text-white">Yield (YTM)</div>
+                                    <div class="text-xs text-gray-400">From Price</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Bond Details -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-white">Bond Details</h3>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-emerald-200 mb-2">Face Value (Par)</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <input type="text" name="face_value" id="face_value" value="1,000" 
+                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-emerald-400">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-emerald-200 mb-2">Coupon Rate (%)</label>
+                                <input type="number" name="coupon_rate" id="coupon_rate" value="5" step="0.125" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-emerald-400">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-emerald-200 mb-2">Years to Maturity</label>
+                                <input type="number" name="years_to_maturity" id="years_to_maturity" value="10" step="0.5" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-emerald-400">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-emerald-200 mb-2">Payment Frequency</label>
+                            <select name="payment_frequency" id="payment_frequency" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-emerald-400">
+                                <option value="1">Annual</option>
+                                <option value="2" selected>Semi-Annual</option>
+                                <option value="4">Quarterly</option>
+                            </select>
+                        </div>
+
+                        <!-- For Price Calculation -->
+                        <div id="ytm_input" class="block">
+                            <label class="block text-sm font-medium text-emerald-200 mb-2">Yield to Maturity (%)</label>
+                            <input type="number" name="yield_to_maturity" id="yield_to_maturity" value="6" step="0.01" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-emerald-400">
+                        </div>
+
+                        <!-- For YTM Calculation -->
+                        <div id="price_input" class="hidden">
+                            <label class="block text-sm font-medium text-emerald-200 mb-2">Current Bond Price</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <input type="text" name="bond_price" id="bond_price" value="950" 
+                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-emerald-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
+                        Calculate Bond
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="space-y-6">
+                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-emerald-400 border-t-transparent mx-auto mb-4"></div>
+                    <p class="text-emerald-200">Calculating...</p>
+                </div>
+
+                <div id="results" class="space-y-6">
+                    <!-- Main Result -->
+                    <div class="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl p-6 shadow-2xl">
+                        <h3 class="text-emerald-100 text-sm font-medium mb-1" id="result_label">Bond Price</h3>
+                        <div class="text-4xl font-bold text-white" id="main_result">$926.40</div>
+                        <div class="mt-2 flex gap-2">
+                            <span id="status_badge" class="px-3 py-1 bg-red-500/30 text-red-200 rounded-full text-sm">Trading at Discount</span>
+                        </div>
+                    </div>
+
+                    <!-- Key Metrics -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-emerald-300 text-sm">Current Yield</div>
+                            <div class="text-xl font-bold text-white" id="current_yield">5.40%</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-emerald-300 text-sm">Yield to Maturity</div>
+                            <div class="text-xl font-bold text-white" id="ytm_display">6.00%</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-emerald-300 text-sm">Macaulay Duration</div>
+                            <div class="text-xl font-bold text-white" id="duration">7.8 years</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-emerald-300 text-sm">Modified Duration</div>
+                            <div class="text-xl font-bold text-white" id="mod_duration">7.35</div>
+                        </div>
+                    </div>
+
+                    <!-- Income Summary -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Income Summary</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-emerald-300">Annual Coupon Income</span>
+                                <span class="text-white font-medium" id="annual_income">$50.00</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-emerald-300">Total Coupon Payments</span>
+                                <span class="text-white font-medium" id="total_coupons">$500.00</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-emerald-300">Principal at Maturity</span>
+                                <span class="text-white font-medium" id="principal">$1,000.00</span>
+                            </div>
+                            <div class="flex justify-between pt-3 border-t border-white/20">
+                                <span class="text-emerald-200 font-medium">Total Return</span>
+                                <span class="text-white font-bold" id="total_return">$1,500.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cash Flow Table -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Cash Flow Schedule</h3>
+                        <div class="overflow-x-auto max-h-64">
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 bg-emerald-900/90">
+                                    <tr class="text-emerald-300 border-b border-white/20">
+                                        <th class="text-left py-2">Period</th>
+                                        <th class="text-right py-2">Coupon</th>
+                                        <th class="text-right py-2">Principal</th>
+                                        <th class="text-right py-2">PV</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cash_flow_table" class="text-white"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+}
+
+// Toggle input fields based on calculation type
+document.querySelectorAll('input[name="calc_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        if (this.value === 'price') {
+            document.getElementById('ytm_input').classList.remove('hidden');
+            document.getElementById('price_input').classList.add('hidden');
+        } else {
+            document.getElementById('ytm_input').classList.add('hidden');
+            document.getElementById('price_input').classList.remove('hidden');
+        }
+    });
+});
+
+document.getElementById('calculator-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('loading').classList.remove('hidden');
+    
+    const calcType = document.querySelector('input[name="calc_type"]:checked').value;
+    
+    const formData = {
+        calc_type: calcType,
+        face_value: document.getElementById('face_value').value,
+        coupon_rate: document.getElementById('coupon_rate').value,
+        years_to_maturity: document.getElementById('years_to_maturity').value,
+        payment_frequency: document.getElementById('payment_frequency').value,
+        yield_to_maturity: document.getElementById('yield_to_maturity').value,
+        bond_price: document.getElementById('bond_price').value
+    };
+
+    try {
+        const response = await fetch('{% url "bond_calculator" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        document.getElementById('loading').classList.add('hidden');
+
+        if (data.success) {
+            updateResults(data);
+        } else {
+            alert(data.error || 'Calculation error');
+        }
+    } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        alert('An error occurred');
+    }
+});
+
+function updateResults(data) {
+    // Update main result
+    if (data.calc_type === 'price') {
+        document.getElementById('result_label').textContent = 'Bond Price';
+        document.getElementById('main_result').textContent = formatCurrency(data.bond_price);
+        document.getElementById('ytm_display').textContent = data.input.yield_to_maturity + '%';
+    } else {
+        document.getElementById('result_label').textContent = 'Yield to Maturity';
+        document.getElementById('main_result').textContent = data.yield_to_maturity.toFixed(2) + '%';
+        document.getElementById('ytm_display').textContent = data.yield_to_maturity.toFixed(2) + '%';
+    }
+
+    // Update status badge
+    const badge = document.getElementById('status_badge');
+    if (data.bond_status === 'Premium') {
+        badge.className = 'px-3 py-1 bg-green-500/30 text-green-200 rounded-full text-sm';
+        badge.textContent = 'Trading at Premium';
+    } else if (data.bond_status === 'Discount') {
+        badge.className = 'px-3 py-1 bg-red-500/30 text-red-200 rounded-full text-sm';
+        badge.textContent = 'Trading at Discount';
+    } else {
+        badge.className = 'px-3 py-1 bg-gray-500/30 text-gray-200 rounded-full text-sm';
+        badge.textContent = 'Trading at Par';
+    }
+
+    document.getElementById('current_yield').textContent = data.current_yield + '%';
+    document.getElementById('duration').textContent = data.macaulay_duration ? data.macaulay_duration + ' years' : 'N/A';
+    document.getElementById('mod_duration').textContent = data.modified_duration ? data.modified_duration.toFixed(2) : 'N/A';
+    document.getElementById('annual_income').textContent = formatCurrency(data.annual_income || 0);
+    document.getElementById('total_coupons').textContent = formatCurrency(data.total_income - (data.input?.face_value || 1000));
+    document.getElementById('principal').textContent = formatCurrency(data.input?.face_value || 1000);
+    document.getElementById('total_return').textContent = formatCurrency(data.total_income || 0);
+
+    // Update cash flow table
+    if (data.cash_flows) {
+        const tbody = document.getElementById('cash_flow_table');
+        tbody.innerHTML = '';
+        data.cash_flows.forEach(cf => {
+            const row = document.createElement('tr');
+            row.className = 'border-b border-white/10';
+            row.innerHTML = `
+                <td class="py-2">${cf.period}</td>
+                <td class="text-right">${formatCurrency(cf.coupon)}</td>
+                <td class="text-right">${formatCurrency(cf.principal)}</td>
+                <td class="text-right">${formatCurrency(cf.present_value)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+}
+
+document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+</script>
+{% endblock %}

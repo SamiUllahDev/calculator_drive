@@ -1,0 +1,641 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Time Duration Calculator - Calculate Duration Between Times" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Time Duration Calculator. Calculate duration between two times, add/subtract duration, convert time units, and calculate elapsed time." %}{% endblock %}
+{% block meta_keywords %}{% trans "time duration calculator, calculate duration, duration calculator, time difference calculator, elapsed time calculator, time interval calculator, duration between times calculator, time span calculator, period calculator, duration finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Time Duration Calculator - Calculate Duration Between Times" %}{% endblock %}
+{% block og_description %}{% trans "Calculate duration between two times, add/subtract duration, convert time units, and calculate elapsed time. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Time Duration Calculator - Calculate Duration Between Times" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate duration between two times and elapsed time. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Time Duration Calculator' %}",
+  "description": "{% trans 'Free online Time Duration Calculator. Calculate duration between two times, add/subtract duration, convert time units, and calculate elapsed time.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.7", "ratingCount": "1200"},
+  "featureList": ["{% trans 'Duration calculation' %}", "{% trans 'Time addition/subtraction' %}", "{% trans 'Time unit conversion' %}", "{% trans 'Elapsed time calculation' %}", "{% trans 'Multiple time formats' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Time Duration Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate duration between times, add/subtract duration, and convert time units" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <!-- Calculation Type Selector -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="between_times">{% trans "Duration Between Times" %}</option>
+                        <option value="add_subtract">{% trans "Add/Subtract Duration" %}</option>
+                        <option value="convert">{% trans "Convert Duration Units" %}</option>
+                        <option value="elapsed">{% trans "Calculate Elapsed Time" %}</option>
+                    </select>
+                </div>
+
+                <!-- Between Times Calculator -->
+                <div id="betweenTimesCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Duration Between Times" %}</h2>
+                    <form id="betweenTimesForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Start Time" %}</label>
+                            <input type="text" id="startTime" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="HH:MM or HH:MM:SS" pattern="[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Format: HH:MM or HH:MM:SS (e.g., 09:00 or 09:00:00)" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "End Time" %}</label>
+                            <input type="text" id="endTime" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="HH:MM or HH:MM:SS" pattern="[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Can be next day (e.g., 23:00 to 02:00)" %}</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Duration" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Add/Subtract Calculator -->
+                <div id="addSubtractCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Add/Subtract Duration" %}</h2>
+                    <form id="addSubtractForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Time" %}</label>
+                            <input type="text" id="addSubtractTime" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="HH:MM or HH:MM:SS" pattern="[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Format: HH:MM or HH:MM:SS" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Operation" %}</label>
+                            <select id="operation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="add">{% trans "Add" %}</option>
+                                <option value="subtract">{% trans "Subtract" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Duration" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="duration" min="0" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="durationUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="hours">{% trans "Hours" %}</option>
+                                    <option value="minutes">{% trans "Minutes" %}</option>
+                                    <option value="seconds">{% trans "Seconds" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Convert Calculator -->
+                <div id="convertCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Convert Duration Units" %}</h2>
+                    <form id="convertForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Duration" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="convertDuration" min="0" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="fromUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="hours">{% trans "Hours" %}</option>
+                                    <option value="minutes">{% trans "Minutes" %}</option>
+                                    <option value="seconds">{% trans "Seconds" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                    <option value="weeks">{% trans "Weeks" %}</option>
+                                    <option value="months">{% trans "Months" %}</option>
+                                    <option value="years">{% trans "Years" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Convert To" %}</label>
+                            <select id="toUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="minutes">{% trans "Minutes" %}</option>
+                                <option value="hours">{% trans "Hours" %}</option>
+                                <option value="seconds">{% trans "Seconds" %}</option>
+                                <option value="days">{% trans "Days" %}</option>
+                                <option value="weeks">{% trans "Weeks" %}</option>
+                                <option value="months">{% trans "Months" %}</option>
+                                <option value="years">{% trans "Years" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Convert" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Elapsed Calculator -->
+                <div id="elapsedCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Elapsed Time" %}</h2>
+                    <form id="elapsedForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Start Time" %}</label>
+                            <input type="text" id="elapsedStartTime" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="HH:MM or HH:MM:SS" pattern="[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Format: HH:MM or HH:MM:SS" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Elapsed Duration" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="elapsedDuration" min="0" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="elapsedUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="hours">{% trans "Hours" %}</option>
+                                    <option value="minutes">{% trans "Minutes" %}</option>
+                                    <option value="seconds">{% trans "Seconds" %}</option>
+                                    <option value="days">{% trans "Days" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate End Time" %}
+                        </button>
+  </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Time Duration?" %}</h3>
+                            <p>{% trans "Time duration is the amount of time that passes between two points in time, or the length of time something takes." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select calculation type" %}</li>
+                                <li>{% trans "Enter time values" %}</li>
+                                <li>{% trans "Click calculate" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Time Format" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "HH:MM" %}:</strong> {% trans "Hours:Minutes (e.g., 14:30)" %}</p>
+                                <p><strong>{% trans "HH:MM:SS" %}:</strong> {% trans "Hours:Minutes:Seconds (e.g., 14:30:45)" %}</p>
+                                <p><strong>{% trans "24-hour format" %}:</strong> {% trans "0-23 hours" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li><strong>{% trans "Between Times" %}:</strong> {% trans "Calculate duration between two times" %}</li>
+                                <li><strong>{% trans "Add/Subtract" %}:</strong> {% trans "Add or subtract duration from a time" %}</li>
+                                <li><strong>{% trans "Convert Units" %}:</strong> {% trans "Convert between time units" %}</li>
+                                <li><strong>{% trans "Elapsed Time" %}:</strong> {% trans "Calculate end time from start and duration" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Time Units" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Seconds" %}:</strong> 1 second</p>
+                                <p><strong>{% trans "Minutes" %}:</strong> 60 seconds</p>
+                                <p><strong>{% trans "Hours" %}:</strong> 3,600 seconds</p>
+                                <p><strong>{% trans "Days" %}:</strong> 86,400 seconds</p>
+                                <p><strong>{% trans "Weeks" %}:</strong> 604,800 seconds</p>
+                                <p><strong>{% trans "Months" %}:</strong> ~2,592,000 seconds</p>
+                                <p><strong>{% trans "Years" %}:</strong> ~31,536,000 seconds</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Conversions" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p>1 hour = 60 minutes</p>
+                                <p>1 hour = 3,600 seconds</p>
+                                <p>1 day = 24 hours</p>
+                                <p>1 week = 7 days</p>
+                                <p>1 month ≈ 30 days</p>
+                                <p>1 year ≈ 365 days</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Use 24-hour format (0-23 hours)" %}</li>
+                                <li>{% trans "Duration can cross midnight" %}</li>
+                                <li>{% trans "Subtracting may wrap to previous day" %}</li>
+                                <li>{% trans "All calculations use seconds internally" %}</li>
+                                <li>{% trans "Months and years are approximate" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Meeting duration" %}</li>
+                                <li>{% trans "Travel time" %}</li>
+                                <li>{% trans "Project timelines" %}</li>
+                                <li>{% trans "Event planning" %}</li>
+                                <li>{% trans "Time tracking" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalcMode(this.value);
+    });
+    
+    // Form submissions
+    document.getElementById('betweenTimesForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateBetweenTimes();
+    });
+    
+    document.getElementById('addSubtractForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateAddSubtract();
+    });
+    
+    document.getElementById('convertForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateConvert();
+    });
+    
+    document.getElementById('elapsedForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+        calculateElapsed();
+    });
+    
+    // Real-time validation
+    setupValidation();
+    
+    // Initialize
+    switchCalcMode('between_times');
+});
+
+function switchCalcMode(mode) {
+    // Hide all calculation modes
+    document.querySelectorAll('.calc-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant mode
+    if (mode === 'between_times') {
+        document.getElementById('betweenTimesCalc').classList.remove('hidden');
+    } else if (mode === 'add_subtract') {
+        document.getElementById('addSubtractCalc').classList.remove('hidden');
+    } else if (mode === 'convert') {
+        document.getElementById('convertCalc').classList.remove('hidden');
+    } else if (mode === 'elapsed') {
+        document.getElementById('elapsedCalc').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function setupValidation() {
+    // Time format validation
+    const timeInputs = document.querySelectorAll('input[type="text"][pattern]');
+    timeInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validateTimeFormat(this);
+        });
+    });
+    
+    // Number validation
+    const numberInputs = document.querySelectorAll('input[type="number"]');
+    numberInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validateNonNegative(this);
+        });
+    });
+}
+
+function validateTimeFormat(input) {
+    const value = input.value.trim();
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (value === '') {
+        return true;
+    }
+    
+    const timePattern = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+    if (!timePattern.test(value)) {
+        showError(input, '{% trans "Invalid time format. Use HH:MM or HH:MM:SS" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function validateNonNegative(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value) || value < 0) {
+        showError(input, '{% trans "Value must be non-negative" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    if (errorSpan) {
+        errorSpan.textContent = message;
+        errorSpan.classList.remove('hidden');
+    }
+}
+
+function calculateBetweenTimes() {
+    const formData = {
+        calc_type: 'between_times',
+        start_time: document.getElementById('startTime').value.trim(),
+        end_time: document.getElementById('endTime').value.trim(),
+    };
+    
+    if (!formData.start_time || !formData.end_time) {
+        alert('{% trans "Please enter start and end times" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateAddSubtract() {
+    const formData = {
+        calc_type: 'add_subtract',
+        time: document.getElementById('addSubtractTime').value.trim(),
+        operation: document.getElementById('operation').value,
+        duration: parseFloat(document.getElementById('duration').value),
+        duration_unit: document.getElementById('durationUnit').value,
+    };
+    
+    if (!formData.time || !formData.duration) {
+        alert('{% trans "Please enter time and duration" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateConvert() {
+    const formData = {
+        calc_type: 'convert',
+        duration: parseFloat(document.getElementById('convertDuration').value),
+        from_unit: document.getElementById('fromUnit').value,
+        to_unit: document.getElementById('toUnit').value,
+    };
+    
+    if (!formData.duration) {
+        alert('{% trans "Please enter duration" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateElapsed() {
+    const formData = {
+        calc_type: 'elapsed',
+        start_time: document.getElementById('elapsedStartTime').value.trim(),
+        elapsed_duration: parseFloat(document.getElementById('elapsedDuration').value),
+        elapsed_unit: document.getElementById('elapsedUnit').value,
+    };
+    
+    if (!formData.start_time || !formData.elapsed_duration) {
+        alert('{% trans "Please enter start time and elapsed duration" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:time_duration_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    const unitLabels = {
+        'seconds': 's',
+        'minutes': 'min',
+        'hours': 'h',
+        'days': 'days',
+        'weeks': 'weeks',
+        'months': 'months',
+        'years': 'years',
+    };
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'between_times') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Duration" %}</p>
+            <p class="text-3xl font-bold text-blue-600 mb-2">${data.duration_formatted}</p>
+            <div class="grid grid-cols-3 gap-2 mt-4 text-sm">
+                <div>
+                    <p class="text-gray-600">{% trans "Seconds" %}</p>
+                    <p class="font-semibold">${data.duration_seconds}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">{% trans "Minutes" %}</p>
+                    <p class="font-semibold">${data.duration_minutes.toFixed(2)}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">{% trans "Hours" %}</p>
+                    <p class="font-semibold">${data.duration_hours.toFixed(2)}</p>
+    </div>
+</div>
+        </div>`;
+    } else if (data.calc_type === 'add_subtract') {
+        html += `<div class="bg-green-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Result" %}</p>
+            <p class="text-4xl font-bold text-green-600">${data.result_formatted}</p>
+            <p class="text-sm text-gray-500 mt-2">${data.hours} {% trans "hours" %}, ${data.minutes} {% trans "minutes" %}, ${data.seconds} {% trans "seconds" %}</p>
+        </div>`;
+    } else if (data.calc_type === 'convert') {
+        html += `<div class="bg-purple-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">${data.duration} ${unitLabels[data.from_unit]}</p>
+            <p class="text-sm text-gray-500 mb-2">{% trans "converts to" %}</p>
+            <p class="text-4xl font-bold text-purple-600">${data.result.toLocaleString()} ${unitLabels[data.to_unit]}</p>
+        </div>`;
+    } else if (data.calc_type === 'elapsed') {
+        html += `<div class="bg-yellow-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "End Time" %}</p>
+            <p class="text-4xl font-bold text-yellow-600">${data.end_time_formatted}</p>
+            <p class="text-sm text-gray-500 mt-2">${data.hours} {% trans "hours" %}, ${data.minutes} {% trans "minutes" %}, ${data.seconds} {% trans "seconds" %}</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

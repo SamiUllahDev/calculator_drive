@@ -1,0 +1,852 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Mulch Calculator - Calculate Mulch Needed for Your Garden" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Mulch Calculator. Calculate how much mulch you need for rectangular, circular, or triangular areas. Includes cost calculations and weight estimates." %}{% endblock %}
+{% block meta_keywords %}{% trans "mulch calculator, calculate mulch, garden mulch calculator, landscaping calculator, mulch volume calculator, mulch cost calculator, mulch coverage calculator, how much mulch do I need, cubic yard mulch calculator, garden material calculator, landscaping material calculator, mulch finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Mulch Calculator - Calculate Mulch Needed for Your Garden" %}{% endblock %}
+{% block og_description %}{% trans "Calculate how much mulch you need for rectangular, circular, or triangular areas. Includes cost calculations and weight estimates. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Mulch Calculator - Calculate Mulch Needed for Your Garden" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate mulch needed for your garden with cost and weight estimates. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Mulch Calculator' %}",
+  "description": "{% trans 'Free online Mulch Calculator. Calculate how much mulch you need for rectangular, circular, or triangular areas.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.7", "ratingCount": "1100"},
+  "featureList": ["{% trans 'Mulch volume calculation' %}", "{% trans 'Cost calculation' %}", "{% trans 'Weight estimation' %}", "{% trans 'Multiple area shapes' %}", "{% trans 'Coverage calculation' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Mulch Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate how much mulch you need for your garden or landscaping project" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <!-- Calculation Mode Selector -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                        <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="rectangular">{% trans "Rectangular Area" %}</option>
+                            <option value="circular">{% trans "Circular Area" %}</option>
+                            <option value="triangular">{% trans "Triangular Area" %}</option>
+                            <option value="coverage_from_volume">{% trans "Coverage from Volume" %}</option>
+                            <option value="weight_from_volume">{% trans "Weight from Volume" %}</option>
+                            <option value="cost_calculation">{% trans "Cost Calculation" %}</option>
+                        </select>
+                    </div>
+
+                    <form id="mulchForm" class="space-y-6">
+                        <!-- Rectangular Area -->
+                        <div id="rectangularFields" class="calculation-mode">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Length" %}</label>
+                                    <input type="number" id="length" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Width" %}</label>
+                                    <input type="number" id="width" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth" %}</label>
+                                    <input type="number" id="depth" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Length/Width Unit" %}</label>
+                                    <select id="lengthUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                        <option value="yards">{% trans "Yards (yd)" %}</option>
+                                        <option value="inches">{% trans "Inches (in)" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth Unit" %}</label>
+                                    <select id="depthUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "Inches (in)" %}</option>
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                        <option value="centimeters">{% trans "Centimeters (cm)" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="cubic_yards">{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                    <option value="liters">{% trans "Liters (L)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Circular Area -->
+                        <div id="circularFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Radius" %}</label>
+                                    <input type="number" id="radius" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth" %}</label>
+                                    <input type="number" id="depth2" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Radius Unit" %}</label>
+                                    <select id="radiusUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                        <option value="yards">{% trans "Yards (yd)" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth Unit" %}</label>
+                                    <select id="depthUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "Inches (in)" %}</option>
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="cubic_yards">{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Triangular Area -->
+                        <div id="triangularFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Base" %}</label>
+                                    <input type="number" id="base" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Height" %}</label>
+                                    <input type="number" id="height" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth" %}</label>
+                                    <input type="number" id="depth3" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Base/Height Unit" %}</label>
+                                    <select id="baseUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                        <option value="yards">{% trans "Yards (yd)" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth Unit" %}</label>
+                                    <select id="depthUnit3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "Inches (in)" %}</option>
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="cubic_yards">{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Coverage from Volume -->
+                        <div id="coverageFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume" %}</label>
+                                    <input type="number" id="volume" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth" %}</label>
+                                    <input type="number" id="depth4" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume Unit" %}</label>
+                                    <select id="volumeUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="cubic_yards">{% trans "Cubic Yards (yd³)" %}</option>
+                                        <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                        <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Depth Unit" %}</label>
+                                    <select id="depthUnit4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "Inches (in)" %}</option>
+                                        <option value="feet">{% trans "Feet (ft)" %}</option>
+                                        <option value="meters">{% trans "Meters (m)" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="square_feet">{% trans "Square Feet (ft²)" %}</option>
+                                    <option value="square_yards">{% trans "Square Yards (yd²)" %}</option>
+                                    <option value="square_meters">{% trans "Square Meters (m²)" %}</option>
+                                    <option value="acres">{% trans "Acres" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Weight from Volume -->
+                        <div id="weightFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume" %}</label>
+                                    <input type="number" id="volume2" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mulch Type" %}</label>
+                                    <select id="mulchType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="wood_chips">{% trans "Wood Chips" %}</option>
+                                        <option value="bark_mulch">{% trans "Bark Mulch" %}</option>
+                                        <option value="straw">{% trans "Straw" %}</option>
+                                        <option value="compost">{% trans "Compost" %}</option>
+                                        <option value="rubber">{% trans "Rubber Mulch" %}</option>
+                                        <option value="stone">{% trans "Stone" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume Unit" %}</label>
+                                    <select id="volumeUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="cubic_yards">{% trans "Cubic Yards (yd³)" %}</option>
+                                        <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                        <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                    <select id="resultUnit5" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                        <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                        <option value="tons">{% trans "Tons" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cost Calculation -->
+                        <div id="costFields" class="calculation-mode hidden">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Cost Mode" %}</label>
+                                <select id="costMode" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="from_volume">{% trans "From Volume" %}</option>
+                                    <option value="from_weight">{% trans "From Weight" %}</option>
+                                </select>
+                            </div>
+                            <div id="costVolumeFields">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume" %}</label>
+                                        <input type="number" id="volume3" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                        <span class="error-message text-red-500 text-sm hidden"></span>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Price per Unit" %}</label>
+                                        <input type="number" id="pricePerUnit" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                        <span class="error-message text-red-500 text-sm hidden"></span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume Unit" %}</label>
+                                        <select id="volumeUnit3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="cubic_yards">{% trans "Cubic Yards (yd³)" %}</option>
+                                            <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Currency" %}</label>
+                                        <select id="currency" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="usd">{% trans "USD ($)" %}</option>
+                                            <option value="eur">{% trans "EUR (€)" %}</option>
+                                            <option value="gbp">{% trans "GBP (£)" %}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="costWeightFields" class="hidden">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight" %}</label>
+                                        <input type="number" id="weight" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                        <span class="error-message text-red-500 text-sm hidden"></span>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Price per Unit" %}</label>
+                                        <input type="number" id="pricePerUnit2" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                        <span class="error-message text-red-500 text-sm hidden"></span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight Unit" %}</label>
+                                        <select id="weightUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                            <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Currency" %}</label>
+                                        <select id="currency2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="usd">{% trans "USD ($)" %}</option>
+                                            <option value="eur">{% trans "EUR (€)" %}</option>
+                                            <option value="gbp">{% trans "GBP (£)" %}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Mulch?" %}</h3>
+                            <p>{% trans "Mulch is a material spread over soil to retain moisture, suppress weeds, and improve soil health. Common types include wood chips, bark, straw, compost, and rubber." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select a calculation type" %}</li>
+                                <li>{% trans "Enter the dimensions of your area" %}</li>
+                                <li>{% trans "Select appropriate units" %}</li>
+                                <li>{% trans "Click 'Calculate' to get results" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-1">
+                                <li><strong>{% trans "Rectangular Area" %}:</strong> {% trans "For rectangular or square gardens" %}</li>
+                                <li><strong>{% trans "Circular Area" %}:</strong> {% trans "For circular flower beds" %}</li>
+                                <li><strong>{% trans "Triangular Area" %}:</strong> {% trans "For triangular garden beds" %}</li>
+                                <li><strong>{% trans "Coverage from Volume" %}:</strong> {% trans "Find how much area a volume covers" %}</li>
+                                <li><strong>{% trans "Weight from Volume" %}:</strong> {% trans "Calculate weight based on mulch type" %}</li>
+                                <li><strong>{% trans "Cost Calculation" %}:</strong> {% trans "Calculate total cost" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-2 text-xs">
+                                <p><strong>{% trans "Rectangular" %}:</strong><br>V = L × W × D</p>
+                                <p><strong>{% trans "Circular" %}:</strong><br>V = π × r² × D</p>
+                                <p><strong>{% trans "Triangular" %}:</strong><br>V = (1/2) × B × H × D</p>
+                                <p><strong>{% trans "Coverage" %}:</strong><br>A = V / D</p>
+                                <p><strong>{% trans "Weight" %}:</strong><br>W = V × Density</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Recommended Depth" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Flower beds: 2-3 inches" %}</li>
+                                <li>{% trans "Vegetable gardens: 2-4 inches" %}</li>
+                                <li>{% trans "Tree rings: 3-4 inches" %}</li>
+                                <li>{% trans "Pathways: 4-6 inches" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "All dimensions must be greater than zero" %}</li>
+                                <li>{% trans "Depth is typically measured in inches" %}</li>
+                                <li>{% trans "Results are rounded to 4 decimal places" %}</li>
+                                <li>{% trans "Add 5-10% extra for settling" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Garden bed preparation" %}</li>
+                                <li>{% trans "Landscaping projects" %}</li>
+                                <li>{% trans "Tree and shrub mulching" %}</li>
+                                <li>{% trans "Pathway installation" %}</li>
+                                <li>{% trans "Budget planning" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    const form = document.getElementById('mulchForm');
+    const costModeSelect = document.getElementById('costMode');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalculationMode(this.value);
+    });
+    
+    // Switch cost modes
+    if (costModeSelect) {
+        costModeSelect.addEventListener('change', function() {
+            switchCostMode(this.value);
+        });
+    }
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculate();
+    });
+    
+    // Real-time validation
+    const inputs = form.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            validateInput(this);
+        });
+        input.addEventListener('blur', function() {
+            validateInput(this);
+        });
+    });
+    
+    // Initialize
+    switchCalculationMode('rectangular');
+});
+
+function switchCalculationMode(mode) {
+    // Hide all calculation mode fields
+    document.querySelectorAll('.calculation-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant fields
+    switch(mode) {
+        case 'rectangular':
+            document.getElementById('rectangularFields').classList.remove('hidden');
+            break;
+        case 'circular':
+            document.getElementById('circularFields').classList.remove('hidden');
+            break;
+        case 'triangular':
+            document.getElementById('triangularFields').classList.remove('hidden');
+            break;
+        case 'coverage_from_volume':
+            document.getElementById('coverageFields').classList.remove('hidden');
+            break;
+        case 'weight_from_volume':
+            document.getElementById('weightFields').classList.remove('hidden');
+            break;
+        case 'cost_calculation':
+            document.getElementById('costFields').classList.remove('hidden');
+            switchCostMode('from_volume');
+            break;
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function switchCostMode(mode) {
+    document.getElementById('costVolumeFields').classList.add('hidden');
+    document.getElementById('costWeightFields').classList.add('hidden');
+    
+    if (mode === 'from_volume') {
+        document.getElementById('costVolumeFields').classList.remove('hidden');
+    } else {
+        document.getElementById('costWeightFields').classList.remove('hidden');
+    }
+}
+
+function validateInput(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    // Remove previous error styling
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value)) {
+        showError(input, '{% trans "Please enter a valid number" %}');
+        return false;
+    }
+    
+    // Check for negative or zero values
+    if (value <= 0) {
+        showError(input, '{% trans "Value must be greater than zero" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    if (errorSpan) {
+        errorSpan.textContent = message;
+        errorSpan.classList.remove('hidden');
+    }
+}
+
+function calculate() {
+    const calcType = document.getElementById('calcType').value;
+    const formData = {
+        calc_type: calcType
+    };
+    
+    // Collect data based on calculation type
+    if (calcType === 'rectangular') {
+        const length = document.getElementById('length').value;
+        const width = document.getElementById('width').value;
+        const depth = document.getElementById('depth').value;
+        if (!length || !width || !depth) {
+            alert('{% trans "Please enter length, width, and depth" %}');
+            return;
+        }
+        formData.length = parseFloat(length);
+        formData.width = parseFloat(width);
+        formData.depth = parseFloat(depth);
+        formData.length_unit = document.getElementById('lengthUnit').value;
+        formData.depth_unit = document.getElementById('depthUnit').value;
+        formData.result_unit = document.getElementById('resultUnit').value;
+    } else if (calcType === 'circular') {
+        const radius = document.getElementById('radius').value;
+        const depth = document.getElementById('depth2').value;
+        if (!radius || !depth) {
+            alert('{% trans "Please enter radius and depth" %}');
+            return;
+        }
+        formData.radius = parseFloat(radius);
+        formData.depth = parseFloat(depth);
+        formData.radius_unit = document.getElementById('radiusUnit').value;
+        formData.depth_unit = document.getElementById('depthUnit2').value;
+        formData.result_unit = document.getElementById('resultUnit2').value;
+    } else if (calcType === 'triangular') {
+        const base = document.getElementById('base').value;
+        const height = document.getElementById('height').value;
+        const depth = document.getElementById('depth3').value;
+        if (!base || !height || !depth) {
+            alert('{% trans "Please enter base, height, and depth" %}');
+            return;
+        }
+        formData.base = parseFloat(base);
+        formData.height = parseFloat(height);
+        formData.depth = parseFloat(depth);
+        formData.base_unit = document.getElementById('baseUnit').value;
+        formData.depth_unit = document.getElementById('depthUnit3').value;
+        formData.result_unit = document.getElementById('resultUnit3').value;
+    } else if (calcType === 'coverage_from_volume') {
+        const volume = document.getElementById('volume').value;
+        const depth = document.getElementById('depth4').value;
+        if (!volume || !depth) {
+            alert('{% trans "Please enter volume and depth" %}');
+            return;
+        }
+        formData.volume = parseFloat(volume);
+        formData.depth = parseFloat(depth);
+        formData.volume_unit = document.getElementById('volumeUnit').value;
+        formData.depth_unit = document.getElementById('depthUnit4').value;
+        formData.result_unit = document.getElementById('resultUnit4').value;
+    } else if (calcType === 'weight_from_volume') {
+        const volume = document.getElementById('volume2').value;
+        if (!volume) {
+            alert('{% trans "Please enter volume" %}');
+            return;
+        }
+        formData.volume = parseFloat(volume);
+        formData.volume_unit = document.getElementById('volumeUnit2').value;
+        formData.mulch_type = document.getElementById('mulchType').value;
+        formData.result_unit = document.getElementById('resultUnit5').value;
+    } else if (calcType === 'cost_calculation') {
+        const costMode = document.getElementById('costMode').value;
+        formData.cost_mode = costMode;
+        
+        if (costMode === 'from_volume') {
+            const volume = document.getElementById('volume3').value;
+            const price = document.getElementById('pricePerUnit').value;
+            if (!volume || !price) {
+                alert('{% trans "Please enter volume and price" %}');
+                return;
+            }
+            formData.volume = parseFloat(volume);
+            formData.price_per_unit = parseFloat(price);
+            formData.volume_unit = document.getElementById('volumeUnit3').value;
+            formData.price_unit = 'per_' + formData.volume_unit;
+            formData.currency = document.getElementById('currency').value;
+        } else {
+            const weight = document.getElementById('weight').value;
+            const price = document.getElementById('pricePerUnit2').value;
+            if (!weight || !price) {
+                alert('{% trans "Please enter weight and price" %}');
+                return;
+            }
+            formData.weight = parseFloat(weight);
+            formData.price_per_unit = parseFloat(price);
+            formData.weight_unit = document.getElementById('weightUnit').value;
+            formData.price_unit = 'per_' + formData.weight_unit;
+            formData.currency = document.getElementById('currency2').value;
+        }
+    }
+    
+    // Validate all inputs
+    const inputs = document.querySelectorAll('input[type="number"]');
+    let isValid = true;
+    inputs.forEach(input => {
+        if (!input.closest('.hidden') && !validateInput(input)) {
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        return;
+    }
+    
+    // Send AJAX request
+    fetch('{% url "other_calculators:mulch_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'rectangular' || data.calc_type === 'circular' || data.calc_type === 'triangular') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Mulch Volume Needed" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.volume.toFixed(4)} ${formatUnit(data.result_unit)}</p>
+        </div>`;
+    } else if (data.calc_type === 'coverage_from_volume') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Coverage Area" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.coverage.toFixed(4)} ${formatUnit(data.result_unit)}</p>
+            <p class="text-sm text-gray-500 mt-2">${data.volume} ${formatUnit(data.volume_unit)} at ${data.depth} ${formatUnit(data.depth_unit)} depth</p>
+        </div>`;
+    } else if (data.calc_type === 'weight_from_volume') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Estimated Weight" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.weight.toFixed(2)} ${formatUnit(data.result_unit)}</p>
+            <p class="text-sm text-gray-500 mt-2">${data.volume} ${formatUnit(data.volume_unit)} of ${data.mulch_type.replace('_', ' ')}</p>
+        </div>`;
+    } else if (data.calc_type === 'cost_calculation') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Total Cost" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${formatCurrency(data.total_cost, data.currency)}</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function formatUnit(unit) {
+    const unitMap = {
+        'meters': 'm',
+        'feet': 'ft',
+        'yards': 'yd',
+        'inches': 'in',
+        'centimeters': 'cm',
+        'cubic_meters': 'm³',
+        'cubic_feet': 'ft³',
+        'cubic_yards': 'yd³',
+        'cubic_inches': 'in³',
+        'liters': 'L',
+        'gallons_us': 'US gal',
+        'square_meters': 'm²',
+        'square_feet': 'ft²',
+        'square_yards': 'yd²',
+        'square_inches': 'in²',
+        'acres': 'acres',
+        'kilograms': 'kg',
+        'pounds': 'lbs',
+        'tons': 'tons',
+        'us_tons': 'US tons',
+    };
+    return unitMap[unit] || unit;
+}
+
+function formatCurrency(amount, currency) {
+    const symbols = {
+        'usd': '$',
+        'eur': '€',
+        'gbp': '£',
+    };
+    return symbols[currency] + amount.toFixed(2);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

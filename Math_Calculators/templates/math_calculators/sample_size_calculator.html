@@ -1,0 +1,721 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Sample Size Calculator - Calculate Required Sample Size" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free sample size calculator to calculate required sample size for surveys and studies. Supports proportion and mean calculations with confidence levels and margin of error. Perfect for research and statistics." %}{% endblock %}
+{% block meta_keywords %}{% trans "sample size calculator, calculate sample size, survey sample size calculator, sample size for proportion calculator, sample size for mean calculator, confidence level calculator, statistical sample size calculator, research sample size, survey calculator, sample size finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Sample Size Calculator - Calculate Required Sample Size" %}{% endblock %}
+{% block og_description %}{% trans "Free sample size calculator to calculate required sample size for surveys and studies. Supports proportion and mean calculations with confidence levels and margin of error." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Professional Sample Size Calculator - Calculate Required Sample Size for Surveys" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate required sample size for surveys and studies. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Professional Sample Size Calculator' %}",
+  "description": "{% trans 'Calculate required sample size for surveys and studies. Supports proportion and mean calculations with confidence levels and margin of error.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1800"},
+  "featureList": ["{% trans 'Sample size for proportion' %}", "{% trans 'Sample size for mean' %}", "{% trans 'Confidence level support' %}", "{% trans 'Margin of error calculation' %}", "{% trans 'Survey planning' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Sample Size Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate required sample size for surveys and studies with confidence levels and margin of error." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calcType" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="proportion">{% trans "Proportion" %}</option>
+                                <option value="mean">{% trans "Mean" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Confidence Level -->
+                        <div>
+                            <label for="confidenceLevel" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Confidence Level (%)" %}
+                            </label>
+                            <select id="confidenceLevel" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="80">80%</option>
+                                <option value="85">85%</option>
+                                <option value="90">90%</option>
+                                <option value="95" selected>95%</option>
+                                <option value="99">99%</option>
+                                <option value="99.5">99.5%</option>
+                                <option value="99.9">99.9%</option>
+                            </select>
+                        </div>
+
+                        <!-- Margin of Error -->
+                        <div>
+                            <label for="marginOfError" class="block text-sm font-medium text-gray-700 mb-2">
+                                <span id="marginOfErrorLabel">{% trans "Margin of Error (%)" %}</span>
+                            </label>
+                            <input type="number" id="marginOfError" 
+                                   class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   step="0.1" min="0.1" max="50" value="5" required>
+                            <p class="text-xs text-gray-500 mt-1" id="marginOfErrorHelp">{% trans "Range: 0.1% to 50%" %}</p>
+                        </div>
+
+                        <!-- Proportion Mode -->
+                        <div id="proportionMode" class="space-y-4">
+                            <div>
+                                <label for="populationProportion" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Population Proportion (%)" %} <span class="text-xs text-gray-500">({% trans "optional" %})</span>
+                                </label>
+                                <input type="number" id="populationProportion" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.1" min="0" max="100" placeholder="Leave blank for 50%">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "If blank, uses conservative estimate of 50%" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Mean Mode -->
+                        <div id="meanMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="standardDeviation" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Standard Deviation" %}
+                                </label>
+                                <input type="number" id="standardDeviation" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 10" required>
+                            </div>
+                        </div>
+
+                        <!-- Population Size (Optional) -->
+                        <div>
+                            <label for="populationSize" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Population Size" %} <span class="text-xs text-gray-500">({% trans "optional" %})</span>
+                            </label>
+                            <input type="number" id="populationSize" 
+                                   class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   step="1" min="1" placeholder="Leave blank for infinite population">
+                            <p class="text-xs text-gray-500 mt-1">{% trans "If provided, applies finite population correction" %}</p>
+                        </div>
+
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            {% trans "Load Example Values" %}
+                        </button>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate sample size' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="copyBtn" class="flex-1 text-sm py-2 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Copy" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter the confidence level, margin of error, and other parameters to calculate the required sample size." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Required Sample Size" %}</p>
+                            <p id="resultValue" class="text-4xl sm:text-5xl font-bold font-mono">0</p>
+                            <div id="fpcIndicator" class="mt-4 hidden">
+                                <span class="inline-block bg-white bg-opacity-20 px-4 py-2 rounded-full text-sm font-semibold">
+                                    ✓ {% trans "Finite Population Correction Applied" %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Parameters Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-blue-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Confidence Level" %}</p>
+                                <p id="confidenceLevelDisplay" class="text-xl sm:text-2xl font-bold text-blue-600 font-mono">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-green-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Margin of Error" %}</p>
+                                <p id="marginOfErrorDisplay" class="text-xl sm:text-2xl font-bold text-green-600 font-mono">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-purple-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Z-Score" %}</p>
+                                <p id="zScoreDisplay" class="text-xl sm:text-2xl font-bold text-purple-600 font-mono">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Detailed Results" %}
+                        </h3>
+                        <div id="detailedResults" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Confidence Level Chart -->
+                        <div id="confidenceLevelChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Sample Size vs Confidence Level" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="confidenceLevelChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Margin of Error Chart -->
+                        <div id="marginOfErrorChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Sample Size vs Margin of Error" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="marginOfErrorChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepByStep" class="space-y-2"></div>
+                    </div>
+
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Proportion" %}:</strong> {% trans "For surveys estimating proportions or percentages (e.g., approval rating, preference)" %}</li>
+                                <li><strong>{% trans "Mean" %}:</strong> {% trans "For studies estimating means or averages (e.g., average income, test scores)" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Parameters" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Confidence Level" %}:</strong> {% trans "Probability that the true value lies within the margin of error (typically 95%)" %}</li>
+                                <li><strong>{% trans "Margin of Error" %}:</strong> {% trans "Maximum expected difference between sample and population (e.g., ±5%)" %}</li>
+                                <li><strong>{% trans "Population Proportion" %}:</strong> {% trans "Expected proportion (if known, otherwise uses 50% for conservative estimate)" %}</li>
+                                <li><strong>{% trans "Standard Deviation" %}:</strong> {% trans "Required for mean calculations" %}</li>
+                                <li><strong>{% trans "Population Size" %}:</strong> {% trans "If provided, applies finite population correction" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Examples" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 1: Survey Proportion" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> 95% confidence, 5% margin of error</p>
+                                    <p class="text-gray-700"><strong>{% trans "Result" %}:</strong> {% trans "Sample size ≈ 385" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 2: Mean Calculation" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> 95% confidence, margin of error = 2, standard deviation = 10</p>
+                                    <p class="text-gray-700"><strong>{% trans "Result" %}:</strong> {% trans "Sample size ≈ 97" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const calcType = document.getElementById('calcType');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const initialState = document.getElementById('initialState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const marginOfErrorLabel = document.getElementById('marginOfErrorLabel');
+    const marginOfErrorHelp = document.getElementById('marginOfErrorHelp');
+
+    let confidenceLevelChart = null;
+    let marginOfErrorChart = null;
+    let currentResultData = null;
+
+    // Examples
+    const examples = [
+        {type: 'proportion', confidence: 95, margin: 5, proportion: '', pop_size: ''},
+        {type: 'proportion', confidence: 90, margin: 3, proportion: 60, pop_size: ''},
+        {type: 'mean', confidence: 95, margin: 2, std_dev: 10, pop_size: ''},
+        {type: 'proportion', confidence: 99, margin: 2, proportion: '', pop_size: 1000}
+    ];
+    let exampleIndex = 0;
+
+    // Update form based on calculation type
+    function updateForm() {
+        const type = calcType.value;
+        
+        if (type === 'proportion') {
+            document.getElementById('proportionMode').classList.remove('hidden');
+            document.getElementById('meanMode').classList.add('hidden');
+            document.getElementById('standardDeviation').removeAttribute('required');
+            marginOfErrorLabel.textContent = 'Margin of Error (%)';
+            marginOfErrorHelp.textContent = 'Range: 0.1% to 50%';
+            document.getElementById('marginOfError').setAttribute('max', '50');
+        } else {
+            document.getElementById('proportionMode').classList.add('hidden');
+            document.getElementById('meanMode').classList.remove('hidden');
+            document.getElementById('standardDeviation').setAttribute('required', 'required');
+            marginOfErrorLabel.textContent = 'Margin of Error';
+            marginOfErrorHelp.textContent = 'Range: 0.0001 and above';
+            document.getElementById('marginOfError').removeAttribute('max');
+        }
+    }
+
+    calcType.addEventListener('change', updateForm);
+    updateForm();
+
+    exampleBtn.addEventListener('click', function() {
+        const example = examples[exampleIndex];
+        calcType.value = example.type;
+        updateForm();
+        document.getElementById('confidenceLevel').value = example.confidence;
+        document.getElementById('marginOfError').value = example.margin;
+        if (example.type === 'proportion') {
+            document.getElementById('populationProportion').value = example.proportion || '';
+            document.getElementById('standardDeviation').value = '';
+        } else {
+            document.getElementById('standardDeviation').value = example.std_dev || '';
+            document.getElementById('populationProportion').value = '';
+        }
+        document.getElementById('populationSize').value = example.pop_size || '';
+        exampleIndex = (exampleIndex + 1) % examples.length;
+    });
+
+    clearBtn.addEventListener('click', function() {
+        calcType.value = 'proportion';
+        updateForm();
+        document.getElementById('confidenceLevel').value = '95';
+        document.getElementById('marginOfError').value = '5';
+        document.getElementById('populationProportion').value = '';
+        document.getElementById('standardDeviation').value = '';
+        document.getElementById('populationSize').value = '';
+        initialState.classList.remove('hidden');
+        results.classList.add('hidden');
+        quickActions.classList.add('hidden');
+        errorState.classList.add('hidden');
+        if (confidenceLevelChart) {
+            confidenceLevelChart.destroy();
+            confidenceLevelChart = null;
+        }
+        if (marginOfErrorChart) {
+            marginOfErrorChart.destroy();
+            marginOfErrorChart = null;
+        }
+        currentResultData = null;
+    });
+
+    copyBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const text = `Sample Size Calculator Results\n\n` +
+                    `Calculation Type: ${currentResultData.calc_type}\n` +
+                    `Confidence Level: ${currentResultData.confidence_level}%\n` +
+                    `Margin of Error: ${currentResultData.margin_of_error}${currentResultData.calc_type === 'proportion' ? '%' : ''}\n` +
+                    `Z-Score: ${currentResultData.z_score.toFixed(4)}\n` +
+                    `Required Sample Size: ${currentResultData.sample_size}\n` +
+                    `Finite Population Correction: ${currentResultData.used_fpc ? 'Yes' : 'No'}`;
+
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            copyBtn.classList.add('bg-green-200', 'text-green-800');
+            copyBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            setTimeout(function() {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('bg-green-200', 'text-green-800');
+                copyBtn.classList.add('bg-blue-100', 'text-blue-700');
+            }, 2000);
+        });
+    });
+
+    exportBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const exportData = {
+            ...currentResultData,
+            timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sample_size_calculator_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    function displayResults(data) {
+        currentResultData = data;
+
+        initialState.classList.add('hidden');
+        results.classList.remove('hidden');
+        quickActions.classList.remove('hidden');
+        errorState.classList.add('hidden');
+
+        // Update result card
+        document.getElementById('resultValue').textContent = data.sample_size;
+        
+        if (data.used_fpc) {
+            document.getElementById('fpcIndicator').classList.remove('hidden');
+        } else {
+            document.getElementById('fpcIndicator').classList.add('hidden');
+        }
+
+        // Update parameter cards
+        document.getElementById('confidenceLevelDisplay').textContent = `${data.confidence_level}%`;
+        document.getElementById('marginOfErrorDisplay').textContent = `${data.margin_of_error}${data.calc_type === 'proportion' ? '%' : ''}`;
+        document.getElementById('zScoreDisplay').textContent = data.z_score.toFixed(4);
+
+        // Detailed results
+        const detailedResults = document.getElementById('detailedResults');
+        detailedResults.innerHTML = '';
+
+        const items = [
+            {label: 'Calculation Type', value: data.calc_type === 'proportion' ? 'Proportion' : 'Mean', is_primary: true},
+            {label: 'Confidence Level', value: `${data.confidence_level}%`, is_primary: true},
+            {label: 'Margin of Error', value: `${data.margin_of_error}${data.calc_type === 'proportion' ? '%' : ''}`, is_primary: true},
+            {label: 'Z-Score', value: data.z_score.toFixed(4)},
+            {label: 'Required Sample Size', value: data.sample_size.toString(), is_primary: true}
+        ];
+
+        if (data.calc_type === 'proportion') {
+            items.push({label: 'Population Proportion', value: `${(data.population_proportion * 100).toFixed(2)}%`});
+        } else {
+            items.push({label: 'Standard Deviation', value: data.standard_deviation.toFixed(4)});
+        }
+
+        if (data.used_fpc) {
+            items.push({label: 'Sample Size (Uncorrected)', value: data.sample_size_uncorrected.toString()});
+            items.push({label: 'Finite Population Correction', value: 'Applied', is_primary: true});
+        } else {
+            items.push({label: 'Finite Population Correction', value: 'Not Applied'});
+        }
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0';
+            const label = document.createElement('span');
+            label.className = 'text-sm font-medium text-gray-700 mb-1 sm:mb-0';
+            label.textContent = item.label + ':';
+            const value = document.createElement('span');
+            value.className = 'text-sm font-bold font-mono ' + (item.is_primary ? 'text-blue-600' : 'text-gray-900');
+            value.textContent = item.value;
+            div.appendChild(label);
+            div.appendChild(value);
+            detailedResults.appendChild(div);
+        });
+
+        // Charts
+        if (data.chart_data) {
+            // Confidence level chart
+            if (data.chart_data.confidence_level_chart) {
+                const container = document.getElementById('confidenceLevelChartContainer');
+                container.classList.remove('hidden');
+                
+                if (confidenceLevelChart) {
+                    confidenceLevelChart.destroy();
+                }
+                
+                const ctx = document.getElementById('confidenceLevelChart');
+                confidenceLevelChart = new Chart(ctx, {
+                    type: data.chart_data.confidence_level_chart.type,
+                    data: data.chart_data.confidence_level_chart.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Margin of error chart
+            if (data.chart_data.margin_of_error_chart) {
+                const container = document.getElementById('marginOfErrorChartContainer');
+                container.classList.remove('hidden');
+                
+                if (marginOfErrorChart) {
+                    marginOfErrorChart.destroy();
+                }
+                
+                const ctx = document.getElementById('marginOfErrorChart');
+                marginOfErrorChart = new Chart(ctx, {
+                    type: data.chart_data.margin_of_error_chart.type,
+                    data: data.chart_data.margin_of_error_chart.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Step-by-step
+        const stepByStep = document.getElementById('stepByStep');
+        stepByStep.innerHTML = '';
+        data.step_by_step.forEach((step, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg text-sm text-gray-700';
+            if (step.startsWith('Step') || step.startsWith('Given')) {
+                div.classList.add('font-semibold', 'text-gray-900');
+            }
+            if (step === '') {
+                div.className = 'h-2';
+            }
+            div.textContent = step;
+            stepByStep.appendChild(div);
+        });
+
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const type = calcType.value;
+        const confidenceLevel = document.getElementById('confidenceLevel').value;
+        const marginOfError = document.getElementById('marginOfError').value;
+        const populationProportion = document.getElementById('populationProportion').value.trim();
+        const standardDeviation = document.getElementById('standardDeviation').value.trim();
+        const populationSize = document.getElementById('populationSize').value.trim();
+
+        if (!marginOfError) {
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'Please enter margin of error.';
+            return;
+        }
+
+        if (type === 'mean' && !standardDeviation) {
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'Standard deviation is required for mean calculation.';
+            return;
+        }
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = 'Calculating...';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        const requestData = {
+            calc_type: type,
+            confidence_level: parseFloat(confidenceLevel),
+            margin_of_error: parseFloat(marginOfError)
+        };
+
+        if (type === 'proportion' && populationProportion) {
+            requestData.population_proportion = parseFloat(populationProportion);
+        }
+
+        if (type === 'mean' && standardDeviation) {
+            requestData.standard_deviation = parseFloat(standardDeviation);
+        }
+
+        if (populationSize) {
+            requestData.population_size = parseFloat(populationSize);
+        }
+
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = data.error || 'An error occurred.';
+            }
+        })
+        .catch(error => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'An error occurred. Please try again.';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

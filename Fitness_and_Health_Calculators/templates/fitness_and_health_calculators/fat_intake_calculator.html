@@ -1,0 +1,946 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Fat Intake Calculator" %} - {% trans "Daily Fat Needs Calculator" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate your daily fat intake needs based on total calories and macro percentages. Get personalized fat recommendations for your diet." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "fat intake calculator, fat calculator, daily fat, fat intake, healthy fats" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "Fat Intake Calculator" %} - {% trans "Daily Fat Needs Calculator" %}">
+<meta property="og:description" content="{% trans "Calculate your daily fat intake needs based on total calories and macro percentages." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "Fat Intake Calculator" %}",
+    "description": "{% trans "Calculate your daily fat intake needs based on total calories and macro percentages." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Fat Intake Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Fat Intake Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your daily fat intake needs based on total calories and macro percentages." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Calculate Fat" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Total Calories -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Total Daily Calories" %}</label>
+                            <div class="relative">
+                                <input type="number" id="total_calories" name="total_calories" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-12" 
+                                       placeholder="2000" value="2000" min="1" max="10000" step="1" required>
+                                <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">kcal</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-10,000 kcal" %}</p>
+                        </div>
+
+                        <!-- Calculation Method -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Method" %}</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="calc_method" value="percentage" checked class="mr-2" id="methodPercentage">
+                                    <span class="text-sm">{% trans "By Percentage" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="calc_method" value="remaining" class="mr-2" id="methodRemaining">
+                                    <span class="text-sm">{% trans "From Remaining Macros" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Fat Percentage -->
+                        <div id="percentageMethod">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Fat %" %}</label>
+                            <div class="relative">
+                                <input type="number" id="fat_percent" name="fat_percent" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-12" 
+                                       placeholder="30" value="30" min="0" max="100" step="0.1" required>
+                                <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
+                            </div>
+                            <div class="mt-2">
+                                <input type="range" id="fat_slider" min="0" max="100" value="30" step="0.1" 
+                                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Use slider or enter value directly" %}</p>
+                        </div>
+
+                        <!-- Remaining Macros Method -->
+                        <div id="remainingMethod" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Protein %" %}</label>
+                                <input type="number" id="protein_percent" name="protein_percent" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       placeholder="30" value="30" min="0" max="100" step="0.1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Carbs %" %}</label>
+                                <input type="number" id="carb_percent" name="carb_percent" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       placeholder="40" value="40" min="0" max="100" step="0.1">
+                            </div>
+                            <p class="text-xs text-gray-500">{% trans "Fat will be calculated as remainder" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Fat Intake" %}</span>
+                        </button>
+
+                        <!-- Reset Button -->
+                        <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                            {% trans "Reset" %}
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your total calories and fat percentage to see your daily fat breakdown with meal distribution and food sources." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-yellow-600 to-orange-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Daily Fat Intake" %}</p>
+                            <p id="fatGrams" class="text-5xl sm:text-6xl font-bold mb-2">0g</p>
+                            <p class="text-sm opacity-90 mb-2" id="fatPercent">0%</p>
+                            <p class="text-sm opacity-90" id="fatCalories">0 kcal</p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Minimum" %}</p>
+                                <p id="minFat" class="text-sm font-bold text-blue-600">0g</p>
+                                <p class="text-xs text-gray-500">20%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Moderate" %}</p>
+                                <p id="modFat" class="text-sm font-bold text-yellow-600">0g</p>
+                                <p class="text-xs text-gray-500">30%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "High" %}</p>
+                                <p id="highFat" class="text-sm font-bold text-orange-600">0g</p>
+                                <p class="text-xs text-gray-500">40%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fat Type Breakdown -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-red-200 shadow-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-700 mb-1">{% trans "Saturated Fat (Max)" %}</p>
+                                <p id="saturatedFat" class="text-3xl sm:text-4xl font-bold text-red-600">0g</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Max 10% of calories" %}</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-green-200 shadow-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-700 mb-1">{% trans "Unsaturated Fat" %}</p>
+                                <p id="unsaturatedFat" class="text-3xl sm:text-4xl font-bold text-green-600">0g</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Healthy fats" %}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Macro Distribution Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                </svg>
+                                {% trans "Macro Distribution" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="macroChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Fat Type Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                </svg>
+                                {% trans "Saturated vs Unsaturated" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="fatTypeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meal Distribution Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Meal Distribution" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="mealChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Recommendations Comparison" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="recommendationsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Meal Distribution Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Meal Distribution" %}</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                            <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="breakfastGrams">0g</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Breakfast" %}</p>
+                                <p class="text-xs text-gray-400" id="breakfastCal">0 kcal</p>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="lunchGrams">0g</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Lunch" %}</p>
+                                <p class="text-xs text-gray-400" id="lunchCal">0 kcal</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="dinnerGrams">0g</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Dinner" %}</p>
+                                <p class="text-xs text-gray-400" id="dinnerCal">0 kcal</p>
+                            </div>
+                            <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="snacksGrams">0g</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Snacks" %}</p>
+                                <p class="text-xs text-gray-400" id="snacksCal">0 kcal</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fat Sources Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Healthy Fat Sources Guide" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Food" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "Fat" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "Serving" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "Servings Needed" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fatSourcesTable" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What are Fats Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What are Fats?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Fats are one of the three main macronutrients (along with protein and carbohydrates) that provide energy to your body. Fats provide 9 calories per gram, making them the most calorie-dense macronutrient." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Fats play crucial roles in hormone production, nutrient absorption (especially fat-soluble vitamins A, D, E, and K), brain function, and maintaining healthy skin and hair. Despite their bad reputation, healthy fats are essential for optimal health." %}
+                            </p>
+                        </div>
+
+                        <!-- Types of Fats Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Types of Fats" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Saturated Fats" %}</h4>
+                                    <p class="text-sm text-red-800 mb-2">
+                                        {% trans "Found in animal products and some plant foods. Should be limited to less than 10% of total calories. Can raise LDL cholesterol when consumed in excess." %}
+                                    </p>
+                                    <p class="text-xs text-red-700">{% trans "Examples: Red meat, butter, cheese, coconut oil" %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Unsaturated Fats (Healthy Fats)" %}</h4>
+                                    <p class="text-sm text-green-800 mb-2">
+                                        {% trans "Found in plant foods and fish. Beneficial for heart health, brain function, and reducing inflammation. Should make up most of your fat intake." %}
+                                    </p>
+                                    <p class="text-xs text-green-700">{% trans "Examples: Olive oil, avocados, nuts, seeds, fatty fish" %}</p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Trans Fats" %}</h4>
+                                    <p class="text-sm text-orange-800 mb-2">
+                                        {% trans "Artificial fats found in processed foods. Should be avoided completely as they raise LDL cholesterol and lower HDL cholesterol." %}
+                                    </p>
+                                    <p class="text-xs text-orange-700">{% trans "Examples: Fried foods, baked goods, margarine (check labels)" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your total daily calorie intake" %}</li>
+                                <li>{% trans "Choose calculation method: By Percentage or From Remaining Macros" %}</li>
+                                <li>{% trans "If using percentage method, enter your desired fat percentage (or use the slider)" %}</li>
+                                <li>{% trans "If using remaining macros method, enter your protein and carb percentages" %}</li>
+                                <li>{% trans "Click 'Calculate Fat Intake' to see your results" %}</li>
+                                <li>{% trans "Review your daily fat needs, meal distribution, and food sources" %}</li>
+                                <li>{% trans "Use the charts to visualize your fat distribution" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Daily Fat Intake" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The total amount of fat (in grams) you should consume daily based on your calorie intake and selected percentage. This is calculated as: (Total Calories × Fat %) ÷ 9 calories per gram." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Calories from Fat" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The number of calories that come from fat. This is calculated as: Total Calories × (Fat % ÷ 100)." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Saturated Fat (Max)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The maximum recommended amount of saturated fat per day. Health guidelines recommend limiting saturated fat to less than 10% of total calories." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Unsaturated Fat" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The recommended amount of healthy unsaturated fats. This is your total fat minus the maximum saturated fat allowance." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Meal Distribution" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Suggested fat distribution across meals: Breakfast (25%), Lunch (35%), Dinner (30%), and Snacks (10%). This helps maintain steady energy levels and satiety." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Recommendations" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Comparison of minimum (20%), moderate (30%), and high (40%) fat approaches. Choose based on your goals, activity level, and personal preferences." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fat Intake Guidelines Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Fat Intake Guidelines" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Minimum (20%):" %}</strong> {% trans "Typically 40-60g per day. Suitable for very low-fat diets or those with specific medical conditions. May be difficult to maintain long-term." %}</p>
+                                <p><strong>{% trans "Moderate (30%):" %}</strong> {% trans "Typically 60-90g per day. Balanced approach suitable for most people. Recommended for general health and moderate activity levels." %}</p>
+                                <p><strong>{% trans "High (40%):" %}</strong> {% trans "Typically 90g+ per day. Suitable for ketogenic diets, very active individuals, or those with high calorie needs. Focus on healthy unsaturated fats." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Best Fat Sources Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Best Fat Sources" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Monounsaturated Fats:" %}</strong> {% trans "Olive oil, avocados, almonds, peanuts, cashews. Support heart health and reduce inflammation." %}</p>
+                                <p><strong>{% trans "Polyunsaturated Fats (Omega-3):" %}</strong> {% trans "Fatty fish (salmon, mackerel), walnuts, flaxseeds, chia seeds. Essential for brain function and heart health." %}</p>
+                                <p><strong>{% trans "Polyunsaturated Fats (Omega-6):" %}</strong> {% trans "Sunflower oil, soybean oil, nuts, seeds. Important but should be balanced with omega-3s." %}</p>
+                                <p><strong>{% trans "Saturated Fats (Limit):" %}</strong> {% trans "Red meat, butter, cheese, coconut oil. Consume in moderation, less than 10% of total calories." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Tips for Fat Intake Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips for Optimal Fat Intake" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Prioritize Healthy Fats:" %}</strong> {% trans "Focus on unsaturated fats from plant sources and fish. These provide essential fatty acids and support overall health." %}</p>
+                                <p><strong>{% trans "Limit Saturated Fats:" %}</strong> {% trans "Keep saturated fat intake below 10% of total calories. Choose lean protein sources and limit processed foods." %}</p>
+                                <p><strong>{% trans "Avoid Trans Fats:" %}</strong> {% trans "Read labels and avoid foods with partially hydrogenated oils. Trans fats have no health benefits." %}</p>
+                                <p><strong>{% trans "Balance Omega-3 and Omega-6:" %}</strong> {% trans "Aim for a ratio of 1:1 to 1:4 (omega-3:omega-6). Include fatty fish or omega-3 supplements if needed." %}</p>
+                                <p><strong>{% trans "Include Fat with Meals:" %}</strong> {% trans "Fat helps with satiety and nutrient absorption. Include healthy fats in each meal for better satisfaction and vitamin absorption." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Individual fat needs vary based on activity level, metabolism, body composition goals, and personal preferences." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "The calculator provides estimates. Monitor your progress and adjust based on your results, energy levels, and goals." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Very low-fat diets (below 20%) may not be suitable for everyone and can affect hormone production and nutrient absorption. Consult with a healthcare provider or registered dietitian before making significant dietary changes." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. It should not replace professional medical or nutritional advice." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let macroChart = null;
+let mealChart = null;
+let recommendationsChart = null;
+let fatTypeChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const methodPercentage = document.getElementById('methodPercentage');
+    const methodRemaining = document.getElementById('methodRemaining');
+    const percentageMethod = document.getElementById('percentageMethod');
+    const remainingMethod = document.getElementById('remainingMethod');
+    const fatSlider = document.getElementById('fat_slider');
+    const fatInput = document.getElementById('fat_percent');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Toggle calculation method
+    methodPercentage.addEventListener('change', function() {
+        if (this.checked) {
+            percentageMethod.classList.remove('hidden');
+            remainingMethod.classList.add('hidden');
+        }
+    });
+
+    methodRemaining.addEventListener('change', function() {
+        if (this.checked) {
+            percentageMethod.classList.add('hidden');
+            remainingMethod.classList.remove('hidden');
+        }
+    });
+
+    // Slider sync
+    fatSlider.addEventListener('input', function() {
+        fatInput.value = this.value;
+    });
+
+    fatInput.addEventListener('input', function() {
+        const value = parseFloat(fatInput.value) || 0;
+        if (value >= 0 && value <= 100) {
+            fatSlider.value = value;
+        }
+    });
+
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('total_calories').value = '2000';
+        document.getElementById('fat_percent').value = '30';
+        fatSlider.value = '30';
+        methodPercentage.checked = true;
+        percentageMethod.classList.remove('hidden');
+        remainingMethod.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    });
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            total_calories: parseFloat(document.getElementById('total_calories').value),
+            fat_percent: parseFloat(fatInput.value) || 0,
+            protein_percent: parseFloat(document.getElementById('protein_percent').value) || 0,
+            carb_percent: parseFloat(document.getElementById('carb_percent').value) || 0
+        };
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Fat Intake" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        document.getElementById('calculateBtn').disabled = true;
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update main result
+            const fatGramsEl = document.getElementById('fatGrams');
+            const fatPercentEl = document.getElementById('fatPercent');
+            const fatCaloriesEl = document.getElementById('fatCalories');
+            const minFatEl = document.getElementById('minFat');
+            const modFatEl = document.getElementById('modFat');
+            const highFatEl = document.getElementById('highFat');
+            const saturatedFatEl = document.getElementById('saturatedFat');
+            const unsaturatedFatEl = document.getElementById('unsaturatedFat');
+
+            if (fatGramsEl) fatGramsEl.textContent = Math.round(data.fat_grams).toLocaleString() + 'g';
+            if (fatPercentEl) fatPercentEl.textContent = data.fat_percent.toFixed(1) + '%';
+            if (fatCaloriesEl) fatCaloriesEl.textContent = Math.round(data.fat_calories).toLocaleString() + ' {% trans "kcal" %}';
+            if (minFatEl) minFatEl.textContent = data.recommendations.minimum.toLocaleString() + 'g';
+            if (modFatEl) modFatEl.textContent = data.recommendations.moderate.toLocaleString() + 'g';
+            if (highFatEl) highFatEl.textContent = data.recommendations.high.toLocaleString() + 'g';
+            if (saturatedFatEl) saturatedFatEl.textContent = data.saturated_fat_max.toFixed(1) + 'g';
+            if (unsaturatedFatEl) unsaturatedFatEl.textContent = data.unsaturated_fat.toFixed(1) + 'g';
+
+            // Update meal distribution
+            const breakfastGramsEl = document.getElementById('breakfastGrams');
+            const lunchGramsEl = document.getElementById('lunchGrams');
+            const dinnerGramsEl = document.getElementById('dinnerGrams');
+            const snacksGramsEl = document.getElementById('snacksGrams');
+            const breakfastCalEl = document.getElementById('breakfastCal');
+            const lunchCalEl = document.getElementById('lunchCal');
+            const dinnerCalEl = document.getElementById('dinnerCal');
+            const snacksCalEl = document.getElementById('snacksCal');
+
+            if (breakfastGramsEl) breakfastGramsEl.textContent = data.meals.breakfast.grams.toFixed(1) + 'g';
+            if (lunchGramsEl) lunchGramsEl.textContent = data.meals.lunch.grams.toFixed(1) + 'g';
+            if (dinnerGramsEl) dinnerGramsEl.textContent = data.meals.dinner.grams.toFixed(1) + 'g';
+            if (snacksGramsEl) snacksGramsEl.textContent = data.meals.snacks.grams.toFixed(1) + 'g';
+            if (breakfastCalEl) breakfastCalEl.textContent = data.meals.breakfast.calories + ' {% trans "kcal" %}';
+            if (lunchCalEl) lunchCalEl.textContent = data.meals.lunch.calories + ' {% trans "kcal" %}';
+            if (dinnerCalEl) dinnerCalEl.textContent = data.meals.dinner.calories + ' {% trans "kcal" %}';
+            if (snacksCalEl) snacksCalEl.textContent = data.meals.snacks.calories + ' {% trans "kcal" %}';
+
+            // Update result card color
+            const colors = {
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'green': 'bg-gradient-to-br from-yellow-600 to-orange-600',
+                'orange': 'bg-gradient-to-br from-orange-600 to-red-600'
+            };
+            const resultCard = document.getElementById('resultCard');
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.fat_level_color] || 'bg-gradient-to-br from-yellow-600 to-orange-600');
+            }
+
+            // Update fat sources table
+            const tableBody = document.getElementById('fatSourcesTable');
+            if (tableBody) {
+                const sourceNames = {
+                    'avocado': '{% trans "Avocado" %}',
+                    'olive_oil': '{% trans "Olive Oil" %}',
+                    'nuts': '{% trans "Nuts" %}',
+                    'peanut_butter': '{% trans "Peanut Butter" %}',
+                    'salmon': '{% trans "Salmon" %}',
+                    'cheese': '{% trans "Cheese" %}',
+                    'eggs': '{% trans "Eggs" %}',
+                    'coconut_oil': '{% trans "Coconut Oil" %}'
+                };
+
+                tableBody.innerHTML = '';
+                Object.entries(data.fat_sources).forEach(([key, info]) => {
+                    const servings = data.servings_needed[key];
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="py-2 px-3 text-sm text-gray-900">${sourceNames[key] || key}</td>
+                        <td class="py-2 px-3 text-sm text-gray-900 text-right font-medium">${info.grams}g</td>
+                        <td class="py-2 px-3 text-sm text-gray-500 text-right">${info.serving}</td>
+                        <td class="py-2 px-3 text-sm text-yellow-600 text-right font-semibold">${servings.toFixed(1)}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.macro_chart) {
+                    createMacroChart(data.chart_data.macro_chart);
+                }
+                if (data.chart_data.meal_chart) {
+                    createMealChart(data.chart_data.meal_chart);
+                }
+                if (data.chart_data.recommendations_chart) {
+                    createRecommendationsChart(data.chart_data.recommendations_chart);
+                }
+                if (data.chart_data.fat_type_chart) {
+                    createFatTypeChart(data.chart_data.fat_type_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createMacroChart(chartData) {
+        const ctx = document.getElementById('macroChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (macroChart) macroChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            macroChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 12,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    return `${label}: ${value.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating macro chart:', error);
+        }
+    }
+
+    function createMealChart(chartData) {
+        const ctx = document.getElementById('mealChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (mealChart) mealChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            mealChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)}g`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + 'g';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating meal chart:', error);
+        }
+    }
+
+    function createRecommendationsChart(chartData) {
+        const ctx = document.getElementById('recommendationsChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (recommendationsChart) recommendationsChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            recommendationsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${Math.round(context.parsed.y).toLocaleString()}g`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value).toLocaleString() + 'g';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating recommendations chart:', error);
+        }
+    }
+
+    function createFatTypeChart(chartData) {
+        const ctx = document.getElementById('fatTypeChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (fatTypeChart) fatTypeChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            fatTypeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 12,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    return `${label}: ${value.toFixed(1)}g`;
+                                }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating fat type chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,670 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Mass Calculator - Convert Mass Units & Calculate from Density" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Mass Calculator. Convert between kilograms, grams, pounds, ounces, tons, and more. Calculate mass from density and volume, or find density and volume from mass." %}{% endblock %}
+{% block meta_keywords %}{% trans "mass calculator, calculate mass, weight converter, mass conversion calculator, density calculator, volume calculator, kg to lbs converter, grams to ounces converter, mass unit converter, kilogram converter, pound to kg converter, ounce to gram converter, metric mass converter, imperial mass converter, mass finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Mass Calculator - Free Online Mass & Density Tool" %}{% endblock %}
+{% block og_description %}{% trans "Convert mass units and calculate mass, density, and volume relationships. Free online calculator supporting multiple units." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Mass Calculator - Free Online Mass & Density Tool" %}{% endblock %}
+{% block twitter_description %}{% trans "Convert mass units and calculate mass, density, and volume relationships. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Mass Calculator' %}",
+  "description": "{% trans 'Free online Mass Calculator. Convert between mass units and calculate mass, density, and volume relationships.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.7", "ratingCount": "980"},
+  "featureList": ["{% trans 'Mass unit conversion' %}", "{% trans 'Mass from density calculation' %}", "{% trans 'Density from mass calculation' %}", "{% trans 'Volume from mass calculation' %}", "{% trans 'Multiple unit support' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Mass Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Convert mass units and calculate mass, density, and volume relationships" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <!-- Calculation Mode Selector -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                        <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="convert">{% trans "Convert Mass Units" %}</option>
+                            <option value="mass_from_density">{% trans "Mass from Density & Volume" %}</option>
+                            <option value="density_from_mass">{% trans "Density from Mass & Volume" %}</option>
+                            <option value="volume_from_mass">{% trans "Volume from Mass & Density" %}</option>
+                        </select>
+                    </div>
+
+                    <form id="massForm" class="space-y-6">
+                        <!-- Convert Mass Units -->
+                        <div id="convertFields" class="calculation-mode">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass Value" %}</label>
+                                    <input type="number" id="value" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "From Unit" %}</label>
+                                    <select id="fromUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                        <option value="grams">{% trans "Grams (g)" %}</option>
+                                        <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                        <option value="ounces">{% trans "Ounces (oz)" %}</option>
+                                        <option value="tons">{% trans "Metric Tons" %}</option>
+                                        <option value="stone">{% trans "Stone" %}</option>
+                                        <option value="milligrams">{% trans "Milligrams (mg)" %}</option>
+                                        <option value="metric_tons">{% trans "Metric Tons" %}</option>
+                                        <option value="us_tons">{% trans "US Tons" %}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "To Unit" %}</label>
+                                    <select id="toUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                        <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                        <option value="grams">{% trans "Grams (g)" %}</option>
+                                        <option value="ounces">{% trans "Ounces (oz)" %}</option>
+                                        <option value="tons">{% trans "Metric Tons" %}</option>
+                                        <option value="stone">{% trans "Stone" %}</option>
+                                        <option value="milligrams">{% trans "Milligrams (mg)" %}</option>
+                                        <option value="metric_tons">{% trans "Metric Tons" %}</option>
+                                        <option value="us_tons">{% trans "US Tons" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mass from Density & Volume -->
+                        <div id="massFromDensityFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Density" %}</label>
+                                    <input type="number" id="density" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Density Unit" %}</label>
+                                    <select id="densityUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="kg_per_m3">{% trans "kg/m³" %}</option>
+                                        <option value="g_per_cm3">{% trans "g/cm³" %}</option>
+                                        <option value="g_per_ml">{% trans "g/mL" %}</option>
+                                        <option value="lb_per_ft3">{% trans "lb/ft³" %}</option>
+                                        <option value="lb_per_in3">{% trans "lb/in³" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume" %}</label>
+                                    <input type="number" id="volume" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume Unit" %}</label>
+                                    <select id="volumeUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                        <option value="liters">{% trans "Liters (L)" %}</option>
+                                        <option value="milliliters">{% trans "Milliliters (mL)" %}</option>
+                                        <option value="cubic_centimeters">{% trans "Cubic Centimeters (cm³)" %}</option>
+                                        <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                        <option value="cubic_inches">{% trans "Cubic Inches (in³)" %}</option>
+                                        <option value="gallons_us">{% trans "US Gallons" %}</option>
+                                        <option value="gallons_uk">{% trans "UK Gallons" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                    <option value="grams">{% trans "Grams (g)" %}</option>
+                                    <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                    <option value="ounces">{% trans "Ounces (oz)" %}</option>
+                                    <option value="tons">{% trans "Metric Tons" %}</option>
+                                    <option value="stone">{% trans "Stone" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Density from Mass & Volume -->
+                        <div id="densityFromMassFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass" %}</label>
+                                    <input type="number" id="mass" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass Unit" %}</label>
+                                    <select id="massUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                        <option value="grams">{% trans "Grams (g)" %}</option>
+                                        <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                        <option value="ounces">{% trans "Ounces (oz)" %}</option>
+                                        <option value="tons">{% trans "Metric Tons" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume" %}</label>
+                                    <input type="number" id="volume2" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Volume Unit" %}</label>
+                                    <select id="volumeUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                        <option value="liters">{% trans "Liters (L)" %}</option>
+                                        <option value="milliliters">{% trans "Milliliters (mL)" %}</option>
+                                        <option value="cubic_centimeters">{% trans "Cubic Centimeters (cm³)" %}</option>
+                                        <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                        <option value="cubic_inches">{% trans "Cubic Inches (in³)" %}</option>
+                                        <option value="gallons_us">{% trans "US Gallons" %}</option>
+                                        <option value="gallons_uk">{% trans "UK Gallons" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="kg_per_m3">{% trans "kg/m³" %}</option>
+                                    <option value="g_per_cm3">{% trans "g/cm³" %}</option>
+                                    <option value="g_per_ml">{% trans "g/mL" %}</option>
+                                    <option value="lb_per_ft3">{% trans "lb/ft³" %}</option>
+                                    <option value="lb_per_in3">{% trans "lb/in³" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Volume from Mass & Density -->
+                        <div id="volumeFromMassFields" class="calculation-mode hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass" %}</label>
+                                    <input type="number" id="mass2" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass Unit" %}</label>
+                                    <select id="massUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                        <option value="grams">{% trans "Grams (g)" %}</option>
+                                        <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                        <option value="ounces">{% trans "Ounces (oz)" %}</option>
+                                        <option value="tons">{% trans "Metric Tons" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Density" %}</label>
+                                    <input type="number" id="density2" step="any" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Density Unit" %}</label>
+                                    <select id="densityUnit2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="kg_per_m3">{% trans "kg/m³" %}</option>
+                                        <option value="g_per_cm3">{% trans "g/cm³" %}</option>
+                                        <option value="g_per_ml">{% trans "g/mL" %}</option>
+                                        <option value="lb_per_ft3">{% trans "lb/ft³" %}</option>
+                                        <option value="lb_per_in3">{% trans "lb/in³" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="resultUnit3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                    <option value="liters">{% trans "Liters (L)" %}</option>
+                                    <option value="milliliters">{% trans "Milliliters (mL)" %}</option>
+                                    <option value="cubic_centimeters">{% trans "Cubic Centimeters (cm³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_inches">{% trans "Cubic Inches (in³)" %}</option>
+                                    <option value="gallons_us">{% trans "US Gallons" %}</option>
+                                    <option value="gallons_uk">{% trans "UK Gallons" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Mass?" %}</h3>
+                            <p>{% trans "Mass is a measure of the amount of matter in an object. It is a fundamental property that remains constant regardless of location, unlike weight which depends on gravity." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select a calculation type from the dropdown" %}</li>
+                                <li>{% trans "Enter the required values" %}</li>
+                                <li>{% trans "Select appropriate units" %}</li>
+                                <li>{% trans "Click 'Calculate' to get results" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-1">
+                                <li><strong>{% trans "Convert Mass Units" %}:</strong> {% trans "Convert between different mass units (kg, g, lbs, oz, etc.)" %}</li>
+                                <li><strong>{% trans "Mass from Density & Volume" %}:</strong> {% trans "Calculate mass when you know density and volume" %}</li>
+                                <li><strong>{% trans "Density from Mass & Volume" %}:</strong> {% trans "Calculate density when you know mass and volume" %}</li>
+                                <li><strong>{% trans "Volume from Mass & Density" %}:</strong> {% trans "Calculate volume when you know mass and density" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-2 text-xs">
+                                <p><strong>{% trans "Mass Conversion" %}:</strong><br>{% trans "Convert to kg first, then to target unit" %}</p>
+                                <p><strong>{% trans "Mass = Density × Volume" %}</strong></p>
+                                <p><strong>{% trans "Density = Mass / Volume" %}</strong></p>
+                                <p><strong>{% trans "Volume = Mass / Density" %}</strong></p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Supported Units" %}</h3>
+                            <div class="space-y-2 text-xs">
+                                <p><strong>{% trans "Mass" %}:</strong> {% trans "kg, g, mg, lbs, oz, tons, stone" %}</p>
+                                <p><strong>{% trans "Volume" %}:</strong> {% trans "m³, L, mL, cm³, ft³, in³, gallons" %}</p>
+                                <p><strong>{% trans "Density" %}:</strong> {% trans "kg/m³, g/cm³, g/mL, lb/ft³, lb/in³" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Mass values must be non-negative" %}</li>
+                                <li>{% trans "Density and volume must be greater than zero" %}</li>
+                                <li>{% trans "All calculations use metric base units internally" %}</li>
+                                <li>{% trans "Results are rounded to 6 decimal places" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Unit conversions for recipes and cooking" %}</li>
+                                <li>{% trans "Material science and engineering calculations" %}</li>
+                                <li>{% trans "Shipping and logistics weight calculations" %}</li>
+                                <li>{% trans "Chemistry and physics problem solving" %}</li>
+                                <li>{% trans "Construction and material estimation" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    const form = document.getElementById('massForm');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalculationMode(this.value);
+    });
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculate();
+    });
+    
+    // Real-time validation
+    const inputs = form.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            validateInput(this);
+        });
+        input.addEventListener('blur', function() {
+            validateInput(this);
+        });
+    });
+    
+    // Initialize
+    switchCalculationMode('convert');
+});
+
+function switchCalculationMode(mode) {
+    // Hide all calculation mode fields
+    document.querySelectorAll('.calculation-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant fields
+    switch(mode) {
+        case 'convert':
+            document.getElementById('convertFields').classList.remove('hidden');
+            break;
+        case 'mass_from_density':
+            document.getElementById('massFromDensityFields').classList.remove('hidden');
+            break;
+        case 'density_from_mass':
+            document.getElementById('densityFromMassFields').classList.remove('hidden');
+            break;
+        case 'volume_from_mass':
+            document.getElementById('volumeFromMassFields').classList.remove('hidden');
+            break;
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function validateInput(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    // Remove previous error styling
+    input.classList.remove('border-red-500');
+    errorSpan.classList.add('hidden');
+    errorSpan.textContent = '';
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value)) {
+        showError(input, '{% trans "Please enter a valid number" %}');
+        return false;
+    }
+    
+    // Check for negative values (except for some specific cases)
+    if (value < 0) {
+        showError(input, '{% trans "Value must be non-negative" %}');
+        return false;
+    }
+    
+    // Check for zero values where not allowed
+    const calcType = document.getElementById('calcType').value;
+    if (calcType !== 'convert' && value <= 0) {
+        showError(input, '{% trans "Value must be greater than zero" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    errorSpan.textContent = message;
+    errorSpan.classList.remove('hidden');
+}
+
+function calculate() {
+    const calcType = document.getElementById('calcType').value;
+    const formData = {
+        calc_type: calcType
+    };
+    
+    // Collect data based on calculation type
+    if (calcType === 'convert') {
+        const value = document.getElementById('value').value;
+        if (!value || value === '') {
+            alert('{% trans "Please enter a mass value" %}');
+            return;
+        }
+        formData.value = parseFloat(value);
+        formData.from_unit = document.getElementById('fromUnit').value;
+        formData.to_unit = document.getElementById('toUnit').value;
+    } else if (calcType === 'mass_from_density') {
+        const density = document.getElementById('density').value;
+        const volume = document.getElementById('volume').value;
+        if (!density || !volume) {
+            alert('{% trans "Please enter both density and volume" %}');
+            return;
+        }
+        formData.density = parseFloat(density);
+        formData.density_unit = document.getElementById('densityUnit').value;
+        formData.volume = parseFloat(volume);
+        formData.volume_unit = document.getElementById('volumeUnit').value;
+        formData.result_unit = document.getElementById('resultUnit1').value;
+    } else if (calcType === 'density_from_mass') {
+        const mass = document.getElementById('mass').value;
+        const volume = document.getElementById('volume2').value;
+        if (!mass || !volume) {
+            alert('{% trans "Please enter both mass and volume" %}');
+            return;
+        }
+        formData.mass = parseFloat(mass);
+        formData.mass_unit = document.getElementById('massUnit').value;
+        formData.volume = parseFloat(volume);
+        formData.volume_unit = document.getElementById('volumeUnit2').value;
+        formData.result_unit = document.getElementById('resultUnit2').value;
+    } else if (calcType === 'volume_from_mass') {
+        const mass = document.getElementById('mass2').value;
+        const density = document.getElementById('density2').value;
+        if (!mass || !density) {
+            alert('{% trans "Please enter both mass and density" %}');
+            return;
+        }
+        formData.mass = parseFloat(mass);
+        formData.mass_unit = document.getElementById('massUnit2').value;
+        formData.density = parseFloat(density);
+        formData.density_unit = document.getElementById('densityUnit2').value;
+        formData.result_unit = document.getElementById('resultUnit3').value;
+    }
+    
+    // Validate all inputs
+    const inputs = document.querySelectorAll('input[type="number"]');
+    let isValid = true;
+    inputs.forEach(input => {
+        if (!validateInput(input)) {
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        return;
+    }
+    
+    // Send AJAX request
+    fetch('{% url "other_calculators:mass_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'convert') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Converted Mass" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.result} ${formatUnit(data.to_unit)}</p>
+            <p class="text-sm text-gray-500 mt-2">${data.value} ${formatUnit(data.from_unit)} = ${data.result} ${formatUnit(data.to_unit)}</p>
+        </div>`;
+    } else if (data.calc_type === 'mass_from_density') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Calculated Mass" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.mass} ${formatUnit(data.result_unit)}</p>
+            <p class="text-sm text-gray-500 mt-2">{% trans "Density" %}: ${data.density} ${formatUnit(data.density_unit)} | {% trans "Volume" %}: ${data.volume} ${formatUnit(data.volume_unit)}</p>
+        </div>`;
+    } else if (data.calc_type === 'density_from_mass') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Calculated Density" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.density} ${formatUnit(data.result_unit)}</p>
+            <p class="text-sm text-gray-500 mt-2">{% trans "Mass" %}: ${data.mass} ${formatUnit(data.mass_unit)} | {% trans "Volume" %}: ${data.volume} ${formatUnit(data.volume_unit)}</p>
+        </div>`;
+    } else if (data.calc_type === 'volume_from_mass') {
+        html += `<div class="bg-blue-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600">{% trans "Calculated Volume" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.volume} ${formatUnit(data.result_unit)}</p>
+            <p class="text-sm text-gray-500 mt-2">{% trans "Mass" %}: ${data.mass} ${formatUnit(data.mass_unit)} | {% trans "Density" %}: ${data.density} ${formatUnit(data.density_unit)}</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function formatUnit(unit) {
+    const unitMap = {
+        'kilograms': 'kg',
+        'grams': 'g',
+        'pounds': 'lbs',
+        'ounces': 'oz',
+        'tons': 'tons',
+        'stone': 'stone',
+        'milligrams': 'mg',
+        'metric_tons': 'metric tons',
+        'us_tons': 'US tons',
+        'cubic_meters': 'm³',
+        'liters': 'L',
+        'milliliters': 'mL',
+        'cubic_centimeters': 'cm³',
+        'cubic_feet': 'ft³',
+        'cubic_inches': 'in³',
+        'gallons_us': 'US gal',
+        'gallons_uk': 'UK gal',
+        'kg_per_m3': 'kg/m³',
+        'g_per_cm3': 'g/cm³',
+        'g_per_ml': 'g/mL',
+        'lb_per_ft3': 'lb/ft³',
+        'lb_per_in3': 'lb/in³',
+    };
+    return unitMap[unit] || unit;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

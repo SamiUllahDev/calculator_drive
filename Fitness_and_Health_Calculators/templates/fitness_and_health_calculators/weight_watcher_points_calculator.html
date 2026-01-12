@@ -1,0 +1,898 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Weight Watchers Points Calculator" %} - {% trans "Calculate SmartPoints" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate Weight Watchers SmartPoints for foods based on calories, saturated fat, sugar, and protein." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'weight watchers points calculator, smartpoints calculator, WW points, weight watchers calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Weight Watchers Points Calculator' %} - {% trans 'Calculate SmartPoints' %}">
+<meta property="og:description" content="{% trans 'Calculate Weight Watchers SmartPoints for foods.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Weight Watchers Points Calculator' %}",
+    "description": "{% trans 'Calculate Weight Watchers SmartPoints' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-600">{% trans "Weight Watchers Points Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate Weight Watchers SmartPoints for foods based on calories, saturated fat, sugar, and protein content." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Nutritional Information" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calories -->
+                        <div>
+                            <label for="calories" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Calories" %}</label>
+                            <div class="relative">
+                                <input type="number" id="calories" name="calories" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    value="200" min="0" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">cal</span>
+                            </div>
+                        </div>
+
+                        <!-- Saturated Fat -->
+                        <div>
+                            <label for="saturated_fat" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Saturated Fat" %} (g)</label>
+                            <div class="relative">
+                                <input type="number" id="saturated_fat" name="saturated_fat" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    value="0" min="0" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">g</span>
+                            </div>
+                        </div>
+
+                        <!-- Sugar -->
+                        <div>
+                            <label for="sugar" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sugar" %} (g)</label>
+                            <div class="relative">
+                                <input type="number" id="sugar" name="sugar" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    value="0" min="0" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">g</span>
+                            </div>
+                        </div>
+
+                        <!-- Protein -->
+                        <div>
+                            <label for="protein" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Protein" %} (g)</label>
+                            <div class="relative">
+                                <input type="number" id="protein" name="protein" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    value="0" min="0" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">g</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Protein reduces points" %}</p>
+                        </div>
+
+                        <!-- Daily Points Allowance -->
+                        <div>
+                            <label for="daily_allowance" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Daily Points Allowance" %}</label>
+                            <input type="number" id="daily_allowance" name="daily_allowance" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                value="23" min="1" max="100" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-100 points (typical: 23-71)" %}</p>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate Points" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter the nutritional information (calories, saturated fat, sugar, and protein) to calculate Weight Watchers SmartPoints." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "SmartPoints" %}</p>
+                            <p id="pointsResult" class="text-4xl sm:text-5xl font-bold mb-2">0</p>
+                            <div id="pointsStatusBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 bg-white bg-opacity-20">
+                                <span id="pointsStatusText">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Points Used" %}</p>
+                                <p id="pointsUsed" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Daily Allowance" %}</p>
+                                <p id="dailyAllowance" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Remaining" %}</p>
+                                <p id="remainingPoints" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Points Details Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 rounded-xl p-6 border-2 border-blue-200 shadow-lg">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-2">{% trans "Daily Allowance" %}</h3>
+                            <p id="dailyAllowanceCard" class="text-xl font-bold text-blue-900">-</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl p-6 border-2 border-green-200 shadow-lg">
+                            <h3 class="text-lg font-semibold text-green-900 mb-2">{% trans "Remaining Points" %}</h3>
+                            <p id="remainingPointsCard" class="text-xl font-bold text-green-900">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Points Progress Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Points Progress" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="pointsProgressChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Points Breakdown Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Points Breakdown" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="pointsBreakdownChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Breakdown Percentage Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Breakdown Percentage" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="breakdownPercentageChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Allowance Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Allowance Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="allowanceComparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Points Breakdown Details -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Points Breakdown" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="pointsBreakdown">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Status Card -->
+                    <div id="statusCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Points Status" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="statusBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="statusDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Weight Watchers Points Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What are Weight Watchers SmartPoints?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Weight Watchers SmartPoints is a point system that assigns values to foods based on their nutritional content. Unlike simple calorie counting, SmartPoints considers calories, saturated fat, sugar, and protein to encourage healthier food choices." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Foods higher in calories, saturated fat, and sugar have more points, while foods higher in protein have fewer points. This system helps guide you toward nutrient-dense foods that support weight loss and healthy eating." %}
+                            </p>
+                        </div>
+
+                        <!-- SmartPoints Formula Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "SmartPoints Formula" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "The SmartPoints formula calculates points based on four nutritional factors:" %}
+                            </p>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-3">
+                                <p class="font-mono text-center text-sm">
+                                    {% trans "Points = (Calories ÷ 33) + (Saturated Fat ÷ 4) + (Sugar ÷ 9) - (Protein ÷ 10)" %}
+                                </p>
+                            </div>
+                            <div class="space-y-2 text-sm text-gray-700">
+                                <p><strong>{% trans "Calories" %}:</strong> {% trans "Divided by 33. Higher calories = more points." %}</p>
+                                <p><strong>{% trans "Saturated Fat" %}:</strong> {% trans "Divided by 4. Higher saturated fat = more points." %}</p>
+                                <p><strong>{% trans "Sugar" %}:</strong> {% trans "Divided by 9. Higher sugar = more points." %}</p>
+                                <p><strong>{% trans "Protein" %}:</strong> {% trans "Divided by 10 and subtracted. Higher protein = fewer points (reduces total points)." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Daily Points Allowance Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Daily Points Allowance" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Your daily points allowance is personalized based on your age, gender, height, weight, and activity level. Typical daily allowances range from 23 to 71 points." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "In addition to daily points, Weight Watchers members also receive weekly points (typically 14-28 points) that can be used throughout the week for special occasions or treats." %}
+                            </p>
+                        </div>
+
+                        <!-- Points Status Levels Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Points Status" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Excellent (≤50% of allowance)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "You're well within your daily points allowance. Great job making healthy choices! You have plenty of points remaining for the day." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Good (50-75% of allowance)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "You're doing well staying within your points budget. Keep up the good work! You still have a good amount of points remaining." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "On Track (75-100% of allowance)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "You're at or near your daily points limit. Be mindful of remaining points for the day. Consider lower-point food choices." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Over Budget (100-125% of allowance)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "You've exceeded your daily points allowance. Consider using weekly points or making lower-point choices for remaining meals." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Significantly Over (>125% of allowance)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "You've significantly exceeded your daily points. Consider adjusting your food choices, using weekly points, or planning lower-point meals." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the calories from the food's nutrition label" %}</li>
+                                <li>{% trans "Enter the saturated fat content in grams" %}</li>
+                                <li>{% trans "Enter the sugar content in grams" %}</li>
+                                <li>{% trans "Enter the protein content in grams (protein reduces points)" %}</li>
+                                <li>{% trans "Enter your daily points allowance (typically 23-71 points)" %}</li>
+                                <li>{% trans "Click 'Calculate Points' to see the SmartPoints value" %}</li>
+                                <li>{% trans "Review the breakdown to understand how each nutrient contributes to the total points" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "SmartPoints Value" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The total points assigned to the food based on the SmartPoints formula. Lower points indicate healthier, more nutrient-dense choices." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Points Breakdown" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows how each nutritional component (calories, saturated fat, sugar, protein) contributes to the total points. Protein reduces points, while calories, saturated fat, and sugar increase points." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Remaining Points" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The points you have left in your daily allowance after consuming this food. This helps you plan your remaining meals and snacks." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Points Status" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Indicates whether you're within, at, or over your daily points budget. This helps you make informed decisions about food choices." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tips Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips for Managing Points" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Choose foods high in protein to reduce points and stay satisfied longer" %}</li>
+                                <li>{% trans "Limit foods high in saturated fat and sugar, as they add more points" %}</li>
+                                <li>{% trans "Plan your meals ahead of time to stay within your daily points" %}</li>
+                                <li>{% trans "Use weekly points for special occasions or treats" %}</li>
+                                <li>{% trans "Focus on zero-point foods (fruits, vegetables, lean proteins) to fill up without using points" %}</li>
+                                <li>{% trans "Track all foods and beverages throughout the day for accurate point counting" %}</li>
+                            </ul>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator uses the Weight Watchers SmartPoints formula. Actual points may vary slightly based on Weight Watchers' official database and any program updates." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Your daily points allowance is personalized and should be determined through the official Weight Watchers program or app." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for informational purposes only and should not replace the official Weight Watchers program, app, or professional guidance. Always consult with Weight Watchers coaches or registered dietitians for personalized guidance." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Weight Watchers is a registered trademark. This calculator is not affiliated with or endorsed by Weight Watchers International, Inc." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let pointsProgressChart = null;
+let pointsBreakdownChart = null;
+let breakdownPercentageChart = null;
+let allowanceComparisonChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('calories').value = '200';
+        document.getElementById('saturated_fat').value = '0';
+        document.getElementById('sugar').value = '0';
+        document.getElementById('protein').value = '0';
+        document.getElementById('daily_allowance').value = '23';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (pointsProgressChart) pointsProgressChart.destroy();
+        if (pointsBreakdownChart) pointsBreakdownChart.destroy();
+        if (breakdownPercentageChart) breakdownPercentageChart.destroy();
+        if (allowanceComparisonChart) allowanceComparisonChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const formData = {
+            calories: parseFloat(document.getElementById('calories').value),
+            saturated_fat: parseFloat(document.getElementById('saturated_fat').value),
+            sugar: parseFloat(document.getElementById('sugar').value),
+            protein: parseFloat(document.getElementById('protein').value),
+            daily_allowance: parseInt(document.getElementById('daily_allowance').value)
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Points" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Update main result
+            document.getElementById('pointsResult').textContent = data.points.toFixed(1);
+            
+            // Update summary cards
+            document.getElementById('pointsUsed').textContent = data.points.toFixed(1);
+            document.getElementById('dailyAllowance').textContent = data.daily_allowance;
+            document.getElementById('remainingPoints').textContent = data.remaining_points.toFixed(1);
+            
+            // Update detail cards
+            document.getElementById('dailyAllowanceCard').textContent = data.daily_allowance + ' {% trans "points" %}';
+            document.getElementById('remainingPointsCard').textContent = data.remaining_points.toFixed(1) + ' {% trans "points" %}';
+            
+            // Update status badge
+            const pointsStatusBadge = document.getElementById('pointsStatusBadge');
+            const pointsStatusText = document.getElementById('pointsStatusText');
+            if (pointsStatusText) pointsStatusText.textContent = data.points_status;
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'yellow': 'bg-gradient-to-br from-yellow-600 to-yellow-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'red': 'bg-gradient-to-br from-red-600 to-red-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.status_color] || 'bg-gradient-to-br from-blue-600 to-blue-700');
+            }
+            
+            // Update status card
+            const statusBadgeCard = document.getElementById('statusBadgeCard');
+            const statusDescription = document.getElementById('statusDescription');
+            if (statusBadgeCard && data.color_info) {
+                const colors = {
+                    'green': 'bg-green-600',
+                    'blue': 'bg-blue-600',
+                    'yellow': 'bg-yellow-600',
+                    'orange': 'bg-orange-600',
+                    'red': 'bg-red-600'
+                };
+                statusBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.status_color] || 'bg-gray-600');
+                statusBadgeCard.textContent = data.points_status;
+            }
+            if (statusDescription && data.status_description) {
+                statusDescription.textContent = data.status_description;
+            }
+            
+            // Update points breakdown
+            const pointsBreakdown = document.getElementById('pointsBreakdown');
+            const breakdownData = [
+                { name: '{% trans "Calories" %}', value: data.points_breakdown.calories.value, contribution: data.points_breakdown.calories.contribution, color: 'blue' },
+                { name: '{% trans "Saturated Fat" %}', value: data.points_breakdown.saturated_fat.value, contribution: data.points_breakdown.saturated_fat.contribution, color: 'orange' },
+                { name: '{% trans "Sugar" %}', value: data.points_breakdown.sugar.value, contribution: data.points_breakdown.sugar.contribution, color: 'yellow' },
+                { name: '{% trans "Protein" %}', value: -data.points_breakdown.protein.value, contribution: data.points_breakdown.protein.contribution, color: 'green' }
+            ];
+            
+            const colorClasses = {
+                'blue': 'border-blue-500 bg-blue-50',
+                'orange': 'border-orange-500 bg-orange-50',
+                'yellow': 'border-yellow-500 bg-yellow-50',
+                'green': 'border-green-500 bg-green-50'
+            };
+            
+            pointsBreakdown.innerHTML = breakdownData.map(item => {
+                const bgClass = colorClasses[item.color] || 'border-gray-500 bg-gray-50';
+                const sign = item.value >= 0 ? '+' : '';
+                return `
+                    <div class="border-l-4 ${bgClass} rounded-r-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-1">${item.name}</h4>
+                        <p class="text-2xl font-bold text-gray-900">${sign}${item.value.toFixed(2)}</p>
+                        <p class="text-xs text-gray-600 mt-1">${Math.abs(item.contribution).toFixed(1)}% {% trans "contribution" %}</p>
+                    </div>
+                `;
+            }).join('');
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.points_progress_chart) {
+                    createPointsProgressChart(data.chart_data.points_progress_chart);
+                }
+                if (data.chart_data.points_breakdown_chart) {
+                    createPointsBreakdownChart(data.chart_data.points_breakdown_chart);
+                }
+                if (data.chart_data.breakdown_percentage_chart) {
+                    createBreakdownPercentageChart(data.chart_data.breakdown_percentage_chart);
+                }
+                if (data.chart_data.allowance_comparison_chart) {
+                    createAllowanceComparisonChart(data.chart_data.allowance_comparison_chart);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createPointsProgressChart(chartData) {
+        const ctx = document.getElementById('pointsProgressChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (pointsProgressChart) {
+            pointsProgressChart.destroy();
+        }
+        
+        if (!chartData || !chartData.center_text) return;
+        
+        const centerText = chartData.center_text;
+        const progressColor = centerText.color;
+        
+        try {
+            pointsProgressChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = progressColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value, centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating points progress chart:', error);
+        }
+    }
+    
+    function createPointsBreakdownChart(chartData) {
+        const ctx = document.getElementById('pointsBreakdownChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (pointsBreakdownChart) {
+            pointsBreakdownChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            pointsBreakdownChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const sign = context.parsed.y >= 0 ? '+' : '';
+                                    return context.label + ': ' + sign + context.parsed.y.toFixed(2) + ' points';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value >= 0 ? '+' + value.toFixed(1) : value.toFixed(1);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating points breakdown chart:', error);
+        }
+    }
+    
+    function createBreakdownPercentageChart(chartData) {
+        const ctx = document.getElementById('breakdownPercentageChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (breakdownPercentageChart) {
+            breakdownPercentageChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            breakdownPercentageChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + Math.abs(context.parsed).toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating breakdown percentage chart:', error);
+        }
+    }
+    
+    function createAllowanceComparisonChart(chartData) {
+        const ctx = document.getElementById('allowanceComparisonChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (allowanceComparisonChart) {
+            allowanceComparisonChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            allowanceComparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + ' points';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating allowance comparison chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

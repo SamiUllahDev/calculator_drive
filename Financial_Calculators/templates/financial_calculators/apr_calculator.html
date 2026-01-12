@@ -1,0 +1,453 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "APR Calculator - Calculate Annual Percentage Rate" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate the true APR of your loan including fees and costs. Compare APR vs stated interest rate to find the best loan deal." %}{% endblock %}
+{% block meta_keywords %}{% trans "APR calculator, annual percentage rate, loan cost calculator, true interest rate, mortgage APR" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'APR Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate the true Annual Percentage Rate of your loan including all fees.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'APR Calculator' %}",
+    "description": "{% trans 'Calculate Annual Percentage Rate including loan fees and costs.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/financial-calculators/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'APR Calculator' %}", "item": "/financial-calculators/apr-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "APR Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "APR Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate the true Annual Percentage Rate of your loan, including all fees and costs." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Loan Details" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div>
+                            <label for="loan_amount" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Loan Amount" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="loan_amount" name="loan_amount" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="250,000" inputmode="decimal" value="250,000" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Stated Interest Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate" name="interest_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="6.5" inputmode="decimal" value="6.5" required>
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="loan_term" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Loan Term" %}</label>
+                            <select id="loan_term" class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="5">5 {% trans "years" %}</option>
+                                <option value="10">10 {% trans "years" %}</option>
+                                <option value="15">15 {% trans "years" %}</option>
+                                <option value="20">20 {% trans "years" %}</option>
+                                <option value="30" selected>30 {% trans "years" %}</option>
+                            </select>
+                        </div>
+
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "Loan Fees" %}</h3>
+                        </div>
+
+                        <div>
+                            <label for="origination_fee" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Origination Fee" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="origination_fee" name="origination_fee" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="1,000" inputmode="decimal" value="1,000">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="discount_points" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Discount Points" %}</label>
+                            <div class="relative">
+                                <input type="text" id="discount_points" name="discount_points" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="1" inputmode="decimal" value="1">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "1 point = 1% of loan amount" %}</p>
+                        </div>
+
+                        <div>
+                            <label for="other_fees" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Other Fees" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="other_fees" name="other_fees" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="500" inputmode="decimal" value="500">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Application, appraisal, etc." %}</p>
+                        </div>
+
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition">
+                            {% trans "Calculate APR" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- APR Result -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-blue-600 text-white rounded-lg p-6 text-center">
+                            <p class="text-blue-100 text-sm mb-1">{% trans "Your APR" %}</p>
+                            <p id="aprResult" class="text-4xl font-bold">0.000%</p>
+                            <p class="text-blue-100 text-sm mt-2">{% trans "True cost of borrowing" %}</p>
+                        </div>
+                        <div class="bg-gray-100 rounded-lg p-6 text-center">
+                            <p class="text-gray-600 text-sm mb-1">{% trans "Stated Rate" %}</p>
+                            <p id="statedRateResult" class="text-4xl font-bold text-gray-900">0.000%</p>
+                            <p id="rateDifference" class="text-sm mt-2 text-orange-600 font-medium">+0.000% {% trans "due to fees" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Cost Summary -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Monthly Payment" %}</p>
+                            <p id="monthlyPaymentResult" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Total Interest" %}</p>
+                            <p id="totalInterestResult" class="text-lg font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Total Fees" %}</p>
+                            <p id="totalFeesResult" class="text-lg font-bold text-orange-600">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Total Cost" %}</p>
+                            <p id="totalCostResult" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Chart and Fee Breakdown -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Total Loan Cost Breakdown" %}</h3>
+                            <div class="relative h-56">
+                                <canvas id="costChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Fee Details" %}</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">{% trans "Origination Fee" %}</span>
+                                    <span id="originationResult" class="font-medium">$0</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">{% trans "Discount Points" %}</span>
+                                    <span id="pointsResult" class="font-medium">$0</span>
+                                </div>
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">{% trans "Other Fees" %}</span>
+                                    <span id="otherFeesResult" class="font-medium">$0</span>
+                                </div>
+                                <div class="flex justify-between py-2 font-medium">
+                                    <span class="text-gray-900">{% trans "Total Upfront Fees" %}</span>
+                                    <span id="totalUpfrontResult" class="text-blue-600">$0</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                                <p class="text-xs text-gray-600">
+                                    <span class="font-medium">{% trans "Net Loan Amount:" %}</span>
+                                    <span id="netLoanResult" class="float-right">$0</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Calculate Your True APR" %}</h3>
+                        <p class="text-gray-500">{% trans "Enter your loan details and fees to see the real cost of borrowing." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How to Use -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "How to Use This Calculator" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">1</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Enter Loan Info" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Input the loan amount, stated interest rate, and term." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Add All Fees" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Include origination fees, points, and other closing costs." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">3</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Compare APR" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Use APR to compare loan offers from different lenders." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What's the difference between APR and interest rate?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "The interest rate is just the cost of borrowing the principal. APR includes the interest rate plus fees (origination, points, etc.), giving you the true yearly cost. APR is always equal to or higher than the stated rate." %}</p>
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "Why should I compare APR?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "APR lets you compare apples to apples. A loan with a lower interest rate but high fees might have a higher APR than one with a slightly higher rate but fewer fees. Always compare APR when shopping for loans." %}</p>
+                    </div>
+                </div>
+                
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What are discount points?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Discount points are upfront fees you pay to lower your interest rate. Each point typically costs 1% of the loan amount and reduces your rate by 0.25%. Points make sense if you'll keep the loan long enough to recoup the upfront cost." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips Section -->
+        <div class="mt-8 bg-amber-50 border border-amber-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-amber-900 mb-4">{% trans "APR Shopping Tips" %}</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-amber-800 text-sm">{% trans "Get at least 3 loan quotes and compare APRs, not just rates." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-amber-800 text-sm">{% trans "Lenders are required by law to disclose APR - always ask for it." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-amber-800 text-sm">{% trans "Consider total costs - a lower APR may not be best if you move soon." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-amber-800 text-sm">{% trans "Negotiate fees - origination fees and points are often negotiable." %}</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    let costChart = null;
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency', currency: 'USD',
+            minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    ['loan_amount', 'origination_fee', 'other_fees'].forEach(id => {
+        document.getElementById(id).addEventListener('input', function() { formatInput(this); });
+    });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.nextElementSibling.classList.toggle('hidden');
+            this.querySelector('svg').classList.toggle('rotate-180');
+        });
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    loan_amount: document.getElementById('loan_amount').value.replace(/,/g, ''),
+                    interest_rate: document.getElementById('interest_rate').value,
+                    loan_term: document.getElementById('loan_term').value,
+                    origination_fee: document.getElementById('origination_fee').value.replace(/,/g, '') || 0,
+                    discount_points: document.getElementById('discount_points').value || 0,
+                    other_fees: document.getElementById('other_fees').value.replace(/,/g, '') || 0,
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error);
+                return;
+            }
+            
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // Update APR results
+            document.getElementById('aprResult').textContent = data.summary.apr.toFixed(3) + '%';
+            document.getElementById('statedRateResult').textContent = data.summary.stated_rate.toFixed(3) + '%';
+            document.getElementById('rateDifference').textContent = '+' + data.summary.rate_difference.toFixed(3) + '% {% trans "due to fees" %}';
+            
+            // Update cost summary
+            document.getElementById('monthlyPaymentResult').textContent = formatCurrency(data.summary.monthly_payment);
+            document.getElementById('totalInterestResult').textContent = formatCurrency(data.summary.total_interest);
+            document.getElementById('totalFeesResult').textContent = formatCurrency(data.summary.total_fees);
+            document.getElementById('totalCostResult').textContent = formatCurrency(data.summary.total_cost);
+            
+            // Update fee breakdown
+            document.getElementById('originationResult').textContent = formatCurrency(data.fee_breakdown.origination);
+            document.getElementById('pointsResult').textContent = formatCurrency(data.fee_breakdown.points);
+            document.getElementById('otherFeesResult').textContent = formatCurrency(data.fee_breakdown.other);
+            document.getElementById('totalUpfrontResult').textContent = formatCurrency(data.fee_breakdown.total);
+            document.getElementById('netLoanResult').textContent = formatCurrency(data.summary.net_loan);
+            
+            // Render chart
+            if (costChart) costChart.destroy();
+            
+            const chartData = data.chart_data.cost_breakdown;
+            costChart = new Chart(document.getElementById('costChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['{% trans "Principal" %}', '{% trans "Interest" %}', '{% trans "Fees" %}'],
+                    datasets: [{
+                        data: [chartData.principal, chartData.interest, chartData.fees],
+                        backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+            
+        } catch (error) {
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '{% trans "Calculate APR" %}';
+        }
+    });
+});
+</script>
+{% endblock %}

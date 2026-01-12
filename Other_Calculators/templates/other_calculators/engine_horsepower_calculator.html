@@ -1,0 +1,822 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Engine Horsepower Calculator - Calculate HP, Torque, RPM | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free engine horsepower calculator to calculate horsepower from torque and RPM, calculate torque from horsepower and RPM, or calculate RPM from horsepower and torque. Perfect for automotive and mechanical engineering." %}{% endblock %}
+{% block meta_keywords %}{% trans "horsepower calculator, calculate horsepower, engine horsepower calculator, torque calculator, RPM calculator, HP calculator, engine power calculator, how to calculate horsepower, automotive calculator, horsepower finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Engine Horsepower Calculator - Calculate HP, Torque, RPM" %}{% endblock %}
+{% block og_description %}{% trans "Calculate engine horsepower, torque, or RPM using standard automotive formulas. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/engine-horsepower-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Engine Horsepower Calculator - Calculate HP, Torque, RPM" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate engine horsepower, torque, or RPM. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/engine-horsepower-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Engine Horsepower Calculator - Calculate HP, Torque, RPM' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1950"},
+  "description": "{% trans 'Free online engine horsepower calculator to calculate horsepower from torque and RPM, calculate torque from horsepower and RPM with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Engine Horsepower Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate engine horsepower from torque and RPM, calculate torque from horsepower and RPM, or calculate RPM from horsepower and torque with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="horsepowerCalculatorForm" onsubmit="calculateHorsepower(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="horsepower">{% trans "Calculate Horsepower" %}</option>
+                                <option value="torque">{% trans "Calculate Torque" %}</option>
+                                <option value="rpm">{% trans "Calculate RPM" %}</option>
+                                <option value="convert_power">{% trans "Convert Power Units" %}</option>
+                                <option value="convert_torque">{% trans "Convert Torque Units" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Calculate Horsepower Mode -->
+                        <div id="form-horsepower" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="torque_hp" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Torque" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="torque_hp" name="torque" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                                    <select id="torque_unit_hp" name="torque_unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="lb_ft">{% trans "lb⋅ft" %}</option>
+                                        <option value="nm">{% trans "N⋅m" %}</option>
+                                        <option value="kg_m">{% trans "kg⋅m" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="rpm_hp" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "RPM" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="rpm_hp" name="rpm" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6000" required>
+                            </div>
+                            <div>
+                                <label for="result_unit_hp" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_hp" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="hp">{% trans "HP" %}</option>
+                                    <option value="kW">{% trans "kW" %}</option>
+                                    <option value="PS">{% trans "PS" %}</option>
+                                    <option value="bhp">{% trans "BHP" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Torque Mode -->
+                        <div id="form-torque" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="horsepower_torque" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Horsepower" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="horsepower_torque" name="horsepower" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                                    <select id="power_unit_torque" name="power_unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="hp">{% trans "HP" %}</option>
+                                        <option value="kW">{% trans "kW" %}</option>
+                                        <option value="PS">{% trans "PS" %}</option>
+                                        <option value="bhp">{% trans "BHP" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="rpm_torque" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "RPM" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="rpm_torque" name="rpm" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="6000" required>
+                            </div>
+                            <div>
+                                <label for="result_unit_torque" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_torque" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="lb_ft">{% trans "lb⋅ft" %}</option>
+                                    <option value="nm">{% trans "N⋅m" %}</option>
+                                    <option value="kg_m">{% trans "kg⋅m" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Calculate RPM Mode -->
+                        <div id="form-rpm" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="horsepower_rpm" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Horsepower" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="horsepower_rpm" name="horsepower" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                                    <select id="power_unit_rpm" name="power_unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="hp">{% trans "HP" %}</option>
+                                        <option value="kW">{% trans "kW" %}</option>
+                                        <option value="PS">{% trans "PS" %}</option>
+                                        <option value="bhp">{% trans "BHP" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="torque_rpm" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Torque" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="torque_rpm" name="torque" step="any" min="0.0001" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                                    <select id="torque_unit_rpm" name="torque_unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="lb_ft">{% trans "lb⋅ft" %}</option>
+                                        <option value="nm">{% trans "N⋅m" %}</option>
+                                        <option value="kg_m">{% trans "kg⋅m" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Convert Power Units Mode -->
+                        <div id="form-convert_power" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="convert_power_value" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Power" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="convert_power_value" name="value" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                            </div>
+                            <div>
+                                <label for="from_unit_power" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Unit" %}
+                                </label>
+                                <select id="from_unit_power" name="from_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="hp">{% trans "HP" %}</option>
+                                    <option value="kW">{% trans "kW" %}</option>
+                                    <option value="PS">{% trans "PS" %}</option>
+                                    <option value="bhp">{% trans "BHP" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit_power" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Unit" %}
+                                </label>
+                                <select id="to_unit_power" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="hp">{% trans "HP" %}</option>
+                                    <option value="kW">{% trans "kW" %}</option>
+                                    <option value="PS">{% trans "PS" %}</option>
+                                    <option value="bhp">{% trans "BHP" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Convert Torque Units Mode -->
+                        <div id="form-convert_torque" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="convert_torque_value" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Torque" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="convert_torque_value" name="value" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                            </div>
+                            <div>
+                                <label for="from_unit_torque" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Unit" %}
+                                </label>
+                                <select id="from_unit_torque" name="from_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="lb_ft">{% trans "lb⋅ft" %}</option>
+                                    <option value="nm">{% trans "N⋅m" %}</option>
+                                    <option value="kg_m">{% trans "kg⋅m" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit_torque" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Unit" %}
+                                </label>
+                                <select id="to_unit_torque" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="lb_ft">{% trans "lb⋅ft" %}</option>
+                                    <option value="nm">{% trans "N⋅m" %}</option>
+                                    <option value="kg_m">{% trans "kg⋅m" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="horsepowerChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Engine Horsepower" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Engine Horsepower?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "Horsepower (HP) is a unit of measurement for engine power output. It represents the rate at which work is done. In automotive applications, horsepower is calculated from torque and RPM using the formula: HP = (Torque × RPM) / 5252. This calculator helps you determine horsepower, torque, or RPM when you know two of these three values." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Calculate Horsepower, Calculate Torque, Calculate RPM, Convert Power Units, or Convert Torque Units)." %}</li>
+                        <li>{% trans "Enter the required values in the input form." %}</li>
+                        <li>{% trans "Select appropriate units for your inputs and desired result." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Calculate Horsepower" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Enter torque and RPM to calculate horsepower. Formula: HP = (Torque × RPM) / 5252. This is the most common calculation for determining engine power." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Calculate Torque" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Enter horsepower and RPM to calculate torque. Formula: Torque = (HP × 5252) / RPM. Torque measures the rotational force of the engine." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Calculate RPM" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Enter horsepower and torque to calculate RPM. Formula: RPM = (HP × 5252) / Torque. Useful for finding the engine speed at peak power." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Convert Power Units" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Convert between different power units: HP (horsepower), kW (kilowatts), PS (metric horsepower), and BHP (brake horsepower)." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Horsepower Formula" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Horsepower Formula:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">HP = (Torque × RPM) / 5252</p>
+                        <p class="text-sm text-gray-700 mb-2">{% trans "Where:" %}</p>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                            <li>HP = {% trans "Horsepower" %}</li>
+                            <li>Torque = {% trans "Torque" %} ({% trans "lb⋅ft" %})</li>
+                            <li>RPM = {% trans "Revolutions Per Minute" %}</li>
+                            <li>5252 = {% trans "Constant derived from unit conversions" %}</li>
+                        </ul>
+                    </div>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "The constant 5252 comes from the conversion between foot-pounds per minute and horsepower. At 5252 RPM, torque and horsepower are numerically equal. This formula is the standard method for calculating engine horsepower in the automotive industry." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Supported Units" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <h4 class="font-semibold text-blue-900 mb-2">{% trans "Power Units" %}</h4>
+                            <ul class="text-sm text-blue-800 space-y-1">
+                                <li>HP ({% trans "Horsepower" %} - {% trans "US standard" %})</li>
+                                <li>kW ({% trans "Kilowatts" %} - {% trans "SI unit" %})</li>
+                                <li>PS ({% trans "Pferdestärke" %} - {% trans "Metric horsepower" %})</li>
+                                <li>BHP ({% trans "Brake Horsepower" %} - {% trans "Same as HP" %})</li>
+                            </ul>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <h4 class="font-semibold text-green-900 mb-2">{% trans "Torque Units" %}</h4>
+                            <ul class="text-sm text-green-800 space-y-1">
+                                <li>lb⋅ft ({% trans "Pound-feet" %} - {% trans "US standard" %})</li>
+                                <li>N⋅m ({% trans "Newton-meters" %} - {% trans "SI unit" %})</li>
+                                <li>kg⋅m ({% trans "Kilogram-meters" %} - {% trans "Metric unit" %})</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Typical Engine Values" %}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg">
+                            <thead class="bg-blue-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Vehicle Type" %}</th>
+                                    <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Typical HP" %}</th>
+                                    <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Typical Torque (lb⋅ft)" %}</th>
+                                    <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Peak RPM" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">{% trans "Economy Car" %}</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">100-150</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">100-150</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">4000-6000</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">{% trans "Sports Car" %}</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">300-500</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">250-400</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">6000-8000</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">{% trans "Truck/SUV" %}</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">200-400</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">300-500</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">3000-5000</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900">{% trans "Supercar" %}</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">500-1000+</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">400-700</td><td class="px-4 py-3 text-xs sm:text-sm text-gray-700">7000-9000</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "All input values must be positive numbers (non-negative)." %}</li>
+                        <li>{% trans "RPM must be greater than zero when used as a divisor in torque calculations." %}</li>
+                        <li>{% trans "Torque must be greater than zero when used as a divisor in RPM calculations." %}</li>
+                        <li>{% trans "The constant 5252 is specific to lb⋅ft and HP units. For metric units, conversions are applied first." %}</li>
+                        <li>{% trans "Horsepower and torque are related but measure different aspects of engine performance." %}</li>
+                        <li>{% trans "Peak horsepower and peak torque typically occur at different RPM values." %}</li>
+                        <li>{% trans "The calculator automatically handles unit conversions between different measurement systems." %}</li>
+                        <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Automotive performance analysis and tuning" %}</li>
+                        <li>{% trans "Engine dyno testing and verification" %}</li>
+                        <li>{% trans "Comparing engine specifications" %}</li>
+                        <li>{% trans "Educational purposes for automotive engineering students" %}</li>
+                        <li>{% trans "Racing and performance optimization" %}</li>
+                        <li>{% trans "Vehicle modification planning" %}</li>
+                        <li>{% trans "Understanding engine power curves" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'horsepower';
+let horsepowerChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 6});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function validateInput(value, fieldName, min, max, unit = '') {
+    if (value === '' || value === null || value === undefined || isNaN(value)) {
+        return { valid: false, error: `${fieldName} is required.` };
+    }
+    
+    const numValue = parseFloat(value);
+    
+    if (isNaN(numValue)) {
+        return { valid: false, error: `${fieldName} must be a valid number.` };
+    }
+    
+    if (min !== null && numValue < min) {
+        return { valid: false, error: `${fieldName} must be at least ${min}${unit}.` };
+    }
+    
+    if (max !== null && numValue > max) {
+        return { valid: false, error: `${fieldName} must be at most ${max}${unit}.` };
+    }
+    
+    return { valid: true };
+}
+
+async function calculateHorsepower(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    let validationError = null;
+    
+    // Collect and validate data based on mode
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect all visible inputs
+    const visibleInputs = visibleForm.querySelectorAll('input[type="number"], select');
+    visibleInputs.forEach(input => {
+        if (input.name && input.value !== '') {
+            if (input.type === 'number') {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    requestData[input.name] = value;
+                }
+            } else {
+                requestData[input.name] = input.value;
+            }
+        }
+    });
+    
+    // Basic validation
+    const requiredInputs = visibleForm.querySelectorAll('input[type="number"][required]');
+    for (let input of requiredInputs) {
+        if (!input.value || input.value === '') {
+            validationError = `{% trans "Please fill in all required fields." %}`;
+            break;
+        }
+        const value = parseFloat(input.value);
+        if (isNaN(value) || value < 0) {
+            validationError = `{% trans "Please enter valid positive numbers." %}`;
+            break;
+        }
+    }
+    
+    if (validationError) {
+        errorEl.textContent = validationError;
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        let resultValue = 0;
+        let resultUnit = '';
+        
+        if (data.calc_type === 'horsepower') {
+            resultValue = data.horsepower;
+            resultUnit = data.horsepower_unit === 'hp' ? 'HP' : data.horsepower_unit === 'kW' ? 'kW' : data.horsepower_unit === 'PS' ? 'PS' : 'BHP';
+            
+            let detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.torque)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Torque" %} (${data.torque_unit === 'lb_ft' ? 'lb⋅ft' : data.torque_unit === 'nm' ? 'N⋅m' : 'kg⋅m'})</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.rpm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "RPM" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.hp_base)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Horsepower" %} (HP)</p>
+                </div>
+            `;
+            document.getElementById('detailsSection').innerHTML = detailsHtml;
+        } else if (data.calc_type === 'torque') {
+            resultValue = data.torque;
+            resultUnit = data.torque_unit === 'lb_ft' ? 'lb⋅ft' : data.torque_unit === 'nm' ? 'N⋅m' : 'kg⋅m';
+            
+            let detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.horsepower)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Horsepower" %} (${data.power_unit === 'hp' ? 'HP' : data.power_unit === 'kW' ? 'kW' : data.power_unit === 'PS' ? 'PS' : 'BHP'})</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.rpm)}</p>
+                    <p class="text-sm text-gray-600">{% trans "RPM" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.torque_lb_ft)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Torque" %} (lb⋅ft)</p>
+                </div>
+            `;
+            document.getElementById('detailsSection').innerHTML = detailsHtml;
+        } else if (data.calc_type === 'rpm') {
+            resultValue = data.rpm;
+            resultUnit = 'RPM';
+            
+            let detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.horsepower)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Horsepower" %} (${data.power_unit === 'hp' ? 'HP' : data.power_unit === 'kW' ? 'kW' : data.power_unit === 'PS' ? 'PS' : 'BHP'})</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.torque)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Torque" %} (${data.torque_unit === 'lb_ft' ? 'lb⋅ft' : data.torque_unit === 'nm' ? 'N⋅m' : 'kg⋅m'})</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.hp_base)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Horsepower" %} (HP)</p>
+                </div>
+            `;
+            document.getElementById('detailsSection').innerHTML = detailsHtml;
+        } else if (data.calc_type === 'convert_power' || data.calc_type === 'convert_torque') {
+            resultValue = data.result;
+            resultUnit = data.to_unit === 'hp' ? 'HP' : data.to_unit === 'kW' ? 'kW' : data.to_unit === 'PS' ? 'PS' : data.to_unit === 'bhp' ? 'BHP' : data.to_unit === 'lb_ft' ? 'lb⋅ft' : data.to_unit === 'nm' ? 'N⋅m' : 'kg⋅m';
+            
+            let detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.value)}</p>
+                    <p class="text-sm text-gray-600">{% trans "From" %} (${data.from_unit === 'hp' ? 'HP' : data.from_unit === 'kW' ? 'kW' : data.from_unit === 'PS' ? 'PS' : data.from_unit === 'bhp' ? 'BHP' : data.from_unit === 'lb_ft' ? 'lb⋅ft' : data.from_unit === 'nm' ? 'N⋅m' : 'kg⋅m'})</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.result)}</p>
+                    <p class="text-sm text-gray-600">{% trans "To" %} (${resultUnit})</p>
+                </div>
+            `;
+            document.getElementById('detailsSection').innerHTML = detailsHtml;
+        }
+        
+        document.getElementById('resultValue').textContent = formatNumber(resultValue);
+        document.getElementById('resultUnit').textContent = resultUnit;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('horsepowerChart');
+            if (chartEl) {
+                if (horsepowerChart) horsepowerChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.horsepower_chart) {
+                    chartConfig = data.chart_data.horsepower_chart;
+                } else if (data.chart_data.torque_chart) {
+                    chartConfig = data.chart_data.torque_chart;
+                } else if (data.chart_data.rpm_chart) {
+                    chartConfig = data.chart_data.rpm_chart;
+                }
+                
+                if (chartConfig) {
+                    horsepowerChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Add real-time validation feedback
+function addValidationListeners() {
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('blur', function() {
+            validateNumberInput(this);
+        });
+        input.addEventListener('input', function() {
+            this.classList.remove('border-red-500');
+            const errorMsg = this.parentElement.querySelector('.validation-error');
+            if (errorMsg) errorMsg.remove();
+        });
+    });
+}
+
+function validateNumberInput(input) {
+    const value = parseFloat(input.value);
+    
+    if (input.value === '' || isNaN(value)) {
+        if (input.hasAttribute('required')) {
+            showInputError(input, '{% trans "This field is required." %}');
+            return false;
+        }
+        return true;
+    }
+    
+    if (value < 0) {
+        showInputError(input, '{% trans "Value must be non-negative." %}');
+        return false;
+    }
+    
+    if (input.hasAttribute('min')) {
+        const min = parseFloat(input.getAttribute('min'));
+        if (value < min) {
+            showInputError(input, `{% trans "Value must be at least" %} ${min}.`);
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+function showInputError(input, message) {
+    input.classList.add('border-red-500');
+    input.classList.remove('border-gray-300');
+    
+    const existingError = input.parentElement.querySelector('.validation-error');
+    if (existingError) existingError.remove();
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'validation-error text-red-600 text-xs mt-1';
+    errorDiv.textContent = message;
+    input.parentElement.appendChild(errorDiv);
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('horsepower');
+    addValidationListeners();
+});
+</script>
+{% endblock %}

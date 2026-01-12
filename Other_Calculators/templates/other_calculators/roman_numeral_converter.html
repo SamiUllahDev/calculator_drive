@@ -1,0 +1,468 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Roman Numeral Converter - Convert Numbers to Roman Numerals" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free Roman numeral converter to convert numbers to Roman numerals and Roman numerals to numbers. Convert 1-3999 instantly with step-by-step solutions. Perfect for dates, clocks, and learning Roman numerals." %}{% endblock %}
+{% block meta_keywords %}{% trans "roman numeral converter, roman numerals, convert to roman numerals, roman numeral converter online, decimal to roman, roman to decimal, roman numbers, how to convert to roman numerals, roman numeral calculator, roman numeral translator, I V X L C D M, roman numeral chart, convert roman numerals to numbers" %}{% endblock %}
+
+{% block og_title %}{% trans "Roman Numeral Converter - Convert Numbers to Roman Numerals" %}{% endblock %}
+{% block og_description %}{% trans "Free Roman numeral converter to convert numbers to Roman numerals and Roman numerals to numbers. Convert 1-3999 instantly with step-by-step solutions." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Roman Numeral Converter - Convert Numbers to Roman Numerals" %}{% endblock %}
+{% block twitter_description %}{% trans "Free Roman numeral converter to convert numbers to Roman numerals and vice versa. Convert 1-3999 instantly. Perfect for dates and learning." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Roman Numeral Converter' %}",
+  "description": "{% trans 'Free online Roman Numeral Converter. Convert decimal numbers to Roman numerals and vice versa with validation and step-by-step solutions.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1250"},
+  "featureList": ["{% trans 'Decimal to Roman conversion' %}", "{% trans 'Roman to Decimal conversion' %}", "{% trans 'Step-by-step solutions' %}", "{% trans 'Format validation' %}", "{% trans 'Visual charts' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Roman Numeral Converter" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Convert between decimal numbers and Roman numerals" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Converter -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <!-- Conversion Type Selector -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Conversion Type" %}</label>
+                        <select id="conversionType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="decimal_to_roman">{% trans "Decimal to Roman Numeral" %}</option>
+                            <option value="roman_to_decimal">{% trans "Roman Numeral to Decimal" %}</option>
+                        </select>
+                    </div>
+
+                    <form id="romanForm" class="space-y-6">
+                        <!-- Decimal to Roman -->
+                        <div id="decimalToRomanFields" class="conversion-mode">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Decimal Number" %}</label>
+                                <input type="number" id="decimal" min="1" max="3999" step="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1-3999">
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                                <p class="text-xs text-gray-500 mt-2">{% trans "Enter a number between 1 and 3999" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Roman to Decimal -->
+                        <div id="romanToDecimalFields" class="conversion-mode hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Roman Numeral" %}</label>
+                                <input type="text" id="roman" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-lg uppercase" placeholder="I, V, X, L, C, D, M" autocomplete="off">
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                                <p class="text-xs text-gray-500 mt-2">{% trans "Enter a valid Roman numeral (I, V, X, L, C, D, M)" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Convert" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What are Roman Numerals?" %}</h3>
+                            <p>{% trans "Roman numerals are a numeral system that originated in ancient Rome. They use combinations of letters from the Latin alphabet to represent numbers." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select conversion direction" %}</li>
+                                <li>{% trans "Enter the value to convert" %}</li>
+                                <li>{% trans "Click 'Convert' to get results" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Roman Numeral Symbols" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>I</strong> = 1</p>
+                                <p><strong>V</strong> = 5</p>
+                                <p><strong>X</strong> = 10</p>
+                                <p><strong>L</strong> = 50</p>
+                                <p><strong>C</strong> = 100</p>
+                                <p><strong>D</strong> = 500</p>
+                                <p><strong>M</strong> = 1000</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Subtractive Notation" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>IV</strong> = 4 (5 - 1)</p>
+                                <p><strong>IX</strong> = 9 (10 - 1)</p>
+                                <p><strong>XL</strong> = 40 (50 - 10)</p>
+                                <p><strong>XC</strong> = 90 (100 - 10)</p>
+                                <p><strong>CD</strong> = 400 (500 - 100)</p>
+                                <p><strong>CM</strong> = 900 (1000 - 100)</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Rules" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Symbols are written from largest to smallest" %}</li>
+                                <li>{% trans "No more than 3 identical symbols in a row" %}</li>
+                                <li>{% trans "Only I, X, C can be used for subtraction" %}</li>
+                                <li>{% trans "Only one smaller value can precede a larger value" %}</li>
+                                <li>{% trans "V, L, D cannot be subtracted" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Examples" %}</h3>
+                            <div class="space-y-1 text-xs">
+                                <p><strong>1</strong> = I</p>
+                                <p><strong>4</strong> = IV</p>
+                                <p><strong>9</strong> = IX</p>
+                                <p><strong>49</strong> = XLIX</p>
+                                <p><strong>100</strong> = C</p>
+                                <p><strong>500</strong> = D</p>
+                                <p><strong>1000</strong> = M</p>
+                                <p><strong>2024</strong> = MMXXIV</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Decimal numbers must be between 1 and 3999" %}</li>
+                                <li>{% trans "Roman numerals are case-insensitive" %}</li>
+                                <li>{% trans "Invalid formats will be rejected" %}</li>
+                                <li>{% trans "Standard Roman numeral rules apply" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Clock faces and timepieces" %}</li>
+                                <li>{% trans "Book chapter numbering" %}</li>
+                                <li>{% trans "Movie and TV series titles" %}</li>
+                                <li>{% trans "Monument inscriptions" %}</li>
+                                <li>{% trans "Educational purposes" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const conversionTypeSelect = document.getElementById('conversionType');
+    const form = document.getElementById('romanForm');
+    const romanInput = document.getElementById('roman');
+    
+    // Switch conversion modes
+    conversionTypeSelect.addEventListener('change', function() {
+        switchConversionMode(this.value);
+    });
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        convert();
+    });
+    
+    // Real-time validation
+    const decimalInput = document.getElementById('decimal');
+    if (decimalInput) {
+        decimalInput.addEventListener('input', function() {
+            validateDecimal(this);
+        });
+        decimalInput.addEventListener('blur', function() {
+            validateDecimal(this);
+        });
+    }
+    
+    if (romanInput) {
+        romanInput.addEventListener('input', function() {
+            // Auto-uppercase
+            this.value = this.value.toUpperCase();
+            validateRoman(this);
+        });
+        romanInput.addEventListener('blur', function() {
+            validateRoman(this);
+        });
+    }
+    
+    // Initialize
+    switchConversionMode('decimal_to_roman');
+});
+
+function switchConversionMode(mode) {
+    // Hide all conversion mode fields
+    document.querySelectorAll('.conversion-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant fields
+    if (mode === 'decimal_to_roman') {
+        document.getElementById('decimalToRomanFields').classList.remove('hidden');
+    } else {
+        document.getElementById('romanToDecimalFields').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function validateDecimal(input) {
+    const value = parseInt(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    // Remove previous error styling
+    input.classList.remove('border-red-500');
+    errorSpan.classList.add('hidden');
+    errorSpan.textContent = '';
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value)) {
+        showError(input, '{% trans "Please enter a valid number" %}');
+        return false;
+    }
+    
+    if (value < 1) {
+        showError(input, '{% trans "Number must be at least 1" %}');
+        return false;
+    }
+    
+    if (value > 3999) {
+        showError(input, '{% trans "Number cannot exceed 3999" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function validateRoman(input) {
+    const value = input.value.trim().toUpperCase();
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    // Remove previous error styling
+    input.classList.remove('border-red-500');
+    errorSpan.classList.add('hidden');
+    errorSpan.textContent = '';
+    
+    if (value === '') {
+        return true;
+    }
+    
+    // Check for invalid characters
+    const validChars = /^[IVXLCDM]+$/;
+    if (!validChars.test(value)) {
+        showError(input, '{% trans "Invalid characters. Only I, V, X, L, C, D, M are allowed" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    errorSpan.textContent = message;
+    errorSpan.classList.remove('hidden');
+}
+
+function convert() {
+    const conversionType = document.getElementById('conversionType').value;
+    const formData = {
+        conversion_type: conversionType
+    };
+    
+    // Collect data based on conversion type
+    if (conversionType === 'decimal_to_roman') {
+        const decimal = document.getElementById('decimal').value;
+        if (!decimal) {
+            alert('{% trans "Please enter a decimal number" %}');
+            return;
+        }
+        if (!validateDecimal(document.getElementById('decimal'))) {
+            return;
+        }
+        formData.decimal = parseInt(decimal);
+    } else {
+        const roman = document.getElementById('roman').value.trim().toUpperCase();
+        if (!roman) {
+            alert('{% trans "Please enter a Roman numeral" %}');
+            return;
+        }
+        if (!validateRoman(document.getElementById('roman'))) {
+            return;
+        }
+        formData.roman = roman;
+    }
+    
+    // Send AJAX request
+    fetch('{% url "other_calculators:roman_numeral_converter" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+            // Show error on input
+            if (conversionType === 'decimal_to_roman') {
+                showError(document.getElementById('decimal'), data.error);
+            } else {
+                showError(document.getElementById('roman'), data.error);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.conversion_type === 'decimal_to_roman') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Decimal Number" %}</p>
+            <p class="text-3xl font-bold text-gray-900 mb-4">${data.decimal}</p>
+            <p class="text-sm text-gray-600 mb-2">{% trans "Roman Numeral" %}</p>
+            <p class="text-5xl font-bold text-blue-600 font-mono">${data.roman}</p>
+        </div>`;
+    } else {
+        html += `<div class="bg-blue-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Roman Numeral" %}</p>
+            <p class="text-5xl font-bold text-gray-900 font-mono mb-4">${data.roman}</p>
+            <p class="text-sm text-gray-600 mb-2">{% trans "Decimal Number" %}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.decimal}</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

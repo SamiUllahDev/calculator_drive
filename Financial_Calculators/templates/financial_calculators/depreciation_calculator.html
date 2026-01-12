@@ -1,0 +1,316 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Depreciation Calculator - Straight-Line, MACRS & More{% endblock %}
+
+{% block meta_description %}Calculate asset depreciation using straight-line, declining balance, MACRS, and sum-of-years-digits methods.{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3">📉 Depreciation Calculator</h1>
+            <p class="text-gray-300 text-lg max-w-2xl mx-auto">Calculate asset depreciation using multiple methods</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Calculator Form -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+                <form id="calculator-form" class="space-y-6">
+                    <!-- Depreciation Method -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-3">Depreciation Method</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="method" value="straight_line" checked class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-blue-400 peer-checked:bg-blue-500/20 transition-all text-center">
+                                    <div class="text-sm text-white">Straight-Line</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="method" value="declining_balance" class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-blue-400 peer-checked:bg-blue-500/20 transition-all text-center">
+                                    <div class="text-sm text-white">Declining Balance</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="method" value="double_declining" class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-blue-400 peer-checked:bg-blue-500/20 transition-all text-center">
+                                    <div class="text-sm text-white">Double Declining</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="method" value="sum_of_years" class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-blue-400 peer-checked:bg-blue-500/20 transition-all text-center">
+                                    <div class="text-sm text-white">Sum-of-Years</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Asset Details -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-white">📦 Asset Details</h3>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Asset Cost</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <input type="text" name="asset_cost" id="asset_cost" value="50,000" 
+                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Salvage Value</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <input type="text" name="salvage_value" id="salvage_value" value="5,000" 
+                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Useful Life (Years)</label>
+                            <input type="number" name="useful_life" id="useful_life" value="5" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                        </div>
+
+                        <div id="db_rate_field" class="hidden">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Declining Balance Rate (%)</label>
+                            <input type="number" name="db_rate" id="db_rate" value="150" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
+                        Calculate Depreciation
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="space-y-6">
+                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-400 border-t-transparent mx-auto mb-4"></div>
+                    <p class="text-gray-300">Calculating...</p>
+                </div>
+
+                <div id="results" class="space-y-6">
+                    <!-- Summary -->
+                    <div class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-6 shadow-2xl">
+                        <h3 class="text-blue-100 text-sm font-medium mb-1">Annual Depreciation (Year 1)</h3>
+                        <div class="text-4xl font-bold text-white" id="annual_depreciation">$9,000</div>
+                        <div class="text-blue-200 text-sm mt-1" id="method_display">Using Straight-Line Method</div>
+                    </div>
+
+                    <!-- Key Values -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-gray-400 text-sm">Depreciable Base</div>
+                            <div class="text-xl font-bold text-white" id="depreciable_base">$45,000</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-gray-400 text-sm">Depreciation Rate</div>
+                            <div class="text-xl font-bold text-white" id="depreciation_rate">20.00%</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-gray-400 text-sm">Total Depreciation</div>
+                            <div class="text-xl font-bold text-white" id="total_depreciation">$45,000</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-gray-400 text-sm">Book Value at End</div>
+                            <div class="text-xl font-bold text-white" id="ending_book_value">$5,000</div>
+                        </div>
+                    </div>
+
+                    <!-- Depreciation Schedule -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">📋 Depreciation Schedule</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-gray-400 border-b border-white/20">
+                                        <th class="text-left py-2">Year</th>
+                                        <th class="text-right py-2">Book Value (Start)</th>
+                                        <th class="text-right py-2">Depreciation</th>
+                                        <th class="text-right py-2">Accum. Depreciation</th>
+                                        <th class="text-right py-2">Book Value (End)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="schedule_table" class="text-white"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Book Value Over Time</h3>
+                        <canvas id="depreciationChart" height="200"></canvas>
+                    </div>
+
+                    <!-- Method Comparison -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">📊 Method Comparison (Year 1)</h3>
+                        <div class="space-y-3" id="comparison_bars"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let depreciationChart = null;
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
+// Toggle declining balance rate field
+document.querySelectorAll('input[name="method"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        if (this.value === 'declining_balance') {
+            document.getElementById('db_rate_field').classList.remove('hidden');
+        } else {
+            document.getElementById('db_rate_field').classList.add('hidden');
+        }
+    });
+});
+
+document.getElementById('calculator-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('loading').classList.remove('hidden');
+    
+    const formData = {
+        method: document.querySelector('input[name="method"]:checked').value,
+        asset_cost: document.getElementById('asset_cost').value,
+        salvage_value: document.getElementById('salvage_value').value,
+        useful_life: document.getElementById('useful_life').value,
+        db_rate: document.getElementById('db_rate').value
+    };
+
+    try {
+        const response = await fetch('{% url "depreciation_calculator" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        document.getElementById('loading').classList.add('hidden');
+
+        if (data.success) {
+            updateResults(data);
+        } else {
+            alert(data.error || 'Calculation error');
+        }
+    } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        alert('An error occurred');
+    }
+});
+
+function updateResults(data) {
+    const methodNames = {
+        'straight_line': 'Straight-Line',
+        'declining_balance': 'Declining Balance',
+        'double_declining': 'Double Declining Balance',
+        'sum_of_years': 'Sum-of-Years-Digits'
+    };
+
+    document.getElementById('annual_depreciation').textContent = formatCurrency(data.schedule[0].depreciation);
+    document.getElementById('method_display').textContent = 'Using ' + methodNames[data.method] + ' Method';
+    
+    document.getElementById('depreciable_base').textContent = formatCurrency(data.depreciable_base);
+    document.getElementById('depreciation_rate').textContent = data.depreciation_rate.toFixed(2) + '%';
+    document.getElementById('total_depreciation').textContent = formatCurrency(data.total_depreciation);
+    document.getElementById('ending_book_value').textContent = formatCurrency(data.schedule[data.schedule.length - 1].ending_book_value);
+
+    // Update schedule table
+    const tbody = document.getElementById('schedule_table');
+    tbody.innerHTML = '';
+    data.schedule.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-white/10';
+        tr.innerHTML = `
+            <td class="py-2">${row.year}</td>
+            <td class="text-right">${formatCurrency(row.beginning_book_value)}</td>
+            <td class="text-right">${formatCurrency(row.depreciation)}</td>
+            <td class="text-right">${formatCurrency(row.accumulated_depreciation)}</td>
+            <td class="text-right">${formatCurrency(row.ending_book_value)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Update chart
+    updateChart(data);
+
+    // Update comparison
+    if (data.comparison) {
+        const container = document.getElementById('comparison_bars');
+        container.innerHTML = '';
+        const maxDep = Math.max(...Object.values(data.comparison));
+        
+        Object.entries(data.comparison).forEach(([method, value]) => {
+            const percent = (value / maxDep) * 100;
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-gray-400">${methodNames[method] || method}</span>
+                    <span class="text-white">${formatCurrency(value)}</span>
+                </div>
+                <div class="w-full bg-white/10 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full" style="width: ${percent}%"></div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+}
+
+function updateChart(data) {
+    const ctx = document.getElementById('depreciationChart').getContext('2d');
+    if (depreciationChart) depreciationChart.destroy();
+
+    depreciationChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.schedule.map(s => 'Year ' + s.year),
+            datasets: [{
+                label: 'Book Value',
+                data: data.schedule.map(s => s.ending_book_value),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Accumulated Depreciation',
+                data: data.schedule.map(s => s.accumulated_depreciation),
+                borderColor: '#f43f5e',
+                backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#fff' } } },
+            scales: {
+                x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+            }
+        }
+    });
+}
+
+document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+</script>
+{% endblock %}

@@ -1,0 +1,761 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Target Heart Rate Calculator" %} - {% trans "Calculate Heart Rate Zones" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your target heart rate zones for different training intensities. Includes Karvonen method and standard formulas." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'target heart rate calculator, heart rate zones, karvonen method, training zones, max heart rate' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Target Heart Rate Calculator' %} - {% trans 'Calculate Heart Rate Zones' %}">
+<meta property="og:description" content="{% trans 'Calculate your target heart rate zones for optimal training.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Target Heart Rate Calculator' %}",
+    "description": "{% trans 'Calculate target heart rate zones for training' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-red-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-orange-600">{% trans "Target Heart Rate Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your target heart rate zones for different training intensities. Includes Karvonen method and standard formulas for optimal training." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Age -->
+                        <div>
+                            <label for="age" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Age" %}</label>
+                            <input type="number" id="age" name="age" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-base"
+                                value="30" min="10" max="100" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 10-100 years" %}</p>
+                        </div>
+
+                        <!-- Resting Heart Rate -->
+                        <div>
+                            <label for="resting_hr" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Resting Heart Rate" %} (bpm)</label>
+                            <div class="relative">
+                                <input type="number" id="resting_hr" name="resting_hr" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-base"
+                                    value="60" min="30" max="120" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">bpm</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 30-120 bpm (measure when fully rested)" %}</p>
+                        </div>
+
+                        <!-- Method -->
+                        <div>
+                            <label for="max_hr_method" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Calculation Method" %}</label>
+                            <select id="max_hr_method" name="max_hr_method" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-base bg-white">
+                                <option value="age">{% trans "Standard (220 - age)" %}</option>
+                                <option value="karvonen">{% trans "Karvonen Method" %}</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Karvonen method accounts for resting heart rate" %}</p>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                            <p class="text-red-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your age and resting heart rate to see your target heart rate zones for different training intensities." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-red-600 to-orange-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Maximum Heart Rate" %}</p>
+                            <p id="maxHr" class="text-4xl sm:text-5xl font-bold mb-2">0</p>
+                            <p class="text-sm opacity-90">{% trans "Heart Rate Reserve" %}: <span id="hrr">0</span> bpm</p>
+                            <div class="mt-4 flex flex-wrap justify-center gap-3">
+                                <div class="bg-white bg-opacity-20 px-4 py-2 rounded-full text-sm">
+                                    {% trans "Resting HR" %}: <span id="restingHrDisplay">0</span> bpm
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Max HR Comparison Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border-2 border-blue-200 shadow-lg">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Standard" %}</p>
+                            <p id="maxHrStandard" class="text-2xl font-bold text-blue-600">-</p>
+                            <p class="text-xs text-gray-500 mt-1">220 - age</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border-2 border-green-200 shadow-lg">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Tanaka" %}</p>
+                            <p id="maxHrTanaka" class="text-2xl font-bold text-green-600">-</p>
+                            <p class="text-xs text-gray-500 mt-1">208 - (0.7 × age)</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border-2 border-purple-200 shadow-lg">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Gellish" %}</p>
+                            <p id="maxHrGellish" class="text-2xl font-bold text-purple-600">-</p>
+                            <p class="text-xs text-gray-500 mt-1">207 - (0.7 × age)</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Zones Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Heart Rate Zones" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="zonesChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Max HR Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Max HR Formulas Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="maxHrComparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Heart Rate Scale Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Zone Distribution" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="hrScaleChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Heart Rate Zones List -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Heart Rate Zones" %}</h3>
+                        <div id="zonesList" class="space-y-4">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Target Heart Rate Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Target Heart Rate?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Target heart rate (THR) is the desired heart rate range you should maintain during exercise to achieve specific fitness goals. Different heart rate zones correspond to different training intensities and provide different benefits." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Training in the appropriate heart rate zone helps you maximize the effectiveness of your workouts, whether your goal is fat burning, cardiovascular fitness, or improving athletic performance." %}
+                            </p>
+                        </div>
+
+                        <!-- Heart Rate Zones Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Heart Rate Zones" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Zone 1: Warm-up (50-60% of Max HR)" %}</h4>
+                                    <p class="text-sm text-blue-800 mb-2">
+                                        {% trans "Light activity for warm-up and recovery. Improves blood flow and prepares muscles. Ideal for active recovery days." %}
+                                    </p>
+                                    <p class="text-xs text-blue-700">
+                                        {% trans "Intensity: Very Light | RPE: 2-3 | Duration: 5-10 minutes" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Zone 2: Fat Burn (60-70% of Max HR)" %}</h4>
+                                    <p class="text-sm text-green-800 mb-2">
+                                        {% trans "Optimal zone for fat burning. Low to moderate intensity, sustainable for longer durations. Builds aerobic base." %}
+                                    </p>
+                                    <p class="text-xs text-green-700">
+                                        {% trans "Intensity: Light | RPE: 4-5 | Duration: 30-60 minutes" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Zone 3: Aerobic (70-80% of Max HR)" %}</h4>
+                                    <p class="text-sm text-yellow-800 mb-2">
+                                        {% trans "Cardiovascular fitness zone. Improves heart and lung function, builds endurance. Most common training zone." %}
+                                    </p>
+                                    <p class="text-xs text-yellow-700">
+                                        {% trans "Intensity: Moderate | RPE: 6-7 | Duration: 20-40 minutes" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Zone 4: Anaerobic (80-90% of Max HR)" %}</h4>
+                                    <p class="text-sm text-orange-800 mb-2">
+                                        {% trans "High-intensity training zone. Improves speed, power, and anaerobic capacity. Used for interval training." %}
+                                    </p>
+                                    <p class="text-xs text-orange-700">
+                                        {% trans "Intensity: Hard | RPE: 8-9 | Duration: 5-15 minutes" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Zone 5: Maximum (90-100% of Max HR)" %}</h4>
+                                    <p class="text-sm text-red-800 mb-2">
+                                        {% trans "Maximum effort zone. Short bursts only, improves peak performance. Use sparingly and with caution." %}
+                                    </p>
+                                    <p class="text-xs text-red-700">
+                                        {% trans "Intensity: Maximum | RPE: 10 | Duration: 1-5 minutes" %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calculation Methods Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Methods" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Standard Method (220 - age)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The most commonly used formula. Simple and easy to calculate, but may not be accurate for all individuals. Best for general fitness purposes." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Karvonen Method" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "More accurate method that accounts for your resting heart rate. Calculates Heart Rate Reserve (HRR) = Max HR - Resting HR, then adds percentage of HRR to resting HR. Better for personalized training zones." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Tanaka Formula (208 - 0.7 × age)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Research-based formula that may be more accurate for older adults. Developed from studies of healthy adults." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Gellish Formula (207 - 0.7 × age)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Another research-based alternative that may provide slightly different estimates. Useful for comparison." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your age (between 10 and 100 years)" %}</li>
+                                <li>{% trans "Enter your resting heart rate (measured when fully rested, typically in the morning)" %}</li>
+                                <li>{% trans "Select your preferred calculation method (Standard or Karvonen)" %}</li>
+                                <li>{% trans "Click 'Calculate' to see your target heart rate zones" %}</li>
+                                <li>{% trans "Review the zones and choose the appropriate zone for your training goals" %}</li>
+                                <li>{% trans "Use a heart rate monitor during exercise to stay within your target zone" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Maximum Heart Rate" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The highest heart rate you can achieve during maximum physical exertion. Used as a reference point for calculating training zones." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Heart Rate Reserve (HRR)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The difference between your maximum heart rate and resting heart rate. Used in the Karvonen method for more personalized zones." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Training Zones" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Each zone represents a percentage range of your maximum heart rate. Different zones provide different training benefits and should be used for different purposes." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Standard vs Karvonen" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Standard method uses percentage of max HR directly. Karvonen method accounts for your fitness level (via resting HR) and typically provides slightly lower target zones, which may be more appropriate for beginners." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-red-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-red-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "These formulas provide estimates. Actual maximum heart rate can vary significantly between individuals based on genetics, fitness level, and other factors." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Measure your resting heart rate first thing in the morning, before getting out of bed, for the most accurate reading." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Some medications (like beta-blockers) can affect heart rate. Consult with your healthcare provider if you're on medication." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for informational purposes only and should not replace professional medical advice. Always consult with qualified healthcare providers before starting a new exercise program, especially if you have heart conditions, are taking medications, or have other health concerns." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "If you experience chest pain, dizziness, shortness of breath, or other concerning symptoms during exercise, stop immediately and seek medical attention." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let zonesChart = null;
+let maxHrComparisonChart = null;
+let hrScaleChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('age').value = '30';
+        document.getElementById('resting_hr').value = '60';
+        document.getElementById('max_hr_method').value = 'age';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (zonesChart) zonesChart.destroy();
+        if (maxHrComparisonChart) maxHrComparisonChart.destroy();
+        if (hrScaleChart) hrScaleChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const formData = {
+            age: parseInt(document.getElementById('age').value),
+            resting_hr: parseInt(document.getElementById('resting_hr').value),
+            max_hr_method: document.getElementById('max_hr_method').value
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data, formData.max_hr_method);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data, method) {
+        try {
+            // Update main result
+            document.getElementById('maxHr').textContent = data.max_hr.standard;
+            document.getElementById('hrr').textContent = data.hrr;
+            document.getElementById('restingHrDisplay').textContent = data.resting_hr;
+            
+            // Update max HR comparison cards
+            document.getElementById('maxHrStandard').textContent = data.max_hr.standard + ' bpm';
+            document.getElementById('maxHrTanaka').textContent = data.max_hr.tanaka + ' bpm';
+            document.getElementById('maxHrGellish').textContent = data.max_hr.gellish + ' bpm';
+            
+            // Update zones list
+            const zonesList = document.getElementById('zonesList');
+            zonesList.innerHTML = Object.values(data.zones).map(zone => {
+                const hrMin = method === 'karvonen' ? zone.hr_min_karvonen : zone.hr_min_standard;
+                const hrMax = method === 'karvonen' ? zone.hr_max_karvonen : zone.hr_max_standard;
+                const hrAvg = method === 'karvonen' ? zone.hr_avg_karvonen : zone.hr_avg_standard;
+                
+                const colorClasses = {
+                    'blue': 'border-blue-500 bg-blue-50',
+                    'green': 'border-green-500 bg-green-50',
+                    'yellow': 'border-yellow-500 bg-yellow-50',
+                    'orange': 'border-orange-500 bg-orange-50',
+                    'red': 'border-red-500 bg-red-50'
+                };
+                const bgClass = colorClasses[zone.color] || 'border-gray-500 bg-gray-50';
+                
+                return `
+                    <div class="border-l-4 ${bgClass} rounded-r-lg p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-lg">${zone.name}</h4>
+                                <p class="text-sm text-gray-600 mt-1">${zone.percent_min}-${zone.percent_max}% of Max HR</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-gray-900">${hrMin}-${hrMax}</p>
+                                <p class="text-xs text-gray-600">bpm</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-700 mb-2">${zone.description}</p>
+                        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                            <div>
+                                <span class="font-medium">{% trans "Standard" %}:</span>
+                                <span>${zone.hr_min_standard}-${zone.hr_max_standard} bpm</span>
+                            </div>
+                            <div>
+                                <span class="font-medium">{% trans "Karvonen" %}:</span>
+                                <span>${zone.hr_min_karvonen}-${zone.hr_max_karvonen} bpm</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.zones_chart) {
+                    createZonesChart(data.chart_data.zones_chart);
+                }
+                if (data.chart_data.max_hr_comparison_chart) {
+                    createMaxHrComparisonChart(data.chart_data.max_hr_comparison_chart);
+                }
+                if (data.chart_data.hr_scale_chart) {
+                    createHrScaleChart(data.chart_data.hr_scale_chart);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createZonesChart(chartData) {
+        const ctx = document.getElementById('zonesChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (zonesChart) {
+            zonesChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            zonesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' bpm';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + ' bpm';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating zones chart:', error);
+        }
+    }
+    
+    function createMaxHrComparisonChart(chartData) {
+        const ctx = document.getElementById('maxHrComparisonChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (maxHrComparisonChart) {
+            maxHrComparisonChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            maxHrComparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y + ' bpm';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + ' bpm';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating max HR comparison chart:', error);
+        }
+    }
+    
+    function createHrScaleChart(chartData) {
+        const ctx = document.getElementById('hrScaleChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (hrScaleChart) {
+            hrScaleChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            hrScaleChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed + ' bpm range';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating HR scale chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

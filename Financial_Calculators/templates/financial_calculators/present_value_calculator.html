@@ -1,0 +1,340 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Present Value Calculator - Calculate PV of Future Cash" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate the present value of future money. Understand how much future cash flows are worth today with our free PV calculator." %}{% endblock %}
+{% block meta_keywords %}{% trans "present value calculator, PV calculator, discount cash flows, time value of money, NPV calculator" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Present Value Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate the present value of future cash flows.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Present Value Calculator' %}",
+    "description": "{% trans 'Calculate present value of future cash flows.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Present Value Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Present Value Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate what future money is worth today. Essential for investment decisions and financial planning." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Enter Details" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div>
+                            <label for="future_value" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Future Value" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="future_value" name="future_value" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="100,000" inputmode="decimal" value="100,000" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Discount Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate" name="interest_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="7" inputmode="decimal" value="7" required>
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="years" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Time Period (Years)" %}</label>
+                            <input type="number" id="years" name="years" 
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                   placeholder="10" value="10" min="1" max="100" required>
+                        </div>
+
+                        <div>
+                            <label for="compound_frequency" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Compounding" %}</label>
+                            <select id="compound_frequency" class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="annually">{% trans "Annually" %}</option>
+                                <option value="semi-annually">{% trans "Semi-Annually" %}</option>
+                                <option value="quarterly">{% trans "Quarterly" %}</option>
+                                <option value="monthly" selected>{% trans "Monthly" %}</option>
+                                <option value="daily">{% trans "Daily" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition">
+                            {% trans "Calculate Present Value" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- Main Results -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-blue-600 text-white rounded-lg p-6 text-center">
+                            <p class="text-blue-100 text-sm mb-1">{% trans "Present Value" %}</p>
+                            <p id="presentValueResult" class="text-3xl font-bold">$0</p>
+                            <p class="text-blue-100 text-sm mt-2">{% trans "What it's worth today" %}</p>
+                        </div>
+                        <div class="bg-gray-100 rounded-lg p-6 text-center">
+                            <p class="text-gray-600 text-sm mb-1">{% trans "Future Value" %}</p>
+                            <p id="futureValueResult" class="text-3xl font-bold text-gray-900">$0</p>
+                            <p id="discountResult" class="text-sm mt-2 text-red-600 font-medium">-$0 {% trans "discount" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Discount Factor" %}</p>
+                            <p id="discountFactorResult" class="text-lg font-bold text-gray-900">0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Effective Rate" %}</p>
+                            <p id="effectiveRateResult" class="text-lg font-bold text-gray-900">0%</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Total Discount" %}</p>
+                            <p id="totalDiscountResult" class="text-lg font-bold text-red-600">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Chart and Rate Comparison -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Value Breakdown" %}</h3>
+                            <div class="relative h-48">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Compare Discount Rates" %}</h3>
+                            <div class="overflow-x-auto max-h-48">
+                                <table class="w-full text-xs">
+                                    <thead class="bg-gray-50 text-gray-700">
+                                        <tr>
+                                            <th class="px-2 py-2 text-left font-medium">{% trans "Rate" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "PV" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Discount" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="comparisonBody" class="divide-y divide-gray-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Calculate Present Value" %}</h3>
+                        <p class="text-gray-500">{% trans "Find out what future money is worth in today's dollars." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Understanding PV -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Understanding Present Value" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Time Value of Money" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Money today is worth more than the same amount in the future because you can invest it and earn returns. Present value calculates this difference." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "The Discount Rate" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "The discount rate reflects your required return or opportunity cost. Higher rates result in lower present values, reflecting greater risk or better alternatives." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What discount rate should I use?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Use your required rate of return or what you could earn elsewhere. Common choices: inflation rate (3%), stock market return (7-10%), or your cost of capital." %}</p>
+                    </div>
+                </div>
+                
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "When is present value useful?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Comparing investment options, valuing bonds, analyzing business investments, retirement planning, or deciding between a lump sum and payments over time." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    let pieChart = null;
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency', currency: 'USD',
+            minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    document.getElementById('future_value').addEventListener('input', function() { formatInput(this); });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.nextElementSibling.classList.toggle('hidden');
+            this.querySelector('svg').classList.toggle('rotate-180');
+        });
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    future_value: document.getElementById('future_value').value.replace(/,/g, ''),
+                    interest_rate: document.getElementById('interest_rate').value,
+                    years: document.getElementById('years').value,
+                    compound_frequency: document.getElementById('compound_frequency').value,
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error);
+                return;
+            }
+            
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // Update results
+            document.getElementById('presentValueResult').textContent = formatCurrency(data.summary.present_value);
+            document.getElementById('futureValueResult').textContent = formatCurrency(data.summary.future_value);
+            document.getElementById('discountResult').textContent = '-' + formatCurrency(data.summary.discount) + ' {% trans "discount" %}';
+            document.getElementById('discountFactorResult').textContent = data.summary.discount_factor.toFixed(4);
+            document.getElementById('effectiveRateResult').textContent = data.summary.effective_rate.toFixed(2) + '%';
+            document.getElementById('totalDiscountResult').textContent = formatCurrency(data.summary.discount);
+            
+            // Comparison table
+            const compBody = document.getElementById('comparisonBody');
+            compBody.innerHTML = '';
+            data.comparison.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = row.rate == data.summary.interest_rate ? 'bg-blue-50' : 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-2 py-2">${row.rate}%</td>
+                    <td class="px-2 py-2 text-right font-medium">${formatCurrency(row.present_value)}</td>
+                    <td class="px-2 py-2 text-right text-red-600">${formatCurrency(row.discount)}</td>
+                `;
+                compBody.appendChild(tr);
+            });
+            
+            // Chart
+            if (pieChart) pieChart.destroy();
+            
+            pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['{% trans "Present Value" %}', '{% trans "Discount" %}'],
+                    datasets: [{
+                        data: [data.chart_data.breakdown.present_value, data.chart_data.breakdown.discount],
+                        backgroundColor: ['#3b82f6', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+            
+        } catch (error) {
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '{% trans "Calculate Present Value" %}';
+        }
+    });
+});
+</script>
+{% endblock %}

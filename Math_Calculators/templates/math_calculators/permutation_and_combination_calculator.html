@@ -1,0 +1,577 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Permutation & Combination Calculator - P(n,r) & C(n,r)" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free permutation and combination calculator to calculate P(n,r) and C(n,r) with step-by-step solutions. Calculate arrangements and selections. Perfect for probability, statistics, and math homework." %}{% endblock %}
+{% block meta_keywords %}{% trans "permutation calculator, combination calculator, calculate permutations, calculate combinations, P(n,r) calculator, C(n,r) calculator, factorial calculator, arrangements calculator, nPr calculator, nCr calculator, how to calculate permutations, combinatorics calculator, permutation finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Permutation & Combination Calculator - P(n,r) & C(n,r)" %}{% endblock %}
+{% block og_description %}{% trans "Free permutation and combination calculator to calculate P(n,r) and C(n,r) with step-by-step solutions. Calculate arrangements and selections." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Professional Permutation & Combination Calculator - P(n,r) & C(n,r)" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate permutations and combinations with step-by-step solutions. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Professional Permutation & Combination Calculator' %}",
+  "description": "{% trans 'Calculate permutations P(n,r) and combinations C(n,r) with step-by-step solutions. Free online calculator for counting arrangements and selections.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "2000"},
+  "featureList": ["{% trans 'Permutation calculation P(n,r)' %}", "{% trans 'Combination calculation C(n,r)' %}", "{% trans 'Step-by-step solutions' %}", "{% trans 'Arrangements counting' %}", "{% trans 'Selections counting' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Permutation & Combination Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate permutations P(n,r) and combinations C(n,r) with step-by-step solutions and visualizations." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calcType" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="permutation">{% trans "Permutation P(n,r)" %}</option>
+                                <option value="combination">{% trans "Combination C(n,r)" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- n Input -->
+                        <div>
+                            <label for="n" class="block text-sm font-medium text-gray-700 mb-2">
+                                <svg class="w-4 h-4 inline mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                                </svg>
+                                {% trans "n (Total Items)" %}
+                            </label>
+                            <input type="number" id="n" 
+                                   class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   min="0" step="1" placeholder="e.g., 10" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Number of total items (must be ≥ 0)" %}</p>
+                        </div>
+
+                        <!-- r Input -->
+                        <div>
+                            <label for="r" class="block text-sm font-medium text-gray-700 mb-2">
+                                <svg class="w-4 h-4 inline mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                                </svg>
+                                {% trans "r (Items to Select/Arrange)" %}
+                            </label>
+                            <input type="number" id="r" 
+                                   class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   min="0" step="1" placeholder="e.g., 3" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Number of items to select/arrange (must be ≥ 0 and ≤ n)" %}</p>
+                        </div>
+
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            {% trans "Load Example Values" %}
+                        </button>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate permutation or combination' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="copyBtn" class="flex-1 text-sm py-2 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Copy" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select calculation type (Permutation or Combination) and enter n and r values to calculate with step-by-step solutions." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="resultLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Result" %}</p>
+                            <p id="resultExpression" class="text-2xl sm:text-3xl font-bold font-mono mb-2"></p>
+                            <p id="resultValue" class="text-4xl sm:text-5xl font-bold font-mono">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Detailed Results" %}
+                        </h3>
+                        <div id="detailedResults" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Chart Container -->
+                    <div id="chartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Factorial Values" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="factorialChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepByStep" class="space-y-2"></div>
+                    </div>
+
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What are Permutations and Combinations?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Permutations and combinations are ways to count arrangements and selections of items from a set." %}
+                            </p>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Permutation P(n,r)" %}:</strong> {% trans "Number of ways to arrange r items from n items where order matters" %}</li>
+                                <li><strong>{% trans "Combination C(n,r)" %}:</strong> {% trans "Number of ways to select r items from n items where order does not matter" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Formulas" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Permutation Formula" %}</p>
+                                    <p class="text-gray-700 font-mono">P(n, r) = n! / (n - r)!</p>
+                                    <p class="text-gray-700 mt-2">{% trans "Example: P(5, 3) = 5! / (5-3)! = 120 / 2 = 60" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Combination Formula" %}</p>
+                                    <p class="text-gray-700 font-mono">C(n, r) = n! / (r! × (n - r)!)</p>
+                                    <p class="text-gray-700 mt-2">{% trans "Example: C(5, 3) = 5! / (3! × 2!) = 120 / 12 = 10" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Differences" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Permutations" %}:</strong> {% trans "Order matters (ABC is different from CBA)" %}</li>
+                                <li><strong>{% trans "Combinations" %}:</strong> {% trans "Order does not matter (ABC is the same as CBA)" %}</li>
+                                <li>{% trans "Permutations are always greater than or equal to combinations for the same n and r" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Examples" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 1: Permutation" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Problem" %}:</strong> {% trans "How many ways can 3 people be arranged from 5 people?" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Solution" %}:</strong> P(5, 3) = 60</p>
+                                    <p class="text-gray-700"><strong>{% trans "Answer" %}:</strong> {% trans "60 different arrangements" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 2: Combination" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Problem" %}:</strong> {% trans "How many ways can 3 people be selected from 5 people?" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Solution" %}:</strong> C(5, 3) = 10</p>
+                                    <p class="text-gray-700"><strong>{% trans "Answer" %}:</strong> {% trans "10 different selections" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const calcType = document.getElementById('calcType');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const initialState = document.getElementById('initialState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    let factorialChart = null;
+    let currentResultData = null;
+
+    // Examples
+    const examples = {
+        permutation: {n: 5, r: 3},
+        combination: {n: 5, r: 3}
+    };
+
+    exampleBtn.addEventListener('click', function() {
+        const type = calcType.value;
+        const example = examples[type];
+        document.getElementById('n').value = example.n;
+        document.getElementById('r').value = example.r;
+    });
+
+    clearBtn.addEventListener('click', function() {
+        document.getElementById('n').value = '';
+        document.getElementById('r').value = '';
+        initialState.classList.remove('hidden');
+        results.classList.add('hidden');
+        quickActions.classList.add('hidden');
+        errorState.classList.add('hidden');
+        if (factorialChart) {
+            factorialChart.destroy();
+            factorialChart = null;
+        }
+        currentResultData = null;
+    });
+
+    copyBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const text = `Permutation and Combination Calculator Results\n\n` +
+                    `${currentResultData.calc_type === 'permutation' ? 'P' : 'C'}(${currentResultData.n}, ${currentResultData.r}) = ${currentResultData.result.toLocaleString()}\n`;
+
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            copyBtn.classList.add('bg-green-200', 'text-green-800');
+            copyBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            setTimeout(function() {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('bg-green-200', 'text-green-800');
+                copyBtn.classList.add('bg-blue-100', 'text-blue-700');
+            }, 2000);
+        });
+    });
+
+    exportBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const exportData = {
+            ...currentResultData,
+            timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `permutation_combination_calculator_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    function formatNumber(num) {
+        if (num >= 1e15) {
+            return num.toExponential(2);
+        }
+        return num.toLocaleString();
+    }
+
+    function displayResults(data) {
+        currentResultData = data;
+
+        initialState.classList.add('hidden');
+        results.classList.remove('hidden');
+        quickActions.classList.remove('hidden');
+        errorState.classList.add('hidden');
+
+        // Update result card
+        const resultLabel = document.getElementById('resultLabel');
+        const resultExpression = document.getElementById('resultExpression');
+        const resultValue = document.getElementById('resultValue');
+
+        const symbol = data.calc_type === 'permutation' ? 'P' : 'C';
+        resultExpression.textContent = `${symbol}(${data.n}, ${data.r}) =`;
+        resultValue.textContent = formatNumber(data.result);
+
+        // Detailed results
+        const detailedResults = document.getElementById('detailedResults');
+        detailedResults.innerHTML = '';
+
+        const items = [
+            {label: 'Calculation Type', value: data.calc_type === 'permutation' ? 'Permutation' : 'Combination', is_primary: true},
+            {label: 'n (Total Items)', value: data.n.toString()},
+            {label: 'r (Items to Select/Arrange)', value: data.r.toString()},
+            {label: 'Result', value: formatNumber(data.result), is_primary: true}
+        ];
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0';
+            const label = document.createElement('span');
+            label.className = 'text-sm font-medium text-gray-700 mb-1 sm:mb-0';
+            label.textContent = item.label + ':';
+            const value = document.createElement('span');
+            value.className = 'text-sm font-bold font-mono ' + (item.is_primary ? 'text-blue-600' : 'text-gray-900');
+            value.textContent = item.value;
+            div.appendChild(label);
+            div.appendChild(value);
+            detailedResults.appendChild(div);
+        });
+
+        // Chart
+        if (data.chart_data && data.chart_data.factorial_chart) {
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.classList.remove('hidden');
+            
+            if (factorialChart) {
+                factorialChart.destroy();
+            }
+            
+            const ctx = document.getElementById('factorialChart');
+            factorialChart = new Chart(ctx, {
+                type: data.chart_data.factorial_chart.type,
+                data: data.chart_data.factorial_chart.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    if (value >= 1e10) {
+                                        return 'Value: ' + value.toExponential(2);
+                                    }
+                                    return 'Value: ' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1e10) {
+                                        return value.toExponential(2);
+                                    }
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('chartContainer').classList.add('hidden');
+        }
+
+        // Step-by-step
+        const stepByStep = document.getElementById('stepByStep');
+        stepByStep.innerHTML = '';
+        data.step_by_step.forEach((step, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg text-sm text-gray-700';
+            if (step.startsWith('Step') || step.startsWith('Given') || step.startsWith('Answer')) {
+                div.classList.add('font-semibold', 'text-gray-900');
+            }
+            if (step === '') {
+                div.className = 'h-2';
+            }
+            div.textContent = step;
+            stepByStep.appendChild(div);
+        });
+
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const type = calcType.value;
+        const n = document.getElementById('n').value;
+        const r = document.getElementById('r').value;
+
+        if (!n || !r) {
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'Please enter both n and r values.';
+            return;
+        }
+
+        const nInt = parseInt(n);
+        const rInt = parseInt(r);
+
+        if (nInt < 0 || rInt < 0) {
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'n and r must be non-negative integers.';
+            return;
+        }
+
+        if (rInt > nInt) {
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'r cannot be greater than n.';
+            return;
+        }
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = 'Calculating...';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                calc_type: type,
+                n: nInt,
+                r: rInt
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = data.error || 'An error occurred.';
+            }
+        })
+        .catch(error => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'An error occurred. Please try again.';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

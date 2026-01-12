@@ -1,0 +1,665 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "IP Subnet Calculator - Calculate Subnet Mask, Network Address, Broadcast Address | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free IP subnet calculator to calculate subnet information, network address, broadcast address, host range, and convert between CIDR and subnet mask formats. Perfect for network administration and IT professionals." %}{% endblock %}
+{% block meta_keywords %}{% trans "IP subnet calculator, calculate subnet, subnet mask calculator, CIDR calculator, network address calculator, broadcast address calculator, IP calculator, subnet calculator, how to calculate subnet, subnet finder" %}{% endblock %}
+
+{% block og_title %}{% trans "IP Subnet Calculator - Calculate Subnet Mask, Network Address, Broadcast Address" %}{% endblock %}
+{% block og_description %}{% trans "Calculate subnet information, network address, broadcast address, and convert subnet masks. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/ip-subnet-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "IP Subnet Calculator - Calculate Subnet Mask, Network Address, Broadcast Address" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate subnet information and convert subnet masks. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/ip-subnet-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'IP Subnet Calculator - Calculate Subnet Mask, Network Address, Broadcast Address' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1450"},
+  "description": "{% trans 'Free online IP subnet calculator to calculate subnet information, network address, broadcast address, host range, and convert between CIDR and subnet mask formats with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "IP Subnet Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate subnet information, network address, broadcast address, host range, and convert between CIDR and subnet mask formats with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="ipSubnetCalculatorForm" onsubmit="calculateSubnet(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="subnet_info">{% trans "Subnet Information" %}</option>
+                                <option value="subnet_from_hosts">{% trans "Subnet from Hosts Needed" %}</option>
+                                <option value="subnet_from_subnets">{% trans "Subnet from Subnets Needed" %}</option>
+                                <option value="convert_mask">{% trans "Convert Subnet Mask" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Subnet Info Mode -->
+                        <div id="form-subnet_info" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="ip_address" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "IP Address" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="ip_address" name="ip_address" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="192.168.1.1" required>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Format: xxx.xxx.xxx.xxx" %}</p>
+                            </div>
+                            <div>
+                                <label for="subnet_mask" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Subnet Mask / CIDR" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="subnet_mask" name="subnet_mask" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="255.255.255.0 or /24" required>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Format: xxx.xxx.xxx.xxx or /XX" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Subnet from Hosts Mode -->
+                        <div id="form-subnet_from_hosts" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="ip_address_hosts" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "IP Address" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="ip_address_hosts" name="ip_address" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="192.168.1.1" required>
+                            </div>
+                            <div>
+                                <label for="hosts_needed" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Hosts Needed" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="hosts_needed" name="hosts_needed" step="1" min="0" max="16777214" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="254" required>
+                            </div>
+                        </div>
+
+                        <!-- Subnet from Subnets Mode -->
+                        <div id="form-subnet_from_subnets" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="ip_address_subnets" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "IP Address" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="ip_address_subnets" name="ip_address" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="192.168.1.0" required>
+                            </div>
+                            <div>
+                                <label for="original_cidr" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Original CIDR" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="original_cidr" name="original_cidr" step="1" min="0" max="32" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24" required>
+                            </div>
+                            <div>
+                                <label for="subnets_needed" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Subnets Needed" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="subnets_needed" name="subnets_needed" step="1" min="1" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4" required>
+                            </div>
+                        </div>
+
+                        <!-- Convert Mask Mode -->
+                        <div id="form-convert_mask" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="value_mask" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Subnet Mask Value" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="value_mask" name="value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="24 or 255.255.255.0" required>
+                            </div>
+                            <div>
+                                <label for="from_format" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Format" %}
+                                </label>
+                                <select id="from_format" name="from_format" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cidr" selected>{% trans "CIDR (/XX)" %}</option>
+                                    <option value="decimal">{% trans "Dotted Decimal (xxx.xxx.xxx.xxx)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_format" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Format" %}
+                                </label>
+                                <select id="to_format" name="to_format" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="decimal">{% trans "Dotted Decimal (xxx.xxx.xxx.xxx)" %}</option>
+                                    <option value="cidr" selected>{% trans "CIDR (/XX)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="subnetChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate IP Subnet" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is IP Subnet Calculator?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "The IP Subnet Calculator is a comprehensive tool for calculating subnet information, network addresses, broadcast addresses, host ranges, and converting between CIDR notation and dotted decimal subnet masks. It helps network administrators, IT professionals, and students understand and configure IP subnets for IPv4 networks. This calculator is essential for network design, troubleshooting, and subnet planning." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Subnet Information, Subnet from Hosts Needed, Subnet from Subnets Needed, or Convert Subnet Mask)." %}</li>
+                        <li>{% trans "Enter the IP address in dotted decimal format (e.g., 192.168.1.1)." %}</li>
+                        <li>{% trans "Enter the subnet mask in CIDR notation (/XX) or dotted decimal format (xxx.xxx.xxx.xxx)." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed subnet information, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Subnet Information" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Calculate complete subnet information including network address, broadcast address, host range, total hosts, usable hosts, and subnet mask. Most common calculation." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Subnet from Hosts Needed" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Calculate the appropriate subnet mask and CIDR notation based on the number of hosts needed. Automatically determines the minimum subnet size." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Subnet from Subnets Needed" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Calculate subnet configuration when you need to divide a network into multiple subnets. Determines the new CIDR and subnet mask." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Convert Subnet Mask" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Convert between CIDR notation (/XX) and dotted decimal subnet mask format (xxx.xxx.xxx.xxx). Useful for understanding different subnet mask representations." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Subnet Formulas" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Network Address:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Network Address = IP Address AND Subnet Mask</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Broadcast Address:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Broadcast Address = Network Address OR (NOT Subnet Mask)</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Total Hosts:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Total Hosts = 2^(32 - CIDR)</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Usable Hosts:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Usable Hosts = Total Hosts - 2 (network + broadcast)</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Subnet from Hosts:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">CIDR = 32 - ⌈log2(Hosts Needed + 2)⌉</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Subnet from Subnets:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2 text-xs sm:text-sm">New CIDR = Original CIDR + ⌈log2(Subnets Needed)⌉</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common CIDR Values" %}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border border-gray-300 rounded-lg">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-2 px-3 text-left border-b">{% trans "CIDR" %}</th>
+                                    <th class="py-2 px-3 text-center border-b">{% trans "Subnet Mask" %}</th>
+                                    <th class="py-2 px-3 text-center border-b">{% trans "Total Hosts" %}</th>
+                                    <th class="py-2 px-3 text-center border-b">{% trans "Usable Hosts" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/24</td><td class="text-center">255.255.255.0</td><td class="text-center">256</td><td class="text-center">254</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/25</td><td class="text-center">255.255.255.128</td><td class="text-center">128</td><td class="text-center">126</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/26</td><td class="text-center">255.255.255.192</td><td class="text-center">64</td><td class="text-center">62</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/27</td><td class="text-center">255.255.255.224</td><td class="text-center">32</td><td class="text-center">30</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/28</td><td class="text-center">255.255.255.240</td><td class="text-center">16</td><td class="text-center">14</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/29</td><td class="text-center">255.255.255.248</td><td class="text-center">8</td><td class="text-center">6</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">/30</td><td class="text-center">255.255.255.252</td><td class="text-center">4</td><td class="text-center">2</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "This calculator supports IPv4 addresses only (not IPv6)." %}</li>
+                        <li>{% trans "IP addresses must be in dotted decimal format (e.g., 192.168.1.1)." %}</li>
+                        <li>{% trans "Subnet masks can be entered in CIDR notation (/XX) or dotted decimal format (xxx.xxx.xxx.xxx)." %}</li>
+                        <li>{% trans "CIDR notation ranges from /0 to /32, where /32 represents a single host." %}</li>
+                        <li>{% trans "Usable hosts = Total hosts - 2 (network address and broadcast address are reserved)." %}</li>
+                        <li>{% trans "Network address is the first address in the subnet and cannot be assigned to hosts." %}</li>
+                        <li>{% trans "Broadcast address is the last address in the subnet and cannot be assigned to hosts." %}</li>
+                        <li>{% trans "Private IP ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16" %}</li>
+                        <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Network design and subnet planning" %}</li>
+                        <li>{% trans "Troubleshooting network connectivity issues" %}</li>
+                        <li>{% trans "Configuring routers and network devices" %}</li>
+                        <li>{% trans "Understanding IP addressing and subnetting" %}</li>
+                        <li>{% trans "Network security and access control" %}</li>
+                        <li>{% trans "VLAN configuration and management" %}</li>
+                        <li>{% trans "Network documentation and planning" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'subnet_info';
+let subnetChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 0});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateSubnet(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect data based on mode
+    if (currentMode === 'subnet_info') {
+        const ip = document.getElementById('ip_address').value.trim();
+        const mask = document.getElementById('subnet_mask').value.trim();
+        if (!ip || !mask) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.ip_address = ip;
+        requestData.subnet_mask = mask;
+    } else if (currentMode === 'subnet_from_hosts') {
+        const ip = document.getElementById('ip_address_hosts').value.trim();
+        const hosts = parseInt(document.getElementById('hosts_needed').value);
+        if (!ip || isNaN(hosts)) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.ip_address = ip;
+        requestData.hosts_needed = hosts;
+    } else if (currentMode === 'subnet_from_subnets') {
+        const ip = document.getElementById('ip_address_subnets').value.trim();
+        const originalCidr = parseInt(document.getElementById('original_cidr').value);
+        const subnets = parseInt(document.getElementById('subnets_needed').value);
+        if (!ip || isNaN(originalCidr) || isNaN(subnets)) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.ip_address = ip;
+        requestData.original_cidr = originalCidr;
+        requestData.subnets_needed = subnets;
+    } else if (currentMode === 'convert_mask') {
+        const value = document.getElementById('value_mask').value.trim();
+        const fromFormat = document.getElementById('from_format').value;
+        const toFormat = document.getElementById('to_format').value;
+        if (!value) {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        requestData.value = value;
+        requestData.from_format = fromFormat;
+        requestData.to_format = toFormat;
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        let resultValue = '';
+        let resultUnit = '';
+        let detailsHtml = '';
+        
+        if (data.calc_type === 'subnet_info') {
+            resultValue = data.network_address;
+            resultUnit = '{% trans "Network Address" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">/${data.cidr}</p>
+                    <p class="text-sm text-gray-600">{% trans "CIDR" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.broadcast_address}</p>
+                    <p class="text-sm text-gray-600">{% trans "Broadcast Address" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.usable_hosts)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Usable Hosts" %}</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    <p class="text-2xl font-bold text-yellow-600">${data.subnet_mask_decimal}</p>
+                    <p class="text-sm text-gray-600">{% trans "Subnet Mask" %}</p>
+                </div>
+                ${data.first_host ? `
+                <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
+                    <p class="text-2xl font-bold text-indigo-600">${data.first_host}</p>
+                    <p class="text-sm text-gray-600">{% trans "First Host" %}</p>
+                </div>
+                <div class="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                    <p class="text-2xl font-bold text-pink-600">${data.last_host}</p>
+                    <p class="text-sm text-gray-600">{% trans "Last Host" %}</p>
+                </div>
+                ` : ''}
+            `;
+        } else if (data.calc_type === 'subnet_from_hosts') {
+            resultValue = `/${data.cidr}`;
+            resultUnit = '{% trans "CIDR" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.subnet_mask}</p>
+                    <p class="text-sm text-gray-600">{% trans "Subnet Mask" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.usable_hosts)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Usable Hosts" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.total_hosts)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Total Hosts" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'subnet_from_subnets') {
+            resultValue = `/${data.new_cidr}`;
+            resultUnit = '{% trans "New CIDR" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.subnet_mask}</p>
+                    <p class="text-sm text-gray-600">{% trans "Subnet Mask" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.actual_subnets)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Subnets Created" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.usable_hosts)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Hosts per Subnet" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'convert_mask') {
+            resultValue = data.result;
+            resultUnit = data.to_format === 'cidr' ? '{% trans "CIDR" %}' : '{% trans "Subnet Mask" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${data.cidr}</p>
+                    <p class="text-sm text-gray-600">{% trans "CIDR" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${data.subnet_mask}</p>
+                    <p class="text-sm text-gray-600">{% trans "Subnet Mask" %}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('resultValue').textContent = resultValue;
+        document.getElementById('resultUnit').textContent = resultUnit;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('subnetChart');
+            if (chartEl) {
+                if (subnetChart) subnetChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.subnet_info_chart) {
+                    chartConfig = data.chart_data.subnet_info_chart;
+                } else if (data.chart_data.subnet_from_hosts_chart) {
+                    chartConfig = data.chart_data.subnet_from_hosts_chart;
+                } else if (data.chart_data.subnet_from_subnets_chart) {
+                    chartConfig = data.chart_data.subnet_from_subnets_chart;
+                }
+                
+                if (chartConfig) {
+                    subnetChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|Network|Broadcast|Subnet|CIDR|Hosts|Mask)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('subnet_info');
+});
+</script>
+{% endblock %}

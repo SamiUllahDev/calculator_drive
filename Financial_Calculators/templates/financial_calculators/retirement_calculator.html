@@ -1,0 +1,703 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Retirement Calculator - Plan Your Retirement Savings" %}{% endblock %}
+{% block meta_description %}{% trans "Plan your retirement with our free calculator. See how much you need to save, calculate sustainable withdrawals, and check your retirement readiness score." %}{% endblock %}
+{% block meta_keywords %}{% trans "retirement calculator, retirement planning, 401k calculator, retirement savings, pension calculator, retirement income" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Retirement Calculator' %}">
+<meta property="og:description" content="{% trans 'Plan your retirement and see if you are on track to meet your goals.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Retirement Calculator' %}",
+    "description": "{% trans 'Calculate retirement savings, sustainable withdrawals, and retirement readiness.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "{% trans 'How much do I need for retirement?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'A common guideline is to save 10-15x your annual income by retirement. The 4% rule suggests you can withdraw 4% of your savings annually.' %}"
+            }
+        }
+    ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/financial-calculators/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'Retirement Calculator' %}", "item": "/financial-calculators/retirement-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Retirement Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Retirement Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Plan your retirement with confidence. Calculate how much you need to save and see if you're on track." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Your Information" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Age Section -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="current_age" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Current Age" %}</label>
+                                <input type="text" id="current_age" name="current_age" 
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="35" inputmode="numeric" value="35" required>
+                            </div>
+                            <div>
+                                <label for="retirement_age" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Retire At" %}</label>
+                                <input type="text" id="retirement_age" name="retirement_age" 
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="65" inputmode="numeric" value="65" required>
+                            </div>
+                        </div>
+
+                        <!-- Life Expectancy -->
+                        <div>
+                            <label for="life_expectancy" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Life Expectancy" %}</label>
+                            <input type="text" id="life_expectancy" name="life_expectancy" 
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                   placeholder="90" inputmode="numeric" value="90">
+                        </div>
+
+                        <!-- Savings Section -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "Current Savings" %}</h3>
+                        </div>
+
+                        <div>
+                            <label for="current_savings" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Current Retirement Savings" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="current_savings" name="current_savings" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="100,000" inputmode="decimal" value="100,000">
+                            </div>
+                        </div>
+
+                        <!-- Contributions Section -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "Contributions" %}</h3>
+                        </div>
+
+                        <div>
+                            <label for="monthly_contribution" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Contribution" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_contribution" name="monthly_contribution" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="500" inputmode="decimal" value="500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="employer_match" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Employer Match" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="employer_match" name="employer_match" 
+                                           class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                           placeholder="50" inputmode="decimal" value="50">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="employer_match_limit" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Match Limit" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="employer_match_limit" name="employer_match_limit" 
+                                           class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                           placeholder="3,000" inputmode="decimal" value="3,000">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Returns & Inflation -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "Assumptions" %}</h3>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="pre_retirement_return" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Pre-Retire Return" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="pre_retirement_return" name="pre_retirement_return" 
+                                           class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                           placeholder="7" inputmode="decimal" value="7">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="post_retirement_return" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Post-Retire Return" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="post_retirement_return" name="post_retirement_return" 
+                                           class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                           placeholder="5" inputmode="decimal" value="5">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="inflation_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Inflation Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="inflation_rate" name="inflation_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="3" inputmode="decimal" value="3">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Retirement Income -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "Retirement Income" %} <span class="text-gray-400 font-normal">({% trans "optional" %})</span></h3>
+                        </div>
+
+                        <div>
+                            <label for="desired_income" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Desired Annual Income" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="desired_income" name="desired_income" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="60,000" inputmode="decimal" value="60,000">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="social_security" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Expected Social Security (Monthly)" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="social_security" name="social_security" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="2,000" inputmode="decimal" value="2,000">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="other_income" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Other Annual Income" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="other_income" name="other_income" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="0" inputmode="decimal">
+                            </div>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <!-- Results -->
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- Readiness Score -->
+                    <div id="readinessCard" class="rounded-lg p-6 mb-6 text-center">
+                        <p class="text-sm mb-1 opacity-80">{% trans "Retirement Readiness Score" %}</p>
+                        <p id="readinessScore" class="text-5xl font-bold mb-2">0</p>
+                        <p id="statusMessage" class="text-sm opacity-80"></p>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "At Retirement" %}</p>
+                            <p id="retirementBalanceResult" class="text-lg font-bold text-green-600">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Monthly Income" %}</p>
+                            <p id="monthlyIncomeResult" class="text-lg font-bold text-blue-600">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Years to Save" %}</p>
+                            <p id="yearsToRetireResult" class="text-lg font-bold text-gray-900">0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Funds Last" %}</p>
+                            <p id="fundsLastResult" class="text-lg font-bold text-orange-600">0 {% trans "years" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Income Breakdown -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Projected Retirement Income (Annual)" %}</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">{% trans "From Savings (4% rule)" %}</span>
+                                <span id="withdrawalIncome" class="font-medium text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">{% trans "Social Security" %}</span>
+                                <span id="ssIncome" class="font-medium text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">{% trans "Other Income" %}</span>
+                                <span id="otherIncomeResult" class="font-medium text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center pt-2 border-t border-gray-200">
+                                <span class="text-gray-900 font-medium">{% trans "Total Annual Income" %}</span>
+                                <span id="totalIncomeResult" class="font-bold text-green-600">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Growth Chart -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Retirement Savings Projection" %}</h3>
+                        <div class="relative h-72">
+                            <canvas id="growthChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown Tables -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <!-- Accumulation Phase -->
+                        <div class="bg-white border border-gray-200 rounded-lg">
+                            <div class="p-4 border-b border-gray-200">
+                                <h3 class="font-semibold text-gray-900">{% trans "Accumulation Phase" %}</h3>
+                            </div>
+                            <div class="overflow-x-auto max-h-64">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium">{% trans "Age" %}</th>
+                                            <th class="px-3 py-2 text-right font-medium">{% trans "Balance" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="accumulationBody" class="divide-y divide-gray-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Distribution Phase -->
+                        <div class="bg-white border border-gray-200 rounded-lg">
+                            <div class="p-4 border-b border-gray-200">
+                                <h3 class="font-semibold text-gray-900">{% trans "Retirement Phase" %}</h3>
+                            </div>
+                            <div class="overflow-x-auto max-h-64">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium">{% trans "Age" %}</th>
+                                            <th class="px-3 py-2 text-right font-medium">{% trans "Balance" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="distributionBody" class="divide-y divide-gray-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Plan Your Retirement" %}</h3>
+                        <p class="text-gray-500">{% trans "Enter your information to see if you're on track for a comfortable retirement." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How to Use -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "How to Use This Calculator" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">1</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Enter Age Info" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Your current age, when you want to retire, and expected life span." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Add Savings" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Current savings and monthly contributions including employer match." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">3</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Set Assumptions" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Expected investment returns and inflation rate." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">4</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "View Results" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "See your readiness score and projected retirement income." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What is the 4% rule?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "The 4% rule suggests you can withdraw 4% of your retirement savings in the first year, then adjust for inflation each year. This strategy is designed to make your money last 30 years." %}</p>
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "How much should I save for retirement?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "A common guideline is to save 10-15% of your income for retirement. By age 30, aim for 1x salary saved. By 40, 3x. By 50, 6x. By 60, 8x. By 67, 10x your salary." %}</p>
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "What return rate should I use?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "For pre-retirement (aggressive portfolio), 6-8% is reasonable. For post-retirement (conservative portfolio), 4-6% is common. These are inflation-adjusted estimates; actual returns vary." %}</p>
+                    </div>
+                </div>
+                
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "Should I include Social Security?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Yes, Social Security is an important income source for most retirees. You can estimate your benefits at ssa.gov. The average benefit is about $1,800/month, but varies based on your earnings history." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips Section -->
+        <div class="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-green-900 mb-4">{% trans "Retirement Planning Tips" %}</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Always contribute enough to get your full employer match - it's free money." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Consider a Roth IRA for tax-free retirement income." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Increase contributions by 1% each year - you'll barely notice the difference." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Delay Social Security to age 70 if possible for higher monthly benefits." %}</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const resultsSection = document.getElementById('resultsSection');
+    const initialState = document.getElementById('initialState');
+    
+    let growthChart = null;
+    
+    // Format number as currency
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    // Format input with commas
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    // Add formatting to inputs
+    ['current_savings', 'monthly_contribution', 'employer_match_limit', 'desired_income', 'social_security', 'other_income'].forEach(id => {
+        const input = document.getElementById(id);
+        input.addEventListener('input', () => formatInput(input));
+    });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const content = this.nextElementSibling;
+            const icon = this.querySelector('svg');
+            content.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        });
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-flex items-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>{% trans "Calculating..." %}</span>';
+        
+        try {
+            const formData = {
+                current_age: document.getElementById('current_age').value,
+                retirement_age: document.getElementById('retirement_age').value,
+                life_expectancy: document.getElementById('life_expectancy').value || 90,
+                current_savings: document.getElementById('current_savings').value.replace(/,/g, '') || 0,
+                monthly_contribution: document.getElementById('monthly_contribution').value.replace(/,/g, '') || 0,
+                employer_match: document.getElementById('employer_match').value || 0,
+                employer_match_limit: document.getElementById('employer_match_limit').value.replace(/,/g, '') || 0,
+                pre_retirement_return: document.getElementById('pre_retirement_return').value || 7,
+                post_retirement_return: document.getElementById('post_retirement_return').value || 5,
+                inflation_rate: document.getElementById('inflation_rate').value || 3,
+                desired_income: document.getElementById('desired_income').value.replace(/,/g, '') || 0,
+                social_security: document.getElementById('social_security').value.replace(/,/g, '') || 0,
+                other_income: document.getElementById('other_income').value.replace(/,/g, '') || 0,
+            };
+            
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error || '{% trans "An error occurred. Please check your inputs." %}');
+                return;
+            }
+            
+            // Show results
+            initialState.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+            
+            // Update readiness card
+            const readinessCard = document.getElementById('readinessCard');
+            const score = data.analysis.readiness_score;
+            
+            if (score >= 80) {
+                readinessCard.className = 'rounded-lg p-6 mb-6 text-center bg-green-600 text-white';
+            } else if (score >= 60) {
+                readinessCard.className = 'rounded-lg p-6 mb-6 text-center bg-yellow-500 text-white';
+            } else {
+                readinessCard.className = 'rounded-lg p-6 mb-6 text-center bg-red-600 text-white';
+            }
+            
+            document.getElementById('readinessScore').textContent = score.toFixed(0);
+            document.getElementById('statusMessage').textContent = data.analysis.status_message;
+            
+            // Update summary cards
+            document.getElementById('retirementBalanceResult').textContent = formatCurrency(data.summary.retirement_balance);
+            document.getElementById('monthlyIncomeResult').textContent = formatCurrency(data.retirement_income.monthly_sustainable);
+            document.getElementById('yearsToRetireResult').textContent = data.summary.years_to_retirement;
+            document.getElementById('fundsLastResult').textContent = data.analysis.years_funds_last + ' {% trans "years" %}';
+            
+            // Update income breakdown
+            document.getElementById('withdrawalIncome').textContent = formatCurrency(data.retirement_income.sustainable_withdrawal);
+            document.getElementById('ssIncome').textContent = formatCurrency(data.retirement_income.social_security_annual);
+            document.getElementById('otherIncomeResult').textContent = formatCurrency(data.retirement_income.other_income_annual);
+            document.getElementById('totalIncomeResult').textContent = formatCurrency(data.retirement_income.total_annual_income);
+            
+            // Render tables
+            renderAccumulationTable(data.accumulation_breakdown);
+            renderDistributionTable(data.distribution_breakdown);
+            
+            // Render chart
+            renderChart(data.chart_data, data.input.retirement_age);
+            
+        } catch (error) {
+            console.error('Error:', error);
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '{% trans "Calculate" %}';
+        }
+    });
+    
+    function renderAccumulationTable(breakdown) {
+        const tbody = document.getElementById('accumulationBody');
+        tbody.innerHTML = '';
+        
+        breakdown.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            tr.innerHTML = `
+                <td class="px-3 py-2 text-gray-900">${row.age}</td>
+                <td class="px-3 py-2 text-right text-green-600 font-medium">${formatCurrency(row.balance)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function renderDistributionTable(breakdown) {
+        const tbody = document.getElementById('distributionBody');
+        tbody.innerHTML = '';
+        
+        breakdown.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            tr.innerHTML = `
+                <td class="px-3 py-2 text-gray-900">${row.age}</td>
+                <td class="px-3 py-2 text-right ${row.balance > 0 ? 'text-green-600' : 'text-red-600'} font-medium">${formatCurrency(row.balance)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function renderChart(chartData, retirementAge) {
+        if (growthChart) growthChart.destroy();
+        
+        const ctx = document.getElementById('growthChart').getContext('2d');
+        
+        // Find retirement index
+        const retirementIndex = chartData.labels.findIndex(l => l.includes(retirementAge.toString()));
+        
+        growthChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: '{% trans "Savings Balance" %}',
+                    data: chartData.balance,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    annotation: retirementIndex > 0 ? {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                xMin: retirementIndex,
+                                xMax: retirementIndex,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                borderDash: [5, 5]
+                            }
+                        }
+                    } : undefined
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

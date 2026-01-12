@@ -1,0 +1,1018 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Protein Calculator" %} - {% trans "Daily Protein Needs Calculator" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your daily protein needs based on body weight, activity level, and fitness goals. Get personalized protein recommendations." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'protein calculator, daily protein, protein needs, protein intake, muscle building protein' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Protein Calculator' %} - {% trans 'Calculate Daily Protein Needs' %}">
+<meta property="og:description" content="{% trans 'Calculate your daily protein needs based on body weight, activity level, and fitness goals.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Protein Calculator' %}",
+    "description": "{% trans 'Calculate daily protein needs based on body weight and activity level' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">{% trans "Protein Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your daily protein needs based on body weight, activity level, and fitness goals. Get personalized protein recommendations and meal distribution." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Metric" %} (kg)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2">
+                                    <span class="text-sm">{% trans "Imperial" %} (lbs)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Body Weight" %} <span id="weightUnit">(kg)</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="weight" name="weight" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="70" value="70" min="1" max="300" step="0.1" required>
+                            </div>
+                        </div>
+
+                        <!-- Activity Level -->
+                        <div>
+                            <label for="activity_level" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Activity Level" %}</label>
+                            <select id="activity_level" name="activity_level" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="sedentary">{% trans "Sedentary" %} ({% trans "Little/no exercise" %})</option>
+                                <option value="light">{% trans "Light" %} ({% trans "1-3 days/week" %})</option>
+                                <option value="moderate" selected>{% trans "Moderate" %} ({% trans "3-5 days/week" %})</option>
+                                <option value="active">{% trans "Active" %} ({% trans "6-7 days/week" %})</option>
+                                <option value="very_active">{% trans "Very Active" %} ({% trans "Physical job" %})</option>
+                                <option value="athlete">{% trans "Athlete" %} ({% trans "Elite athlete" %})</option>
+                            </select>
+                        </div>
+
+                        <!-- Goal -->
+                        <div>
+                            <label for="goal" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Fitness Goal" %}</label>
+                            <select id="goal" name="goal" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="lose">{% trans "Weight Loss" %}</option>
+                                <option value="maintain" selected>{% trans "Maintain Weight" %}</option>
+                                <option value="gain">{% trans "Muscle Gain" %}</option>
+                                <option value="cut">{% trans "Cutting" %} ({% trans "Bodybuilding" %})</option>
+                            </select>
+                        </div>
+
+                        <!-- Body Fat % (Optional) -->
+                        <details class="group">
+                            <summary class="text-sm font-medium text-gray-700 cursor-pointer flex items-center">
+                                <span>{% trans "Advanced Options" %}</span>
+                                <svg class="w-4 h-4 ml-auto transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </summary>
+                            <div class="mt-3">
+                                <label for="body_fat_percent" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Body Fat %" %} ({% trans "Optional" %})</label>
+                                <div class="relative">
+                                    <input type="number" id="body_fat_percent" name="body_fat_percent" 
+                                        class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                        placeholder="0" value="0" min="0" max="50" step="0.1">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">%</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "For lean body mass calculation" %}</p>
+                            </div>
+                        </details>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate Protein Needs" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your body weight, activity level, and fitness goal to see your personalized daily protein recommendations." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Daily Protein Needs" %}</p>
+                            <p id="proteinGrams" class="text-4xl sm:text-5xl font-bold mb-2">0g</p>
+                            <p class="text-sm opacity-90" id="proteinPerKg">0 g/kg</p>
+                            <div class="flex flex-wrap justify-center gap-3 mt-4">
+                                <div id="activityBadge" class="px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2"></div>
+                                <div id="goalBadge" class="px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Protein" %}</p>
+                                <p id="proteinGramsCard" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Per kg" %}</p>
+                                <p id="proteinPerKgCard" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Calories" %}</p>
+                                <p id="proteinCalories" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Per Meal" %}</p>
+                                <p id="avgPerMeal" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendation Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4 shadow-lg">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Minimum" %}</p>
+                            <p id="minProtein" class="text-lg font-bold text-gray-900">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "RDA" %}</p>
+                        </div>
+                        <div class="bg-white rounded-xl border-2 border-blue-200 p-4 shadow-lg">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Moderate" %}</p>
+                            <p id="modProtein" class="text-lg font-bold text-blue-600">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Active" %}</p>
+                        </div>
+                        <div class="bg-white rounded-xl border-2 border-green-200 p-4 shadow-lg">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "High" %}</p>
+                            <p id="highProtein" class="text-lg font-bold text-green-600">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Athletic" %}</p>
+                        </div>
+                        <div class="bg-white rounded-xl border-2 border-purple-200 p-4 shadow-lg">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Very High" %}</p>
+                            <p id="veryHighProtein" class="text-lg font-bold text-purple-600">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Bodybuilder" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Meal Distribution Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Meal Distribution" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="mealDistributionChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Recommendations Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Recommendations Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="recommendationsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Meal Bar Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Protein per Meal" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="mealBarChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Protein Sources Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Protein Sources" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="sourcesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meal Distribution Cards -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Meal Distribution" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="mealDistribution">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Protein Sources Table -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Protein Sources Guide" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "Food" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Protein" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Serving" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Servings Needed" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="proteinSourcesTable" class="divide-y divide-gray-200">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Activity & Goal Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div id="activityCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Activity Level" %}</h3>
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                <div id="activityBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                                <p id="activityDescription" class="text-gray-600 flex-1"></p>
+                            </div>
+                        </div>
+                        <div id="goalCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Fitness Goal" %}</h3>
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                <div id="goalBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                                <p id="goalDescription" class="text-gray-600 flex-1"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Protein Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Protein and Why Do You Need It?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Protein is one of the three macronutrients (along with carbohydrates and fats) essential for human health. It's made up of amino acids, which are the building blocks of muscles, tissues, enzymes, hormones, and many other important molecules in your body." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Adequate protein intake is crucial for muscle maintenance and growth, immune function, hormone production, and overall health. Your protein needs vary based on your body weight, activity level, age, and fitness goals." %}
+                            </p>
+                        </div>
+
+                        <!-- Protein Recommendations Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Protein Recommendations by Activity Level" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-gray-500 pl-4 py-2 bg-gray-50 rounded-r">
+                                    <h4 class="font-semibold text-gray-900 mb-1">{% trans "Sedentary (0.8 g/kg)" %}</h4>
+                                    <p class="text-sm text-gray-800">
+                                        {% trans "RDA minimum for adults. Suitable for people with little to no exercise. Office work, minimal physical activity." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Light Activity (1.0 g/kg)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Light exercise 1-3 days per week. Walking, light jogging, or recreational activities." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Moderate Activity (1.2 g/kg)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Moderate exercise 3-5 days per week. Regular workouts, sports, or active lifestyle." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Active (1.4 g/kg)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Active exercise 6-7 days per week. Intense workouts, competitive sports, or physically demanding job." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Very Active (1.6 g/kg)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Very active lifestyle. Physical job, daily intense exercise, or multiple training sessions." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Elite Athlete (1.8 g/kg)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Elite athlete level. Professional training, multiple daily sessions, competition preparation." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Goals Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Protein Needs by Fitness Goal" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Weight Loss (+20%)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Higher protein intake helps preserve muscle mass during calorie deficit and increases satiety, making it easier to stick to your diet." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Maintain Weight (Standard)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Standard protein intake to maintain current muscle mass and support daily activities and recovery." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Muscle Gain (+10%)" %}</h4>
+                                    <p class="text-sm text-purple-800">
+                                        {% trans "Slightly higher protein intake to support muscle growth and recovery from training. Essential for building new muscle tissue." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Cutting (+30%)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "High protein intake to preserve muscle mass during aggressive fat loss phase. Critical for bodybuilders and athletes cutting weight." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your unit system (Metric in kg or Imperial in lbs)" %}</li>
+                                <li>{% trans "Enter your current body weight" %}</li>
+                                <li>{% trans "Select your activity level based on your exercise frequency and intensity" %}</li>
+                                <li>{% trans "Choose your fitness goal (weight loss, maintain, muscle gain, or cutting)" %}</li>
+                                <li>{% trans "Optionally enter your body fat percentage for lean body mass calculation" %}</li>
+                                <li>{% trans "Click 'Calculate Protein Needs' to see your personalized recommendations" %}</li>
+                                <li>{% trans "Review meal distribution, protein sources, and charts to plan your daily intake" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Daily Protein Needs" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your total daily protein requirement in grams. This is calculated based on your body weight, activity level, and fitness goal." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Protein per kg (or lb)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The amount of protein per kilogram (or pound) of body weight. This helps you understand the intensity of your protein needs relative to your size." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Meal Distribution" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "How to distribute your daily protein across meals. Typically spread across 4-5 meals for optimal absorption and muscle protein synthesis." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Protein Sources" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Common protein-rich foods and how many servings you'd need to meet your daily requirement. Mix different sources for variety and complete amino acid profiles." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "These are general guidelines. Individual protein needs may vary based on age, gender, medical conditions, and specific training programs." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Distribute protein intake throughout the day. Aim for 20-40g per meal for optimal muscle protein synthesis." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Include a variety of protein sources. Animal proteins (meat, fish, eggs, dairy) are complete proteins, while plant proteins (legumes, grains) can be combined for complete amino acid profiles." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for informational purposes only and should not replace professional medical or nutritional advice. Always consult with qualified healthcare providers or registered dietitians for personalized nutrition guidance, especially if you have medical conditions or specific dietary needs." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Very high protein intakes (>2.5 g/kg) may not provide additional benefits and could potentially strain kidneys in individuals with pre-existing kidney conditions. Most people can safely consume 1.6-2.2 g/kg." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let mealDistributionChart = null;
+let recommendationsChart = null;
+let sourcesChart = null;
+let mealBarChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    
+    // Unit system toggle
+    document.querySelectorAll('input[name="unit_system"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const unit = this.value === 'metric' ? '(kg)' : '(lbs)';
+            document.getElementById('weightUnit').textContent = unit;
+        });
+    });
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('weight').value = '70';
+        document.getElementById('activity_level').value = 'moderate';
+        document.getElementById('goal').value = 'maintain';
+        document.getElementById('body_fat_percent').value = '0';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (mealDistributionChart) mealDistributionChart.destroy();
+        if (recommendationsChart) recommendationsChart.destroy();
+        if (sourcesChart) sourcesChart.destroy();
+        if (mealBarChart) mealBarChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const formData = {
+            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
+            weight: parseFloat(document.getElementById('weight').value),
+            activity_level: document.getElementById('activity_level').value,
+            goal: document.getElementById('goal').value,
+            body_fat_percent: parseFloat(document.getElementById('body_fat_percent').value) || 0
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Protein Needs" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Update main result
+            document.getElementById('proteinGrams').textContent = data.protein_grams + 'g';
+            document.getElementById('proteinPerKg').textContent = data.protein_per_kg + ' g/kg';
+            
+            // Update summary cards
+            document.getElementById('proteinGramsCard').textContent = data.protein_grams + 'g';
+            document.getElementById('proteinPerKgCard').textContent = data.protein_per_kg + ' g/kg';
+            document.getElementById('proteinCalories').textContent = data.protein_calories + ' kcal';
+            document.getElementById('avgPerMeal').textContent = data.statistics.avg_per_meal + 'g';
+            
+            // Update recommendations
+            document.getElementById('minProtein').textContent = data.recommendations.minimum + 'g';
+            document.getElementById('modProtein').textContent = data.recommendations.moderate + 'g';
+            document.getElementById('highProtein').textContent = data.recommendations.high + 'g';
+            document.getElementById('veryHighProtein').textContent = data.recommendations.very_high + 'g';
+            
+            // Update badges
+            const activityBadge = document.getElementById('activityBadge');
+            const goalBadge = document.getElementById('goalBadge');
+            if (activityBadge && data.activity_color_info) {
+                activityBadge.className = 'px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.activity_color_info.tailwind_classes;
+                activityBadge.textContent = data.activity_category;
+            }
+            if (goalBadge && data.goal_color_info) {
+                goalBadge.className = 'px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.goal_color_info.tailwind_classes;
+                goalBadge.textContent = data.goal_category;
+            }
+            
+            // Update activity and goal cards
+            const activityBadgeCard = document.getElementById('activityBadgeCard');
+            const activityDescription = document.getElementById('activityDescription');
+            if (activityBadgeCard && data.activity_color_info) {
+                const colors = {
+                    'blue': 'bg-blue-600',
+                    'green': 'bg-green-600',
+                    'yellow': 'bg-yellow-600',
+                    'orange': 'bg-orange-600',
+                    'red': 'bg-red-600',
+                    'gray': 'bg-gray-600'
+                };
+                activityBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.activity_color] || 'bg-gray-600');
+                activityBadgeCard.textContent = data.activity_category;
+            }
+            if (activityDescription && data.activity_description) {
+                activityDescription.textContent = data.activity_description;
+            }
+            
+            const goalBadgeCard = document.getElementById('goalBadgeCard');
+            const goalDescription = document.getElementById('goalDescription');
+            if (goalBadgeCard && data.goal_color_info) {
+                const colors = {
+                    'blue': 'bg-blue-600',
+                    'green': 'bg-green-600',
+                    'purple': 'bg-purple-600',
+                    'orange': 'bg-orange-600'
+                };
+                goalBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.goal_color] || 'bg-gray-600');
+                goalBadgeCard.textContent = data.goal_category;
+            }
+            if (goalDescription && data.goal_description) {
+                goalDescription.textContent = data.goal_description;
+            }
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'purple': 'bg-gradient-to-br from-purple-600 to-purple-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.goal_color] || 'bg-gradient-to-br from-blue-600 to-blue-700');
+            }
+            
+            // Update meal distribution
+            const mealContainer = document.getElementById('mealDistribution');
+            mealContainer.innerHTML = `
+                <div class="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Breakfast" %}</h4>
+                    <p class="text-2xl font-bold text-blue-600">${data.meals.breakfast}g</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Lunch" %}</h4>
+                    <p class="text-2xl font-bold text-green-600">${data.meals.lunch}g</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Dinner" %}</h4>
+                    <p class="text-2xl font-bold text-purple-600">${data.meals.dinner}g</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 border-2 border-yellow-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Snacks" %}</h4>
+                    <p class="text-2xl font-bold text-yellow-600">${data.meals.snacks}g</p>
+                </div>
+            `;
+            
+            // Update protein sources table
+            const tableBody = document.getElementById('proteinSourcesTable');
+            const sourceNames = {
+                'chicken_breast': '{% trans "Chicken Breast" %}',
+                'salmon': '{% trans "Salmon" %}',
+                'eggs': '{% trans "Eggs" %}',
+                'greek_yogurt': '{% trans "Greek Yogurt" %}',
+                'protein_powder': '{% trans "Protein Powder" %}',
+                'lean_beef': '{% trans "Lean Beef" %}',
+                'tofu': '{% trans "Tofu" %}',
+                'lentils': '{% trans "Lentils" %}'
+            };
+            
+            tableBody.innerHTML = '';
+            Object.entries(data.protein_sources).forEach(([key, info]) => {
+                const servings = data.servings_needed[key];
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm text-gray-900">${sourceNames[key] || key}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${info.grams}g</td>
+                    <td class="px-4 py-3 text-sm text-gray-500 text-right">${info.serving}</td>
+                    <td class="px-4 py-3 text-sm text-blue-600 text-right font-semibold">${servings.toFixed(1)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.meal_distribution_chart) {
+                    createMealDistributionChart(data.chart_data.meal_distribution_chart);
+                }
+                if (data.chart_data.recommendations_chart) {
+                    createRecommendationsChart(data.chart_data.recommendations_chart);
+                }
+                if (data.chart_data.sources_chart) {
+                    createSourcesChart(data.chart_data.sources_chart);
+                }
+                if (data.chart_data.meal_bar_chart) {
+                    createMealBarChart(data.chart_data.meal_bar_chart);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createMealDistributionChart(chartData) {
+        const ctx = document.getElementById('mealDistributionChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (mealDistributionChart) {
+            mealDistributionChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            mealDistributionChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed + 'g';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating meal distribution chart:', error);
+        }
+    }
+    
+    function createRecommendationsChart(chartData) {
+        const ctx = document.getElementById('recommendationsChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (recommendationsChart) {
+            recommendationsChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            recommendationsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + 'g';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + 'g';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating recommendations chart:', error);
+        }
+    }
+    
+    function createSourcesChart(chartData) {
+        const ctx = document.getElementById('sourcesChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (sourcesChart) {
+            sourcesChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            sourcesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + ' servings';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating sources chart:', error);
+        }
+    }
+    
+    function createMealBarChart(chartData) {
+        const ctx = document.getElementById('mealBarChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (mealBarChart) {
+            mealBarChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            mealBarChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + 'g';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + 'g';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating meal bar chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

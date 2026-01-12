@@ -1,0 +1,939 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "BAC Calculator" %} - {% trans "Blood Alcohol Content" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate blood alcohol content (BAC) based on drinks consumed, weight, gender, and time. Estimate when you'll be safe to drive." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "bac calculator, blood alcohol content, alcohol calculator, drunk driving, widmark formula" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "BAC Calculator" %} - {% trans "Blood Alcohol Content" %}">
+<meta property="og:description" content="{% trans "Calculate your estimated blood alcohol content using the Widmark formula. Know when it's safe to drive." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "BAC Calculator" %}",
+    "description": "{% trans "Calculate blood alcohol content (BAC) based on drinks consumed, weight, gender, and time." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "BAC Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Blood Alcohol Content Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your estimated blood alcohol content (BAC) using the Widmark formula. Know when it's safe to drive." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Information" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gender" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="male" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Male" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="female" class="mr-2">
+                                    <span class="text-sm">{% trans "Female" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Weight Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight Unit" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="weight_unit" value="kg" checked class="mr-2">
+                                    <span class="text-sm">{% trans "kg" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="weight_unit" value="lbs" class="mr-2">
+                                    <span class="text-sm">{% trans "lbs" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Weight" %}</label>
+                            <input type="number" id="weight" name="weight" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="70" min="1" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Enter your body weight" %}</p>
+                        </div>
+
+                        <!-- Number of Drinks -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Number of Drinks" %}</label>
+                            <input type="number" id="drinks" name="drinks" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="2" min="0" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Standard drinks consumed" %}</p>
+                        </div>
+
+                        <!-- Drink Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Drink Type" %}</label>
+                            <select id="drink_type" name="drink_type" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="beer">{% trans "Beer" %} (12 oz, 5% ABV)</option>
+                                <option value="wine">{% trans "Wine" %} (5 oz, 12% ABV)</option>
+                                <option value="liquor">{% trans "Liquor" %} (1.5 oz, 40% ABV)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Each = 1 standard drink (14g alcohol)" %}</p>
+                        </div>
+
+                        <!-- Hours Since First Drink -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Hours Since First Drink" %}</label>
+                            <input type="number" id="hours" name="hours" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="0" min="0" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Time elapsed since you started drinking" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate BAC" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your information and click Calculate to see your estimated blood alcohol content and when it's safe to drive." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Blood Alcohol Content" %}</p>
+                            <p id="bacResult" class="text-5xl sm:text-6xl font-bold mb-2">0.000%</p>
+                            <div id="effectBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="effectText">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Category" %}</p>
+                                <p id="category" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Legal Limit" %}</p>
+                                <p class="text-sm font-bold text-gray-900">0.08%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Time to Zero" %}</p>
+                                <p id="timeToZero" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Status" %}</p>
+                                <p id="overLimitStatus" class="text-xs font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- BAC Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BAC Gauge" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="bacGaugeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Effects Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BAC Effects" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="effectsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Your BAC vs Legal Limit" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Time to Zero Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            {% trans "Time to Zero BAC" %}
+                        </h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="timeChart"></canvas>
+                        </div>
+                        <p class="text-center text-sm text-gray-600 mt-4">
+                            {% trans "Estimated time until your BAC reaches zero" %}
+                        </p>
+                    </div>
+
+                    <!-- BAC Scale Visualization -->
+                    <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 sm:p-6 border-2 border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "BAC Scale" %}</h3>
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between text-xs text-gray-600 mb-2 px-1">
+                                <span>{% trans "Safe" %}</span>
+                                <span>{% trans "Low" %}</span>
+                                <span>{% trans "Moderate" %}</span>
+                                <span>{% trans "High" %}</span>
+                                <span>{% trans "Very High" %}</span>
+                            </div>
+                            <div class="relative h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                                <div class="absolute inset-0 flex">
+                                    <div class="flex-1 bg-green-500"></div>
+                                    <div class="flex-1 bg-yellow-400"></div>
+                                    <div class="flex-1 bg-orange-400"></div>
+                                    <div class="flex-1 bg-red-500"></div>
+                                    <div class="flex-1 bg-red-700"></div>
+                                </div>
+                                <div id="bacIndicator" class="absolute top-0 w-1.5 h-full bg-gray-900 shadow-lg transform -translate-x-1/2 transition-all duration-500 z-10 left-0"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500 mt-1 px-1">
+                                <span>0%</span>
+                                <span>0.02%</span>
+                                <span>0.05%</span>
+                                <span>0.08%</span>
+                                <span>0.15%</span>
+                                <span>0.20%</span>
+                            </div>
+                        </div>
+                        <p id="scaleDescription" class="text-center text-sm text-gray-600 mt-4"></p>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is BAC Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Blood Alcohol Content (BAC)?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Blood Alcohol Content (BAC) is a measure of the amount of alcohol in your bloodstream, expressed as a percentage. It's used to determine legal intoxication levels and assess impairment." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "BAC is measured in grams of alcohol per 100 milliliters of blood. For example, a BAC of 0.08% means 0.08 grams of alcohol per 100 milliliters of blood." %}
+                            </p>
+                        </div>
+
+                        <!-- Legal Limits Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Legal BAC Limits" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "United States" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Legal limit: 0.08% BAC for drivers 21 and over. Zero tolerance (0.00-0.02%) for drivers under 21." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Canada" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Legal limit: 0.08% BAC (0.05% in some provinces). Zero tolerance for drivers under 21 or with learner's permits." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "United Kingdom" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Legal limit: 0.08% BAC in England, Wales, and Northern Ireland. 0.05% in Scotland." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BAC Effects Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "BAC Effects by Level" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "0.00% - 0.02%: No Effects" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "No noticeable effects. Safe to drive (if legally allowed)." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "0.02% - 0.05%: Mild Effects" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Slight relaxation, mild mood elevation. Judgment and coordination may be slightly impaired." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "0.05% - 0.08%: Impaired" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Reduced coordination, impaired judgment, decreased alertness. NOT safe to drive." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "0.08% - 0.15%: Significantly Impaired" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Poor muscle coordination, balance problems, significantly impaired judgment. Illegal to drive." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-700 pl-4 py-2 bg-red-100 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "0.15%+: Severely Impaired" %}</h4>
+                                    <p class="text-sm text-red-900">
+                                        {% trans "Severe motor impairment, loss of physical control, possible blackouts. Medical attention may be needed." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your gender (affects alcohol metabolism)" %}</li>
+                                <li>{% trans "Choose weight unit (kg or lbs) and enter your weight" %}</li>
+                                <li>{% trans "Enter the number of standard drinks consumed" %}</li>
+                                <li>{% trans "Select the type of drink (beer, wine, or liquor)" %}</li>
+                                <li>{% trans "Enter hours since your first drink" %}</li>
+                                <li>{% trans "Click 'Calculate BAC' to see your results" %}</li>
+                                <li>{% trans "Review charts and wait time before driving" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Standard Drink Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is a Standard Drink?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "A standard drink contains approximately 14 grams (0.6 ounces) of pure alcohol. Examples:" %}
+                            </p>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <div class="flex items-start">
+                                    <span class="font-semibold mr-2">•</span>
+                                    <span>{% trans "Beer: 12 ounces (355 ml) of regular beer (5% ABV)" %}</span>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="font-semibold mr-2">•</span>
+                                    <span>{% trans "Wine: 5 ounces (148 ml) of wine (12% ABV)" %}</span>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="font-semibold mr-2">•</span>
+                                    <span>{% trans "Liquor: 1.5 ounces (44 ml) of distilled spirits (40% ABV)" %}</span>
+                                </div>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed mt-3">
+                                {% trans "Note: Actual alcohol content varies by brand and type. This calculator uses average values." %}
+                            </p>
+                        </div>
+
+                        <!-- Widmark Formula Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Widmark Formula" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "This calculator uses the Widmark formula to estimate BAC:" %}
+                            </p>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                                <p class="font-mono text-sm text-center">{% trans "BAC = (Alcohol in grams / (Weight in kg × r)) - (β × Hours)" %}</p>
+                            </div>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>r</strong>: {% trans "Distribution ratio (0.68 for men, 0.55 for women)" %}</p>
+                                <p><strong>β</strong>: {% trans "Elimination rate (0.15 g/L per hour average)" %}</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed mt-3">
+                                {% trans "The formula accounts for alcohol absorption, distribution in the body, and elimination over time." %}
+                            </p>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BAC Percentage" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your estimated blood alcohol content. This is an estimate and may vary based on individual factors." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Time to Zero BAC" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Estimated hours until your BAC reaches zero. Only time can lower BAC - coffee, food, or exercise do not speed up elimination." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Legal Limit Status" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Indicates whether your BAC is above or below the legal driving limit (0.08% in most US states)." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-red-900 mb-3">{% trans "⚠️ Important Safety Warnings" %}</h3>
+                            <ul class="space-y-2 text-sm text-red-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator provides ESTIMATES only. Actual BAC can vary significantly based on metabolism, food intake, medication, and other factors." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <span>{% trans "NEVER drink and drive. If you've consumed any alcohol, arrange for a designated driver, use public transportation, or call a taxi/ride-share service." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <span>{% trans "Only time can lower BAC. Coffee, cold showers, food, or exercise do NOT reduce BAC or make you sober." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <span>{% trans "Drinking and driving is illegal and dangerous. Penalties include fines, license suspension, and imprisonment. You could kill yourself or others." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Factors Affecting BAC Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Factors That Affect BAC" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Body Weight" %}:</strong> {% trans "Heavier people generally have lower BAC for the same amount of alcohol." %}</p>
+                                <p><strong>{% trans "Gender" %}:</strong> {% trans "Women typically have higher BAC than men for the same amount of alcohol due to body composition differences." %}</p>
+                                <p><strong>{% trans "Food" %}:</strong> {% trans "Eating before or while drinking slows alcohol absorption." %}</p>
+                                <p><strong>{% trans "Metabolism" %}:</strong> {% trans "Individual metabolic rates vary, affecting how quickly alcohol is processed." %}</p>
+                                <p><strong>{% trans "Medications" %}:</strong> {% trans "Some medications can interact with alcohol and increase impairment." %}</p>
+                                <p><strong>{% trans "Rate of Consumption" %}:</strong> {% trans "Drinking quickly increases BAC faster than drinking slowly." %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let bacGaugeChart = null;
+let effectsChart = null;
+let comparisonChart = null;
+let timeChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const resultCard = document.getElementById('resultCard');
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            gender: document.querySelector('input[name="gender"]:checked').value,
+            weight_unit: document.querySelector('input[name="weight_unit"]:checked').value,
+            weight: parseFloat(document.getElementById('weight').value),
+            drinks: parseFloat(document.getElementById('drinks').value),
+            drink_type: document.getElementById('drink_type').value,
+            hours: parseFloat(document.getElementById('hours').value)
+        };
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : 'Calculate BAC';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update BAC result
+            const bacResultEl = document.getElementById('bacResult');
+            if (bacResultEl) bacResultEl.textContent = data.bac_percent.toFixed(3) + '%';
+
+            // Update effect badge
+            const effectBadge = document.getElementById('effectBadge');
+            const effectText = document.getElementById('effectText');
+            if (effectText) effectText.textContent = data.effect;
+            if (effectBadge && data.color_info) {
+                effectBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+            }
+
+            // Update stats
+            const categoryEl = document.getElementById('category');
+            const timeToZeroEl = document.getElementById('timeToZero');
+            const overLimitStatusEl = document.getElementById('overLimitStatus');
+
+            if (categoryEl && data.category) categoryEl.textContent = data.category;
+            if (timeToZeroEl) {
+                if (data.hours_to_zero > 0) {
+                    timeToZeroEl.textContent = data.hours_to_zero.toFixed(1) + ' {% trans "hrs" %}';
+                } else {
+                    timeToZeroEl.textContent = '{% trans "Zero" %}';
+                }
+            }
+            if (overLimitStatusEl) {
+                if (data.over_limit) {
+                    overLimitStatusEl.textContent = '{% trans "Over Limit" %}';
+                    overLimitStatusEl.className = 'text-xs font-bold text-red-700';
+                } else {
+                    overLimitStatusEl.textContent = '{% trans "Under Limit" %}';
+                    overLimitStatusEl.className = 'text-xs font-bold text-green-700';
+                }
+            }
+
+            // Update result card color
+            const colors = {
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'red': 'bg-gradient-to-br from-red-600 to-red-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.effect_color] || 'bg-gradient-to-br from-gray-600 to-gray-700');
+            }
+
+            // Update BAC scale indicator
+            const bacIndicator = document.getElementById('bacIndicator');
+            const scaleDescription = document.getElementById('scaleDescription');
+            
+            if (bacIndicator && data.scale_position !== undefined) {
+                bacIndicator.style.left = data.scale_position + '%';
+            }
+            if (scaleDescription) {
+                scaleDescription.textContent = `Your BAC: ${data.bac_percent.toFixed(3)}% | Legal Limit: ${(data.legal_limit * 100).toFixed(2)}%`;
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.gauge_chart) {
+                    createBACGaugeChart(data.chart_data.gauge_chart);
+                }
+                if (data.chart_data.effects_chart) {
+                    createEffectsChart(data.chart_data.effects_chart);
+                }
+                if (data.chart_data.comparison_chart) {
+                    createComparisonChart(data.chart_data.comparison_chart);
+                }
+                if (data.chart_data.time_chart) {
+                    createTimeChart(data.chart_data.time_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createBACGaugeChart(chartData) {
+        const ctx = document.getElementById('bacGaugeChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (bacGaugeChart) {
+            bacGaugeChart.destroy();
+        }
+
+        if (!chartData || !chartData.center_text) return;
+
+        const centerText = chartData.center_text;
+        const bacColor = centerText.color;
+
+        try {
+            bacGaugeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = bacColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value, centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating gauge chart:', error);
+        }
+    }
+
+    function createEffectsChart(chartData) {
+        const ctx = document.getElementById('effectsChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (effectsChart) {
+            effectsChart.destroy();
+        }
+
+        if (!chartData || !chartData.data || !chartData.data.datasets) return;
+
+        try {
+            effectsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.parsed.x === 0) return '';
+                                    return `BAC: ${context.parsed.x.toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 0.20 * 100,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating effects chart:', error);
+        }
+    }
+
+    function createComparisonChart(chartData) {
+        const ctx = document.getElementById('comparisonChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (comparisonChart) {
+            comparisonChart.destroy();
+        }
+
+        if (!chartData || !chartData.data) return;
+
+        try {
+            comparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `BAC: ${context.parsed.y.toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 0.20 * 100,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating comparison chart:', error);
+        }
+    }
+
+    function createTimeChart(chartData) {
+        const ctx = document.getElementById('timeChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (timeChart) {
+            timeChart.destroy();
+        }
+
+        if (!chartData || !chartData.data) return;
+
+        try {
+            timeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)} {% trans "hours" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + ' {% trans "hrs" %}';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating time chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,983 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Pregnancy Weight Gain Calculator" %} - {% trans "Track Healthy Weight Gain" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate recommended pregnancy weight gain based on your pre-pregnancy BMI. Track your weight gain progress throughout pregnancy." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'pregnancy weight gain calculator, pregnancy weight tracker, BMI pregnancy, healthy weight gain pregnancy' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Pregnancy Weight Gain Calculator' %} - {% trans 'Track Healthy Weight Gain' %}">
+<meta property="og:description" content="{% trans 'Calculate recommended pregnancy weight gain based on your pre-pregnancy BMI.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Pregnancy Weight Gain Calculator' %}",
+    "description": "{% trans 'Calculate recommended pregnancy weight gain based on BMI' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-pink-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600">{% trans "Pregnancy Weight Gain Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate recommended pregnancy weight gain based on your pre-pregnancy BMI and track your progress throughout pregnancy." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Weight Information" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex space-x-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit" value="metric" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Metric (kg, cm)" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit" value="imperial" class="mr-2">
+                                    <span class="text-sm">{% trans "Imperial (lbs, in)" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Pre-Pregnancy Weight -->
+                        <div>
+                            <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Pre-Pregnancy Weight" %}</label>
+                            <div class="relative">
+                                <input type="number" id="weight" name="weight" step="0.1" min="1" max="500"
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base"
+                                    placeholder="70" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" id="weightUnit">kg</span>
+                            </div>
+                        </div>
+
+                        <!-- Height -->
+                        <div>
+                            <label for="height" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="relative">
+                                <input type="number" id="height" name="height" step="0.1" min="50" max="300"
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base"
+                                    placeholder="165" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" id="heightUnit">cm</span>
+                            </div>
+                        </div>
+
+                        <!-- Current Weight -->
+                        <div>
+                            <label for="current_weight" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Current Weight" %}</label>
+                            <div class="relative">
+                                <input type="number" id="current_weight" name="current_weight" step="0.1" min="1" max="500"
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base"
+                                    placeholder="72">
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" id="currentWeightUnit">kg</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Leave empty if pre-pregnancy" %}</p>
+                        </div>
+
+                        <!-- Weeks Pregnant -->
+                        <div>
+                            <label for="weeks_pregnant" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Weeks Pregnant" %}</label>
+                            <input type="number" id="weeks_pregnant" name="weeks_pregnant" value="0" min="0" max="42"
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base"
+                                required>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-pink-50 border-2 border-pink-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto mb-4"></div>
+                            <p class="text-pink-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your pre-pregnancy weight, height, and current pregnancy status to see recommended weight gain ranges based on your BMI category." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Weight Gain Status" %}</p>
+                            <p id="statusValue" class="text-4xl sm:text-5xl font-bold mb-2">-</p>
+                            <div id="bmiCategoryBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="bmiCategoryText">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Current Gain" %}</p>
+                                <p id="currentGain" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Expected Gain" %}</p>
+                                <p id="expectedGain" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "BMI" %}</p>
+                                <p id="bmi" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Progress" %}</p>
+                                <p id="progressPercentage" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weight Gain Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-blue-50 rounded-xl p-6 border-2 border-blue-200 shadow-lg">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-2">{% trans "Current Gain" %}</h3>
+                            <p id="currentGainCard" class="text-xl font-bold text-blue-900">-</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl p-6 border-2 border-green-200 shadow-lg">
+                            <h3 class="text-lg font-semibold text-green-900 mb-2">{% trans "Expected Gain" %}</h3>
+                            <p id="expectedGainCard" class="text-xl font-bold text-green-900">-</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-xl p-6 border-2 border-purple-200 shadow-lg">
+                            <h3 class="text-lg font-semibold text-purple-900 mb-2">{% trans "Expected Weight" %}</h3>
+                            <p id="expectedWeight" class="text-xl font-bold text-purple-900">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Recommended Range Card -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Recommended Total Weight Gain Range" %}</h3>
+                        <div class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-6 border-2 border-pink-200">
+                            <p class="text-3xl font-bold text-gray-900 text-center">
+                                <span id="minGain">-</span> - <span id="maxGain">-</span> <span id="gainUnit">kg</span>
+                            </p>
+                            <p id="bmiCategoryDescription" class="text-sm text-gray-600 text-center mt-2">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Weight Gain Progress Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Weight Gain Progress" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="weightGainChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Progress Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Pregnancy Progress" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="progressGaugeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Gain Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Gain Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="gainComparisonChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Trimester Weight Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Trimester Weights" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="trimesterWeightChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trimester Weights Cards -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Expected Weight by Trimester" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-pink-50 rounded-lg p-4 border-2 border-pink-200">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "First Trimester" %}</p>
+                                <p id="firstTrimester" class="text-xl font-bold text-pink-600">-</p>
+                            </div>
+                            <div class="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Second Trimester" %}</p>
+                                <p id="secondTrimester" class="text-xl font-bold text-purple-600">-</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Third Trimester" %}</p>
+                                <p id="thirdTrimester" class="text-xl font-bold text-blue-600">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Card -->
+                    <div id="statusCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Weight Gain Status" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="statusBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="statusDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Pregnancy Weight Gain Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Healthy Pregnancy Weight Gain?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Healthy weight gain during pregnancy is essential for both maternal and fetal health. The recommended amount of weight gain depends on your pre-pregnancy Body Mass Index (BMI). Weight gain supports your baby's growth, placenta development, increased blood volume, and prepares your body for breastfeeding." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "The Institute of Medicine (IOM) provides guidelines for weight gain based on pre-pregnancy BMI categories. These recommendations help ensure optimal outcomes for both you and your baby." %}
+                            </p>
+                        </div>
+
+                        <!-- BMI Categories Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Weight Gain by BMI Category" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Underweight (BMI < 18.5)" %}</h4>
+                                    <p class="text-sm text-blue-800 mb-2">
+                                        {% trans "Recommended gain: 12.5-18 kg (28-40 lbs)" %}
+                                    </p>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Higher weight gain is recommended to support healthy fetal development and maternal health. Focus on nutrient-dense foods and regular meals." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Normal Weight (BMI 18.5-24.9)" %}</h4>
+                                    <p class="text-sm text-green-800 mb-2">
+                                        {% trans "Recommended gain: 11.5-16 kg (25-35 lbs)" %}
+                                    </p>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Standard weight gain recommendations apply. Focus on balanced nutrition, regular physical activity, and gradual weight gain throughout pregnancy." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Overweight (BMI 25-29.9)" %}</h4>
+                                    <p class="text-sm text-yellow-800 mb-2">
+                                        {% trans "Recommended gain: 7-11.5 kg (15-25 lbs)" %}
+                                    </p>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Moderate weight gain recommended. Focus on nutrient-dense foods, portion control, and regular physical activity as approved by your healthcare provider." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Obese (BMI ≥ 30)" %}</h4>
+                                    <p class="text-sm text-orange-800 mb-2">
+                                        {% trans "Recommended gain: 5-9 kg (11-20 lbs)" %}
+                                    </p>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Lower weight gain recommended. Consult with your healthcare provider for personalized guidance. Focus on quality nutrition and appropriate physical activity." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter your pre-pregnancy weight (weight before becoming pregnant)" %}</li>
+                                <li>{% trans "Enter your height" %}</li>
+                                <li>{% trans "Enter your current weight (if you're already pregnant, otherwise leave as pre-pregnancy weight)" %}</li>
+                                <li>{% trans "Enter how many weeks pregnant you are (0 if pre-pregnancy)" %}</li>
+                                <li>{% trans "Click 'Calculate' to see recommended weight gain ranges and track your progress" %}</li>
+                                <li>{% trans "Review the charts to visualize your weight gain progress and compare with recommendations" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMI Category" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your pre-pregnancy BMI category determines the recommended weight gain range. BMI is calculated using your pre-pregnancy weight and height." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Recommended Total Weight Gain Range" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The total amount of weight you should gain throughout your entire pregnancy, based on your pre-pregnancy BMI. This is a range, and individual needs may vary." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Current vs Expected Gain" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Compare your current weight gain with the expected gain for your current week of pregnancy. This helps you track if you're on target." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Weight Gain by Trimester" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Weight gain patterns vary by trimester. First trimester typically sees minimal gain (0.5-2 kg), while second and third trimesters see more consistent weekly gains." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Status Assessment" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your status indicates whether your current weight gain is on track, below, or above recommendations. Always discuss significant deviations with your healthcare provider." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weight Gain Patterns Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Weight Gain Patterns by Trimester" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                                    <h4 class="font-semibold text-pink-900 mb-1">{% trans "First Trimester (Weeks 1-13)" %}</h4>
+                                    <p class="text-sm text-pink-800">
+                                        {% trans "Minimal weight gain: 0.5-2 kg (1-4 lbs). Some women may even lose weight due to morning sickness. Focus on staying hydrated and eating small, frequent meals." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Second Trimester (Weeks 14-26)" %}</h4>
+                                    <p class="text-sm text-purple-800">
+                                        {% trans "Steady weight gain: approximately 0.35-0.5 kg (0.8-1 lb) per week for normal weight women. Baby is growing rapidly, and your body is preparing for delivery." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Third Trimester (Weeks 27-40)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Continued steady gain: similar to second trimester. Baby is gaining weight, and your body is storing nutrients for breastfeeding. Weight gain may slow slightly near the end." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "These are general guidelines. Individual needs may vary based on multiple factors including age, activity level, medical conditions, and multiple pregnancies." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Weight gain is not linear. It's normal to have weeks with more or less gain. Focus on overall trends rather than day-to-day fluctuations." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Quality of nutrition matters more than quantity. Focus on nutrient-dense foods: fruits, vegetables, whole grains, lean proteins, and healthy fats." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for informational purposes only and should not replace professional medical advice. Always consult with qualified healthcare providers (OB/GYN, midwife, or registered dietitian) for personalized guidance on pregnancy nutrition and weight management." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "If you have concerns about your weight gain, significant deviations from recommendations, or medical conditions affecting weight, discuss with your healthcare provider immediately." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let weightGainChart = null;
+let progressGaugeChart = null;
+let gainComparisonChart = null;
+let trimesterWeightChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const unitRadios = document.querySelectorAll('input[name="unit"]');
+    
+    function updateUnits() {
+        const unit = document.querySelector('input[name="unit"]:checked').value;
+        const weightUnit = unit === 'metric' ? 'kg' : 'lbs';
+        const heightUnit = unit === 'metric' ? 'cm' : 'in';
+        
+        document.getElementById('weightUnit').textContent = weightUnit;
+        document.getElementById('currentWeightUnit').textContent = weightUnit;
+        document.getElementById('heightUnit').textContent = heightUnit;
+        document.getElementById('gainUnit').textContent = weightUnit;
+    }
+    
+    unitRadios.forEach(radio => {
+        radio.addEventListener('change', updateUnits);
+    });
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.querySelector('input[name="unit"][value="metric"]').checked = true;
+        document.getElementById('weeks_pregnant').value = '0';
+        updateUnits();
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (weightGainChart) weightGainChart.destroy();
+        if (progressGaugeChart) progressGaugeChart.destroy();
+        if (gainComparisonChart) gainComparisonChart.destroy();
+        if (trimesterWeightChart) trimesterWeightChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const formData = {
+            weight: parseFloat(document.getElementById('weight').value),
+            height: parseFloat(document.getElementById('height').value),
+            current_weight: parseFloat(document.getElementById('current_weight').value) || parseFloat(document.getElementById('weight').value),
+            weeks_pregnant: parseInt(document.getElementById('weeks_pregnant').value),
+            unit: document.querySelector('input[name="unit"]:checked').value
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data, formData.unit);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data, unit) {
+        try {
+            const weightUnit = unit === 'metric' ? 'kg' : 'lbs';
+            const convertWeight = (kg) => unit === 'metric' ? kg : (kg * 2.20462);
+            
+            // Update main status
+            const statusValueEl = document.getElementById('statusValue');
+            if (statusValueEl) {
+                statusValueEl.textContent = data.status;
+            }
+            
+            // Update summary cards
+            document.getElementById('currentGain').textContent = convertWeight(data.current_gain).toFixed(1) + ' ' + weightUnit;
+            document.getElementById('expectedGain').textContent = convertWeight(data.expected_gain).toFixed(1) + ' ' + weightUnit;
+            document.getElementById('bmi').textContent = data.bmi;
+            document.getElementById('progressPercentage').textContent = data.progress_percentage + '%';
+            
+            // Update weight gain cards
+            document.getElementById('currentGainCard').textContent = convertWeight(data.current_gain).toFixed(1) + ' ' + weightUnit;
+            document.getElementById('expectedGainCard').textContent = convertWeight(data.expected_gain).toFixed(1) + ' ' + weightUnit;
+            document.getElementById('expectedWeight').textContent = convertWeight(data.expected_weight).toFixed(1) + ' ' + weightUnit;
+            
+            // Update recommended range
+            document.getElementById('minGain').textContent = convertWeight(data.total_gain_range.min).toFixed(1);
+            document.getElementById('maxGain').textContent = convertWeight(data.total_gain_range.max).toFixed(1);
+            if (data.bmi_category_description) {
+                document.getElementById('bmiCategoryDescription').textContent = data.bmi_category_description;
+            }
+            
+            // Update trimester weights
+            document.getElementById('firstTrimester').textContent = convertWeight(data.trimester_weights.first).toFixed(1) + ' ' + weightUnit;
+            document.getElementById('secondTrimester').textContent = convertWeight(data.trimester_weights.second).toFixed(1) + ' ' + weightUnit;
+            document.getElementById('thirdTrimester').textContent = convertWeight(data.trimester_weights.third).toFixed(1) + ' ' + weightUnit;
+            
+            // Update BMI category badge
+            const bmiCategoryBadge = document.getElementById('bmiCategoryBadge');
+            const bmiCategoryText = document.getElementById('bmiCategoryText');
+            if (bmiCategoryText) bmiCategoryText.textContent = data.bmi_category;
+            if (bmiCategoryBadge && data.category_color_info) {
+                bmiCategoryBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.category_color_info.tailwind_classes;
+            }
+            
+            // Update status badge
+            const statusBadgeCard = document.getElementById('statusBadgeCard');
+            const statusDescription = document.getElementById('statusDescription');
+            if (statusDescription && data.status_description) {
+                statusDescription.textContent = data.status_description;
+            }
+            if (statusBadgeCard && data.color_info) {
+                const colors = {
+                    'green': 'bg-green-600',
+                    'yellow': 'bg-yellow-600',
+                    'orange': 'bg-orange-600',
+                    'blue': 'bg-blue-600'
+                };
+                statusBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.status_color] || 'bg-gray-600');
+                statusBadgeCard.textContent = data.status;
+            }
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'yellow': 'bg-gradient-to-br from-yellow-600 to-yellow-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.status_color] || 'bg-gradient-to-br from-blue-600 to-blue-700');
+            }
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.weight_gain_chart) {
+                    createWeightGainChart(data.chart_data.weight_gain_chart, convertWeight);
+                }
+                if (data.chart_data.progress_gauge_chart) {
+                    createProgressGaugeChart(data.chart_data.progress_gauge_chart);
+                }
+                if (data.chart_data.gain_comparison_chart) {
+                    createGainComparisonChart(data.chart_data.gain_comparison_chart, convertWeight);
+                }
+                if (data.chart_data.trimester_weight_chart) {
+                    createTrimesterWeightChart(data.chart_data.trimester_weight_chart, convertWeight);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createWeightGainChart(chartData, convertWeight) {
+        const ctx = document.getElementById('weightGainChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (weightGainChart) {
+            weightGainChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        // Convert weights for display
+        const datasets = chartData.data.datasets.map(dataset => ({
+            ...dataset,
+            data: dataset.data.map(val => val !== null ? convertWeight(val) : null)
+        }));
+        
+        try {
+            weightGainChart = new Chart(ctx, {
+                type: chartData.type,
+                data: {
+                    ...chartData.data,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' ' + (document.getElementById('weightUnit').textContent);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + ' ' + (document.getElementById('weightUnit').textContent);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating weight gain chart:', error);
+        }
+    }
+    
+    function createProgressGaugeChart(chartData) {
+        const ctx = document.getElementById('progressGaugeChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (progressGaugeChart) {
+            progressGaugeChart.destroy();
+        }
+        
+        if (!chartData || !chartData.center_text) return;
+        
+        const centerText = chartData.center_text;
+        const progressColor = centerText.color;
+        
+        try {
+            progressGaugeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = progressColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value + '%', centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating progress gauge chart:', error);
+        }
+    }
+    
+    function createGainComparisonChart(chartData, convertWeight) {
+        const ctx = document.getElementById('gainComparisonChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (gainComparisonChart) {
+            gainComparisonChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        // Convert weights for display
+        const convertedData = chartData.data.datasets[0].data.map(val => convertWeight(val));
+        
+        try {
+            gainComparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: {
+                    ...chartData.data,
+                    datasets: [{
+                        ...chartData.data.datasets[0],
+                        data: convertedData
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + ' ' + (document.getElementById('weightUnit').textContent);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + ' ' + (document.getElementById('weightUnit').textContent);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating gain comparison chart:', error);
+        }
+    }
+    
+    function createTrimesterWeightChart(chartData, convertWeight) {
+        const ctx = document.getElementById('trimesterWeightChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (trimesterWeightChart) {
+            trimesterWeightChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        // Convert weights for display
+        const convertedData = chartData.data.datasets[0].data.map(val => convertWeight(val));
+        
+        try {
+            trimesterWeightChart = new Chart(ctx, {
+                type: chartData.type,
+                data: {
+                    ...chartData.data,
+                    datasets: [{
+                        ...chartData.data.datasets[0],
+                        data: convertedData
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + ' ' + (document.getElementById('weightUnit').textContent);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + ' ' + (document.getElementById('weightUnit').textContent);
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating trimester weight chart:', error);
+        }
+    }
+    
+    updateUnits();
+});
+</script>
+{% endblock %}

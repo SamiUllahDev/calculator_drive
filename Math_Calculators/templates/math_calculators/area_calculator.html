@@ -1,0 +1,2132 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Area Calculator - Calculate Area of Rectangle, Circle, Triangle" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free area calculator to find the area of rectangles, circles, triangles, squares, and more shapes. Calculate square footage, area formulas, and get step-by-step solutions. Perfect for geometry homework and construction projects." %}{% endblock %}
+{% block meta_keywords %}{% trans "area calculator, calculate area, rectangle area, circle area, triangle area, square area, area of a circle, area of a rectangle, area of a triangle, area formula, how to calculate area, square footage calculator, area finder, geometry calculator, area of shapes, trapezoid area, parallelogram area, area converter" %}{% endblock %}
+
+{% block og_title %}{% trans "Area Calculator - Calculate Area of Rectangle, Circle, Triangle" %}{% endblock %}
+{% block og_description %}{% trans "Free area calculator to find the area of rectangles, circles, triangles, squares, and more shapes. Calculate square footage, area formulas, and get step-by-step solutions." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Area Calculator - Calculate Area of Rectangle, Circle, Triangle" %}{% endblock %}
+{% block twitter_description %}{% trans "Free area calculator to find the area of rectangles, circles, triangles, and more. Calculate square footage with step-by-step solutions." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .shape-preview {
+        width: 100%;
+        height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+    }
+    .step-by-step {
+        background: linear-gradient(to right, #f0f9ff, #e0f2fe);
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 4px;
+    }
+    .history-item {
+        background: #f9fafb;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .history-item:hover {
+        background: #f3f4f6;
+    }
+</style>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Area Calculator' %}",
+  "description": "{% trans 'Free area calculator to find the area of rectangles, circles, triangles, squares, and more shapes. Calculate square footage, area formulas, and get step-by-step solutions. Perfect for geometry homework and construction projects.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "4200"},
+  "featureList": ["{% trans 'Multiple shape support' %}", "{% trans 'Area calculation' %}", "{% trans 'Step-by-step solutions' %}", "{% trans 'Charts and visualizations' %}", "{% trans 'Comprehensive user guide' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Area Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate the area of various geometric shapes with precision. Features include visualizations, step-by-step solutions, comparison tools, and calculation history." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Shape Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="bi bi-shapes text-blue-600 mr-1"></i>
+                                {% trans "Shape" %}
+                            </label>
+                            <select id="shape" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition">
+                                <option value="rectangle">{% trans "Rectangle" %}</option>
+                                <option value="square">{% trans "Square" %}</option>
+                                <option value="circle">{% trans "Circle" %}</option>
+                                <option value="triangle">{% trans "Triangle" %}</option>
+                                <option value="trapezoid">{% trans "Trapezoid" %}</option>
+                                <option value="parallelogram">{% trans "Parallelogram" %}</option>
+                                <option value="rhombus">{% trans "Rhombus" %}</option>
+                                <option value="ellipse">{% trans "Ellipse" %}</option>
+                                <option value="pentagon">{% trans "Pentagon" %}</option>
+                                <option value="hexagon">{% trans "Hexagon" %}</option>
+                                <option value="octagon">{% trans "Octagon" %}</option>
+                                <option value="sector">{% trans "Sector" %}</option>
+                                <option value="annulus">{% trans "Annulus (Ring)" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Unit Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="bi bi-rulers text-blue-600 mr-1"></i>
+                                {% trans "Unit" %}
+                            </label>
+                            <select id="unit" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition">
+                                <option value="m">{% trans "Meters (m)" %}</option>
+                                <option value="cm">{% trans "Centimeters (cm)" %}</option>
+                                <option value="mm">{% trans "Millimeters (mm)" %}</option>
+                                <option value="km">{% trans "Kilometers (km)" %}</option>
+                                <option value="in">{% trans "Inches (in)" %}</option>
+                                <option value="ft">{% trans "Feet (ft)" %}</option>
+                                <option value="yd">{% trans "Yards (yd)" %}</option>
+                                <option value="mi">{% trans "Miles (mi)" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Dynamic Input Fields -->
+                        <div id="inputFields" class="space-y-4"></div>
+
+                        <!-- Shape Preview -->
+                        <div id="shapePreview" class="shape-preview hidden">
+                            <svg id="shapeSVG" width="150" height="150" viewBox="0 0 150 150"></svg>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate area' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Area" %}</span>
+                        </button>
+                        
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <i class="bi bi-lightbulb mr-1"></i>
+                            {% trans "Load Example Values" %}
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <i class="bi bi-x-lg mr-1"></i>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <i class="bi bi-download mr-1"></i>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select a shape and enter dimensions to calculate its area. Get instant results with visualizations and step-by-step solutions." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Area" %}</p>
+                            <p id="areaResult" class="text-5xl sm:text-6xl font-bold mb-2">0</p>
+                            <p id="areaUnit" class="text-blue-100 text-sm sm:text-base">m²</p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Shape" %}</p>
+                                <p id="shapeDisplay" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Perimeter" %}</p>
+                                <p id="perimeterDisplay" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Unit" %}</p>
+                                <p id="unitDisplay" class="text-sm font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Status" %}</p>
+                                <p class="text-xs font-bold text-green-700">{% trans "Calculated" %}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shape Visualization with Values -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                            </svg>
+                            {% trans "Shape Visualization" %}
+                        </h3>
+                        <div class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-lg p-6 border-2 border-blue-200">
+                            <div id="shapeVisualization" class="flex items-center justify-center min-h-[300px] w-full">
+                                <p class="text-gray-500">{% trans "Shape will be displayed here after calculation" %}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <p class="text-sm text-gray-600">
+                                <i class="bi bi-info-circle mr-1"></i>
+                                {% trans "Shape drawn to scale with labeled dimensions" %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Detailed Results" %}
+                        </h3>
+                        <div id="detailedResults" class="space-y-3"></div>
+                        
+                        <!-- Formula Display -->
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <p class="text-sm font-semibold text-gray-700 mb-2">{% trans "Formula Used:" %}</p>
+                            <p id="formulaDisplay" class="font-mono text-lg bg-gray-50 p-4 rounded-lg border border-gray-200"></p>
+                        </div>
+
+                        <!-- Step-by-Step Solution -->
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <h4 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                                {% trans "Step-by-Step Solution" %}
+                            </h4>
+                            <div id="stepByStep" class="space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Area Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Area Gauge" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="areaGaugeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Properties Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Shape Properties" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="propertiesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Area vs Perimeter Comparison" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Area Calculator Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Area Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "The Area Calculator is a free tool that calculates the area of various geometric shapes with high precision. It uses advanced mathematical formulas and provides step-by-step solutions to help you understand the calculation process." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "This calculator supports 13 different geometric shapes including rectangles, circles, triangles, polygons, and more. Each calculation includes detailed results, formulas, and visual representations." %}
+                            </p>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select a shape from the dropdown menu (Rectangle, Circle, Triangle, etc.)" %}</li>
+                                <li>{% trans "Choose your preferred unit of measurement (meters, centimeters, inches, etc.)" %}</li>
+                                <li>{% trans "Enter the required dimensions for your selected shape" %}</li>
+                                <li>{% trans "Click 'Calculate Area' to get instant results" %}</li>
+                                <li>{% trans "View detailed results, formulas, and step-by-step solutions" %}</li>
+                                <li>{% trans "Use charts and visualizations to better understand the calculations" %}</li>
+                                <li>{% trans "Export results or save to calculation history for future reference" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Supported Shapes Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Supported Shapes & Formulas" %}</h3>
+                            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Rectangle" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = l × w</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Length × Width" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Square" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = s²</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Side squared" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Circle" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = πr²</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Pi × Radius²" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Triangle" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = ½ × b × h</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Half × Base × Height" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Trapezoid" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = ½(a+b) × h</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Half × (Base1+Base2) × Height" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Ellipse" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = πab</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Pi × Semi-major × Semi-minor" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Parallelogram" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = b × h</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Base × Height" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Rhombus" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = ½ × d₁ × d₂</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Half × Diagonal1 × Diagonal2" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Pentagon" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = (1/4)√(5(5+2√5))s²</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Regular pentagon formula" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Hexagon" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = (3√3/2)s²</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Regular hexagon formula" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Octagon" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = 2(1+√2)s²</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Regular octagon formula" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Sector" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = ½r²θ</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Half × Radius² × Angle (radians)" %}</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Annulus" %}</h4>
+                                    <p class="font-mono text-sm text-gray-600">A = π(R² - r²)</p>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Pi × (Outer Radius² - Inner Radius²)" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Area" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The calculated area of your shape in square units. This is the primary result showing how much space the shape covers." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Perimeter/Circumference" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The total distance around the shape. For circles, this is called circumference. For polygons, it's the sum of all side lengths." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Step-by-Step Solution" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A detailed breakdown of how the area was calculated, showing each step of the formula application." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Charts & Visualizations" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Visual representations of your calculation including area gauge, properties comparison, and shape measurements." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "All measurements must be in the same unit. The calculator will display results in square units (e.g., m², cm², in²)." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "For regular polygons (pentagon, hexagon, octagon), all sides must be equal length." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Calculations use high-precision mathematics (SymPy) for accurate results, especially for circular shapes." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Results are rounded to 8 decimal places for display, but calculations use full precision internally." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Tips Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips & Best Practices" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Always use consistent units for all measurements" %}</li>
+                                <li>{% trans "Double-check your input values before calculating" %}</li>
+                                <li>{% trans "Use the step-by-step solution to understand the calculation process" %}</li>
+                                <li>{% trans "Review charts and visualizations to better understand your results" %}</li>
+                                <li>{% trans "Export results for documentation or sharing" %}</li>
+                                <li>{% trans "Save important calculations using the history feature" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let areaGaugeChart = null;
+let propertiesChart = null;
+let comparisonChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const shapeSelect = document.getElementById('shape');
+    const inputFields = document.getElementById('inputFields');
+    const shapePreview = document.getElementById('shapePreview');
+    const shapeSVG = document.getElementById('shapeSVG');
+    const calculatorForm = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    
+    // Shape input configurations
+    const shapeInputs = {
+        rectangle: [
+            {id: 'length', label: '{% trans "Length" %}', icon: 'bi-arrows-expand'},
+            {id: 'width', label: '{% trans "Width" %}', icon: 'bi-arrows-expand'}
+        ],
+        square: [
+            {id: 'side', label: '{% trans "Side Length" %}', icon: 'bi-square'}
+        ],
+        circle: [
+            {id: 'radius', label: '{% trans "Radius" %}', icon: 'bi-circle'}
+        ],
+        triangle: [
+            {id: 'base', label: '{% trans "Base" %}', icon: 'bi-triangle'},
+            {id: 'height', label: '{% trans "Height" %}', icon: 'bi-arrows-vertical'}
+        ],
+        trapezoid: [
+            {id: 'base1', label: '{% trans "Base 1" %}', icon: 'bi-arrows-expand'},
+            {id: 'base2', label: '{% trans "Base 2" %}', icon: 'bi-arrows-expand'},
+            {id: 'height', label: '{% trans "Height" %}', icon: 'bi-arrows-vertical'}
+        ],
+        ellipse: [
+            {id: 'semi_major', label: '{% trans "Semi-major Axis (a)" %}', icon: 'bi-arrows-expand'},
+            {id: 'semi_minor', label: '{% trans "Semi-minor Axis (b)" %}', icon: 'bi-arrows-expand'}
+        ],
+        parallelogram: [
+            {id: 'base', label: '{% trans "Base" %}', icon: 'bi-arrows-expand'},
+            {id: 'height', label: '{% trans "Height" %}', icon: 'bi-arrows-vertical'}
+        ],
+        rhombus: [
+            {id: 'diagonal1', label: '{% trans "Diagonal 1" %}', icon: 'bi-diagram-3'},
+            {id: 'diagonal2', label: '{% trans "Diagonal 2" %}', icon: 'bi-diagram-3'}
+        ],
+        pentagon: [
+            {id: 'side', label: '{% trans "Side Length" %}', icon: 'bi-pentagon'}
+        ],
+        hexagon: [
+            {id: 'side', label: '{% trans "Side Length" %}', icon: 'bi-hexagon'}
+        ],
+        octagon: [
+            {id: 'side', label: '{% trans "Side Length" %}', icon: 'bi-octagon'}
+        ],
+        sector: [
+            {id: 'radius', label: '{% trans "Radius" %}', icon: 'bi-circle'},
+            {id: 'angle', label: '{% trans "Angle (degrees)" %}', icon: 'bi-pie-chart'}
+        ],
+        annulus: [
+            {id: 'outer_radius', label: '{% trans "Outer Radius" %}', icon: 'bi-circle'},
+            {id: 'inner_radius', label: '{% trans "Inner Radius" %}', icon: 'bi-circle-fill'}
+        ]
+    };
+    
+    // Default values for shapes
+    const defaultValues = {
+        rectangle: {length: 10, width: 5},
+        square: {side: 10},
+        circle: {radius: 5},
+        triangle: {base: 10, height: 8},
+        trapezoid: {base1: 10, base2: 6, height: 5},
+        ellipse: {semi_major: 8, semi_minor: 5},
+        parallelogram: {base: 10, height: 7},
+        rhombus: {diagonal1: 10, diagonal2: 8},
+        pentagon: {side: 5},
+        hexagon: {side: 5},
+        octagon: {side: 5},
+        sector: {radius: 5, angle: 60},
+        annulus: {outer_radius: 8, inner_radius: 5}
+    };
+    
+    function updateInputs() {
+        const shape = shapeSelect.value;
+        const inputs = shapeInputs[shape] || [];
+        const defaults = defaultValues[shape] || {};
+        
+        inputFields.innerHTML = inputs.map(inp => `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center" for="${inp.id}">
+                    <i class="bi ${inp.icon} text-blue-600 mr-1" aria-hidden="true"></i>
+                    ${inp.label}
+                </label>
+                <input type="number" id="${inp.id}" 
+                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition" 
+                       value="${defaults[inp.id] || ''}" 
+                       step="any" min="0" 
+                       placeholder="Enter ${inp.label.toLowerCase()}"
+                       required
+                       aria-label="${inp.label}"
+                       aria-required="true">
+            </div>
+        `).join('');
+        
+        drawShapePreview(shape);
+    }
+    
+    function drawShapePreview(shape) {
+        shapePreview.classList.remove('hidden');
+        const svg = shapeSVG;
+        svg.innerHTML = '';
+        
+        const centerX = 75;
+        const centerY = 75;
+        const size = 60;
+        
+        const shapes = {
+            rectangle: () => {
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', centerX - size/2);
+                rect.setAttribute('y', centerY - size/3);
+                rect.setAttribute('width', size);
+                rect.setAttribute('height', size * 2/3);
+                rect.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                rect.setAttribute('stroke', 'white');
+                rect.setAttribute('stroke-width', '2');
+                svg.appendChild(rect);
+            },
+            square: () => {
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', centerX - size/2);
+                rect.setAttribute('y', centerY - size/2);
+                rect.setAttribute('width', size);
+                rect.setAttribute('height', size);
+                rect.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                rect.setAttribute('stroke', 'white');
+                rect.setAttribute('stroke-width', '2');
+                svg.appendChild(rect);
+            },
+            circle: () => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', centerX);
+                circle.setAttribute('cy', centerY);
+                circle.setAttribute('r', size/2);
+                circle.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                circle.setAttribute('stroke', 'white');
+                circle.setAttribute('stroke-width', '2');
+                svg.appendChild(circle);
+            },
+            triangle: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', `${centerX},${centerY - size/2} ${centerX - size/2},${centerY + size/2} ${centerX + size/2},${centerY + size/2}`);
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            trapezoid: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const topWidth = size * 0.6;
+                const bottomWidth = size;
+                polygon.setAttribute('points', 
+                    `${centerX - topWidth/2},${centerY - size/3} ` +
+                    `${centerX + topWidth/2},${centerY - size/3} ` +
+                    `${centerX + bottomWidth/2},${centerY + size/3} ` +
+                    `${centerX - bottomWidth/2},${centerY + size/3}`);
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            parallelogram: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const offset = size * 0.2;
+                polygon.setAttribute('points', 
+                    `${centerX - size/2 + offset},${centerY - size/3} ` +
+                    `${centerX + size/2 + offset},${centerY - size/3} ` +
+                    `${centerX + size/2 - offset},${centerY + size/3} ` +
+                    `${centerX - size/2 - offset},${centerY + size/3}`);
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            rhombus: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', 
+                    `${centerX},${centerY - size/2} ` +
+                    `${centerX + size/2},${centerY} ` +
+                    `${centerX},${centerY + size/2} ` +
+                    `${centerX - size/2},${centerY}`);
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            ellipse: () => {
+                const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                ellipse.setAttribute('cx', centerX);
+                ellipse.setAttribute('cy', centerY);
+                ellipse.setAttribute('rx', size/2);
+                ellipse.setAttribute('ry', size/3);
+                ellipse.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                ellipse.setAttribute('stroke', 'white');
+                ellipse.setAttribute('stroke-width', '2');
+                svg.appendChild(ellipse);
+            },
+            pentagon: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [];
+                for (let i = 0; i < 5; i++) {
+                    const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+                    points.push(`${centerX + size/2 * Math.cos(angle)},${centerY + size/2 * Math.sin(angle)}`);
+                }
+                polygon.setAttribute('points', points.join(' '));
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            hexagon: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [];
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i;
+                    points.push(`${centerX + size/2 * Math.cos(angle)},${centerY + size/2 * Math.sin(angle)}`);
+                }
+                polygon.setAttribute('points', points.join(' '));
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            octagon: () => {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [];
+                for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 / 8) * i - Math.PI / 8;
+                    points.push(`${centerX + size/2 * Math.cos(angle)},${centerY + size/2 * Math.sin(angle)}`);
+                }
+                polygon.setAttribute('points', points.join(' '));
+                polygon.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                polygon.setAttribute('stroke', 'white');
+                polygon.setAttribute('stroke-width', '2');
+                svg.appendChild(polygon);
+            },
+            sector: () => {
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const radius = size/2;
+                const startAngle = -Math.PI / 2;
+                const endAngle = Math.PI / 6;
+                const x1 = centerX + radius * Math.cos(startAngle);
+                const y1 = centerY + radius * Math.sin(startAngle);
+                const x2 = centerX + radius * Math.cos(endAngle);
+                const y2 = centerY + radius * Math.sin(endAngle);
+                const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+                path.setAttribute('d', 
+                    `M ${centerX} ${centerY} ` +
+                    `L ${x1} ${y1} ` +
+                    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} ` +
+                    `Z`);
+                path.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                path.setAttribute('stroke', 'white');
+                path.setAttribute('stroke-width', '2');
+                svg.appendChild(path);
+            },
+            annulus: () => {
+                const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                outerCircle.setAttribute('cx', centerX);
+                outerCircle.setAttribute('cy', centerY);
+                outerCircle.setAttribute('r', size/2);
+                outerCircle.setAttribute('fill', 'rgba(255,255,255,0.3)');
+                outerCircle.setAttribute('stroke', 'white');
+                outerCircle.setAttribute('stroke-width', '2');
+                svg.appendChild(outerCircle);
+                
+                const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                innerCircle.setAttribute('cx', centerX);
+                innerCircle.setAttribute('cy', centerY);
+                innerCircle.setAttribute('r', size/3);
+                innerCircle.setAttribute('fill', 'rgba(102, 126, 234, 0.5)');
+                innerCircle.setAttribute('stroke', 'white');
+                innerCircle.setAttribute('stroke-width', '2');
+                svg.appendChild(innerCircle);
+            }
+        };
+        
+        if (shapes[shape]) {
+            shapes[shape]();
+        } else {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', centerX);
+            text.setAttribute('y', centerY);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', 'white');
+            text.setAttribute('font-size', '24');
+            text.setAttribute('font-weight', 'bold');
+            text.textContent = shape.charAt(0).toUpperCase();
+            svg.appendChild(text);
+        }
+    }
+    
+    shapeSelect.addEventListener('change', updateInputs);
+    updateInputs();
+    
+    // Example values button
+    const exampleBtn = document.getElementById('exampleBtn');
+    if (exampleBtn) {
+        exampleBtn.addEventListener('click', function() {
+        const shape = shapeSelect.value;
+        const defaults = defaultValues[shape] || {};
+        const inputs = shapeInputs[shape] || [];
+        
+        inputs.forEach(inp => {
+            const inputElement = document.getElementById(inp.id);
+            if (inputElement && defaults[inp.id]) {
+                inputElement.value = defaults[inp.id];
+                inputElement.classList.remove('border-red-500');
+            }
+        });
+        });
+    }
+    
+    calculatorForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Validate inputs before submission
+        const shape = shapeSelect.value;
+        const inputs = shapeInputs[shape] || [];
+        let hasErrors = false;
+        
+        inputs.forEach(inp => {
+            const inputElement = document.getElementById(inp.id);
+            if (inputElement) {
+                const value = inputElement.value.trim();
+                if (!value || value === '') {
+                    inputElement.classList.add('border-red-500');
+                    hasErrors = true;
+                } else {
+                    const numValue = parseFloat(value);
+                    if (isNaN(numValue) || numValue <= 0) {
+                        inputElement.classList.add('border-red-500');
+                        hasErrors = true;
+                    } else {
+                        inputElement.classList.remove('border-red-500');
+                    }
+                }
+            }
+        });
+        
+        if (hasErrors) {
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Please enter valid positive numbers for all required fields." %}';
+                errorState.classList.remove('hidden');
+            }
+            return;
+        }
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const unit = document.getElementById('unit').value;
+        
+        const bodyData = {shape, unit};
+        inputs.forEach(inp => {
+            const inputElement = document.getElementById(inp.id);
+            if (inputElement) {
+                bodyData[inp.id] = parseFloat(inputElement.value);
+            }
+        });
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : 'Calculate Area';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(bodyData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data);
+            
+            // Draw shape visualization using backend data
+            if (data.shape_visualization) {
+                renderShapeVisualization(data.shape_visualization);
+            } else {
+                // Fallback to old method if backend data not available
+                drawShapeWithValues(data);
+            }
+            
+            // Save to history
+            saveToHistory(data);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Validate data
+            if (!data || typeof data.area === 'undefined' || data.area === null) {
+                throw new Error('Invalid data received');
+            }
+            
+            // Use display_data from backend if available
+            const displayData = data.display_data || {};
+            
+            // Update main result
+            const areaResult = document.getElementById('areaResult');
+            const areaUnit = document.getElementById('areaUnit');
+            if (areaResult) {
+                areaResult.textContent = displayData.area_formatted || data.area.toLocaleString('en-US', {maximumFractionDigits: 6});
+            }
+            if (areaUnit) areaUnit.textContent = data.area_unit || 'm²';
+            
+            // Update stats using backend data
+            const shapeDisplay = document.getElementById('shapeDisplay');
+            const perimeterDisplay = document.getElementById('perimeterDisplay');
+            const unitDisplay = document.getElementById('unitDisplay');
+            
+            if (shapeDisplay) {
+                shapeDisplay.textContent = displayData.stats?.shape || data.shape_display_name || (data.shape ? data.shape.charAt(0).toUpperCase() + data.shape.slice(1) : 'Unknown');
+            }
+            if (perimeterDisplay) {
+                if (displayData.stats?.perimeter) {
+                    perimeterDisplay.textContent = displayData.stats.perimeter + ' ' + (displayData.stats.unit || data.unit || 'm');
+                } else {
+                    const perimeter = data.perimeter || data.circumference;
+                    if (perimeter && typeof perimeter === 'number') {
+                        perimeterDisplay.textContent = perimeter.toLocaleString('en-US', {maximumFractionDigits: 2}) + ' ' + (data.unit || 'm');
+                    } else {
+                        perimeterDisplay.textContent = '-';
+                    }
+                }
+            }
+            if (unitDisplay) unitDisplay.textContent = displayData.stats?.unit || data.unit || 'm';
+            
+            // Update detailed results using backend data
+            const detailedResultsEl = document.getElementById('detailedResults');
+            if (detailedResultsEl && displayData.detailed_results && displayData.detailed_results.length > 0) {
+                let detailsHTML = '';
+                
+                displayData.detailed_results.forEach((item, index) => {
+                    const isLast = index === displayData.detailed_results.length - 1;
+                    const borderClass = isLast ? '' : 'border-b border-gray-100';
+                    const textClass = item.is_primary ? 'font-bold text-lg text-blue-600' : 'font-medium';
+                    const paddingClass = item.is_primary ? 'py-3 border-b border-gray-200' : 'py-2';
+                    
+                    detailsHTML += `
+                        <div class="flex justify-between ${paddingClass} ${borderClass}">
+                            <span class="text-gray-600 ${item.is_primary ? 'font-medium' : ''}">${item.label}</span>
+                            <span class="${textClass}">${item.value} ${item.unit}</span>
+                        </div>
+                    `;
+                });
+                detailedResultsEl.innerHTML = detailsHTML;
+            } else if (detailedResultsEl) {
+                // Fallback if display_data not available
+                const formatNumber = (num) => {
+                    if (typeof num !== 'number' || isNaN(num) || !isFinite(num)) return '0';
+                    return num.toLocaleString('en-US', {maximumFractionDigits: 6});
+                };
+                
+                let details = `<div class="flex justify-between py-3 border-b border-gray-200">
+                    <span class="text-gray-600 font-medium">{% trans "Area" %}</span>
+                    <span class="font-bold text-lg text-blue-600">${formatNumber(data.area)} ${data.area_unit || 'm²'}</span>
+                </div>`;
+                
+                if (data.perimeter && typeof data.perimeter === 'number') {
+                    details += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-600">{% trans "Perimeter" %}</span><span class="font-medium">${formatNumber(data.perimeter)} ${data.unit || 'm'}</span></div>`;
+                }
+                if (data.circumference && typeof data.circumference === 'number') {
+                    details += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-600">{% trans "Circumference" %}</span><span class="font-medium">${formatNumber(data.circumference)} ${data.unit || 'm'}</span></div>`;
+                }
+                if (data.diagonal && typeof data.diagonal === 'number') {
+                    details += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-600">{% trans "Diagonal" %}</span><span class="font-medium">${formatNumber(data.diagonal)} ${data.unit || 'm'}</span></div>`;
+                }
+                if (data.diameter && typeof data.diameter === 'number') {
+                    details += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-600">{% trans "Diameter" %}</span><span class="font-medium">${formatNumber(data.diameter)} ${data.unit || 'm'}</span></div>`;
+                }
+                if (data.side && typeof data.side === 'number') {
+                    details += `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-600">{% trans "Side Length" %}</span><span class="font-medium">${formatNumber(data.side)} ${data.unit || 'm'}</span></div>`;
+                }
+                if (data.arc_length && typeof data.arc_length === 'number') {
+                    details += `<div class="flex justify-between py-2"><span class="text-gray-600">{% trans "Arc Length" %}</span><span class="font-medium">${formatNumber(data.arc_length)} ${data.unit || 'm'}</span></div>`;
+                }
+                
+                detailedResultsEl.innerHTML = details;
+            }
+            
+            // Update formula
+            const formulaDisplay = document.getElementById('formulaDisplay');
+            if (formulaDisplay) {
+                formulaDisplay.textContent = data.formula || 'N/A';
+            }
+            
+            // Step-by-step solution (use backend HTML if available, else use array)
+            const stepByStepEl = document.getElementById('stepByStep');
+            if (stepByStepEl) {
+                if (data.step_by_step_html && Array.isArray(data.step_by_step_html) && data.step_by_step_html.length > 0) {
+                    // Use backend-prepared HTML structure
+                    stepByStepEl.innerHTML = data.step_by_step_html.map((item) => `
+                        <div class="step-by-step">
+                            <span class="font-semibold text-blue-600">${item.content}</span>
+                        </div>
+                    `).join('');
+                } else if (data.step_by_step && Array.isArray(data.step_by_step) && data.step_by_step.length > 0) {
+                    // Fallback to array format
+                    stepByStepEl.innerHTML = data.step_by_step.map((step) => `
+                        <div class="step-by-step">
+                            <span class="font-semibold text-blue-600">${step}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    stepByStepEl.innerHTML = '<div class="step-by-step"><span class="font-semibold text-blue-600">Step-by-step solution not available.</span></div>';
+                }
+            }
+            
+            // Create/Update Charts
+            if (data.chart_data && typeof data.chart_data === 'object' && checkChartJS()) {
+                try {
+                    // Destroy existing charts first
+                    if (areaGaugeChart) {
+                        areaGaugeChart.destroy();
+                        areaGaugeChart = null;
+                    }
+                    if (propertiesChart) {
+                        propertiesChart.destroy();
+                        propertiesChart = null;
+                    }
+                    if (comparisonChart) {
+                        comparisonChart.destroy();
+                        comparisonChart = null;
+                    }
+                    
+                    // Create new charts
+                    if (data.chart_data.gauge_chart && data.chart_data.gauge_chart.data) {
+                        createAreaGaugeChart(data.chart_data.gauge_chart);
+                    }
+                    if (data.chart_data.properties_chart && 
+                        data.chart_data.properties_chart.data && 
+                        data.chart_data.properties_chart.data.labels && 
+                        data.chart_data.properties_chart.data.labels.length > 0) {
+                        createPropertiesChart(data.chart_data.properties_chart);
+                    }
+                    if (data.chart_data.comparison_chart && 
+                        data.chart_data.comparison_chart.data && 
+                        data.chart_data.comparison_chart.data.labels && 
+                        data.chart_data.comparison_chart.data.labels.length > 0) {
+                        createComparisonChart(data.chart_data.comparison_chart);
+                    }
+                } catch (chartError) {
+                    console.error('Error creating charts:', chartError);
+                    // Don't block results display if charts fail
+                }
+            }
+            
+            // Show results and quick actions
+            if (results) {
+                results.classList.remove('hidden');
+                if (quickActions) {
+                    quickActions.classList.remove('hidden');
+                }
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createAreaGaugeChart(chartData) {
+        const ctx = document.getElementById('areaGaugeChart');
+        if (!ctx || !checkChartJS()) return;
+        
+        if (areaGaugeChart) areaGaugeChart.destroy();
+        
+        if (!chartData || !chartData.center_text || !chartData.data) {
+            console.warn('Invalid gauge chart data');
+            return;
+        }
+        
+        const centerText = chartData.center_text;
+        const areaColor = centerText.color || '#3b82f6';
+        const value = typeof centerText.value === 'number' ? centerText.value : parseFloat(centerText.value) || 0;
+        const label = centerText.label || 'Area';
+        
+        // Format large numbers
+        const formatValue = (val) => {
+            if (val >= 1000000) return (val / 1000000).toFixed(2) + 'M';
+            if (val >= 1000) return (val / 1000).toFixed(2) + 'K';
+            return val.toFixed(2);
+        };
+        
+        try {
+            areaGaugeChart = new Chart(ctx, {
+                type: chartData.type || 'doughnut',
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        if (!chart.chartArea) return;
+                        
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = areaColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(formatValue(value), centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating gauge chart:', error);
+        }
+    }
+    
+    function createPropertiesChart(chartData) {
+        const ctx = document.getElementById('propertiesChart');
+        if (!ctx || !checkChartJS()) return;
+        
+        if (propertiesChart) propertiesChart.destroy();
+        
+        if (!chartData || !chartData.data) return;
+        
+        // Check if chart has data
+        if (!chartData.data.labels || chartData.data.labels.length === 0) {
+            console.warn('Properties chart has no data');
+            return;
+        }
+        
+        try {
+            propertiesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.x.toLocaleString('en-US', {maximumFractionDigits: 2})}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('en-US', {maximumFractionDigits: 2});
+                                }
+                            }
+                        },
+                        y: {
+                            grid: { display: false }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating properties chart:', error);
+        }
+    }
+    
+    function createComparisonChart(chartData) {
+        const ctx = document.getElementById('comparisonChart');
+        if (!ctx || !checkChartJS()) return;
+        
+        if (comparisonChart) comparisonChart.destroy();
+        
+        if (!chartData || !chartData.data) return;
+        
+        // Check if chart has data
+        if (!chartData.data.labels || chartData.data.labels.length === 0) {
+            console.warn('Comparison chart has no data');
+            return;
+        }
+        
+        try {
+            comparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toLocaleString('en-US', {maximumFractionDigits: 2})}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('en-US', {maximumFractionDigits: 2});
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating comparison chart:', error);
+        }
+    }
+    
+    function renderShapeVisualization(vizData) {
+        const container = document.getElementById('shapeVisualization');
+        if (!container || !vizData) return;
+        
+        const svgSize = vizData.svg_size || 400;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('viewBox', `0 0 ${svgSize} ${svgSize}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        
+        // Render elements from backend data
+        if (vizData.elements && Array.isArray(vizData.elements)) {
+            vizData.elements.forEach(element => {
+                let svgElement;
+                
+                switch(element.type) {
+                    case 'rect':
+                        svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        svgElement.setAttribute('x', element.x);
+                        svgElement.setAttribute('y', element.y);
+                        svgElement.setAttribute('width', element.width);
+                        svgElement.setAttribute('height', element.height);
+                        break;
+                    case 'circle':
+                        svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        svgElement.setAttribute('cx', element.cx);
+                        svgElement.setAttribute('cy', element.cy);
+                        svgElement.setAttribute('r', element.r);
+                        break;
+                    case 'ellipse':
+                        svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                        svgElement.setAttribute('cx', element.cx);
+                        svgElement.setAttribute('cy', element.cy);
+                        svgElement.setAttribute('rx', element.rx);
+                        svgElement.setAttribute('ry', element.ry);
+                        break;
+                    case 'polygon':
+                        svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                        svgElement.setAttribute('points', element.points);
+                        break;
+                    case 'path':
+                        svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        svgElement.setAttribute('d', element.d);
+                        break;
+                    case 'line':
+                        svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        svgElement.setAttribute('x1', element.x1);
+                        svgElement.setAttribute('y1', element.y1);
+                        svgElement.setAttribute('x2', element.x2);
+                        svgElement.setAttribute('y2', element.y2);
+                        if (element.stroke_dasharray) {
+                            svgElement.setAttribute('stroke-dasharray', element.stroke_dasharray);
+                        }
+                        break;
+                    default:
+                        return;
+                }
+                
+                // Set common attributes
+                if (element.fill) svgElement.setAttribute('fill', element.fill);
+                if (element.stroke) svgElement.setAttribute('stroke', element.stroke);
+                if (element.stroke_width) svgElement.setAttribute('stroke-width', element.stroke_width);
+                
+                svg.appendChild(svgElement);
+            });
+        }
+        
+        // Render labels from backend data
+        if (vizData.labels && Array.isArray(vizData.labels)) {
+            vizData.labels.forEach(label => {
+                const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textElement.setAttribute('x', label.x);
+                textElement.setAttribute('y', label.y);
+                textElement.setAttribute('text-anchor', label.anchor || 'middle');
+                if (label.baseline) textElement.setAttribute('dominant-baseline', label.baseline);
+                textElement.setAttribute('fill', '#1e40af');
+                textElement.setAttribute('font-size', label.font_size || '16');
+                textElement.setAttribute('font-weight', 'bold');
+                textElement.textContent = label.text;
+                svg.appendChild(textElement);
+            });
+        }
+        
+        container.innerHTML = '';
+        container.appendChild(svg);
+    }
+    
+    function drawShapeWithValues(data) {
+        // Fallback function - kept for backward compatibility
+        const container = document.getElementById('shapeVisualization');
+        if (!container) return;
+        
+        const shape = data.shape || 'rectangle';
+        const inputs = data.inputs || {};
+        const unit = data.unit || 'm';
+        const area = data.area || 0;
+        
+        // Format number for display
+        const formatNum = (num) => {
+            if (typeof num !== 'number' || isNaN(num)) return '0';
+            return num.toLocaleString('en-US', {maximumFractionDigits: 2});
+        };
+        
+        const svgSize = 400;
+        const centerX = svgSize / 2;
+        const centerY = svgSize / 2;
+        
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('viewBox', `0 0 ${svgSize} ${svgSize}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        
+        const shapes = {
+            rectangle: () => {
+                const length = inputs.length || 10;
+                const width = inputs.width || 5;
+                const scale = Math.min(150 / Math.max(length, width), 30);
+                const w = length * scale;
+                const h = width * scale;
+                const x = centerX - w/2;
+                const y = centerY - h/2;
+                
+                // Draw rectangle
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', y);
+                rect.setAttribute('width', w);
+                rect.setAttribute('height', h);
+                rect.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                rect.setAttribute('stroke', '#3b82f6');
+                rect.setAttribute('stroke-width', '3');
+                svg.appendChild(rect);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX);
+                label1.setAttribute('y', y - 10);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '16');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `l = ${formatNum(length)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', x - 10);
+                label2.setAttribute('y', centerY);
+                label2.setAttribute('text-anchor', 'end');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '16');
+                label2.setAttribute('font-weight', 'bold');
+                label2.setAttribute('dominant-baseline', 'middle');
+                label2.textContent = `w = ${formatNum(width)} ${unit}`;
+                svg.appendChild(label2);
+            },
+            square: () => {
+                const side = inputs.side || 10;
+                const scale = Math.min(150 / side, 30);
+                const s = side * scale;
+                const x = centerX - s/2;
+                const y = centerY - s/2;
+                
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', y);
+                rect.setAttribute('width', s);
+                rect.setAttribute('height', s);
+                rect.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                rect.setAttribute('stroke', '#3b82f6');
+                rect.setAttribute('stroke-width', '3');
+                svg.appendChild(rect);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', centerX);
+                label.setAttribute('y', y - 10);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#1e40af');
+                label.setAttribute('font-size', '16');
+                label.setAttribute('font-weight', 'bold');
+                label.textContent = `s = ${formatNum(side)} ${unit}`;
+                svg.appendChild(label);
+            },
+            circle: () => {
+                const radius = inputs.radius || 5;
+                const scale = Math.min(150 / (radius * 2), 30);
+                const r = radius * scale;
+                
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', centerX);
+                circle.setAttribute('cy', centerY);
+                circle.setAttribute('r', r);
+                circle.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                circle.setAttribute('stroke', '#3b82f6');
+                circle.setAttribute('stroke-width', '3');
+                svg.appendChild(circle);
+                
+                // Draw radius line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', centerX);
+                line.setAttribute('y1', centerY);
+                line.setAttribute('x2', centerX + r);
+                line.setAttribute('y2', centerY);
+                line.setAttribute('stroke', '#1e40af');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', centerX + r/2);
+                label.setAttribute('y', centerY - 10);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#1e40af');
+                label.setAttribute('font-size', '16');
+                label.setAttribute('font-weight', 'bold');
+                label.textContent = `r = ${formatNum(radius)} ${unit}`;
+                svg.appendChild(label);
+            },
+            triangle: () => {
+                const base = inputs.base || 10;
+                const height = inputs.height || 8;
+                const scale = Math.min(150 / Math.max(base, height), 20);
+                const b = base * scale;
+                const h = height * scale;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', 
+                    `${centerX},${centerY - h/2} ` +
+                    `${centerX - b/2},${centerY + h/2} ` +
+                    `${centerX + b/2},${centerY + h/2}`);
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                // Base label
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX);
+                label1.setAttribute('y', centerY + h/2 + 25);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '16');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `b = ${formatNum(base)} ${unit}`;
+                svg.appendChild(label1);
+                
+                // Height label
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX + b/2 + 15);
+                label2.setAttribute('y', centerY);
+                label2.setAttribute('text-anchor', 'start');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '16');
+                label2.setAttribute('font-weight', 'bold');
+                label2.setAttribute('dominant-baseline', 'middle');
+                label2.textContent = `h = ${formatNum(height)} ${unit}`;
+                svg.appendChild(label2);
+            },
+            trapezoid: () => {
+                const base1 = inputs.base1 || 10;
+                const base2 = inputs.base2 || 6;
+                const height = inputs.height || 5;
+                const scale = Math.min(150 / Math.max(base1, base2, height), 20);
+                const b1 = base1 * scale;
+                const b2 = base2 * scale;
+                const h = height * scale;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', 
+                    `${centerX - b1/2},${centerY - h/2} ` +
+                    `${centerX + b1/2},${centerY - h/2} ` +
+                    `${centerX + b2/2},${centerY + h/2} ` +
+                    `${centerX - b2/2},${centerY + h/2}`);
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX);
+                label1.setAttribute('y', centerY - h/2 - 10);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '14');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `a = ${formatNum(base1)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX);
+                label2.setAttribute('y', centerY + h/2 + 25);
+                label2.setAttribute('text-anchor', 'middle');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '14');
+                label2.setAttribute('font-weight', 'bold');
+                label2.textContent = `b = ${formatNum(base2)} ${unit}`;
+                svg.appendChild(label2);
+                
+                const label3 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label3.setAttribute('x', centerX + b2/2 + 15);
+                label3.setAttribute('y', centerY);
+                label3.setAttribute('text-anchor', 'start');
+                label3.setAttribute('fill', '#1e40af');
+                label3.setAttribute('font-size', '14');
+                label3.setAttribute('font-weight', 'bold');
+                label3.setAttribute('dominant-baseline', 'middle');
+                label3.textContent = `h = ${formatNum(height)} ${unit}`;
+                svg.appendChild(label3);
+            },
+            ellipse: () => {
+                const a = inputs.semi_major || 8;
+                const b = inputs.semi_minor || 5;
+                const scale = Math.min(150 / Math.max(a * 2, b * 2), 20);
+                const rx = a * scale;
+                const ry = b * scale;
+                
+                const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                ellipse.setAttribute('cx', centerX);
+                ellipse.setAttribute('cy', centerY);
+                ellipse.setAttribute('rx', rx);
+                ellipse.setAttribute('ry', ry);
+                ellipse.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                ellipse.setAttribute('stroke', '#3b82f6');
+                ellipse.setAttribute('stroke-width', '3');
+                svg.appendChild(ellipse);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX + rx);
+                label1.setAttribute('y', centerY - 10);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '14');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `a = ${formatNum(a)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX);
+                label2.setAttribute('y', centerY + ry + 20);
+                label2.setAttribute('text-anchor', 'middle');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '14');
+                label2.setAttribute('font-weight', 'bold');
+                label2.textContent = `b = ${formatNum(b)} ${unit}`;
+                svg.appendChild(label2);
+            },
+            parallelogram: () => {
+                const base = inputs.base || 10;
+                const height = inputs.height || 7;
+                const scale = Math.min(150 / Math.max(base, height), 20);
+                const b = base * scale;
+                const h = height * scale;
+                const offset = b * 0.2;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', 
+                    `${centerX - b/2 + offset},${centerY - h/2} ` +
+                    `${centerX + b/2 + offset},${centerY - h/2} ` +
+                    `${centerX + b/2 - offset},${centerY + h/2} ` +
+                    `${centerX - b/2 - offset},${centerY + h/2}`);
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX);
+                label1.setAttribute('y', centerY - h/2 - 10);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '16');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `b = ${formatNum(base)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX + b/2 + offset + 15);
+                label2.setAttribute('y', centerY);
+                label2.setAttribute('text-anchor', 'start');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '16');
+                label2.setAttribute('font-weight', 'bold');
+                label2.setAttribute('dominant-baseline', 'middle');
+                label2.textContent = `h = ${formatNum(height)} ${unit}`;
+                svg.appendChild(label2);
+            },
+            rhombus: () => {
+                const d1 = inputs.diagonal1 || 10;
+                const d2 = inputs.diagonal2 || 8;
+                const scale = Math.min(150 / Math.max(d1, d2), 20);
+                const dx = d1 * scale / 2;
+                const dy = d2 * scale / 2;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', 
+                    `${centerX},${centerY - dy} ` +
+                    `${centerX + dx},${centerY} ` +
+                    `${centerX},${centerY + dy} ` +
+                    `${centerX - dx},${centerY}`);
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                // Diagonal lines
+                const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line1.setAttribute('x1', centerX - dx);
+                line1.setAttribute('y1', centerY);
+                line1.setAttribute('x2', centerX + dx);
+                line1.setAttribute('y2', centerY);
+                line1.setAttribute('stroke', '#1e40af');
+                line1.setAttribute('stroke-width', '2');
+                line1.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line1);
+                
+                const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line2.setAttribute('x1', centerX);
+                line2.setAttribute('y1', centerY - dy);
+                line2.setAttribute('x2', centerX);
+                line2.setAttribute('y2', centerY + dy);
+                line2.setAttribute('stroke', '#1e40af');
+                line2.setAttribute('stroke-width', '2');
+                line2.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line2);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX);
+                label1.setAttribute('y', centerY + dy + 25);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '14');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `d₁ = ${formatNum(d1)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX + dx + 15);
+                label2.setAttribute('y', centerY);
+                label2.setAttribute('text-anchor', 'start');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '14');
+                label2.setAttribute('font-weight', 'bold');
+                label2.setAttribute('dominant-baseline', 'middle');
+                label2.textContent = `d₂ = ${formatNum(d2)} ${unit}`;
+                svg.appendChild(label2);
+            },
+            pentagon: () => {
+                const side = inputs.side || 5;
+                const scale = Math.min(150 / (side * 2), 25);
+                const r = side * scale * 0.85;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [];
+                for (let i = 0; i < 5; i++) {
+                    const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+                    points.push(`${centerX + r * Math.cos(angle)},${centerY + r * Math.sin(angle)}`);
+                }
+                polygon.setAttribute('points', points.join(' '));
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', centerX);
+                label.setAttribute('y', centerY + r + 25);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#1e40af');
+                label.setAttribute('font-size', '16');
+                label.setAttribute('font-weight', 'bold');
+                label.textContent = `s = ${formatNum(side)} ${unit}`;
+                svg.appendChild(label);
+            },
+            hexagon: () => {
+                const side = inputs.side || 5;
+                const scale = Math.min(150 / (side * 2), 25);
+                const r = side * scale;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [];
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i;
+                    points.push(`${centerX + r * Math.cos(angle)},${centerY + r * Math.sin(angle)}`);
+                }
+                polygon.setAttribute('points', points.join(' '));
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', centerX);
+                label.setAttribute('y', centerY + r + 25);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#1e40af');
+                label.setAttribute('font-size', '16');
+                label.setAttribute('font-weight', 'bold');
+                label.textContent = `s = ${formatNum(side)} ${unit}`;
+                svg.appendChild(label);
+            },
+            octagon: () => {
+                const side = inputs.side || 5;
+                const scale = Math.min(150 / (side * 2), 25);
+                const r = side * scale * 1.3;
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = [];
+                for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 / 8) * i - Math.PI / 8;
+                    points.push(`${centerX + r * Math.cos(angle)},${centerY + r * Math.sin(angle)}`);
+                }
+                polygon.setAttribute('points', points.join(' '));
+                polygon.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                polygon.setAttribute('stroke', '#3b82f6');
+                polygon.setAttribute('stroke-width', '3');
+                svg.appendChild(polygon);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', centerX);
+                label.setAttribute('y', centerY + r + 25);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#1e40af');
+                label.setAttribute('font-size', '16');
+                label.setAttribute('font-weight', 'bold');
+                label.textContent = `s = ${formatNum(side)} ${unit}`;
+                svg.appendChild(label);
+            },
+            sector: () => {
+                const radius = inputs.radius || 5;
+                const angle = inputs.angle || 60;
+                const scale = Math.min(150 / (radius * 2), 30);
+                const r = radius * scale;
+                const startAngle = -Math.PI / 2;
+                const endAngle = startAngle + (angle * Math.PI / 180);
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const x1 = centerX + r * Math.cos(startAngle);
+                const y1 = centerY + r * Math.sin(startAngle);
+                const x2 = centerX + r * Math.cos(endAngle);
+                const y2 = centerY + r * Math.sin(endAngle);
+                const largeArcFlag = angle > 180 ? 1 : 0;
+                path.setAttribute('d', 
+                    `M ${centerX} ${centerY} ` +
+                    `L ${x1} ${y1} ` +
+                    `A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} ` +
+                    `Z`);
+                path.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                path.setAttribute('stroke', '#3b82f6');
+                path.setAttribute('stroke-width', '3');
+                svg.appendChild(path);
+                
+                // Radius line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', centerX);
+                line.setAttribute('y1', centerY);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', '#1e40af');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX + r/2 * Math.cos((startAngle + endAngle)/2));
+                label1.setAttribute('y', centerY + r/2 * Math.sin((startAngle + endAngle)/2) - 10);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '14');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `r = ${formatNum(radius)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX);
+                label2.setAttribute('y', centerY + r + 25);
+                label2.setAttribute('text-anchor', 'middle');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '14');
+                label2.setAttribute('font-weight', 'bold');
+                label2.textContent = `θ = ${formatNum(angle)}°`;
+                svg.appendChild(label2);
+            },
+            annulus: () => {
+                const outerR = inputs.outer_radius || 8;
+                const innerR = inputs.inner_radius || 5;
+                const scale = Math.min(150 / (outerR * 2), 20);
+                const rOuter = outerR * scale;
+                const rInner = innerR * scale;
+                
+                const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                outerCircle.setAttribute('cx', centerX);
+                outerCircle.setAttribute('cy', centerY);
+                outerCircle.setAttribute('r', rOuter);
+                outerCircle.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+                outerCircle.setAttribute('stroke', '#3b82f6');
+                outerCircle.setAttribute('stroke-width', '3');
+                svg.appendChild(outerCircle);
+                
+                const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                innerCircle.setAttribute('cx', centerX);
+                innerCircle.setAttribute('cy', centerY);
+                innerCircle.setAttribute('r', rInner);
+                innerCircle.setAttribute('fill', 'rgba(102, 126, 234, 0.5)');
+                innerCircle.setAttribute('stroke', '#3b82f6');
+                innerCircle.setAttribute('stroke-width', '3');
+                svg.appendChild(innerCircle);
+                
+                // Radius lines
+                const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line1.setAttribute('x1', centerX);
+                line1.setAttribute('y1', centerY);
+                line1.setAttribute('x2', centerX + rOuter);
+                line1.setAttribute('y2', centerY);
+                line1.setAttribute('stroke', '#1e40af');
+                line1.setAttribute('stroke-width', '2');
+                line1.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line1);
+                
+                const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line2.setAttribute('x1', centerX);
+                line2.setAttribute('y1', centerY);
+                line2.setAttribute('x2', centerX + rInner);
+                line2.setAttribute('y2', centerY);
+                line2.setAttribute('stroke', '#1e40af');
+                line2.setAttribute('stroke-width', '2');
+                line2.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line2);
+                
+                // Labels
+                const label1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label1.setAttribute('x', centerX + rOuter/2);
+                label1.setAttribute('y', centerY - 10);
+                label1.setAttribute('text-anchor', 'middle');
+                label1.setAttribute('fill', '#1e40af');
+                label1.setAttribute('font-size', '14');
+                label1.setAttribute('font-weight', 'bold');
+                label1.textContent = `R = ${formatNum(outerR)} ${unit}`;
+                svg.appendChild(label1);
+                
+                const label2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label2.setAttribute('x', centerX + rInner/2);
+                label2.setAttribute('y', centerY + 5);
+                label2.setAttribute('text-anchor', 'middle');
+                label2.setAttribute('fill', '#1e40af');
+                label2.setAttribute('font-size', '14');
+                label2.setAttribute('font-weight', 'bold');
+                label2.textContent = `r = ${formatNum(innerR)} ${unit}`;
+                svg.appendChild(label2);
+            }
+        };
+        
+        // Clear container and draw shape
+        container.innerHTML = '';
+        
+        if (shapes[shape]) {
+            shapes[shape]();
+            container.appendChild(svg);
+        } else {
+            // Fallback for unknown shapes
+            container.innerHTML = `
+                <div class="text-center text-gray-500">
+                    <p class="text-lg font-semibold mb-2">${shape.charAt(0).toUpperCase() + shape.slice(1)}</p>
+                    <p class="text-sm">Area: ${formatNum(area)} ${data.area_unit || 'm²'}</p>
+                </div>
+            `;
+        }
+    }
+    
+    // Clear button
+    const clearBtn = document.getElementById('clearBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            calculatorForm.reset();
+            updateInputs();
+            if (results) results.classList.add('hidden');
+            if (initialState) initialState.classList.remove('hidden');
+            if (quickActions) quickActions.classList.add('hidden');
+            if (errorState) errorState.classList.add('hidden');
+            
+            // Clear shape visualization
+            const shapeViz = document.getElementById('shapeVisualization');
+            if (shapeViz) {
+                shapeViz.innerHTML = '<p class="text-gray-500">{% trans "Shape will be displayed here after calculation" %}</p>';
+            }
+            
+            // Destroy charts
+            if (areaGaugeChart) {
+                areaGaugeChart.destroy();
+                areaGaugeChart = null;
+            }
+            if (propertiesChart) {
+                propertiesChart.destroy();
+                propertiesChart = null;
+            }
+            if (comparisonChart) {
+                comparisonChart.destroy();
+                comparisonChart = null;
+            }
+        });
+    }
+    
+    // Export button
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+        const resultsElement = document.getElementById('results');
+        if (!resultsElement || resultsElement.classList.contains('hidden')) {
+            alert('{% trans "Please calculate an area first before exporting." %}');
+            return;
+        }
+        
+        const areaResult = document.getElementById('areaResult');
+        const areaUnit = document.getElementById('areaUnit');
+        const formulaDisplay = document.getElementById('formulaDisplay');
+        
+        if (!areaResult || !areaUnit || !formulaDisplay) {
+            alert('{% trans "Unable to export. Please try calculating again." %}');
+            return;
+        }
+        
+        const results = {
+            shape: document.getElementById('shape').value,
+            area: areaResult.textContent,
+            unit: areaUnit.textContent,
+            formula: formulaDisplay.textContent,
+            timestamp: new Date().toISOString()
+        };
+        
+        try {
+            const dataStr = JSON.stringify(results, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `area-calculation-${Date.now()}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('{% trans "Error exporting results. Please try again." %}');
+        }
+        });
+    }
+    
+    // Calculation History (localStorage)
+    let calculationHistory = JSON.parse(localStorage.getItem('areaCalculatorHistory') || '[]');
+    
+    function saveToHistory(data) {
+        try {
+            if (!data || typeof data.area === 'undefined') {
+                console.warn('Cannot save to history: invalid data');
+                return;
+            }
+            
+            const historyItem = {
+                timestamp: new Date().toISOString(),
+                shape: data.shape_display_name || data.shape || 'Unknown',
+                area: typeof data.area === 'number' ? data.area : parseFloat(data.area) || 0,
+                unit: data.unit || 'm',
+                area_unit: data.area_unit || 'm²',
+                formula: data.formula || 'N/A',
+                inputs: data.inputs || {}
+            };
+            
+            calculationHistory.unshift(historyItem);
+            if (calculationHistory.length > 20) {
+                calculationHistory = calculationHistory.slice(0, 20);
+            }
+            
+            localStorage.setItem('areaCalculatorHistory', JSON.stringify(calculationHistory));
+        } catch (error) {
+            console.error('Error saving to history:', error);
+        }
+    }
+    
+    // Add history display if needed (optional feature)
+    function loadFromHistory(index) {
+        if (index >= 0 && index < calculationHistory.length) {
+            const item = calculationHistory[index];
+            shapeSelect.value = item.shape.toLowerCase();
+            updateInputs();
+            
+            // Try to populate inputs if available
+            if (item.inputs) {
+                Object.keys(item.inputs).forEach(key => {
+                    const input = document.getElementById(key);
+                    if (input && item.inputs[key]) {
+                        input.value = item.inputs[key];
+                    }
+                });
+            }
+            
+            calculatorForm.dispatchEvent(new Event('submit'));
+        }
+    }
+});
+</script>
+{% endblock %}

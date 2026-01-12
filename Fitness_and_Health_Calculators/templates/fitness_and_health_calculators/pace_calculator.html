@@ -1,0 +1,930 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Pace Calculator" %} - {% trans "Calculate Running Pace & Speed" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate running or cycling pace from distance and time. Convert between pace per km and pace per mile. Get speed conversions and race time predictions." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'pace calculator, running pace, running speed, race pace calculator, marathon pace calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Pace Calculator' %} - {% trans 'Calculate Running Pace' %}">
+<meta property="og:description" content="{% trans 'Calculate running or cycling pace from distance and time.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Pace Calculator' %}",
+    "description": "{% trans 'Calculate running pace and speed' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Pace Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your running or cycling pace from distance and time. Convert between pace per km and pace per mile. Get speed conversions and race time predictions for common distances." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type -->
+                        <div>
+                            <label for="calc_type" class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                            <select id="calc_type" name="calc_type" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="pace_from_time">{% trans "Pace from Time" %}</option>
+                                <option value="time_from_pace">{% trans "Time from Pace" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Distance Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Distance Unit" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="distance_unit" value="km" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Kilometers" %} (km)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="distance_unit" value="miles" class="mr-2">
+                                    <span class="text-sm">{% trans "Miles" %} (mi)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Pace from Time Section -->
+                        <div id="paceFromTime">
+                            <div>
+                                <label for="distance" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Distance" %}</label>
+                                <input type="number" id="distance" name="distance" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    value="5" min="0.1" step="0.1" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Time" %}</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">{% trans "Hours" %}</label>
+                                        <input type="number" id="hours" name="hours" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            value="0" min="0" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">{% trans "Minutes" %}</label>
+                                        <input type="number" id="minutes" name="minutes" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            value="30" min="0" max="59" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">{% trans "Seconds" %}</label>
+                                        <input type="number" id="seconds" name="seconds" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            value="0" min="0" max="59" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Time from Pace Section -->
+                        <div id="timeFromPace" class="hidden">
+                            <div>
+                                <label for="distance2" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Distance" %}</label>
+                                <input type="number" id="distance2" name="distance2" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    value="5" min="0.1" step="0.1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Pace per km" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                        <label class="block text-xs text-gray-600 mb-1">{% trans "Minutes" %}</label>
+                                        <input type="number" id="pace_minutes" name="pace_minutes" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            value="5" min="0">
+                                </div>
+                                <div>
+                                        <label class="block text-xs text-gray-600 mb-1">{% trans "Seconds" %}</label>
+                                        <input type="number" id="pace_seconds" name="pace_seconds" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                            value="0" min="0" max="59">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                        </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your distance and time (or pace), then click Calculate to see your pace, speed, and race time predictions for common distances." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2" id="resultLabel">{% trans "Pace per Kilometer" %}</p>
+                            <p id="paceResult" class="text-4xl sm:text-5xl font-bold mb-2">0:00</p>
+                            <p class="text-sm opacity-90" id="resultSubtext">/km</p>
+                            <div id="paceCategoryBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="paceCategoryText">-</span>
+                            </div>
+                        </div>
+                </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Pace per Mile" %}</p>
+                                <p id="pacePerMile" class="text-lg font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Speed" %}</p>
+                                <p id="speedDisplay" class="text-lg font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Distance" %}</p>
+                                <p id="distanceDisplay" class="text-lg font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Pace Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Pace Gauge" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="paceGaugeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Speed Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Speed Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="speedChart"></canvas>
+                            </div>
+                    </div>
+                </div>
+
+                    <!-- Common Distances Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Race Time Predictions" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="distancesChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Common Distances Table -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Common Race Distances" %}</h3>
+                        <div id="commonDistancesTable" class="space-y-2">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Pace Category Card -->
+                    <div id="paceCategoryCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Pace Category" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="paceCategoryBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="paceCategoryDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Pace Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Running Pace?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Running pace is the time it takes to cover a specific distance, typically expressed as minutes per kilometer (min/km) or minutes per mile (min/mi). It's a fundamental metric for runners to track performance, plan training, and predict race times." %}
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                <p class="text-center font-mono text-lg font-bold text-gray-900">{% trans "Pace = Time ÷ Distance" %}</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "For example, if you run 5 kilometers in 30 minutes, your pace is 6 minutes per kilometer (30 ÷ 5 = 6 min/km)." %}
+                            </p>
+                        </div>
+
+                        <!-- Pace Categories Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Pace Categories" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Elite: &lt; 3:30 min/km" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "World-class performance. Professional and elite competitive runners." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Advanced: 3:30-4:00 min/km" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Excellent performance. Highly trained runners with years of experience." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Intermediate: 4:00-5:00 min/km" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Good fitness level. Regular runners with consistent training." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Recreational: 5:00-6:00 min/km" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Healthy activity level. Casual runners maintaining fitness." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Beginner: 6:00-7:00 min/km" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Building fitness. New runners or those returning to running." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Walking: &gt; 7:00 min/km" %}</h4>
+                                    <p class="text-sm text-purple-800">
+                                        {% trans "Walking pace. Great for health, recovery, and active rest." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select calculation type: 'Pace from Time' or 'Time from Pace'" %}</li>
+                                <li>{% trans "Choose your distance unit (kilometers or miles)" %}</li>
+                                <li>{% trans "Enter your distance and time (or pace)" %}</li>
+                                <li>{% trans "Click 'Calculate' to see your results" %}</li>
+                                <li>{% trans "Review your pace, speed, and race time predictions" %}</li>
+                                <li>{% trans "Use the charts to visualize your performance" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Pace per Kilometer/Mile" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The time it takes to run one kilometer or one mile. Lower numbers mean faster pace. Displayed as minutes:seconds per unit distance." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Speed (km/h or mph)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your average running speed. Calculated as distance divided by time. Useful for comparing with other activities like cycling or driving." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Race Time Predictions" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Estimated finish times for common race distances (1km, 5km, 10km, half marathon, marathon) based on your current pace. Useful for goal setting and race planning." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Training Tips Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Training Tips" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Consistent Training" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Regular running improves pace over time. Aim for 3-4 runs per week with gradual distance increases." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Interval Training" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Incorporate speed work (intervals, tempo runs) to improve pace. Mix fast and slow runs for balanced training." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Recovery" %}</h4>
+                                    <p class="text-sm text-purple-800">
+                                        {% trans "Allow adequate rest between hard runs. Recovery is essential for improvement and injury prevention." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Pace varies with terrain, weather, elevation, and fitness level. Use this calculator as a guide, not an absolute measure." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Race time predictions assume you can maintain the same pace for longer distances, which may not always be realistic. Adjust expectations based on your training." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "For accurate pace tracking, use GPS watches, running apps, or measured courses. Manual calculations are estimates." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Always listen to your body. If you experience pain or excessive fatigue, rest and consult with healthcare professionals." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let paceGaugeChart = null;
+let distancesChart = null;
+let speedChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const calcType = document.getElementById('calc_type');
+    const paceFromTime = document.getElementById('paceFromTime');
+    const timeFromPace = document.getElementById('timeFromPace');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Toggle calculation type
+    calcType.addEventListener('change', function() {
+        if (this.value === 'pace_from_time') {
+            paceFromTime.classList.remove('hidden');
+            timeFromPace.classList.add('hidden');
+            document.getElementById('distance').required = true;
+            document.getElementById('distance2').required = false;
+        } else {
+            paceFromTime.classList.add('hidden');
+            timeFromPace.classList.remove('hidden');
+            document.getElementById('distance').required = false;
+            document.getElementById('distance2').required = true;
+        }
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    });
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('distance').value = '5';
+        document.getElementById('distance2').value = '5';
+        document.getElementById('hours').value = '0';
+        document.getElementById('minutes').value = '30';
+        document.getElementById('seconds').value = '0';
+        document.getElementById('pace_minutes').value = '5';
+        document.getElementById('pace_seconds').value = '0';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (paceGaugeChart) paceGaugeChart.destroy();
+        if (distancesChart) distancesChart.destroy();
+        if (speedChart) speedChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const calcTypeValue = calcType.value;
+        const distanceUnit = document.querySelector('input[name="distance_unit"]:checked').value;
+        
+        let formData = {
+            calc_type: calcTypeValue,
+            distance_unit: distanceUnit
+        };
+
+        if (calcTypeValue === 'pace_from_time') {
+            formData.distance = parseFloat(document.getElementById('distance').value);
+            formData.hours = parseInt(document.getElementById('hours').value) || 0;
+            formData.minutes = parseInt(document.getElementById('minutes').value) || 0;
+            formData.seconds = parseInt(document.getElementById('seconds').value) || 0;
+        } else {
+            formData.distance = parseFloat(document.getElementById('distance2').value);
+            formData.pace_minutes = parseInt(document.getElementById('pace_minutes').value) || 0;
+            formData.pace_seconds = parseInt(document.getElementById('pace_seconds').value) || 0;
+        }
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data, calcTypeValue);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data, calcType) {
+        try {
+            if (calcType === 'pace_from_time') {
+                // Update main pace result
+                const paceResultEl = document.getElementById('paceResult');
+                const resultLabelEl = document.getElementById('resultLabel');
+                const resultSubtextEl = document.getElementById('resultSubtext');
+                
+                if (paceResultEl) {
+                const pace = data.pace_per_km;
+                    paceResultEl.textContent = `${pace.minutes}:${pace.seconds.toString().padStart(2, '0')}`;
+                }
+                if (resultLabelEl) resultLabelEl.textContent = '{% trans "Pace per Kilometer" %}';
+                if (resultSubtextEl) resultSubtextEl.textContent = '/km';
+                
+                // Update summary cards
+                const pacePerMileEl = document.getElementById('pacePerMile');
+                const speedDisplayEl = document.getElementById('speedDisplay');
+                const distanceDisplayEl = document.getElementById('distanceDisplay');
+                
+                if (pacePerMileEl) {
+                    const paceMile = data.pace_per_mile;
+                    pacePerMileEl.textContent = `${paceMile.minutes}:${paceMile.seconds.toString().padStart(2, '0')} /mi`;
+                }
+                if (speedDisplayEl) {
+                    speedDisplayEl.textContent = `${data.speed.kmh.toFixed(2)} km/h (${data.speed.mph.toFixed(2)} mph)`;
+                }
+                if (distanceDisplayEl) {
+                    distanceDisplayEl.textContent = `${data.distance_km.toFixed(2)} km (${data.distance_miles.toFixed(2)} mi)`;
+                }
+                
+                // Update common distances table
+                const commonDistancesTable = document.getElementById('commonDistancesTable');
+                if (commonDistancesTable) {
+                    const distances = [
+                        { name: '{% trans "1 km" %}', key: '1km' },
+                        { name: '{% trans "5 km" %}', key: '5km' },
+                        { name: '{% trans "10 km" %}', key: '10km' },
+                        { name: '{% trans "Half Marathon" %}', key: 'half_marathon' },
+                        { name: '{% trans "Marathon" %}', key: 'marathon' }
+                    ];
+                    
+                    commonDistancesTable.innerHTML = distances.map(dist => {
+                        const minutes = Math.floor(data.common_distances[dist.key]);
+                        const seconds = Math.round((data.common_distances[dist.key] - minutes) * 60);
+                        const hours = Math.floor(minutes / 60);
+                        const mins = minutes % 60;
+                        const timeStr = hours > 0 
+                            ? `${hours}:${mins.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                            : `${mins}:${seconds.toString().padStart(2, '0')}`;
+                        return `
+                            <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                <span class="text-gray-700 font-medium">${dist.name}</span>
+                                <span class="text-gray-900 font-bold">${timeStr}</span>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                
+                // Create/Update Charts
+                if (data.chart_data && checkChartJS()) {
+                    if (data.chart_data.pace_gauge_chart) {
+                        createPaceGaugeChart(data.chart_data.pace_gauge_chart);
+                    }
+                    if (data.chart_data.distances_chart) {
+                        createDistancesChart(data.chart_data.distances_chart);
+                    }
+                    if (data.chart_data.speed_chart) {
+                        createSpeedChart(data.chart_data.speed_chart);
+                    }
+                }
+            } else {
+                // Time from pace
+                const paceResultEl = document.getElementById('paceResult');
+                const resultLabelEl = document.getElementById('resultLabel');
+                const resultSubtextEl = document.getElementById('resultSubtext');
+                
+                if (paceResultEl) {
+                const time = data.total_time;
+                    paceResultEl.textContent = `${time.hours}:${time.minutes.toString().padStart(2, '0')}:${time.seconds.toString().padStart(2, '0')}`;
+                }
+                if (resultLabelEl) resultLabelEl.textContent = '{% trans "Total Time" %}';
+                if (resultSubtextEl) resultSubtextEl.textContent = '';
+                
+                // Update summary cards
+                const pacePerMileEl = document.getElementById('pacePerMile');
+                const speedDisplayEl = document.getElementById('speedDisplay');
+                const distanceDisplayEl = document.getElementById('distanceDisplay');
+                
+                if (pacePerMileEl) {
+                    pacePerMileEl.textContent = `${data.pace_per_km.toFixed(2)} min/km`;
+                }
+                if (speedDisplayEl) {
+                    speedDisplayEl.textContent = '-';
+                }
+                if (distanceDisplayEl) {
+                    distanceDisplayEl.textContent = `${data.distance_km.toFixed(2)} km`;
+                }
+            }
+            
+            // Update pace category
+            const paceCategoryBadge = document.getElementById('paceCategoryBadge');
+            const paceCategoryText = document.getElementById('paceCategoryText');
+            const paceCategoryBadgeCard = document.getElementById('paceCategoryBadgeCard');
+            const paceCategoryDescription = document.getElementById('paceCategoryDescription');
+            
+            if (paceCategoryText) paceCategoryText.textContent = data.pace_category;
+            if (paceCategoryDescription && data.pace_description) {
+                paceCategoryDescription.textContent = data.pace_description;
+            }
+            if (paceCategoryBadge && data.color_info) {
+                paceCategoryBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+            }
+            if (paceCategoryBadgeCard && data.color_info) {
+                const colors = {
+                    'red': 'bg-red-600',
+                    'orange': 'bg-orange-600',
+                    'yellow': 'bg-yellow-600',
+                    'green': 'bg-green-600',
+                    'blue': 'bg-blue-600',
+                    'purple': 'bg-purple-600'
+                };
+                paceCategoryBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.pace_color] || 'bg-gray-600');
+                paceCategoryBadgeCard.textContent = data.pace_category;
+            }
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'red': 'bg-gradient-to-br from-red-600 to-red-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'purple': 'bg-gradient-to-br from-purple-600 to-purple-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.pace_color] || 'bg-gradient-to-br from-blue-600 to-blue-700');
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createPaceGaugeChart(chartData) {
+        const ctx = document.getElementById('paceGaugeChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (paceGaugeChart) {
+            paceGaugeChart.destroy();
+        }
+        
+        if (!chartData || !chartData.center_text) return;
+        
+        const centerText = chartData.center_text;
+        const paceColor = centerText.color;
+        
+        try {
+            paceGaugeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = paceColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value, centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating pace gauge chart:', error);
+        }
+    }
+    
+    function createDistancesChart(chartData) {
+        const ctx = document.getElementById('distancesChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (distancesChart) {
+            distancesChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            distancesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const minutes = Math.floor(context.parsed.y);
+                                    const seconds = Math.round((context.parsed.y - minutes) * 60);
+                                    const hours = Math.floor(minutes / 60);
+                                    const mins = minutes % 60;
+                                    const timeStr = hours > 0 
+                                        ? `${hours}:${mins.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                                        : `${mins}:${seconds.toString().padStart(2, '0')}`;
+                                    return context.label + ': ' + timeStr;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    const minutes = Math.floor(value);
+                                    const seconds = Math.round((value - minutes) * 60);
+                                    const hours = Math.floor(minutes / 60);
+                                    const mins = minutes % 60;
+                                    return hours > 0 ? `${hours}:${mins}` : `${mins}:${seconds}`;
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating distances chart:', error);
+        }
+    }
+    
+    function createSpeedChart(chartData) {
+        const ctx = document.getElementById('speedChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (speedChart) {
+            speedChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            speedChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+        }
+    });
+        } catch (error) {
+            console.error('Error creating speed chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

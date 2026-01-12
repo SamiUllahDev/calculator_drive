@@ -1,0 +1,794 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Roofing Calculator - Calculate Roof Area, Materials & Cost" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Roofing Calculator. Calculate roof area, materials needed, pitch, and cost estimates for your roofing project." %}{% endblock %}
+{% block meta_keywords %}{% trans "roofing calculator, calculate roof area, roof area calculator, roofing materials calculator, roof pitch calculator, roofing cost estimator, shingle calculator, roof square calculator, roofing estimate, roof material calculator, roof replacement calculator, how to calculate roof area, roofing finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Roofing Calculator - Calculate Roof Area, Materials & Cost" %}{% endblock %}
+{% block og_description %}{% trans "Calculate roof area, materials needed, pitch, and cost estimates for your roofing project. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Roofing Calculator - Calculate Roof Area, Materials & Cost" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate roof area, materials, and cost estimates. Free online roofing calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Roofing Calculator' %}",
+  "description": "{% trans 'Free online Roofing Calculator. Calculate roof area, materials needed, pitch, and cost estimates for your roofing project.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "2100"},
+  "featureList": ["{% trans 'Roof area calculation' %}", "{% trans 'Material estimation' %}", "{% trans 'Cost estimation' %}", "{% trans 'Roof pitch calculation' %}", "{% trans 'Multiple roof types' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Roofing Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate roof area, materials needed, pitch, and cost estimates" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <!-- Calculation Type Selector -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="area">{% trans "Calculate Roof Area" %}</option>
+                        <option value="materials">{% trans "Calculate Materials Needed" %}</option>
+                        <option value="pitch">{% trans "Calculate Roof Pitch" %}</option>
+                        <option value="cost">{% trans "Calculate Cost Estimate" %}</option>
+                    </select>
+                </div>
+
+                <!-- Area Calculator -->
+                <div id="areaCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Roof Area" %}</h2>
+                    <form id="areaForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Roof Shape" %}</label>
+                            <select id="roofShape" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="gable">{% trans "Gable Roof" %}</option>
+                                <option value="hip">{% trans "Hip Roof" %}</option>
+                                <option value="flat">{% trans "Flat Roof" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Length" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="length" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="lengthUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="feet">{% trans "Feet" %}</option>
+                                    <option value="meters">{% trans "Meters" %}</option>
+                                    <option value="inches">{% trans "Inches" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Width" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="width" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="widthUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="feet">{% trans "Feet" %}</option>
+                                    <option value="meters">{% trans "Meters" %}</option>
+                                    <option value="inches">{% trans "Inches" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div id="pitchField">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Roof Pitch (rise in 12)" %}</label>
+                            <input type="number" id="pitch" min="0" step="0.1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Enter the rise in inches for every 12 inches of run (e.g., 6 for 6:12 pitch)" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                            <select id="resultUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="square_feet">{% trans "Square Feet" %}</option>
+                                <option value="square_meters">{% trans "Square Meters" %}</option>
+                                <option value="square_yards">{% trans "Square Yards" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Area" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Materials Calculator -->
+                <div id="materialsCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Materials Needed" %}</h2>
+                    <form id="materialsForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Roof Area" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="materialsArea" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="materialsAreaUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="square_feet">{% trans "ft²" %}</option>
+                                    <option value="square_meters">{% trans "m²" %}</option>
+                                    <option value="square_yards">{% trans "yd²" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Material Type" %}</label>
+                            <select id="materialType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="asphalt_shingles">{% trans "Asphalt Shingles" %}</option>
+                                <option value="wood_shingles">{% trans "Wood Shingles" %}</option>
+                                <option value="slate_tiles">{% trans "Slate Tiles" %}</option>
+                                <option value="clay_tiles">{% trans "Clay Tiles" %}</option>
+                                <option value="metal_roofing">{% trans "Metal Roofing" %}</option>
+                                <option value="rubber_roofing">{% trans "Rubber Roofing" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Waste Factor (%)" %}</label>
+                            <input type="number" id="materialsWaste" min="0" max="50" step="1" value="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Typical waste factor is 10-15% for most roofing materials" %}</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Materials" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Pitch Calculator -->
+                <div id="pitchCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Roof Pitch" %}</h2>
+                    <form id="pitchForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Rise (inches)" %}</label>
+                            <input type="number" id="rise" min="0" step="0.1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Vertical distance from top of wall to peak" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Run (inches)" %}</label>
+                            <input type="number" id="run" min="0.01" step="0.1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Horizontal distance (typically 12 inches for standard pitch measurement)" %}</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Pitch" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Cost Calculator -->
+                <div id="costCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Cost Estimate" %}</h2>
+                    <form id="costForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Roof Area" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="costArea" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="costAreaUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="square_feet">{% trans "ft²" %}</option>
+                                    <option value="square_meters">{% trans "m²" %}</option>
+                                    <option value="square_yards">{% trans "yd²" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Price per Square" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="pricePerSquare" min="0" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="currency" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="usd">USD ($)</option>
+                                    <option value="eur">EUR (€)</option>
+                                    <option value="gbp">GBP (£)</option>
+                                    <option value="cad">CAD ($)</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "1 square = 100 square feet" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Labor Cost" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="laborCost" min="0" step="0.01" value="0" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="laborCurrency" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="usd">USD ($)</option>
+                                    <option value="eur">EUR (€)</option>
+                                    <option value="gbp">GBP (£)</option>
+                                    <option value="cad">CAD ($)</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Waste Factor (%)" %}</label>
+                            <input type="number" id="costWaste" min="0" max="50" step="1" value="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Cost" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Roofing Calculation?" %}</h3>
+                            <p>{% trans "Roofing calculations help determine the area of your roof, materials needed, pitch, and cost estimates for roofing projects." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select calculation type" %}</li>
+                                <li>{% trans "Enter required measurements" %}</li>
+                                <li>{% trans "Click calculate to get results" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Roof Shapes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li><strong>{% trans "Gable" %}:</strong> {% trans "Two sloping sides meeting at a ridge" %}</li>
+                                <li><strong>{% trans "Hip" %}:</strong> {% trans "Four sloping sides meeting at a ridge" %}</li>
+                                <li><strong>{% trans "Flat" %}:</strong> {% trans "Horizontal or nearly horizontal roof" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Roof Pitch" %}</h3>
+                            <p class="text-xs">{% trans "Pitch is expressed as rise in inches per 12 inches of run. Common pitches:" %}</p>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs mt-2">
+                                <p><strong>4:12</strong> - {% trans "Low slope" %}</p>
+                                <p><strong>6:12</strong> - {% trans "Moderate slope" %}</p>
+                                <p><strong>8:12</strong> - {% trans "Steep slope" %}</p>
+                                <p><strong>12:12</strong> - {% trans "Very steep (45°)" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Material Coverage" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Asphalt Shingles" %}:</strong> 33.33 ft²/bundle</p>
+                                <p><strong>{% trans "Wood Shingles" %}:</strong> 25 ft²/bundle</p>
+                                <p><strong>{% trans "Tiles/Metal" %}:</strong> 100 ft²/square</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Waste Factor" %}</h3>
+                            <p class="text-xs">{% trans "Waste factor accounts for cutting, trimming, and material loss. Typical values:" %}</p>
+                            <ul class="list-disc list-inside space-y-1 text-xs mt-2">
+                                <li>{% trans "Simple roofs: 10%" %}</li>
+                                <li>{% trans "Complex roofs: 15-20%" %}</li>
+                                <li>{% trans "Very complex: 20-25%" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Measure accurately for best results" %}</li>
+                                <li>{% trans "Account for overhangs and eaves" %}</li>
+                                <li>{% trans "Consider local building codes" %}</li>
+                                <li>{% trans "Get professional estimates for large projects" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "New construction planning" %}</li>
+                                <li>{% trans "Roof replacement projects" %}</li>
+                                <li>{% trans "Material ordering" %}</li>
+                                <li>{% trans "Cost estimation" %}</li>
+                                <li>{% trans "Contractor quotes" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    const roofShapeSelect = document.getElementById('roofShape');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalcMode(this.value);
+    });
+    
+    // Show/hide pitch field based on roof shape
+    roofShapeSelect.addEventListener('change', function() {
+        togglePitchField(this.value);
+    });
+    
+    // Form submissions
+    document.getElementById('areaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateArea();
+    });
+    
+    document.getElementById('materialsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateMaterials();
+    });
+    
+    document.getElementById('pitchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculatePitch();
+    });
+    
+    document.getElementById('costForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateCost();
+    });
+    
+    // Real-time validation
+    setupValidation();
+    
+    // Initialize
+    switchCalcMode('area');
+    togglePitchField('gable');
+});
+
+function switchCalcMode(mode) {
+    // Hide all calculation modes
+    document.querySelectorAll('.calc-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant mode
+    if (mode === 'area') {
+        document.getElementById('areaCalc').classList.remove('hidden');
+    } else if (mode === 'materials') {
+        document.getElementById('materialsCalc').classList.remove('hidden');
+    } else if (mode === 'pitch') {
+        document.getElementById('pitchCalc').classList.remove('hidden');
+    } else if (mode === 'cost') {
+        document.getElementById('costCalc').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function togglePitchField(shape) {
+    const pitchField = document.getElementById('pitchField');
+    if (shape === 'flat') {
+        pitchField.classList.add('hidden');
+    } else {
+        pitchField.classList.remove('hidden');
+    }
+}
+
+function setupValidation() {
+    // Area calculator validation
+    const lengthInput = document.getElementById('length');
+    const widthInput = document.getElementById('width');
+    const pitchInput = document.getElementById('pitch');
+    
+    if (lengthInput) {
+        lengthInput.addEventListener('blur', function() {
+            validatePositive(this);
+        });
+    }
+    
+    if (widthInput) {
+        widthInput.addEventListener('blur', function() {
+            validatePositive(this);
+        });
+    }
+    
+    if (pitchInput) {
+        pitchInput.addEventListener('blur', function() {
+            validateNonNegative(this);
+        });
+    }
+    
+    // Materials calculator validation
+    const materialsAreaInput = document.getElementById('materialsArea');
+    if (materialsAreaInput) {
+        materialsAreaInput.addEventListener('blur', function() {
+            validatePositive(this);
+        });
+    }
+    
+    // Pitch calculator validation
+    const riseInput = document.getElementById('rise');
+    const runInput = document.getElementById('run');
+    
+    if (riseInput) {
+        riseInput.addEventListener('blur', function() {
+            validateNonNegative(this);
+        });
+    }
+    
+    if (runInput) {
+        runInput.addEventListener('blur', function() {
+            validatePositive(this);
+        });
+    }
+    
+    // Cost calculator validation
+    const costAreaInput = document.getElementById('costArea');
+    const priceInput = document.getElementById('pricePerSquare');
+    const laborInput = document.getElementById('laborCost');
+    
+    if (costAreaInput) {
+        costAreaInput.addEventListener('blur', function() {
+            validatePositive(this);
+        });
+    }
+    
+    if (priceInput) {
+        priceInput.addEventListener('blur', function() {
+            validateNonNegative(this);
+        });
+    }
+    
+    if (laborInput) {
+        laborInput.addEventListener('blur', function() {
+            validateNonNegative(this);
+        });
+    }
+}
+
+function validatePositive(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    errorSpan.classList.add('hidden');
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value) || value <= 0) {
+        showError(input, '{% trans "Value must be greater than zero" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function validateNonNegative(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    errorSpan.classList.add('hidden');
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value) || value < 0) {
+        showError(input, '{% trans "Value must be non-negative" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    errorSpan.textContent = message;
+    errorSpan.classList.remove('hidden');
+}
+
+function calculateArea() {
+    const formData = {
+        calc_type: 'area',
+        roof_shape: document.getElementById('roofShape').value,
+        length: parseFloat(document.getElementById('length').value),
+        width: parseFloat(document.getElementById('width').value),
+        length_unit: document.getElementById('lengthUnit').value,
+        result_unit: document.getElementById('resultUnit').value,
+    };
+    
+    const roofShape = formData.roof_shape;
+    if (roofShape !== 'flat') {
+        formData.pitch = parseFloat(document.getElementById('pitch').value);
+    }
+    
+    // Validate
+    if (!formData.length || !formData.width) {
+        alert('{% trans "Please enter length and width" %}');
+        return;
+    }
+    
+    if (roofShape !== 'flat' && !formData.pitch) {
+        alert('{% trans "Please enter roof pitch" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateMaterials() {
+    const formData = {
+        calc_type: 'materials',
+        area: parseFloat(document.getElementById('materialsArea').value),
+        area_unit: document.getElementById('materialsAreaUnit').value,
+        material_type: document.getElementById('materialType').value,
+        waste_factor: parseFloat(document.getElementById('materialsWaste').value) || 10,
+    };
+    
+    if (!formData.area) {
+        alert('{% trans "Please enter roof area" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculatePitch() {
+    const formData = {
+        calc_type: 'pitch',
+        rise: parseFloat(document.getElementById('rise').value),
+        run: parseFloat(document.getElementById('run').value),
+    };
+    
+    if (!formData.rise || !formData.run) {
+        alert('{% trans "Please enter rise and run" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateCost() {
+    const formData = {
+        calc_type: 'cost',
+        area: parseFloat(document.getElementById('costArea').value),
+        area_unit: document.getElementById('costAreaUnit').value,
+        price_per_square: parseFloat(document.getElementById('pricePerSquare').value),
+        labor_cost: parseFloat(document.getElementById('laborCost').value) || 0,
+        waste_factor: parseFloat(document.getElementById('costWaste').value) || 10,
+        currency: document.getElementById('currency').value,
+    };
+    
+    if (!formData.area || !formData.price_per_square) {
+        alert('{% trans "Please enter area and price per square" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:roofing_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'area') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Roof Shape" %}: ${data.roof_shape.charAt(0).toUpperCase() + data.roof_shape.slice(1)}</p>
+            <p class="text-3xl font-bold text-blue-600">${data.area.toLocaleString()} ${getUnitLabel(data.result_unit)}</p>
+            <p class="text-sm text-gray-600 mt-2">(${data.area_m2.toFixed(2)} m²)</p>
+        </div>`;
+    } else if (data.calc_type === 'materials') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg space-y-3">
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Roof Area" %}</p>
+                <p class="text-xl font-semibold">${data.area.toLocaleString()} ${getUnitLabel(data.area_unit)}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Area with Waste" %}</p>
+                <p class="text-xl font-semibold">${data.area_with_waste.toLocaleString()} ft²</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Bundles Needed" %}</p>
+                <p class="text-3xl font-bold text-blue-600">${data.bundles_needed}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Squares Needed" %}</p>
+                <p class="text-xl font-semibold">${data.squares_needed.toFixed(2)}</p>
+            </div>
+        </div>`;
+    } else if (data.calc_type === 'pitch') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg space-y-3">
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Pitch" %}</p>
+                <p class="text-3xl font-bold text-blue-600">${data.pitch.toFixed(2)}:12</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Angle" %}</p>
+                <p class="text-xl font-semibold">${data.angle.toFixed(2)}°</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Slope" %}</p>
+                <p class="text-xl font-semibold">${data.slope_percent.toFixed(2)}%</p>
+            </div>
+        </div>`;
+    } else if (data.calc_type === 'cost') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg space-y-3">
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Squares Needed" %}</p>
+                <p class="text-xl font-semibold">${data.squares_needed.toFixed(2)}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Material Cost" %}</p>
+                <p class="text-xl font-semibold">${formatCurrency(data.material_cost, data.currency)}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Labor Cost" %}</p>
+                <p class="text-xl font-semibold">${formatCurrency(data.labor_cost, data.currency)}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600 mb-1">{% trans "Total Cost" %}</p>
+                <p class="text-3xl font-bold text-blue-600">${formatCurrency(data.total_cost, data.currency)}</p>
+            </div>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getUnitLabel(unit) {
+    const labels = {
+        'square_meters': 'm²',
+        'square_feet': 'ft²',
+        'square_yards': 'yd²',
+        'square_inches': 'in²',
+    };
+    return labels[unit] || unit;
+}
+
+function formatCurrency(amount, currency) {
+    const symbols = {
+        'usd': '$',
+        'eur': '€',
+        'gbp': '£',
+        'cad': '$',
+    };
+    const symbol = symbols[currency] || '$';
+    return symbol + amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

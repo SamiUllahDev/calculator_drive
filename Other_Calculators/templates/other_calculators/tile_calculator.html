@@ -1,0 +1,699 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Tile Calculator - Calculate Tiles Needed, Coverage & Cost" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Tile Calculator. Calculate number of tiles needed, area coverage, and cost estimates for your tiling project." %}{% endblock %}
+{% block meta_keywords %}{% trans "tile calculator, calculate tiles needed, tiles needed calculator, tile cost calculator, floor tile calculator, bathroom tile calculator, tile estimator, tile material calculator, tile installation calculator, ceramic tile calculator, tile coverage calculator, how many tiles do I need, tile finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Tile Calculator - Calculate Tiles Needed, Coverage & Cost" %}{% endblock %}
+{% block og_description %}{% trans "Calculate number of tiles needed, area coverage, and cost estimates for your tiling project. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Tile Calculator - Calculate Tiles Needed, Coverage & Cost" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate tiles needed and cost estimates for your tiling project. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Tile Calculator' %}",
+  "description": "{% trans 'Free online Tile Calculator. Calculate number of tiles needed, area coverage, and cost estimates for your tiling project.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.7", "ratingCount": "1400"},
+  "featureList": ["{% trans 'Tiles needed calculation' %}", "{% trans 'Area coverage' %}", "{% trans 'Cost estimation' %}", "{% trans 'Waste calculation' %}", "{% trans 'Multiple tile sizes' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Tile Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate tiles needed, coverage, and cost estimates" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <!-- Calculation Type Selector -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="tiles_needed">{% trans "Calculate Tiles Needed" %}</option>
+                        <option value="coverage">{% trans "Calculate Coverage" %}</option>
+                        <option value="cost">{% trans "Calculate Cost" %}</option>
+                    </select>
+                </div>
+
+                <!-- Tiles Needed Calculator -->
+                <div id="tilesNeededCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Tiles Needed" %}</h2>
+                    <form id="tilesNeededForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Area to Cover" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="area" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="areaUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="square_feet">{% trans "ft²" %}</option>
+                                    <option value="square_meters">{% trans "m²" %}</option>
+                                    <option value="square_yards">{% trans "yd²" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tile Length" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="tileLength" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <select id="tileUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="centimeters">{% trans "cm" %}</option>
+                                    </select>
+                                </div>
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tile Width" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="tileWidth" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <select id="tileWidthUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="centimeters">{% trans "cm" %}</option>
+                                    </select>
+                                </div>
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Waste Factor (%)" %}</label>
+                            <input type="number" id="wasteFactor" min="0" max="50" step="1" value="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Typical waste factor: 10-15% for most projects" %}</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Tiles Needed" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Coverage Calculator -->
+                <div id="coverageCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Coverage" %}</h2>
+                    <form id="coverageForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Number of Tiles" %}</label>
+                            <input type="number" id="numTiles" min="1" step="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tile Length" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="coverageTileLength" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <select id="coverageTileUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="centimeters">{% trans "cm" %}</option>
+                                    </select>
+                                </div>
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tile Width" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="coverageTileWidth" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <select id="coverageTileWidthUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="centimeters">{% trans "cm" %}</option>
+                                    </select>
+                                </div>
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                            <select id="coverageResultUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="square_feet">{% trans "Square Feet" %}</option>
+                                <option value="square_meters">{% trans "Square Meters" %}</option>
+                                <option value="square_yards">{% trans "Square Yards" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Coverage" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Cost Calculator -->
+                <div id="costCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Cost" %}</h2>
+                    <form id="costForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Area to Cover" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="costArea" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="costAreaUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="square_feet">{% trans "ft²" %}</option>
+                                    <option value="square_meters">{% trans "m²" %}</option>
+                                    <option value="square_yards">{% trans "yd²" %}</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tile Length" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="costTileLength" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <select id="costTileUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="centimeters">{% trans "cm" %}</option>
+                                    </select>
+                                </div>
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tile Width" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="costTileWidth" min="0.01" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <select id="costTileWidthUnit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="inches">{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="centimeters">{% trans "cm" %}</option>
+                                    </select>
+                                </div>
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Price per Tile" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="pricePerTile" min="0" step="0.01" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="currency" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="usd">USD ($)</option>
+                                    <option value="eur">EUR (€)</option>
+                                    <option value="gbp">GBP (£)</option>
+                                    <option value="cad">CAD ($)</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Grout Cost per lb" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="groutCost" min="0" step="0.01" value="0" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="groutCurrency" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="usd">USD ($)</option>
+                                    <option value="eur">EUR (€)</option>
+                                    <option value="gbp">GBP (£)</option>
+                                    <option value="cad">CAD ($)</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Labor Cost" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="laborCost" min="0" step="0.01" value="0" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <select id="laborCurrency" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="usd">USD ($)</option>
+                                    <option value="eur">EUR (€)</option>
+                                    <option value="gbp">GBP (£)</option>
+                                    <option value="cad">CAD ($)</option>
+                                </select>
+                            </div>
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Waste Factor (%)" %}</label>
+                            <input type="number" id="costWasteFactor" min="0" max="50" step="1" value="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Cost" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is a Tile Calculator?" %}</h3>
+                            <p>{% trans "A tile calculator helps determine the number of tiles needed, area coverage, and cost estimates for tiling projects." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select calculation type" %}</li>
+                                <li>{% trans "Enter area and tile dimensions" %}</li>
+                                <li>{% trans "Add waste factor and costs" %}</li>
+                                <li>{% trans "Click calculate" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li><strong>{% trans "Tiles Needed" %}:</strong> {% trans "Calculate tiles required for an area" %}</li>
+                                <li><strong>{% trans "Coverage" %}:</strong> {% trans "Calculate area covered by tiles" %}</li>
+                                <li><strong>{% trans "Cost" %}:</strong> {% trans "Calculate total project cost" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Tile Sizes" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Small" %}:</strong> 4" × 4"</p>
+                                <p><strong>{% trans "Medium" %}:</strong> 12" × 12"</p>
+                                <p><strong>{% trans "Large" %}:</strong> 18" × 18"</p>
+                                <p><strong>{% trans "Subway" %}:</strong> 3" × 6"</p>
+                                <p><strong>{% trans "Mosaic" %}:</strong> 1" × 1"</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Waste Factor" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Simple layouts" %}:</strong> 10%</p>
+                                <p><strong>{% trans "Complex patterns" %}:</strong> 15-20%</p>
+                                <p><strong>{% trans "Diagonal layouts" %}:</strong> 20-25%</p>
+                                <p><strong>{% trans "Mosaic tiles" %}:</strong> 15-20%</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Grout Estimation" %}</h3>
+                            <p class="text-xs">{% trans "Approximately 1 pound of grout per 10 square feet of tiled area. Actual amount depends on tile size and grout joint width." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Measure accurately for best results" %}</li>
+                                <li>{% trans "Account for cuts and waste" %}</li>
+                                <li>{% trans "Buy extra tiles for future repairs" %}</li>
+                                <li>{% trans "Consider tile orientation" %}</li>
+                                <li>{% trans "Check tile coverage per box" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Floor tiling" %}</li>
+                                <li>{% trans "Wall tiling" %}</li>
+                                <li>{% trans "Bathroom renovation" %}</li>
+                                <li>{% trans "Kitchen backsplash" %}</li>
+                                <li>{% trans "Shower installation" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalcMode(this.value);
+    });
+    
+    // Form submissions
+    document.getElementById('tilesNeededForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateTilesNeeded();
+    });
+    
+    document.getElementById('coverageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateCoverage();
+    });
+    
+    document.getElementById('costForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateCost();
+    });
+    
+    // Real-time validation
+    setupValidation();
+    
+    // Initialize
+    switchCalcMode('tiles_needed');
+});
+
+function switchCalcMode(mode) {
+    // Hide all calculation modes
+    document.querySelectorAll('.calc-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant mode
+    if (mode === 'tiles_needed') {
+        document.getElementById('tilesNeededCalc').classList.remove('hidden');
+    } else if (mode === 'coverage') {
+        document.getElementById('coverageCalc').classList.remove('hidden');
+    } else if (mode === 'cost') {
+        document.getElementById('costCalc').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function setupValidation() {
+    const inputs = document.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.id === 'wasteFactor' || this.id === 'costWasteFactor') {
+                validateWasteFactor(this);
+            } else {
+                validatePositive(this);
+            }
+        });
+    });
+}
+
+function validatePositive(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value)) {
+        showError(input, '{% trans "Please enter a valid number" %}');
+        return false;
+    }
+    
+    if (value <= 0) {
+        showError(input, '{% trans "Value must be greater than zero" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function validateWasteFactor(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value) || value < 0 || value > 50) {
+        showError(input, '{% trans "Waste factor must be between 0 and 50%" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    if (errorSpan) {
+        errorSpan.textContent = message;
+        errorSpan.classList.remove('hidden');
+    }
+}
+
+function calculateTilesNeeded() {
+    const formData = {
+        calc_type: 'tiles_needed',
+        area: parseFloat(document.getElementById('area').value),
+        area_unit: document.getElementById('areaUnit').value,
+        tile_length: parseFloat(document.getElementById('tileLength').value),
+        tile_width: parseFloat(document.getElementById('tileWidth').value),
+        tile_unit: document.getElementById('tileUnit').value,
+        waste_factor: parseFloat(document.getElementById('wasteFactor').value) || 10,
+    };
+    
+    if (!formData.area || !formData.tile_length || !formData.tile_width) {
+        alert('{% trans "Please enter area and tile dimensions" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateCoverage() {
+    const formData = {
+        calc_type: 'coverage',
+        num_tiles: parseInt(document.getElementById('numTiles').value),
+        tile_length: parseFloat(document.getElementById('coverageTileLength').value),
+        tile_width: parseFloat(document.getElementById('coverageTileWidth').value),
+        tile_unit: document.getElementById('coverageTileUnit').value,
+        result_unit: document.getElementById('coverageResultUnit').value,
+    };
+    
+    if (!formData.num_tiles || !formData.tile_length || !formData.tile_width) {
+        alert('{% trans "Please enter number of tiles and tile dimensions" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateCost() {
+    const formData = {
+        calc_type: 'cost',
+        area: parseFloat(document.getElementById('costArea').value),
+        area_unit: document.getElementById('costAreaUnit').value,
+        tile_length: parseFloat(document.getElementById('costTileLength').value),
+        tile_width: parseFloat(document.getElementById('costTileWidth').value),
+        tile_unit: document.getElementById('costTileUnit').value,
+        price_per_tile: parseFloat(document.getElementById('pricePerTile').value),
+        grout_cost: parseFloat(document.getElementById('groutCost').value) || 0,
+        labor_cost: parseFloat(document.getElementById('laborCost').value) || 0,
+        waste_factor: parseFloat(document.getElementById('costWasteFactor').value) || 10,
+        currency: document.getElementById('currency').value,
+    };
+    
+    if (!formData.area || !formData.tile_length || !formData.tile_width || !formData.price_per_tile) {
+        alert('{% trans "Please enter area, tile dimensions, and price per tile" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:tile_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    const unitLabels = {
+        'square_feet': 'ft²',
+        'square_meters': 'm²',
+        'square_yards': 'yd²',
+    };
+    
+    const currencySymbols = {
+        'usd': '$',
+        'eur': '€',
+        'gbp': '£',
+        'cad': '$',
+    };
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'tiles_needed') {
+        html += `<div class="bg-blue-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Tiles Needed" %}</p>
+            <p class="text-4xl font-bold text-blue-600">${data.tiles_needed}</p>
+            <p class="text-sm text-gray-500 mt-2">${data.tiles_exact.toFixed(2)} {% trans "exact" %} (${data.tiles_with_waste.toFixed(2)} {% trans "with waste" %})</p>
+        </div>`;
+        html += `<div class="bg-green-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600 mb-1">{% trans "Grout Needed" %}</p>
+            <p class="text-xl font-semibold text-green-600">${data.grout_needed.toFixed(2)} lbs</p>
+        </div>`;
+    } else if (data.calc_type === 'coverage') {
+        html += `<div class="bg-green-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Coverage" %}</p>
+            <p class="text-4xl font-bold text-green-600">${data.coverage.toLocaleString()} ${unitLabels[data.result_unit]}</p>
+            <p class="text-sm text-gray-500 mt-2">(${data.coverage_ft2.toFixed(2)} ft²)</p>
+        </div>`;
+    } else if (data.calc_type === 'cost') {
+        const symbol = currencySymbols[data.currency] || '$';
+        html += `<div class="grid grid-cols-2 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 mb-1">{% trans "Tiles Needed" %}</p>
+                <p class="text-xl font-semibold">${data.tiles_needed}</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 mb-1">{% trans "Tile Cost" %}</p>
+                <p class="text-xl font-semibold">${symbol}${data.tile_cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            </div>
+            <div class="bg-yellow-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 mb-1">{% trans "Grout Cost" %}</p>
+                <p class="text-xl font-semibold">${symbol}${data.grout_cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 mb-1">{% trans "Labor Cost" %}</p>
+                <p class="text-xl font-semibold">${symbol}${data.labor_cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            </div>
+        </div>`;
+        html += `<div class="bg-indigo-50 p-6 rounded-lg text-center">
+            <p class="text-sm text-gray-600 mb-2">{% trans "Total Cost" %}</p>
+            <p class="text-4xl font-bold text-indigo-600">${symbol}${data.total_cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

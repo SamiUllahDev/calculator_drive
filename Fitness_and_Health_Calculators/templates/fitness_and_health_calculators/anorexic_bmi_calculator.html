@@ -1,0 +1,900 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Anorexic BMI Calculator" %} - {% trans "Specialized BMI Assessment" %}{% endblock %}
+{% block meta_description %}{% trans "Specialized BMI calculator for eating disorder assessment. Calculate BMI, anorexia severity, and the minimum healthy weight for your height." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans 'anorexic bmi calculator, anorexia bmi, eating disorder assessment, underweight bmi' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Anorexic BMI Calculator' %} - {% trans 'Specialized BMI Assessment' %}">
+<meta property="og:description" content="{% trans 'Calculate your BMI and see if it falls in the anorexic range, with severity and healthy weight guidance.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Anorexic BMI Calculator' %}",
+    "description": "{% trans 'Specialized BMI calculator for eating disorder assessment.' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Anorexic BMI Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-red-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-orange-600">{% trans "Anorexic BMI Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Specialized BMI calculator for eating disorder assessment. This tool focuses on the very low BMI range and provides educational information about anorexia-related BMI categories." %}
+            </p>
+            <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 max-w-2xl mx-auto">
+                <p class="text-xs sm:text-sm text-yellow-800">
+                    <strong>{% trans "Important:" %}</strong> {% trans "This calculator is for educational purposes only and is not a diagnostic tool. Always seek help from qualified healthcare professionals if you are concerned about an eating disorder." %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Metric" %} (cm, kg)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2">
+                                    <span class="text-sm">{% trans "Imperial" %} (ft, lbs)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Height Metric -->
+                        <div id="heightMetric">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %} (cm)</label>
+                            <input type="number" id="height" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="160" min="120" max="220" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 120-220 cm" %}</p>
+                        </div>
+
+                        <!-- Height Imperial -->
+                        <div id="heightImperial" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="number" id="height_ft" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                           value="5" min="3" max="8" required>
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">ft</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="height_in" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                           value="3" min="0" max="11">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">in</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 3-8 ft, 0-11 in" %}</p>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Weight" %}</label>
+                            <div class="relative">
+                                <input type="number" id="weight" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       value="50" min="25" max="300" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" id="weightUnit">kg</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 25-300 kg or 40-600 lbs" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate BMI" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your height and weight, then click Calculate to see your BMI assessment with detailed charts and guidance." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Your Body Mass Index" %}</p>
+                            <p id="bmiValue" class="text-5xl sm:text-6xl font-bold mb-2">0.0</p>
+                            <p class="text-sm opacity-90">kg/m²</p>
+                            <div id="categoryBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="categoryTextBadge">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Category" %}</p>
+                                <p id="category" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Severity" %}</p>
+                                <p id="severity" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Min Healthy Weight" %}</p>
+                                <p id="healthyWeight" class="text-xs sm:text-sm font-bold text-green-700">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Weight to Gain" %}</p>
+                                <p id="weightDifference" class="text-xs sm:text-sm font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- BMI Gauge Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BMI Gauge" %}
+                            </h3>
+                            <div class="relative" style="height: 250px; min-height: 250px;">
+                                <canvas id="bmiGaugeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- BMI Category Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BMI Categories" %}
+                            </h3>
+                            <div class="relative" style="height: 250px; min-height: 250px;">
+                                <canvas id="bmiCategoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weight Range Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Healthy Weight Range" %}
+                        </h3>
+                        <div class="relative" style="height: 300px; min-height: 300px;">
+                            <canvas id="weightRangeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- BMI Scale Visualization -->
+                    <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 sm:p-6 border-2 border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "BMI Scale" %}</h3>
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between text-xs text-gray-600 mb-2 px-1">
+                                <span>{% trans "Severe" %}</span>
+                                <span>{% trans "Anorexia" %}</span>
+                                <span>{% trans "Underweight" %}</span>
+                                <span>{% trans "Normal" %}</span>
+                            </div>
+                            <div class="relative h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                                <div class="absolute inset-0 flex">
+                                    <div class="flex-1 bg-red-500"></div>
+                                    <div class="flex-1 bg-orange-500"></div>
+                                    <div class="flex-1 bg-yellow-400"></div>
+                                    <div class="flex-1 bg-green-500"></div>
+                                </div>
+                                <div id="bmiIndicator" class="absolute top-0 w-1.5 h-full bg-gray-900 shadow-lg transform -translate-x-1/2 transition-all duration-500 z-10" style="left: 0%"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500 mt-1 px-1">
+                                <span>&lt;15</span>
+                                <span>15-17.5</span>
+                                <span>17.5-18.5</span>
+                                <span>≥18.5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warning Box -->
+                    <div id="warningBox" class="hidden bg-red-50 border-2 border-red-300 rounded-xl p-6">
+                        <div class="flex items-start">
+                            <svg class="w-6 h-6 text-red-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            <div>
+                                <h4 class="text-red-800 font-bold mb-2">{% trans "Important Notice" %}</h4>
+                                <p class="text-red-700 text-sm">
+                                    {% trans "If your BMI falls in the anorexic range (below 17.5), please consult with a healthcare professional or mental health provider as soon as possible. This calculator is for educational purposes only and cannot replace professional medical advice." %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is BMI Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is BMI?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Body Mass Index (BMI) is a measure calculated from your weight and height. It's used as a screening tool to identify potential weight-related health issues. The formula is:" %}
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                <p class="text-center font-mono text-lg font-bold text-gray-900">BMI = Weight (kg) ÷ Height (m)²</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "While BMI is a useful screening tool, it doesn't directly measure body fat or account for muscle mass, bone density, or other factors. For very low BMI ranges, it's particularly important to consult healthcare professionals." %}
+                            </p>
+                        </div>
+
+                        <!-- Anorexia BMI Ranges Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Anorexia-Related BMI Ranges" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Severe Anorexia: BMI &lt; 15" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "This indicates severe underweight status. Immediate medical attention is strongly recommended." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Anorexia: BMI 15-17.5" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "This range falls below the DSM-5 threshold for anorexia nervosa (BMI &lt; 17.5). Professional evaluation is recommended." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Underweight: BMI 17.5-18.5" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Below the normal weight range. Consider consulting a healthcare provider to ensure adequate nutrition." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Normal: BMI ≥ 18.5" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Within the healthy weight range. Continue maintaining a balanced diet and regular physical activity." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your preferred unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter your current height accurately" %}</li>
+                                <li>{% trans "Enter your current weight" %}</li>
+                                <li>{% trans "Click 'Calculate BMI' to see your results" %}</li>
+                                <li>{% trans "Review the charts and detailed assessment" %}</li>
+                                <li>{% trans "Read the comprehensive guide below for interpretation" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMI Value" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your calculated BMI number. Lower values indicate lower body weight relative to height." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Category & Severity" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows which BMI range you fall into and the severity level. This helps identify if professional consultation is recommended." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Healthy Weight Minimum" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The minimum weight (at BMI 18.5) considered healthy for your height. This is a target for gradual, supervised weight restoration if needed." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Weight to Gain" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The difference between your current weight and the minimum healthy weight. This is informational only—weight restoration should always be supervised by healthcare professionals." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Explanation Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMI Gauge Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A circular gauge showing your BMI value visually. The color corresponds to your category (red for severe, orange for anorexia, yellow for underweight, green for normal)." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMI Categories Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A horizontal bar chart showing all BMI categories. Your current category is highlighted, making it easy to see where you fall on the spectrum." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Healthy Weight Range Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows your current weight compared to the healthy weight range for your height. Green bars indicate the healthy range, while your current weight is shown in a color matching your BMI category." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMI Scale" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "A visual scale showing all BMI ranges with a marker indicating your current position. This provides a quick, at-a-glance understanding of your BMI status." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. It is not a diagnostic tool." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "BMI does not account for muscle mass, bone density, or body composition. Athletes or individuals with high muscle mass may have higher BMIs that don't reflect excess fat." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "If you're concerned about an eating disorder or your weight, please seek help from qualified healthcare professionals, registered dietitians, or mental health providers." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Weight restoration, if needed, should be done gradually and under medical supervision to ensure proper nutrition and avoid refeeding syndrome." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- When to Seek Help Section -->
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-red-900 mb-3">{% trans "When to Seek Professional Help" %}</h3>
+                            <p class="text-sm text-red-800 mb-3">
+                                {% trans "Consider consulting a healthcare professional if:" %}
+                            </p>
+                            <ul class="space-y-2 text-sm text-red-800 list-disc list-inside">
+                                <li>{% trans "Your BMI is below 17.5 (anorexic range)" %}</li>
+                                <li>{% trans "You're experiencing rapid weight loss" %}</li>
+                                <li>{% trans "You have concerns about your eating patterns" %}</li>
+                                <li>{% trans "You're experiencing physical symptoms like fatigue, dizziness, or irregular periods" %}</li>
+                                <li>{% trans "You have persistent thoughts about food, weight, or body image that interfere with daily life" %}</li>
+                            </ul>
+                        </div>
+
+                        <!-- Resources Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Additional Resources" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">
+                                {% trans "If you or someone you know is struggling with an eating disorder, consider reaching out to:" %}
+                            </p>
+                            <ul class="space-y-2 text-sm text-gray-700">
+                                <li>• {% trans "Your primary care physician or family doctor" %}</li>
+                                <li>• {% trans "A registered dietitian specializing in eating disorders" %}</li>
+                                <li>• {% trans "A mental health professional (psychologist, psychiatrist, or therapist)" %}</li>
+                                <li>• {% trans "Eating disorder support organizations and helplines" %}</li>
+                                <li>• {% trans "Emergency services if you're experiencing a medical emergency" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let bmiGaugeChart = null;
+let bmiCategoryChart = null;
+let weightRangeChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const heightMetric = document.getElementById('heightMetric');
+    const heightImperial = document.getElementById('heightImperial');
+    const weightUnit = document.getElementById('weightUnit');
+    const resultCard = document.getElementById('resultCard');
+
+    // Unit system toggle
+    document.querySelectorAll('input[name="unit_system"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'imperial') {
+                heightMetric.classList.add('hidden');
+                heightImperial.classList.remove('hidden');
+                weightUnit.textContent = 'lbs';
+                document.getElementById('weight').min = '40';
+                document.getElementById('weight').max = '600';
+            } else {
+                heightMetric.classList.remove('hidden');
+                heightImperial.classList.add('hidden');
+                weightUnit.textContent = 'kg';
+                document.getElementById('weight').min = '25';
+                document.getElementById('weight').max = '300';
+            }
+            // Clear results when switching units
+            if (results) results.classList.add('hidden');
+        });
+    });
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        const formData = {
+            unit_system: unitSystem,
+            weight: parseFloat(document.getElementById('weight').value)
+        };
+
+        if (unitSystem === 'imperial') {
+            formData.height = parseFloat(document.getElementById('height_ft').value);
+            formData.height_in = parseFloat(document.getElementById('height_in').value) || 0;
+        } else {
+            formData.height = parseFloat(document.getElementById('height').value);
+        }
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : 'Calculate BMI';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update BMI values
+            const bmiValueEl = document.getElementById('bmiValue');
+            if (bmiValueEl) bmiValueEl.textContent = data.bmi.toFixed(1);
+
+            // Update category badge
+            const categoryBadge = document.getElementById('categoryBadge');
+            const categoryTextBadge = document.getElementById('categoryTextBadge');
+            if (categoryTextBadge) categoryTextBadge.textContent = data.category;
+            if (categoryBadge && data.color_info) {
+                categoryBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+            }
+
+            // Update stats
+            const categoryEl = document.getElementById('category');
+            const severityEl = document.getElementById('severity');
+            const healthyWeightEl = document.getElementById('healthyWeight');
+            const weightDifferenceEl = document.getElementById('weightDifference');
+
+            if (categoryEl) categoryEl.textContent = data.category;
+            if (severityEl) severityEl.textContent = data.severity.charAt(0).toUpperCase() + data.severity.slice(1);
+            if (healthyWeightEl) healthyWeightEl.textContent = data.healthy_weight_min.toFixed(1) + ' ' + data.unit;
+            if (weightDifferenceEl) {
+                const diff = data.weight_difference;
+                if (diff > 0) {
+                    weightDifferenceEl.textContent = '+' + diff.toFixed(1) + ' ' + data.unit;
+                    weightDifferenceEl.className = 'text-xs sm:text-sm font-bold text-blue-700';
+                } else {
+                    weightDifferenceEl.textContent = '0 ' + data.unit;
+                    weightDifferenceEl.className = 'text-xs sm:text-sm font-bold text-gray-700';
+                }
+            }
+
+            // Update result card color
+            const colors = {
+                'red': 'bg-gradient-to-br from-red-600 to-red-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'green': 'bg-gradient-to-br from-green-600 to-green-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.category_color] || 'bg-gradient-to-br from-gray-600 to-gray-700');
+            }
+
+            // Update BMI scale indicator
+            const bmiIndicator = document.getElementById('bmiIndicator');
+            if (bmiIndicator && data.scale_position !== undefined) {
+                bmiIndicator.style.left = data.scale_position + '%';
+            }
+
+            // Show/hide warning box
+            const warningBox = document.getElementById('warningBox');
+            if (warningBox) {
+                if (data.warning) {
+                    warningBox.classList.remove('hidden');
+                } else {
+                    warningBox.classList.add('hidden');
+                }
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.gauge_chart) {
+                    createBMIGaugeChart(data.chart_data.gauge_chart);
+                }
+                if (data.chart_data.category_chart) {
+                    createBMICategoryChart(data.chart_data.category_chart);
+                }
+                if (data.chart_data.weight_range_chart) {
+                    createWeightRangeChart(data.chart_data.weight_range_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createBMIGaugeChart(chartData) {
+        const ctx = document.getElementById('bmiGaugeChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (bmiGaugeChart) {
+            bmiGaugeChart.destroy();
+        }
+
+        if (!chartData || !chartData.center_text) return;
+
+        const centerText = chartData.center_text;
+        const bmiColor = centerText.color;
+
+        try {
+            bmiGaugeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 32px Arial';
+                        ctx.fillStyle = bmiColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value, centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating gauge chart:', error);
+        }
+    }
+
+    function createBMICategoryChart(chartData) {
+        const ctx = document.getElementById('bmiCategoryChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (bmiCategoryChart) {
+            bmiCategoryChart.destroy();
+        }
+
+        if (!chartData || !chartData.data || !chartData.data.datasets) return;
+
+        const currentIndex = chartData.current_category_index;
+        const categoriesInfo = chartData.categories_info;
+        const dataset = chartData.data.datasets[0];
+        const bmiValue = dataset.data[currentIndex];
+
+        try {
+            bmiCategoryChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const cat = categoriesInfo[index];
+                                    if (index === currentIndex) {
+                                        return `Your BMI: ${bmiValue.toFixed(1)} - ${cat.name} (${cat.range})`;
+                                    }
+                                    return `${cat.name}: ${cat.range}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 25,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                stepSize: 5,
+                                font: { size: 11 }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating category chart:', error);
+        }
+    }
+
+    function createWeightRangeChart(chartData) {
+        const ctx = document.getElementById('weightRangeChart');
+        if (!ctx) return;
+
+        if (!checkChartJS()) return;
+
+        if (weightRangeChart) {
+            weightRangeChart.destroy();
+        }
+
+        if (!chartData || !chartData.y_axis) return;
+
+        const unit = chartData.y_axis.unit;
+        const yAxisConfig = chartData.y_axis;
+
+        try {
+            weightRangeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 12,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.parsed.y === null) return '';
+                                    if (context.datasetIndex === 0) {
+                                        return `Healthy Range: ${context.parsed.y.toFixed(1)} ${unit}`;
+                                    } else {
+                                        return `Your Weight: ${context.parsed.y.toFixed(1)} ${unit}`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: yAxisConfig.min,
+                            max: yAxisConfig.max,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + ' ' + unit;
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating weight range chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

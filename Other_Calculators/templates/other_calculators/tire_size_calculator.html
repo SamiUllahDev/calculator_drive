@@ -1,0 +1,611 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Tire Size Calculator - Calculate Tire Dimensions & Compare Sizes" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Tire Size Calculator. Calculate tire dimensions, convert between metric and imperial sizes, compare tires, and calculate speedometer differences." %}{% endblock %}
+{% block meta_keywords %}{% trans "tire size calculator, tire dimensions, tire converter, tire comparison, speedometer calculator, tire diameter calculator, tire width calculator, tire aspect ratio calculator, tire circumference calculator, wheel size calculator, tire replacement calculator" %}{% endblock %}
+
+{% block og_title %}{% trans "Tire Size Calculator - Calculate Tire Dimensions & Compare Sizes" %}{% endblock %}
+{% block og_description %}{% trans "Calculate tire dimensions, convert between metric and imperial sizes, compare tires, and calculate speedometer differences. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Tire Size Calculator - Calculate Tire Dimensions & Compare Sizes" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate tire dimensions and compare tire sizes. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Tire Size Calculator' %}",
+  "description": "{% trans 'Free online Tire Size Calculator. Calculate tire dimensions, convert between metric and imperial sizes, compare tires, and calculate speedometer differences.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1800"},
+  "featureList": ["{% trans 'Tire dimension calculation' %}", "{% trans 'Metric/imperial conversion' %}", "{% trans 'Tire comparison' %}", "{% trans 'Speedometer difference' %}", "{% trans 'Tire diameter calculation' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Tire Size Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate tire dimensions, convert sizes, and compare tires" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <!-- Calculation Type Selector -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="dimensions">{% trans "Calculate Dimensions" %}</option>
+                        <option value="convert">{% trans "Convert Size" %}</option>
+                        <option value="compare">{% trans "Compare Tires" %}</option>
+                        <option value="speedometer">{% trans "Speedometer Difference" %}</option>
+                    </select>
+                </div>
+
+                <!-- Dimensions Calculator -->
+                <div id="dimensionsCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Tire Dimensions" %}</h2>
+                    <form id="dimensionsForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tire Size" %}</label>
+                            <input type="text" id="tire_size" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="205/55R16 or 31x10.5R15">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                            <p class="text-xs text-gray-500 mt-2">{% trans "Format: Metric (205/55R16) or Imperial (31x10.5R15)" %}</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Convert Calculator -->
+                <div id="convertCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Convert Tire Size" %}</h2>
+                    <form id="convertForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tire Size" %}</label>
+                            <input type="text" id="tire_size_convert" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="205/55R16 or 31x10.5R15">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Convert To" %}</label>
+                            <select id="target_format" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="metric">{% trans "Metric (P-Metric)" %}</option>
+                                <option value="imperial">{% trans "Imperial (Flotation)" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Convert" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Compare Calculator -->
+                <div id="compareCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Compare Tires" %}</h2>
+                    <form id="compareForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tire 1" %}</label>
+                            <input type="text" id="tire1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="205/55R16">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Tire 2" %}</label>
+                            <input type="text" id="tire2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="225/50R16">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Compare" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Speedometer Calculator -->
+                <div id="speedometerCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Speedometer Difference" %}</h2>
+                    <form id="speedometerForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Original Tire Size" %}</label>
+                            <input type="text" id="original_tire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="205/55R16">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "New Tire Size" %}</label>
+                            <input type="text" id="new_tire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="225/50R16">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Indicated Speed" %}</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="speed" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="60" min="0" step="1" value="60">
+                                <select id="speed_unit" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="mph">{% trans "mph" %}</option>
+                                    <option value="kmh">{% trans "km/h" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Tire Size?" %}</h3>
+                            <p>{% trans "Tire size is a standardized way of describing tire dimensions, including width, aspect ratio, and rim diameter. It affects vehicle performance, speedometer accuracy, and handling." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select calculation type" %}</li>
+                                <li>{% trans "Enter tire size(s)" %}</li>
+                                <li>{% trans "Click calculate" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Tire Size Formats" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-2 text-xs">
+                                <div>
+                                    <p class="font-semibold">{% trans "Metric (P-Metric)" %}:</p>
+                                    <p class="font-mono">205/55R16</p>
+                                    <p>{% trans "205 = Width (mm)" %}</p>
+                                    <p>{% trans "55 = Aspect Ratio (%)" %}</p>
+                                    <p>{% trans "16 = Rim Diameter (inches)" %}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">{% trans "Imperial (Flotation)" %}:</p>
+                                    <p class="font-mono">31x10.5R15</p>
+                                    <p>{% trans "31 = Overall Diameter (inches)" %}</p>
+                                    <p>{% trans "10.5 = Width (inches)" %}</p>
+                                    <p>{% trans "15 = Rim Diameter (inches)" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Tire Dimensions" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Width" %}:</strong> {% trans "Tire width in millimeters or inches" %}</p>
+                                <p><strong>{% trans "Aspect Ratio" %}:</strong> {% trans "Sidewall height as percentage of width" %}</p>
+                                <p><strong>{% trans "Rim Diameter" %}:</strong> {% trans "Wheel diameter in inches" %}</p>
+                                <p><strong>{% trans "Overall Diameter" %}:</strong> {% trans "Total tire diameter including sidewalls" %}</p>
+                                <p><strong>{% trans "Circumference" %}:</strong> {% trans "Distance around the tire" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Sidewall Height" %}:</strong></p>
+                                <p class="font-mono">Sidewall = (Width × Aspect Ratio / 100) / 25.4</p>
+                                <p class="mt-2"><strong>{% trans "Overall Diameter" %}:</strong></p>
+                                <p class="font-mono">Diameter = Rim + (2 × Sidewall)</p>
+                                <p class="mt-2"><strong>{% trans "Circumference" %}:</strong></p>
+                                <p class="font-mono">Circumference = π × Diameter</p>
+                                <p class="mt-2"><strong>{% trans "Revolutions per Mile" %}:</strong></p>
+                                <p class="font-mono">Rev/Mile = 63360 / Circumference</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Speedometer Difference" %}</h3>
+                            <p class="text-xs">{% trans "When you change tire size, the speedometer reading may become inaccurate. Larger tires make the speedometer read slower, while smaller tires make it read faster." %}</p>
+                            <div class="bg-gray-50 p-3 rounded mt-2 space-y-1 text-xs">
+                                <p><strong>{% trans "Formula" %}:</strong></p>
+                                <p class="font-mono">Actual Speed = Indicated × (New Diameter / Original Diameter)</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Tire size affects speedometer accuracy" %}</li>
+                                <li>{% trans "Larger tires increase ground clearance" %}</li>
+                                <li>{% trans "Wider tires improve traction but may rub" %}</li>
+                                <li>{% trans "Check vehicle manufacturer recommendations" %}</li>
+                                <li>{% trans "Consider load rating and speed rating" %}</li>
+                                <li>{% trans "Aspect ratio affects ride comfort" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Tire replacement planning" %}</li>
+                                <li>{% trans "Wheel and tire upgrades" %}</li>
+                                <li>{% trans "Speedometer calibration" %}</li>
+                                <li>{% trans "Tire size comparison" %}</li>
+                                <li>{% trans "Vehicle modification" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalcMode(this.value);
+    });
+    
+    // Form submissions
+    document.getElementById('dimensionsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateDimensions();
+    });
+    
+    document.getElementById('convertForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateConvert();
+    });
+    
+    document.getElementById('compareForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateCompare();
+    });
+    
+    document.getElementById('speedometerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateSpeedometer();
+    });
+    
+    // Real-time validation
+    setupValidation();
+    
+    // Initialize
+    switchCalcMode('dimensions');
+});
+
+function switchCalcMode(mode) {
+    // Hide all calculation modes
+    document.querySelectorAll('.calc-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant mode
+    if (mode === 'dimensions') {
+        document.getElementById('dimensionsCalc').classList.remove('hidden');
+    } else if (mode === 'convert') {
+        document.getElementById('convertCalc').classList.remove('hidden');
+    } else if (mode === 'compare') {
+        document.getElementById('compareCalc').classList.remove('hidden');
+    } else if (mode === 'speedometer') {
+        document.getElementById('speedometerCalc').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function setupValidation() {
+    // Tire size validation
+    const tireInputs = document.querySelectorAll('input[type="text"][id*="tire"]');
+    tireInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validateTireSize(this);
+        });
+    });
+}
+
+function validateTireSize(input) {
+    const value = input.value.trim();
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (value === '') {
+        return true;
+    }
+    
+    // Check for metric or imperial format
+    const metricPattern = /^\d+\/\d+R?\d+$/i;
+    const imperialPattern = /^\d+(\.\d+)?X\d+(\.\d+)?R?\d+$/i;
+    
+    if (!metricPattern.test(value) && !imperialPattern.test(value)) {
+        showError(input, '{% trans "Invalid format. Use metric (205/55R16) or imperial (31x10.5R15)" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    if (errorSpan) {
+        errorSpan.textContent = message;
+        errorSpan.classList.remove('hidden');
+    }
+}
+
+function calculateDimensions() {
+    const formData = {
+        calc_type: 'dimensions',
+        tire_size: document.getElementById('tire_size').value.trim(),
+    };
+    
+    if (!formData.tire_size) {
+        alert('{% trans "Please enter a tire size" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateConvert() {
+    const formData = {
+        calc_type: 'convert',
+        tire_size: document.getElementById('tire_size_convert').value.trim(),
+        target_format: document.getElementById('target_format').value,
+    };
+    
+    if (!formData.tire_size) {
+        alert('{% trans "Please enter a tire size" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateCompare() {
+    const formData = {
+        calc_type: 'compare',
+        tire1: document.getElementById('tire1').value.trim(),
+        tire2: document.getElementById('tire2').value.trim(),
+    };
+    
+    if (!formData.tire1 || !formData.tire2) {
+        alert('{% trans "Please enter both tire sizes" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateSpeedometer() {
+    const formData = {
+        calc_type: 'speedometer',
+        original_tire: document.getElementById('original_tire').value.trim(),
+        new_tire: document.getElementById('new_tire').value.trim(),
+        speed: parseFloat(document.getElementById('speed').value) || 60,
+        speed_unit: document.getElementById('speed_unit').value,
+    };
+    
+    if (!formData.original_tire || !formData.new_tire) {
+        alert('{% trans "Please enter both tire sizes" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:tire_size_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'dimensions') {
+        const dims = data.dimensions;
+        html += `<div class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg p-6">
+            <h3 class="text-xl font-bold mb-4">${data.tire_size}</h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Width" %}</p>
+                    <p class="text-2xl font-bold">${dims.width_mm} mm</p>
+                    <p class="text-sm">${dims.width_inches}"</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Aspect Ratio" %}</p>
+                    <p class="text-2xl font-bold">${dims.aspect_ratio}%</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Rim Diameter" %}</p>
+                    <p class="text-2xl font-bold">${dims.rim_diameter}"</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Sidewall Height" %}</p>
+                    <p class="text-2xl font-bold">${dims.sidewall_height}"</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Overall Diameter" %}</p>
+                    <p class="text-2xl font-bold">${dims.overall_diameter}"</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Circumference" %}</p>
+                    <p class="text-2xl font-bold">${dims.circumference}"</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Rev/Mile" %}</p>
+                    <p class="text-2xl font-bold">${dims.revolutions_per_mile}</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Rev/Km" %}</p>
+                    <p class="text-2xl font-bold">${dims.revolutions_per_km}</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (data.calc_type === 'convert') {
+        html += `<div class="bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg p-6 text-center">
+            <p class="text-green-100 text-sm mb-2">{% trans "Original" %}</p>
+            <p class="text-2xl font-bold mb-4">${data.original_size}</p>
+            <p class="text-green-100 text-sm mb-2">{% trans "Converted" %}</p>
+            <p class="text-4xl font-bold">${data.converted_size}</p>
+        </div>`;
+    } else if (data.calc_type === 'compare') {
+        html += `<div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-blue-50 rounded-lg p-4">
+                <p class="font-semibold text-gray-900 mb-2">${data.tire1.size}</p>
+                <p class="text-sm text-gray-600">{% trans "Diameter" %}: ${data.tire1.dimensions.overall_diameter}"</p>
+                <p class="text-sm text-gray-600">{% trans "Circumference" %}: ${data.tire1.dimensions.circumference}"</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4">
+                <p class="font-semibold text-gray-900 mb-2">${data.tire2.size}</p>
+                <p class="text-sm text-gray-600">{% trans "Diameter" %}: ${data.tire2.dimensions.overall_diameter}"</p>
+                <p class="text-sm text-gray-600">{% trans "Circumference" %}: ${data.tire2.dimensions.circumference}"</p>
+            </div>
+        </div>`;
+        html += `<div class="bg-yellow-50 rounded-lg p-4">
+            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Differences" %}</h4>
+            <p class="text-sm text-gray-700">{% trans "Diameter" %}: ${data.differences.diameter_diff > 0 ? '+' : ''}${data.differences.diameter_diff}" (${data.differences.diameter_diff_percent > 0 ? '+' : ''}${data.differences.diameter_diff_percent}%)</p>
+            <p class="text-sm text-gray-700">{% trans "Circumference" %}: ${data.differences.circumference_diff > 0 ? '+' : ''}${data.differences.circumference_diff}"</p>
+            <p class="text-sm text-gray-700">{% trans "Speed Difference" %}: ${data.differences.speed_diff > 0 ? '+' : ''}${data.differences.speed_diff}%</p>
+        </div>`;
+    } else if (data.calc_type === 'speedometer') {
+        html += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg p-6 text-center">
+            <p class="text-purple-100 text-sm mb-2">{% trans "Indicated Speed" %}</p>
+            <p class="text-4xl font-bold mb-4">${data.indicated_speed} ${data.speed_unit === 'mph' ? 'mph' : 'km/h'}</p>
+            <p class="text-purple-100 text-sm mb-2">{% trans "Actual Speed" %}</p>
+            <p class="text-4xl font-bold mb-4">${data.actual_speed} ${data.speed_unit === 'mph' ? 'mph' : 'km/h'}</p>
+            <p class="text-purple-100 text-sm">{% trans "Difference" %}: ${data.speed_difference > 0 ? '+' : ''}${data.speed_difference} ${data.speed_unit === 'mph' ? 'mph' : 'km/h'} (${data.speed_difference_percent > 0 ? '+' : ''}${data.speed_difference_percent}%)</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

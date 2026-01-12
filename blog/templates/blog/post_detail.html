@@ -1,0 +1,472 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+{% load core_extras %}
+{% load canonical_url %}
+
+{% block title %}{% if meta_title %}{{ meta_title }}{% else %}{{ post.title }} - CalculatorDrive.com{% endif %}{% endblock %}
+{% block description %}{% if meta_description %}{{ meta_description }}{% elif post.excerpt %}{{ post.excerpt }}{% else %}{{ post.content|striptags|truncatewords:25 }}{% endif %}{% endblock %}
+{% block keywords %}{% if meta_keywords %}{{ meta_keywords }}{% else %}{{ post.title }}, {{ post.category.name }}, SEO, blog{% if post.tags.exists %},{% for tag in post.tags.all %} {{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}{% endif %}{% endblock %}
+
+{% block og_title %}{% if meta_title %}{{ meta_title }}{% else %}{{ post.title }}{% endif %}{% endblock %}
+{% block og_description %}{% if meta_description %}{{ meta_description }}{% elif post.excerpt %}{{ post.excerpt }}{% else %}{{ post.content|striptags|truncatewords:25 }}{% endif %}{% endblock %}
+{% block og_url %}{% canonical_url_for_post post request %}{% endblock %}
+{% block og_image %}{% if post.has_image and post.safe_medium_url %}{% else %}{{ block.super }}{% endif %}{% endblock %}
+
+{% block twitter_title %}{% if meta_title %}{{ meta_title }}{% else %}{{ post.title }}{% endif %}{% endblock %}
+{% block twitter_description %}{% if meta_description %}{{ meta_description }}{% elif post.excerpt %}{{ post.excerpt }}{% else %}{{ post.content|striptags|truncatewords:25 }}{% endif %}{% endblock %}
+{% block twitter_image_src %}{% if post.has_image and post.safe_medium_url %}<meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ post.safe_medium_url }}">{% else %}{{ block.super }}{% endif %}{% endblock %}
+
+{% block extra_head %}
+{% if no_index %}<meta name="robots" content="noindex, nofollow">{% else %}<meta name="robots" content="index, follow">{% endif %}
+
+<!-- Canonical URL -->
+{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% else %}<link rel="canonical" href="{% canonical_url_for_post post request %}">{% endif %}
+
+<!-- BlogPosting Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "{{ post.title|escapejs }}",
+  "description": "{{ post.get_meta_description|striptags|truncatewords:30|escapejs }}",
+  "image": {% if post.has_image and post.safe_medium_url %}"{{ request.scheme }}://{{ request.get_host }}{{ post.safe_medium_url }}"{% else %}null{% endif %},
+  "datePublished": "{{ post.published_date|date:'c' }}",
+  "dateModified": "{{ post.updated_date|date:'c' }}",
+  "author": {
+    "@type": "Person",
+    "name": "{{ post.author.get_full_name|default:post.author.username|escapejs }}",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'user:profile_detail' post.author.username %}"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "CalculatorDrive.com",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "{{ request.scheme }}://{{ request.get_host }}/static/images/logo.png"
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "{% canonical_url_for_post post request %}"
+  },
+  "articleSection": "{{ post.category.name|escapejs }}",
+  "keywords": "{{ post.meta_keywords|default:post.category.name|escapejs }}{% if post.tags.exists %}{% for tag in post.tags.all %}, {{ tag.name|escapejs }}{% endfor %}{% endif %}",
+  "wordCount": "{{ post.content|striptags|wordcount }}",
+  "timeRequired": "{{ reading_time }}"
+}
+</script>
+
+<!-- BreadcrumbList Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "{{ request.scheme }}://{{ request.get_host }}/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'blog:post_list' %}"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "{{ post.category.name|escapejs }}",
+      "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'blog:category_detail' post.category.slug %}"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "{{ post.title|escapejs }}",
+      "item": "{% canonical_url_for_post post request %}"
+    }
+  ]
+}
+</script>
+
+<!-- Additional SEO metas -->
+<meta name="author" content="{{ post.author.get_full_name|default:post.author.username }}">
+<meta name="article:author" content="{{ post.author.get_full_name|default:post.author.username }}">
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="{{ post.published_date|date:'c' }}">
+<meta property="article:modified_time" content="{{ post.updated_date|date:'c' }}">
+<meta property="article:section" content="{{ post.category.name }}">
+<meta property="article:author" content="{{ post.author.get_full_name|default:post.author.username }}">
+{% if post.tags.exists %}{% for tag in post.tags.all %}<meta property="article:tag" content="{{ tag.name }}">{% endfor %}{% endif %}
+<meta name="twitter:card" content="{% if post.has_image and post.safe_medium_url %}summary_large_image{% else %}summary{% endif %}">
+<meta name="twitter:creator" content="@calculatordrive">
+<meta name="twitter:site" content="@calculatordrive">
+{% endblock %}
+
+{% block content %}
+<!-- Reading Progress Bar -->
+<div class="fixed top-0 left-0 w-full h-1 bg-gray-200 z-[1030]" aria-hidden="true">
+  <div id="reading-progress" class="h-full bg-blue-600 transition-all duration-150" style="width:0%" role="progressbar" aria-valuemin="0" aria-valuemax="100"></div>
+</div>
+
+<!-- Breadcrumbs -->
+<nav class="bg-gray-50 border-b border-gray-200 py-3" aria-label="Breadcrumb">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <ol class="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+      <li>
+        <a href="/" class="hover:text-blue-600 transition-colors">
+          <i class="bi bi-house" aria-hidden="true"></i>
+          <span class="sr-only">{% trans "Home" %}</span>
+        </a>
+      </li>
+      <li class="flex items-center gap-2">
+        <i class="bi bi-chevron-right text-gray-400 text-xs" aria-hidden="true"></i>
+        <a href="{% url 'blog:post_list' %}" class="hover:text-blue-600 transition-colors">{% trans "Blog" %}</a>
+      </li>
+      <li class="flex items-center gap-2">
+        <i class="bi bi-chevron-right text-gray-400 text-xs" aria-hidden="true"></i>
+        <a href="{% url 'blog:category_detail' post.category.slug %}" class="hover:text-blue-600 transition-colors">{{ post.category.name }}</a>
+      </li>
+      <li class="flex items-center gap-2">
+        <i class="bi bi-chevron-right text-gray-400 text-xs" aria-hidden="true"></i>
+        <span class="text-gray-900 font-medium truncate max-w-xs" aria-current="page">{{ post.title }}</span>
+      </li>
+    </ol>
+  </div>
+</nav>
+
+<!-- Post Header Banner -->
+{% if post.has_image and post.safe_medium_url %}
+<header class="relative bg-gray-900 py-16 sm:py-24 overflow-hidden">
+  <div class="absolute inset-0">
+    <img src="{{ post.safe_medium_url }}" alt="{% if post.image_alt %}{{ post.image_alt }}{% else %}{{ post.title }}{% endif %}" class="w-full h-full object-cover opacity-40" loading="eager" decoding="async" fetchpriority="high">
+  </div>
+  <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center text-white">
+      <a href="{% url 'blog:category_detail' post.category.slug %}" class="inline-block px-3 py-1 mb-4 text-sm font-medium bg-blue-600 rounded-full hover:bg-blue-700 transition-colors">{{ post.category.name }}</a>
+      <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 leading-tight">{{ post.title }}</h1>
+      <div class="flex flex-wrap items-center justify-center gap-4 text-gray-300">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+            {% if post.author.profile.avatar %}
+            <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.get_full_name|default:post.author.username }}" class="w-full h-full object-cover">
+            {% else %}
+            <i class="bi bi-person text-white" aria-hidden="true"></i>
+            {% endif %}
+          </div>
+          <span>{{ post.author.get_full_name|default:post.author.username }}</span>
+        </div>
+        <span class="hidden sm:inline text-gray-400">•</span>
+        <time datetime="{{ post.published_date|date:'Y-m-d' }}">{{ post.published_date|date:"F j, Y" }}</time>
+        <span class="hidden sm:inline text-gray-400">•</span>
+        <span class="flex items-center gap-1">
+          <i class="bi bi-clock" aria-hidden="true"></i>
+          {{ reading_time }}
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+{% endif %}
+
+<!-- Main Content -->
+<main class="bg-white">
+  <article class="prose prose-lg max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    
+    <!-- Title for posts without header image -->
+    {% if not post.has_image %}
+    <header class="not-prose mb-8">
+      <a href="{% url 'blog:category_detail' post.category.slug %}" class="inline-block px-3 py-1 mb-4 text-sm font-medium bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 transition-colors">{{ post.category.name }}</a>
+      <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">{{ post.title }}</h1>
+      <div class="flex flex-wrap items-center gap-4 text-gray-600 pb-6 border-b border-gray-200">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden">
+            {% if post.author.profile.avatar %}
+            <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.get_full_name|default:post.author.username }}" class="w-full h-full object-cover">
+            {% else %}
+            <i class="bi bi-person text-blue-600" aria-hidden="true"></i>
+            {% endif %}
+          </div>
+          <span class="font-medium">{{ post.author.get_full_name|default:post.author.username }}</span>
+        </div>
+        <span class="text-gray-400">•</span>
+        <time datetime="{{ post.published_date|date:'Y-m-d' }}">{{ post.published_date|date:"F j, Y" }}</time>
+        <span class="text-gray-400">•</span>
+        <span class="flex items-center gap-1">
+          <i class="bi bi-clock" aria-hidden="true"></i>
+          {{ reading_time }}
+        </span>
+      </div>
+    </header>
+    {% endif %}
+
+    <!-- Tags -->
+    {% if post.tags.exists %}
+    <div class="not-prose flex flex-wrap gap-2 mb-8">
+      {% for tag in post.tags.all %}
+      <a href="{% url 'blog:tag_detail' tag.slug %}" class="inline-flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors">
+        <i class="bi bi-tag mr-1" aria-hidden="true"></i>{{ tag.name }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Featured Image (if not shown as header) -->
+    {% if post.has_image and post.safe_medium_url and not show_featured_image_as_header %}
+    <figure class="not-prose mb-8">
+      <img src="{{ post.safe_medium_url }}" alt="{% if post.image_alt %}{{ post.image_alt }}{% else %}{{ post.title }}{% endif %}" class="w-full h-auto rounded-lg" loading="lazy" decoding="async">
+      {% if post.image_caption %}
+      <figcaption class="text-center text-sm text-gray-500 mt-3">{{ post.image_caption }}</figcaption>
+      {% endif %}
+    </figure>
+    {% endif %}
+
+    <!-- Post Content -->
+    {{ post.content|safe }}
+
+    <!-- Mobile Share -->
+    <div class="not-prose lg:hidden mt-10 pt-6 border-t border-gray-200">
+      <div class="flex items-center justify-center gap-3">
+        <span class="text-gray-600 text-sm">{% trans "Share:" %}</span>
+        <a href="https://www.facebook.com/sharer/sharer.php?u={% absolute_url request %}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-50 hover:border-blue-500 transition-colors" aria-label="Share on Facebook">
+          <i class="fab fa-facebook-f text-gray-600" aria-hidden="true"></i>
+        </a>
+        <a href="https://twitter.com/intent/tweet?url={% absolute_url request %}&text={{ post.title }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-50 hover:border-blue-400 transition-colors" aria-label="Share on Twitter">
+          <i class="fab fa-twitter text-gray-600" aria-hidden="true"></i>
+        </a>
+        <a href="https://www.linkedin.com/shareArticle?mini=true&url={% absolute_url request %}&title={{ post.title }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-50 hover:border-blue-700 transition-colors" aria-label="Share on LinkedIn">
+          <i class="fab fa-linkedin-in text-gray-600" aria-hidden="true"></i>
+        </a>
+        <button id="copy-link-mobile" class="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full hover:bg-gray-50 hover:border-gray-500 transition-colors" aria-label="Copy Link">
+          <i class="fas fa-link text-gray-600" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Author Bio -->
+    <div class="not-prose mt-10 p-6 bg-gray-50 rounded-xl">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Written by" %}</h3>
+      <div class="flex items-start gap-4">
+        <div class="flex-shrink-0">
+          {% if post.author.profile.avatar %}
+          <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.get_full_name|default:post.author.username }}" class="w-16 h-16 rounded-full object-cover" loading="lazy">
+          {% else %}
+          <div class="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white">
+            <i class="bi bi-person text-2xl" aria-hidden="true"></i>
+          </div>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="font-semibold text-gray-900">{{ post.author.get_full_name|default:post.author.username }}</h4>
+          {% if post.author.profile.job_title %}
+          <p class="text-sm text-gray-600">{{ post.author.profile.job_title }}{% if post.author.profile.company %} {% trans "at" %} {{ post.author.profile.company }}{% endif %}</p>
+          {% endif %}
+          {% if post.author.profile.bio %}
+          <p class="text-sm text-gray-600 mt-2 leading-relaxed">{{ post.author.profile.bio|truncatewords:40 }}</p>
+          {% endif %}
+          <div class="flex items-center gap-3 mt-3">
+            {% if post.author.profile.twitter %}
+            <a href="https://twitter.com/{{ post.author.profile.twitter }}" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-blue-400 transition-colors" aria-label="Twitter">
+              <i class="bi bi-twitter" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            {% if post.author.profile.linkedin %}
+            <a href="https://linkedin.com/in/{{ post.author.profile.linkedin }}" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-blue-700 transition-colors" aria-label="LinkedIn">
+              <i class="bi bi-linkedin" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- Comments Section -->
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200">
+    <h3 class="text-2xl font-semibold text-gray-900 mb-6">{% trans "Comments" %} ({{ post.comments.count }})</h3>
+    
+    {% if user.is_authenticated %}
+    <div class="bg-blue-50 border border-blue-100 rounded-lg p-6 mb-8">
+      <h4 class="font-semibold text-gray-900 mb-4">{% trans "Leave a comment" %}</h4>
+      <form method="post" action="{% url 'blog:post_detail' category_slug=post.category.slug slug=post.slug %}">
+        {% csrf_token %}
+        <div class="mb-4">
+          {{ comment_form.content|add_class:"w-full min-h-[120px] rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white placeholder-gray-400 text-gray-900 p-4 resize-y"|attr:"placeholder:Write your comment..."|attr:"rows:4"|attr:"aria-label:Comment" }}
+          {% if comment_form.content.errors %}
+          <div class="text-red-600 text-sm mt-2">{{ comment_form.content.errors }}</div>
+          {% endif %}
+        </div>
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors">{% trans "Submit Comment" %}</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
+      <div class="flex items-center gap-2">
+        <i class="bi bi-info-circle text-blue-600" aria-hidden="true"></i>
+        <span class="text-blue-800">{% trans "Please" %} <a href="{% url 'account_login' %}?next={{ request.path }}" class="underline hover:text-blue-900 font-medium">{% trans "log in" %}</a> {% trans "to leave a comment." %}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div id="comments-section">
+      {% include 'blog/comments_tree.html' with comments=comments %}
+    </div>
+  </section>
+
+  <!-- Post Navigation -->
+  {% if prev_post or next_post %}
+  <nav class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200" aria-label="{% trans 'Post navigation' %}">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% if prev_post %}
+      <a href="{% url 'blog:post_detail' category_slug=prev_post.category.slug slug=prev_post.slug %}" class="group p-5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+        <div class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          {% trans "Previous Post" %}
+        </div>
+        <h4 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">{{ prev_post.title }}</h4>
+      </a>
+      {% else %}
+      <div></div>
+      {% endif %}
+      
+      {% if next_post %}
+      <a href="{% url 'blog:post_detail' category_slug=next_post.category.slug slug=next_post.slug %}" class="group p-5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-right">
+        <div class="text-xs text-gray-500 mb-2 flex items-center justify-end gap-1">
+          {% trans "Next Post" %}
+          <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </div>
+        <h4 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">{{ next_post.title }}</h4>
+      </a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+
+  <!-- Related Posts -->
+  {% if related_posts %}
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200">
+    <h3 class="text-2xl font-semibold text-gray-900 mb-6">{% trans "Related Posts" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {% for related_post in related_posts %}
+      <article class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+        {% if related_post.has_image and related_post.safe_medium_url %}
+        <a href="{% url 'blog:post_detail' category_slug=related_post.category.slug slug=related_post.slug %}" class="block aspect-video overflow-hidden">
+          <img src="{{ related_post.safe_medium_url }}" alt="{% if related_post.image_alt %}{{ related_post.image_alt }}{% else %}{{ related_post.title }}{% endif %}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy">
+        </a>
+        {% else %}
+        <div class="aspect-video bg-gray-100 flex items-center justify-center">
+          <i class="bi bi-newspaper text-4xl text-gray-400" aria-hidden="true"></i>
+        </div>
+        {% endif %}
+        <div class="p-5">
+          <div class="flex items-center gap-2 mb-3 text-sm">
+            <a href="{% url 'blog:category_detail' related_post.category.slug %}" class="text-blue-600 font-medium hover:text-blue-800">{{ related_post.category.name }}</a>
+            <span class="text-gray-400">•</span>
+            <time class="text-gray-500">{{ related_post.published_date|date:"M j, Y" }}</time>
+          </div>
+          <h4 class="font-semibold text-gray-900 mb-2 line-clamp-2 hover:text-blue-600 transition-colors">
+            <a href="{% url 'blog:post_detail' category_slug=related_post.category.slug slug=related_post.slug %}">{{ related_post.title }}</a>
+          </h4>
+          {% if related_post.excerpt %}
+          <p class="text-gray-600 text-sm line-clamp-2">{{ related_post.excerpt|striptags }}</p>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Calculator Tools -->
+  {% if random_pdf_tools %}
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200">
+    <h3 class="text-xl font-semibold text-gray-900 mb-4">{% trans "Calculator Tools" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {% for tool in random_pdf_tools %}
+      <a href="{% url tool.url_name %}" class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+        <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <i class="{{ tool.icon }} text-white text-xl" aria-hidden="true"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="font-medium text-gray-900">{{ tool.name }}</div>
+          <div class="text-sm text-gray-600 line-clamp-1">{{ tool.description }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+
+<!-- Back to top -->
+<button id="back-to-top" class="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center opacity-0 invisible transition-all duration-300 hover:bg-blue-700 shadow-lg z-50" aria-label="{% trans 'Back to top' %}">
+  <i class="bi bi-arrow-up text-lg" aria-hidden="true"></i>
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Reading progress bar
+    const bar = document.getElementById('reading-progress');
+    let ticking = false;
+    function updateProgress() {
+      const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = height ? Math.min(100, Math.round((winScroll / height) * 100)) : 0;
+      if (bar) bar.style.width = scrolled + '%';
+      ticking = false;
+    }
+    window.addEventListener('scroll', function () {
+      if (!ticking) { window.requestAnimationFrame(updateProgress); ticking = true; }
+    }, { passive: true });
+
+    // Back to top
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', function() {
+      if (window.scrollY > 300) {
+        backToTop.classList.remove('opacity-0', 'invisible');
+        backToTop.classList.add('opacity-100');
+      } else {
+        backToTop.classList.add('opacity-0', 'invisible');
+        backToTop.classList.remove('opacity-100');
+      }
+    }, { passive: true });
+
+    backToTop?.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Copy link
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+      const input = document.createElement('input');
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      input.remove();
+      return Promise.resolve();
+    }
+    
+    function toast(message) {
+      const msg = document.createElement('div');
+      msg.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50';
+      msg.setAttribute('role', 'status');
+      msg.textContent = message;
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 2000);
+    }
+    
+    document.querySelectorAll('#copy-link, #copy-link-mobile').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const canonicalUrl = '{% canonical_url_for_post post request %}';
+        copyToClipboard(canonicalUrl).then(() => toast('Link copied!'));
+      });
+    });
+  });
+</script>
+{% endblock %}

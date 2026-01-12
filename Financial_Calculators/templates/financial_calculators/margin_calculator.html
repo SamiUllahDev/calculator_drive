@@ -1,0 +1,447 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Margin Calculator - Calculate Profit Margin & Markup" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate profit margin, markup percentage, and selling price. Convert between margin and markup with formulas and comparison tables." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'margin calculator, markup calculator, profit margin, gross margin, price markup, business calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Margin Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate profit margin, markup, and selling price for your business.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Margin Calculator' %}",
+    "description": "{% trans 'Calculate profit margin and markup' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Margin Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Margin Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate profit margin, markup percentage, and selling price. Understand the difference between margin and markup." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Input Form -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <form id="calculatorForm" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    <!-- Calculator Mode -->
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Calculate" %}</h3>
+                        <div class="grid grid-cols-1 gap-2">
+                            <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer transition calc-mode-option" data-mode="margin_from_cost_price">
+                                <input type="radio" name="calc_type" value="margin_from_cost_price" class="h-4 w-4 text-blue-600" checked>
+                                <span class="ml-3 text-sm text-gray-700">{% trans "Margin & Markup from Cost and Price" %}</span>
+                            </label>
+                            <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer transition calc-mode-option" data-mode="price_from_cost_margin">
+                                <input type="radio" name="calc_type" value="price_from_cost_margin" class="h-4 w-4 text-blue-600">
+                                <span class="ml-3 text-sm text-gray-700">{% trans "Selling Price from Cost and Margin" %}</span>
+                            </label>
+                            <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer transition calc-mode-option" data-mode="price_from_cost_markup">
+                                <input type="radio" name="calc_type" value="price_from_cost_markup" class="h-4 w-4 text-blue-600">
+                                <span class="ml-3 text-sm text-gray-700">{% trans "Selling Price from Cost and Markup" %}</span>
+                            </label>
+                            <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer transition calc-mode-option" data-mode="cost_from_price_margin">
+                                <input type="radio" name="calc_type" value="cost_from_price_margin" class="h-4 w-4 text-blue-600">
+                                <span class="ml-3 text-sm text-gray-700">{% trans "Cost from Price and Margin" %}</span>
+                            </label>
+                            <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 hover:border-blue-200 cursor-pointer transition calc-mode-option" data-mode="margin_markup_convert">
+                                <input type="radio" name="calc_type" value="margin_markup_convert" class="h-4 w-4 text-blue-600">
+                                <span class="ml-3 text-sm text-gray-700">{% trans "Convert Margin ↔ Markup" %}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Margin from Cost & Price Fields -->
+                    <div id="marginFromCostPriceFields" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="cost">{% trans "Cost" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" id="cost" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="70" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="price">{% trans "Selling Price" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" id="price" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="100" step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Price from Cost & Margin Fields -->
+                    <div id="priceFromCostMarginFields" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="cost_2">{% trans "Cost" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" id="cost_2" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="70" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="margin_input">{% trans "Desired Margin" %}</label>
+                            <div class="relative">
+                                <input type="number" id="margin_input" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="30" step="0.1" min="0" max="99.99">
+                                <span class="absolute right-3 top-2.5 text-gray-500">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Price from Cost & Markup Fields -->
+                    <div id="priceFromCostMarkupFields" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="cost_3">{% trans "Cost" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" id="cost_3" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="70" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="markup_input">{% trans "Desired Markup" %}</label>
+                            <div class="relative">
+                                <input type="number" id="markup_input" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="50" step="0.1" min="0">
+                                <span class="absolute right-3 top-2.5 text-gray-500">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cost from Price & Margin Fields -->
+                    <div id="costFromPriceMarginFields" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="price_2">{% trans "Selling Price" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" id="price_2" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="100" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="margin_input_2">{% trans "Margin" %}</label>
+                            <div class="relative">
+                                <input type="number" id="margin_input_2" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="30" step="0.1" min="0" max="99.99">
+                                <span class="absolute right-3 top-2.5 text-gray-500">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Margin Markup Convert Fields -->
+                    <div id="marginMarkupConvertFields" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Convert From" %}</label>
+                            <div class="flex space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="convert_from" value="margin" class="h-4 w-4 text-blue-600" checked>
+                                    <span class="ml-2 text-sm text-gray-700">{% trans "Margin" %}</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="convert_from" value="markup" class="h-4 w-4 text-blue-600">
+                                    <span class="ml-2 text-sm text-gray-700">{% trans "Markup" %}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="convert_value">{% trans "Value" %}</label>
+                            <div class="relative">
+                                <input type="number" id="convert_value" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="30" step="0.1" min="0">
+                                <span class="absolute right-3 top-2.5 text-gray-500">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calculate Button -->
+                    <button type="submit" class="w-full bg-blue-600 text-white py-4 px-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition focus:ring-4 focus:ring-blue-200 shadow-lg">
+                        {% trans "Calculate" %}
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div class="space-y-6">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Ready to Calculate" %}</h3>
+                    <p class="text-gray-600">{% trans "Enter your cost and price to see margin, markup, and profit." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
+                    <div class="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white border border-red-200 rounded-xl shadow-sm p-6">
+                    <div class="flex items-center text-red-600 mb-2">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="font-semibold">{% trans "Error" %}</span>
+                    </div>
+                    <p id="errorMessage" class="text-gray-700"></p>
+                </div>
+
+                <!-- Results -->
+                <div id="resultsState" class="hidden space-y-4">
+                    <!-- Main Results Cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5">
+                            <p class="text-blue-100 text-sm mb-1">{% trans "Profit Margin" %}</p>
+                            <p class="text-3xl font-bold" id="marginResult">0%</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5">
+                            <p class="text-green-100 text-sm mb-1">{% trans "Markup" %}</p>
+                            <p class="text-3xl font-bold" id="markupResult">0%</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Cost" %}</p>
+                            <p class="text-xl font-bold text-gray-900" id="costResult">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Profit" %}</p>
+                            <p class="text-xl font-bold text-green-600" id="profitResult">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Price" %}</p>
+                            <p class="text-xl font-bold text-gray-900" id="priceResult">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Formula Display -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">{% trans "Formulas Used" %}</h4>
+                        <div id="formulasDisplay" class="text-sm text-gray-600 space-y-1 font-mono">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Margin vs Markup Comparison -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Margin vs Markup Comparison Table" %}</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">{% trans "Margin" %}</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">{% trans "Markup" %}</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">{% trans "Example: $100 Price" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr><td class="px-4 py-2">10%</td><td class="px-4 py-2">11.1%</td><td class="px-4 py-2">{% trans "Cost: $90, Profit: $10" %}</td></tr>
+                        <tr class="bg-gray-50"><td class="px-4 py-2">15%</td><td class="px-4 py-2">17.6%</td><td class="px-4 py-2">{% trans "Cost: $85, Profit: $15" %}</td></tr>
+                        <tr><td class="px-4 py-2">20%</td><td class="px-4 py-2">25.0%</td><td class="px-4 py-2">{% trans "Cost: $80, Profit: $20" %}</td></tr>
+                        <tr class="bg-gray-50"><td class="px-4 py-2">25%</td><td class="px-4 py-2">33.3%</td><td class="px-4 py-2">{% trans "Cost: $75, Profit: $25" %}</td></tr>
+                        <tr><td class="px-4 py-2">30%</td><td class="px-4 py-2">42.9%</td><td class="px-4 py-2">{% trans "Cost: $70, Profit: $30" %}</td></tr>
+                        <tr class="bg-gray-50"><td class="px-4 py-2">40%</td><td class="px-4 py-2">66.7%</td><td class="px-4 py-2">{% trans "Cost: $60, Profit: $40" %}</td></tr>
+                        <tr><td class="px-4 py-2">50%</td><td class="px-4 py-2">100.0%</td><td class="px-4 py-2">{% trans "Cost: $50, Profit: $50" %}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            </div>
+
+        <!-- Educational Content -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Margin vs Markup: What's the Difference?" %}</h2>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <p class="font-semibold text-blue-800">{% trans "Margin" %}</p>
+                        <p class="text-blue-700">{% trans "Profit as a percentage of SELLING PRICE" %}</p>
+                        <p class="font-mono text-blue-600 mt-1">Margin = (Profit / Price) × 100</p>
+                    </div>
+                    <div class="p-3 bg-green-50 rounded-lg">
+                        <p class="font-semibold text-green-800">{% trans "Markup" %}</p>
+                        <p class="text-green-700">{% trans "Profit as a percentage of COST" %}</p>
+                        <p class="font-mono text-green-600 mt-1">Markup = (Profit / Cost) × 100</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Quick Tips" %}</h2>
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li class="flex items-start">
+                        <svg class="w-5 h-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>{% trans "Margin is always smaller than markup (for the same profit)" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-5 h-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>{% trans "50% margin = 100% markup = doubling your cost" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-5 h-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>{% trans "Most businesses discuss margin; retail often uses markup" %}</span>
+                    </li>
+                </ul>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const modeOptions = document.querySelectorAll('.calc-mode-option');
+    
+    // Mode switching
+    document.querySelectorAll('input[name="calc_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            modeOptions.forEach(opt => {
+                opt.classList.remove('border-blue-500', 'bg-blue-50');
+                opt.classList.add('border-gray-200');
+            });
+            this.closest('.calc-mode-option').classList.add('border-blue-500', 'bg-blue-50');
+            this.closest('.calc-mode-option').classList.remove('border-gray-200');
+            
+            const mode = this.value;
+            document.getElementById('marginFromCostPriceFields').classList.toggle('hidden', mode !== 'margin_from_cost_price');
+            document.getElementById('priceFromCostMarginFields').classList.toggle('hidden', mode !== 'price_from_cost_margin');
+            document.getElementById('priceFromCostMarkupFields').classList.toggle('hidden', mode !== 'price_from_cost_markup');
+            document.getElementById('costFromPriceMarginFields').classList.toggle('hidden', mode !== 'cost_from_price_margin');
+            document.getElementById('marginMarkupConvertFields').classList.toggle('hidden', mode !== 'margin_markup_convert');
+        });
+    });
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(num);
+    }
+    
+    function showState(state) {
+        document.getElementById('initialState').classList.add('hidden');
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.add('hidden');
+        document.getElementById('resultsState').classList.add('hidden');
+        
+        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
+        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
+        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
+        else if (state === 'results') document.getElementById('resultsState').classList.remove('hidden');
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState('loading');
+        
+        const calcType = document.querySelector('input[name="calc_type"]:checked').value;
+        const data = { calc_type: calcType };
+        
+        if (calcType === 'margin_from_cost_price') {
+            data.cost = parseFloat(document.getElementById('cost').value) || 0;
+            data.price = parseFloat(document.getElementById('price').value) || 0;
+        } else if (calcType === 'price_from_cost_margin') {
+            data.cost = parseFloat(document.getElementById('cost_2').value) || 0;
+            data.margin = parseFloat(document.getElementById('margin_input').value) || 0;
+        } else if (calcType === 'price_from_cost_markup') {
+            data.cost = parseFloat(document.getElementById('cost_3').value) || 0;
+            data.markup = parseFloat(document.getElementById('markup_input').value) || 0;
+        } else if (calcType === 'cost_from_price_margin') {
+            data.price = parseFloat(document.getElementById('price_2').value) || 0;
+            data.margin = parseFloat(document.getElementById('margin_input_2').value) || 0;
+        } else if (calcType === 'margin_markup_convert') {
+            data.value = parseFloat(document.getElementById('convert_value').value) || 0;
+            data.convert_from = document.querySelector('input[name="convert_from"]:checked').value;
+        }
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                displayResults(result);
+                showState('results');
+            } else {
+                document.getElementById('errorMessage').textContent = result.error || 'An error occurred';
+                showState('error');
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+            showState('error');
+        }
+    });
+    
+    function displayResults(result) {
+        document.getElementById('marginResult').textContent = (result.margin !== undefined ? result.margin.toFixed(1) : '0') + '%';
+        document.getElementById('markupResult').textContent = (result.markup !== undefined ? result.markup.toFixed(1) : '0') + '%';
+        document.getElementById('costResult').textContent = formatCurrency(result.cost || 0);
+        document.getElementById('profitResult').textContent = formatCurrency(result.profit || 0);
+        document.getElementById('priceResult').textContent = formatCurrency(result.price || 0);
+        
+        // Formulas
+        const formulasDiv = document.getElementById('formulasDisplay');
+        formulasDiv.innerHTML = '';
+        if (result.formulas) {
+            Object.values(result.formulas).forEach(formula => {
+                const p = document.createElement('p');
+                p.textContent = formula;
+                formulasDiv.appendChild(p);
+            });
+        } else if (result.formula) {
+            const p = document.createElement('p');
+            p.textContent = result.formula;
+            formulasDiv.appendChild(p);
+        }
+    }
+        });
+    </script>
+{% endblock %}

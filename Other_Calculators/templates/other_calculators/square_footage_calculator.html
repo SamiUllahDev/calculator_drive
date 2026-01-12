@@ -1,0 +1,569 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Square Footage Calculator - Calculate Area for Any Shape" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Square Footage Calculator. Calculate area for rectangle, square, circle, triangle, trapezoid, and ellipse. Supports multiple units." %}{% endblock %}
+{% block meta_keywords %}{% trans "square footage calculator, calculate square footage, area calculator, square feet calculator, floor area calculator, room area calculator, property area calculator, land area calculator, square meters calculator, sqft calculator, how to calculate square footage, area measurement tool, square footage finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Square Footage Calculator - Calculate Area for Any Shape" %}{% endblock %}
+{% block og_description %}{% trans "Calculate area for rectangle, square, circle, triangle, trapezoid, and ellipse. Supports multiple units. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Square Footage Calculator - Calculate Area for Any Shape" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate area for multiple shapes with unit conversion. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Square Footage Calculator' %}",
+  "description": "{% trans 'Free online Square Footage Calculator. Calculate area for rectangle, square, circle, triangle, trapezoid, and ellipse.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1900"},
+  "featureList": ["{% trans 'Multiple shape support' %}", "{% trans 'Area calculation' %}", "{% trans 'Unit conversion' %}", "{% trans 'Rectangle area' %}", "{% trans 'Circle area' %}", "{% trans 'Triangle area' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Square Footage Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate area for various shapes" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <form id="areaForm" class="space-y-6">
+                        <!-- Shape Selector -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Shape" %}</label>
+                            <select id="shape" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="rectangle">{% trans "Rectangle" %}</option>
+                                <option value="square">{% trans "Square" %}</option>
+                                <option value="circle">{% trans "Circle" %}</option>
+                                <option value="triangle">{% trans "Triangle" %}</option>
+                                <option value="trapezoid">{% trans "Trapezoid" %}</option>
+                                <option value="ellipse">{% trans "Ellipse" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Rectangle Fields -->
+                        <div id="rectangleFields" class="shape-fields">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Length" %}</label>
+                                    <input type="number" id="length" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Width" %}</label>
+                                    <input type="number" id="width" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Square Fields -->
+                        <div id="squareFields" class="shape-fields hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Side Length" %}</label>
+                                <input type="number" id="side" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                        </div>
+
+                        <!-- Circle Fields -->
+                        <div id="circleFields" class="shape-fields hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Radius" %}</label>
+                                <input type="number" id="radius" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                        </div>
+
+                        <!-- Triangle Fields -->
+                        <div id="triangleFields" class="shape-fields hidden">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Base" %}</label>
+                                    <input type="number" id="base" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Height" %}</label>
+                                    <input type="number" id="height" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trapezoid Fields -->
+                        <div id="trapezoidFields" class="shape-fields hidden">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Base 1" %}</label>
+                                    <input type="number" id="base1" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Base 2" %}</label>
+                                    <input type="number" id="base2" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Height" %}</label>
+                                <input type="number" id="trapezoidHeight" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                <span class="error-message text-red-500 text-sm hidden"></span>
+                            </div>
+                        </div>
+
+                        <!-- Ellipse Fields -->
+                        <div id="ellipseFields" class="shape-fields hidden">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Radius A (semi-major)" %}</label>
+                                    <input type="number" id="radius_a" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Radius B (semi-minor)" %}</label>
+                                    <input type="number" id="radius_b" min="0.01" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                                    <span class="error-message text-red-500 text-sm hidden"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Length Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Length Unit" %}</label>
+                            <select id="lengthUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="feet">{% trans "Feet" %}</option>
+                                <option value="meters">{% trans "Meters" %}</option>
+                                <option value="inches">{% trans "Inches" %}</option>
+                                <option value="yards">{% trans "Yards" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Result Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                            <select id="resultUnit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="square_feet">{% trans "Square Feet" %}</option>
+                                <option value="square_meters">{% trans "Square Meters" %}</option>
+                                <option value="square_yards">{% trans "Square Yards" %}</option>
+                                <option value="square_inches">{% trans "Square Inches" %}</option>
+                                <option value="acres">{% trans "Acres" %}</option>
+                                <option value="hectares">{% trans "Hectares" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate Area" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Square Footage?" %}</h3>
+                            <p>{% trans "Square footage is the area measurement in square feet. It's commonly used for measuring floor space, rooms, and property areas." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select the shape" %}</li>
+                                <li>{% trans "Enter the required measurements" %}</li>
+                                <li>{% trans "Select units" %}</li>
+                                <li>{% trans "Click calculate" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Supported Shapes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li><strong>{% trans "Rectangle" %}:</strong> {% trans "Length × Width" %}</li>
+                                <li><strong>{% trans "Square" %}:</strong> {% trans "Side × Side" %}</li>
+                                <li><strong>{% trans "Circle" %}:</strong> {% trans "π × r²" %}</li>
+                                <li><strong>{% trans "Triangle" %}:</strong> {% trans "(1/2) × Base × Height" %}</li>
+                                <li><strong>{% trans "Trapezoid" %}:</strong> {% trans "(1/2) × (Base1 + Base2) × Height" %}</li>
+                                <li><strong>{% trans "Ellipse" %}:</strong> {% trans "π × a × b" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Area Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-2 text-xs">
+                                <p><strong>{% trans "Rectangle" %}:</strong> A = l × w</p>
+                                <p><strong>{% trans "Square" %}:</strong> A = s²</p>
+                                <p><strong>{% trans "Circle" %}:</strong> A = πr²</p>
+                                <p><strong>{% trans "Triangle" %}:</strong> A = (1/2)bh</p>
+                                <p><strong>{% trans "Trapezoid" %}:</strong> A = (1/2)(b₁ + b₂)h</p>
+                                <p><strong>{% trans "Ellipse" %}:</strong> A = πab</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Area Units" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>ft²:</strong> {% trans "Square feet" %}</p>
+                                <p><strong>m²:</strong> {% trans "Square meters" %}</p>
+                                <p><strong>yd²:</strong> {% trans "Square yards" %}</p>
+                                <p><strong>in²:</strong> {% trans "Square inches" %}</p>
+                                <p><strong>{% trans "acres" %}:</strong> {% trans "1 acre = 43,560 ft²" %}</p>
+                                <p><strong>{% trans "hectares" %}:</strong> {% trans "1 hectare = 10,000 m²" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Conversions" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p>1 ft² = 0.092903 m²</p>
+                                <p>1 m² = 10.764 ft²</p>
+                                <p>1 yd² = 9 ft²</p>
+                                <p>1 acre = 43,560 ft²</p>
+                                <p>1 hectare = 2.471 acres</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Measure accurately for best results" %}</li>
+                                <li>{% trans "Use consistent units throughout" %}</li>
+                                <li>{% trans "For irregular shapes, divide into regular shapes" %}</li>
+                                <li>{% trans "Account for obstacles and non-rectangular areas" %}</li>
+                                <li>{% trans "Double-check measurements before calculating" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Flooring and carpeting" %}</li>
+                                <li>{% trans "Painting and wallpaper" %}</li>
+                                <li>{% trans "Property valuation" %}</li>
+                                <li>{% trans "Construction planning" %}</li>
+                                <li>{% trans "Real estate listings" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const shapeSelect = document.getElementById('shape');
+    const form = document.getElementById('areaForm');
+    
+    // Shape switching
+    shapeSelect.addEventListener('change', function() {
+        switchShape(this.value);
+    });
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateArea();
+    });
+    
+    // Real-time validation
+    setupValidation();
+    
+    // Initialize
+    switchShape('rectangle');
+});
+
+function switchShape(shape) {
+    // Hide all shape fields
+    document.querySelectorAll('.shape-fields').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant fields
+    if (shape === 'rectangle') {
+        document.getElementById('rectangleFields').classList.remove('hidden');
+    } else if (shape === 'square') {
+        document.getElementById('squareFields').classList.remove('hidden');
+    } else if (shape === 'circle') {
+        document.getElementById('circleFields').classList.remove('hidden');
+    } else if (shape === 'triangle') {
+        document.getElementById('triangleFields').classList.remove('hidden');
+    } else if (shape === 'trapezoid') {
+        document.getElementById('trapezoidFields').classList.remove('hidden');
+    } else if (shape === 'ellipse') {
+        document.getElementById('ellipseFields').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function setupValidation() {
+    const inputs = document.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validatePositive(this);
+        });
+    });
+}
+
+function validatePositive(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (input.value === '' || input.value === null) {
+        return true;
+    }
+    
+    if (isNaN(value)) {
+        showError(input, '{% trans "Please enter a valid number" %}');
+        return false;
+    }
+    
+    if (value <= 0) {
+        showError(input, '{% trans "Value must be greater than zero" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    if (errorSpan) {
+        errorSpan.textContent = message;
+        errorSpan.classList.remove('hidden');
+    }
+}
+
+function calculateArea() {
+    const shape = document.getElementById('shape').value;
+    const formData = {
+        shape: shape,
+        length_unit: document.getElementById('lengthUnit').value,
+        result_unit: document.getElementById('resultUnit').value,
+    };
+    
+    // Collect shape-specific data
+    if (shape === 'rectangle') {
+        const length = parseFloat(document.getElementById('length').value);
+        const width = parseFloat(document.getElementById('width').value);
+        if (!length || !width) {
+            alert('{% trans "Please enter length and width" %}');
+            return;
+        }
+        formData.length = length;
+        formData.width = width;
+    } else if (shape === 'square') {
+        const side = parseFloat(document.getElementById('side').value);
+        if (!side) {
+            alert('{% trans "Please enter side length" %}');
+            return;
+        }
+        formData.side = side;
+    } else if (shape === 'circle') {
+        const radius = parseFloat(document.getElementById('radius').value);
+        if (!radius) {
+            alert('{% trans "Please enter radius" %}');
+            return;
+        }
+        formData.radius = radius;
+    } else if (shape === 'triangle') {
+        const base = parseFloat(document.getElementById('base').value);
+        const height = parseFloat(document.getElementById('height').value);
+        if (!base || !height) {
+            alert('{% trans "Please enter base and height" %}');
+            return;
+        }
+        formData.base = base;
+        formData.height = height;
+    } else if (shape === 'trapezoid') {
+        const base1 = parseFloat(document.getElementById('base1').value);
+        const base2 = parseFloat(document.getElementById('base2').value);
+        const height = parseFloat(document.getElementById('trapezoidHeight').value);
+        if (!base1 || !base2 || !height) {
+            alert('{% trans "Please enter both bases and height" %}');
+            return;
+        }
+        formData.base1 = base1;
+        formData.base2 = base2;
+        formData.height = height;
+    } else if (shape === 'ellipse') {
+        const radius_a = parseFloat(document.getElementById('radius_a').value);
+        const radius_b = parseFloat(document.getElementById('radius_b').value);
+        if (!radius_a || !radius_b) {
+            alert('{% trans "Please enter both radii" %}');
+            return;
+        }
+        formData.radius_a = radius_a;
+        formData.radius_b = radius_b;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:square_footage_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    const unitLabels = {
+        'square_meters': 'm²',
+        'square_feet': 'ft²',
+        'square_yards': 'yd²',
+        'square_inches': 'in²',
+        'acres': 'acres',
+        'hectares': 'hectares',
+    };
+    
+    const shapeNames = {
+        'rectangle': '{% trans "Rectangle" %}',
+        'square': '{% trans "Square" %}',
+        'circle': '{% trans "Circle" %}',
+        'triangle': '{% trans "Triangle" %}',
+        'trapezoid': '{% trans "Trapezoid" %}',
+        'ellipse': '{% trans "Ellipse" %}',
+    };
+    
+    let html = `<div class="bg-blue-50 p-6 rounded-lg text-center">
+        <p class="text-sm text-gray-600 mb-2">${shapeNames[data.shape]} {% trans "Area" %}</p>
+        <p class="text-4xl font-bold text-blue-600">${data.area.toLocaleString()} ${unitLabels[data.result_unit]}</p>
+        <p class="text-sm text-gray-500 mt-2">(${data.area_m2.toFixed(2)} m²)</p>
+    </div>`;
+    
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

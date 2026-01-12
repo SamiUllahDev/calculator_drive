@@ -1,0 +1,842 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Surface Area Calculator - Calculate SA for 3D Shapes" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free surface area calculator to calculate surface area for cube, sphere, cylinder, cone, rectangular prism, triangular prism, and pyramid. Get surface area formulas and step-by-step solutions. Perfect for geometry homework." %}{% endblock %}
+{% block meta_keywords %}{% trans "surface area calculator, calculate surface area, surface area of a cube, surface area of a sphere, surface area of a cylinder, surface area of a cone, surface area of a pyramid, surface area formula, how to calculate surface area, 3D shapes calculator, geometry calculator, surface area finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Surface Area Calculator - Calculate SA for 3D Shapes" %}{% endblock %}
+{% block og_description %}{% trans "Free surface area calculator to calculate surface area for cube, sphere, cylinder, cone, rectangular prism, triangular prism, and pyramid. Get surface area formulas and step-by-step solutions." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Professional Surface Area Calculator - Calculate SA for 3D Shapes" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate surface area for various 3D shapes. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Professional Surface Area Calculator' %}",
+  "description": "{% trans 'Calculate surface area for cube, sphere, cylinder, cone, rectangular prism, triangular prism, and pyramid with step-by-step solutions.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "2900"},
+  "featureList": ["{% trans 'Multiple 3D shapes' %}", "{% trans 'Surface area calculation' %}", "{% trans 'Step-by-step solutions' %}", "{% trans 'Surface area formulas' %}", "{% trans 'Unit conversion' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Surface Area Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate surface area for cube, sphere, cylinder, cone, rectangular prism, triangular prism, and pyramid with step-by-step solutions." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Shape Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Shape Type" %}
+                            </label>
+                            <select id="shapeType" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="cube">{% trans "Cube" %}</option>
+                                <option value="sphere">{% trans "Sphere" %}</option>
+                                <option value="cylinder">{% trans "Cylinder" %}</option>
+                                <option value="cone">{% trans "Cone" %}</option>
+                                <option value="rectangular_prism">{% trans "Rectangular Prism" %}</option>
+                                <option value="triangular_prism">{% trans "Triangular Prism" %}</option>
+                                <option value="pyramid">{% trans "Square Pyramid" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Cube Mode -->
+                        <div id="cubeMode" class="space-y-4">
+                            <div>
+                                <label for="cube_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side Length (a)" %}
+                                </label>
+                                <input type="number" id="cube_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 5">
+                            </div>
+                        </div>
+
+                        <!-- Sphere Mode -->
+                        <div id="sphereMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="sphere_r" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Radius (r)" %}
+                                </label>
+                                <input type="number" id="sphere_r" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 3">
+                            </div>
+                        </div>
+
+                        <!-- Cylinder Mode -->
+                        <div id="cylinderMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="cylinder_r" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Radius (r)" %}
+                                </label>
+                                <input type="number" id="cylinder_r" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 2">
+                            </div>
+                            <div>
+                                <label for="cylinder_h" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height (h)" %}
+                                </label>
+                                <input type="number" id="cylinder_h" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 5">
+                            </div>
+                        </div>
+
+                        <!-- Cone Mode -->
+                        <div id="coneMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="cone_r" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Radius (r)" %}
+                                </label>
+                                <input type="number" id="cone_r" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 3">
+                            </div>
+                            <div>
+                                <label for="cone_h" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height (h)" %} <span class="text-xs text-gray-500">({% trans "optional if slant height provided" %})</span>
+                                </label>
+                                <input type="number" id="cone_h" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 4">
+                            </div>
+                            <div>
+                                <label for="cone_l" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Slant Height (l)" %} <span class="text-xs text-gray-500">({% trans "optional if height provided" %})</span>
+                                </label>
+                                <input type="number" id="cone_l" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 5">
+                            </div>
+                        </div>
+
+                        <!-- Rectangular Prism Mode -->
+                        <div id="rectangularPrismMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="prism_l" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Length (l)" %}
+                                </label>
+                                <input type="number" id="prism_l" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 4">
+                            </div>
+                            <div>
+                                <label for="prism_w" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Width (w)" %}
+                                </label>
+                                <input type="number" id="prism_w" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 3">
+                            </div>
+                            <div>
+                                <label for="prism_h" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height (h)" %}
+                                </label>
+                                <input type="number" id="prism_h" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 5">
+                            </div>
+                        </div>
+
+                        <!-- Triangular Prism Mode -->
+                        <div id="triangularPrismMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="tri_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Base Side a" %}
+                                </label>
+                                <input type="number" id="tri_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 3">
+                            </div>
+                            <div>
+                                <label for="tri_b" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Base Side b" %}
+                                </label>
+                                <input type="number" id="tri_b" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 4">
+                            </div>
+                            <div>
+                                <label for="tri_c" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Base Side c" %}
+                                </label>
+                                <input type="number" id="tri_c" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 5">
+                            </div>
+                            <div>
+                                <label for="tri_h" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height (h)" %}
+                                </label>
+                                <input type="number" id="tri_h" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 6">
+                            </div>
+                            <div>
+                                <label for="tri_base_h" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Base Height" %}
+                                </label>
+                                <input type="number" id="tri_base_h" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 2.4">
+                            </div>
+                        </div>
+
+                        <!-- Pyramid Mode -->
+                        <div id="pyramidMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="pyramid_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Base Side (a)" %}
+                                </label>
+                                <input type="number" id="pyramid_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 4">
+                            </div>
+                            <div>
+                                <label for="pyramid_h" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height (h)" %} <span class="text-xs text-gray-500">({% trans "optional if slant height provided" %})</span>
+                                </label>
+                                <input type="number" id="pyramid_h" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 3">
+                            </div>
+                            <div>
+                                <label for="pyramid_l" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Slant Height (l)" %} <span class="text-xs text-gray-500">({% trans "optional if height provided" %})</span>
+                                </label>
+                                <input type="number" id="pyramid_l" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 5">
+                            </div>
+                        </div>
+
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            {% trans "Load Example Values" %}
+                        </button>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate surface area' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="copyBtn" class="flex-1 text-sm py-2 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Copy" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select a shape type and enter the required dimensions to calculate surface area." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="resultLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Surface Area" %}</p>
+                            <p id="resultValue" class="text-4xl sm:text-5xl font-bold font-mono">0</p>
+                            <p id="resultFormula" class="text-sm sm:text-base opacity-90 mt-2 font-mono"></p>
+                        </div>
+                    </div>
+
+                    <!-- Shape Information -->
+                    <div id="shapeInfo" class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hidden">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Shape Dimensions" %}
+                        </h3>
+                        <div id="shapeDimensions" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Area Breakdown (for applicable shapes) -->
+                    <div id="areaBreakdownContainer" class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hidden">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Area Breakdown" %}
+                        </h3>
+                        <div id="areaBreakdown" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Chart Container -->
+                    <div id="chartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                            </svg>
+                            {% trans "Area Breakdown" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="areaBreakdownChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepByStep" class="space-y-2"></div>
+                    </div>
+
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Surface Area Formulas" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Cube" %}:</strong> SA = 6a²</li>
+                                <li><strong>{% trans "Sphere" %}:</strong> SA = 4πr²</li>
+                                <li><strong>{% trans "Cylinder" %}:</strong> SA = 2πr² + 2πrh = 2πr(r + h)</li>
+                                <li><strong>{% trans "Cone" %}:</strong> SA = πr² + πrl = πr(r + l)</li>
+                                <li><strong>{% trans "Rectangular Prism" %}:</strong> SA = 2(lw + lh + wh)</li>
+                                <li><strong>{% trans "Triangular Prism" %}:</strong> SA = 2B + Ph</li>
+                                <li><strong>{% trans "Square Pyramid" %}:</strong> SA = a² + 2al</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Examples" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 1: Cube" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> Side = 5</p>
+                                    <p class="text-gray-700"><strong>{% trans "Result" %}:</strong> SA = 6 × 5² = 150</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 2: Sphere" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> Radius = 3</p>
+                                    <p class="text-gray-700"><strong>{% trans "Result" %}:</strong> SA = 4π × 3² ≈ 113.10</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const shapeType = document.getElementById('shapeType');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const initialState = document.getElementById('initialState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    let areaBreakdownChart = null;
+    let currentResultData = null;
+
+    // Examples
+    const examples = {
+        cube: {a: 5},
+        sphere: {r: 3},
+        cylinder: {r: 2, h: 5},
+        cone: {r: 3, h: 4},
+        rectangular_prism: {l: 4, w: 3, h: 5},
+        triangular_prism: {a: 3, b: 4, c: 5, h: 6, base_h: 2.4},
+        pyramid: {a: 4, h: 3}
+    };
+
+    // Update form based on shape type
+    function updateForm() {
+        const type = shapeType.value;
+        
+        // Hide all modes
+        document.getElementById('cubeMode').classList.add('hidden');
+        document.getElementById('sphereMode').classList.add('hidden');
+        document.getElementById('cylinderMode').classList.add('hidden');
+        document.getElementById('coneMode').classList.add('hidden');
+        document.getElementById('rectangularPrismMode').classList.add('hidden');
+        document.getElementById('triangularPrismMode').classList.add('hidden');
+        document.getElementById('pyramidMode').classList.add('hidden');
+        
+        // Show relevant mode
+        if (type === 'cube') {
+            document.getElementById('cubeMode').classList.remove('hidden');
+        } else if (type === 'sphere') {
+            document.getElementById('sphereMode').classList.remove('hidden');
+        } else if (type === 'cylinder') {
+            document.getElementById('cylinderMode').classList.remove('hidden');
+        } else if (type === 'cone') {
+            document.getElementById('coneMode').classList.remove('hidden');
+        } else if (type === 'rectangular_prism') {
+            document.getElementById('rectangularPrismMode').classList.remove('hidden');
+        } else if (type === 'triangular_prism') {
+            document.getElementById('triangularPrismMode').classList.remove('hidden');
+        } else if (type === 'pyramid') {
+            document.getElementById('pyramidMode').classList.remove('hidden');
+        }
+    }
+
+    shapeType.addEventListener('change', updateForm);
+    updateForm();
+
+    exampleBtn.addEventListener('click', function() {
+        const type = shapeType.value;
+        const example = examples[type] || examples.cube;
+        
+        // Clear all inputs first
+        document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+        
+        if (type === 'cube') {
+            document.getElementById('cube_a').value = example.a;
+        } else if (type === 'sphere') {
+            document.getElementById('sphere_r').value = example.r;
+        } else if (type === 'cylinder') {
+            document.getElementById('cylinder_r').value = example.r;
+            document.getElementById('cylinder_h').value = example.h;
+        } else if (type === 'cone') {
+            document.getElementById('cone_r').value = example.r;
+            if (example.h) document.getElementById('cone_h').value = example.h;
+        } else if (type === 'rectangular_prism') {
+            document.getElementById('prism_l').value = example.l;
+            document.getElementById('prism_w').value = example.w;
+            document.getElementById('prism_h').value = example.h;
+        } else if (type === 'triangular_prism') {
+            document.getElementById('tri_a').value = example.a;
+            document.getElementById('tri_b').value = example.b;
+            document.getElementById('tri_c').value = example.c;
+            document.getElementById('tri_h').value = example.h;
+            document.getElementById('tri_base_h').value = example.base_h;
+        } else if (type === 'pyramid') {
+            document.getElementById('pyramid_a').value = example.a;
+            if (example.h) document.getElementById('pyramid_h').value = example.h;
+        }
+    });
+
+    clearBtn.addEventListener('click', function() {
+        document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+        initialState.classList.remove('hidden');
+        results.classList.add('hidden');
+        quickActions.classList.add('hidden');
+        errorState.classList.add('hidden');
+        if (areaBreakdownChart) {
+            areaBreakdownChart.destroy();
+            areaBreakdownChart = null;
+        }
+        currentResultData = null;
+    });
+
+    copyBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const text = `Surface Area Calculator Results\n\n` +
+                    `Shape: ${currentResultData.shape_name}\n` +
+                    `Surface Area: ${currentResultData.surface_area.toFixed(6)}\n` +
+                    `Formula: ${currentResultData.formula}`;
+
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            copyBtn.classList.add('bg-green-200', 'text-green-800');
+            copyBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            setTimeout(function() {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('bg-green-200', 'text-green-800');
+                copyBtn.classList.add('bg-blue-100', 'text-blue-700');
+            }, 2000);
+        });
+    });
+
+    exportBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const exportData = {
+            ...currentResultData,
+            timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `surface_area_calculator_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    function displayResults(data) {
+        currentResultData = data;
+
+        initialState.classList.add('hidden');
+        results.classList.remove('hidden');
+        quickActions.classList.remove('hidden');
+        errorState.classList.add('hidden');
+
+        // Update result card
+        document.getElementById('resultValue').textContent = data.surface_area.toFixed(6);
+        document.getElementById('resultFormula').textContent = data.formula;
+
+        // Shape dimensions
+        const shapeInfo = document.getElementById('shapeInfo');
+        const shapeDimensions = document.getElementById('shapeDimensions');
+        shapeDimensions.innerHTML = '';
+        shapeInfo.classList.remove('hidden');
+        
+        const dimensions = [];
+        if (data.a !== undefined) dimensions.push({label: 'Side a', value: data.a});
+        if (data.r !== undefined) dimensions.push({label: 'Radius r', value: data.r});
+        if (data.h !== undefined && data.h !== null) dimensions.push({label: 'Height h', value: data.h});
+        if (data.l !== undefined) dimensions.push({label: 'Slant Height l', value: data.l.toFixed(6)});
+        if (data.w !== undefined) dimensions.push({label: 'Width w', value: data.w});
+        if (data.b !== undefined && data.shape_type === 'triangular_prism') dimensions.push({label: 'Base Side b', value: data.b});
+        if (data.c !== undefined) dimensions.push({label: 'Base Side c', value: data.c});
+        if (data.base_h !== undefined) dimensions.push({label: 'Base Height', value: data.base_h});
+
+        dimensions.forEach(dim => {
+            const div = document.createElement('div');
+            div.className = 'flex justify-between py-2 border-b border-gray-200 last:border-b-0';
+            const label = document.createElement('span');
+            label.className = 'text-sm font-medium text-gray-700';
+            label.textContent = dim.label + ':';
+            const value = document.createElement('span');
+            value.className = 'text-sm font-bold font-mono text-blue-600';
+            value.textContent = dim.value.toFixed(6);
+            div.appendChild(label);
+            div.appendChild(value);
+            shapeDimensions.appendChild(div);
+        });
+
+        // Area breakdown
+        if (data.base_area !== undefined && data.lateral_area !== undefined) {
+            const container = document.getElementById('areaBreakdownContainer');
+            container.classList.remove('hidden');
+            const breakdown = document.getElementById('areaBreakdown');
+            breakdown.innerHTML = '';
+            
+            const items = [
+                {label: 'Base Area', value: data.base_area.toFixed(6), color: 'blue'},
+                {label: 'Lateral Area', value: data.lateral_area.toFixed(6), color: 'green'},
+                {label: 'Total Surface Area', value: data.surface_area.toFixed(6), color: 'purple', is_primary: true}
+            ];
+            
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between py-3 border-b border-gray-200 last:border-b-0';
+                const label = document.createElement('span');
+                label.className = 'text-sm font-medium text-gray-700';
+                label.textContent = item.label + ':';
+                const value = document.createElement('span');
+                value.className = 'text-sm font-bold font-mono text-' + item.color + '-600';
+                value.textContent = item.value;
+                div.appendChild(label);
+                div.appendChild(value);
+                breakdown.appendChild(div);
+            });
+        } else {
+            document.getElementById('areaBreakdownContainer').classList.add('hidden');
+        }
+
+        // Chart
+        if (data.chart_data && data.chart_data.area_breakdown_chart) {
+            const container = document.getElementById('chartContainer');
+            container.classList.remove('hidden');
+            
+            if (areaBreakdownChart) {
+                areaBreakdownChart.destroy();
+            }
+            
+            const ctx = document.getElementById('areaBreakdownChart');
+            areaBreakdownChart = new Chart(ctx, {
+                type: data.chart_data.area_breakdown_chart.type,
+                data: data.chart_data.area_breakdown_chart.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('chartContainer').classList.add('hidden');
+        }
+
+        // Step-by-step
+        const stepByStep = document.getElementById('stepByStep');
+        stepByStep.innerHTML = '';
+        data.step_by_step.forEach((step, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg text-sm text-gray-700';
+            if (step.startsWith('Step') || step.startsWith('Given')) {
+                div.classList.add('font-semibold', 'text-gray-900');
+            }
+            if (step === '') {
+                div.className = 'h-2';
+            }
+            div.textContent = step;
+            stepByStep.appendChild(div);
+        });
+
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const type = shapeType.value;
+        let requestData = {shape_type: type};
+
+        if (type === 'cube') {
+            const a = document.getElementById('cube_a').value;
+            if (!a) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter side length.';
+                return;
+            }
+            requestData.a = parseFloat(a);
+        } else if (type === 'sphere') {
+            const r = document.getElementById('sphere_r').value;
+            if (!r) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter radius.';
+                return;
+            }
+            requestData.r = parseFloat(r);
+        } else if (type === 'cylinder') {
+            const r = document.getElementById('cylinder_r').value;
+            const h = document.getElementById('cylinder_h').value;
+            if (!r || !h) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter both radius and height.';
+                return;
+            }
+            requestData.r = parseFloat(r);
+            requestData.h = parseFloat(h);
+        } else if (type === 'cone') {
+            const r = document.getElementById('cone_r').value;
+            const h = document.getElementById('cone_h').value.trim();
+            const l = document.getElementById('cone_l').value.trim();
+            if (!r) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter radius.';
+                return;
+            }
+            if (!h && !l) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter either height or slant height.';
+                return;
+            }
+            requestData.r = parseFloat(r);
+            if (h) requestData.h = parseFloat(h);
+            if (l) requestData.l = parseFloat(l);
+        } else if (type === 'rectangular_prism') {
+            const l = document.getElementById('prism_l').value;
+            const w = document.getElementById('prism_w').value;
+            const h = document.getElementById('prism_h').value;
+            if (!l || !w || !h) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter length, width, and height.';
+                return;
+            }
+            requestData.l = parseFloat(l);
+            requestData.w = parseFloat(w);
+            requestData.h = parseFloat(h);
+        } else if (type === 'triangular_prism') {
+            const a = document.getElementById('tri_a').value;
+            const b = document.getElementById('tri_b').value;
+            const c = document.getElementById('tri_c').value;
+            const h = document.getElementById('tri_h').value;
+            const base_h = document.getElementById('tri_base_h').value;
+            if (!a || !b || !c || !h || !base_h) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter all dimensions.';
+                return;
+            }
+            requestData.a = parseFloat(a);
+            requestData.b = parseFloat(b);
+            requestData.c = parseFloat(c);
+            requestData.h = parseFloat(h);
+            requestData.base_h = parseFloat(base_h);
+        } else if (type === 'pyramid') {
+            const a = document.getElementById('pyramid_a').value;
+            const h = document.getElementById('pyramid_h').value.trim();
+            const l = document.getElementById('pyramid_l').value.trim();
+            if (!a) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter base side.';
+                return;
+            }
+            if (!h && !l) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter either height or slant height.';
+                return;
+            }
+            requestData.a = parseFloat(a);
+            if (h) requestData.h = parseFloat(h);
+            if (l) requestData.l = parseFloat(l);
+        }
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = 'Calculating...';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = data.error || 'An error occurred.';
+            }
+        })
+        .catch(error => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'An error occurred. Please try again.';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

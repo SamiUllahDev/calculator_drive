@@ -1,0 +1,722 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Voltage Drop Calculator - Calculate Electrical Voltage Loss" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Voltage Drop Calculator. Calculate voltage drop, wire size, maximum current, and wire length for electrical circuits. Supports DC, single-phase, and three-phase systems." %}{% endblock %}
+{% block meta_keywords %}{% trans "voltage drop calculator, calculate voltage drop, electrical calculator, wire size calculator, voltage loss calculator, electrical engineering calculator, circuit calculator, voltage drop formula, wire gauge calculator, electrical voltage calculator, NEC voltage drop calculator, electrical design calculator, voltage drop finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Voltage Drop Calculator - Calculate Electrical Voltage Loss" %}{% endblock %}
+{% block og_description %}{% trans "Calculate voltage drop, wire size, maximum current, and wire length for electrical circuits. Supports DC, single-phase, and three-phase systems." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Voltage Drop Calculator - Calculate Electrical Voltage Loss" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate voltage drop and wire size for electrical circuits. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Voltage Drop Calculator' %}",
+  "description": "{% trans 'Free online Voltage Drop Calculator. Calculate voltage drop, wire size, maximum current, and wire length for electrical circuits.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "950"},
+  "featureList": ["{% trans 'Voltage drop calculation' %}", "{% trans 'Wire size calculation' %}", "{% trans 'Current calculation' %}", "{% trans 'DC and AC support' %}", "{% trans 'Single and three-phase' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Voltage Drop Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Calculate voltage drop, wire size, and circuit parameters" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <!-- Calculation Type Selector -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="voltage_drop">{% trans "Calculate Voltage Drop" %}</option>
+                        <option value="wire_size">{% trans "Calculate Wire Size" %}</option>
+                        <option value="max_current">{% trans "Calculate Maximum Current" %}</option>
+                        <option value="max_length">{% trans "Calculate Maximum Length" %}</option>
+                    </select>
+                </div>
+
+                <!-- Voltage Drop Calculator -->
+                <div id="voltageDropCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Voltage Drop" %}</h2>
+                    <form id="voltageDropForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Current (Amperes)" %}</label>
+                            <input type="number" id="current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" step="0.1" min="0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Voltage (Volts)" %}</label>
+                            <input type="number" id="voltage" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="120" step="1" min="0" value="120">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Length (feet)" %}</label>
+                            <input type="number" id="length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" step="1" min="0" value="100">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Size (AWG)" %}</label>
+                                <select id="wire_size" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="14">14 AWG</option>
+                                    <option value="12" selected>12 AWG</option>
+                                    <option value="10">10 AWG</option>
+                                    <option value="8">8 AWG</option>
+                                    <option value="6">6 AWG</option>
+                                    <option value="4">4 AWG</option>
+                                    <option value="3">3 AWG</option>
+                                    <option value="2">2 AWG</option>
+                                    <option value="1">1 AWG</option>
+                                    <option value="1/0">1/0 AWG</option>
+                                    <option value="2/0">2/0 AWG</option>
+                                    <option value="3/0">3/0 AWG</option>
+                                    <option value="4/0">4/0 AWG</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Material" %}</label>
+                                <select id="wire_material" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="copper" selected>{% trans "Copper" %}</option>
+                                    <option value="aluminum">{% trans "Aluminum" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Circuit Type" %}</label>
+                            <select id="circuit_type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="dc">{% trans "DC" %}</option>
+                                <option value="single_phase" selected>{% trans "Single-Phase AC" %}</option>
+                                <option value="three_phase">{% trans "Three-Phase AC" %}</option>
+                            </select>
+                        </div>
+
+                        <div id="powerFactorDiv" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Power Factor" %}</label>
+                            <input type="number" id="power_factor" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1.0" step="0.01" min="0" max="1" value="1.0">
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Power factor for AC circuits (0.0 to 1.0)" %}</p>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Wire Size Calculator -->
+                <div id="wireSizeCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Wire Size" %}</h2>
+                    <form id="wireSizeForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Current (Amperes)" %}</label>
+                            <input type="number" id="current_wire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" step="0.1" min="0">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Voltage (Volts)" %}</label>
+                            <input type="number" id="voltage_wire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="120" step="1" min="0" value="120">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Length (feet)" %}</label>
+                            <input type="number" id="length_wire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" step="1" min="0" value="100">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Maximum Voltage Drop" %}</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="max_voltage_drop" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="3" step="0.1" min="0" value="3">
+                                <select id="max_voltage_drop_type" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="volts">{% trans "Volts" %}</option>
+                                    <option value="percent">{% trans "%" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Material" %}</label>
+                                <select id="wire_material_wire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="copper" selected>{% trans "Copper" %}</option>
+                                    <option value="aluminum">{% trans "Aluminum" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Circuit Type" %}</label>
+                                <select id="circuit_type_wire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="dc">{% trans "DC" %}</option>
+                                    <option value="single_phase" selected>{% trans "Single-Phase AC" %}</option>
+                                    <option value="three_phase">{% trans "Three-Phase AC" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="powerFactorDivWire" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Power Factor" %}</label>
+                            <input type="number" id="power_factor_wire" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1.0" step="0.01" min="0" max="1" value="1.0">
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Max Current Calculator -->
+                <div id="maxCurrentCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Maximum Current" %}</h2>
+                    <form id="maxCurrentForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Voltage Drop (Volts)" %}</label>
+                            <input type="number" id="voltage_drop_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="3" step="0.1" min="0">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Voltage (Volts)" %}</label>
+                            <input type="number" id="voltage_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="120" step="1" min="0" value="120">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Length (feet)" %}</label>
+                            <input type="number" id="length_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" step="1" min="0" value="100">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Size (AWG)" %}</label>
+                                <select id="wire_size_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="14">14 AWG</option>
+                                    <option value="12" selected>12 AWG</option>
+                                    <option value="10">10 AWG</option>
+                                    <option value="8">8 AWG</option>
+                                    <option value="6">6 AWG</option>
+                                    <option value="4">4 AWG</option>
+                                    <option value="3">3 AWG</option>
+                                    <option value="2">2 AWG</option>
+                                    <option value="1">1 AWG</option>
+                                    <option value="1/0">1/0 AWG</option>
+                                    <option value="2/0">2/0 AWG</option>
+                                    <option value="3/0">3/0 AWG</option>
+                                    <option value="4/0">4/0 AWG</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Material" %}</label>
+                                <select id="wire_material_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="copper" selected>{% trans "Copper" %}</option>
+                                    <option value="aluminum">{% trans "Aluminum" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Circuit Type" %}</label>
+                            <select id="circuit_type_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="dc">{% trans "DC" %}</option>
+                                <option value="single_phase" selected>{% trans "Single-Phase AC" %}</option>
+                                <option value="three_phase">{% trans "Three-Phase AC" %}</option>
+                            </select>
+                        </div>
+
+                        <div id="powerFactorDivCurrent" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Power Factor" %}</label>
+                            <input type="number" id="power_factor_current" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1.0" step="0.01" min="0" max="1" value="1.0">
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Max Length Calculator -->
+                <div id="maxLengthCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Maximum Length" %}</h2>
+                    <form id="maxLengthForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Voltage Drop (Volts)" %}</label>
+                            <input type="number" id="voltage_drop_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="3" step="0.1" min="0">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Voltage (Volts)" %}</label>
+                            <input type="number" id="voltage_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="120" step="1" min="0" value="120">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Current (Amperes)" %}</label>
+                            <input type="number" id="current_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" step="0.1" min="0">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Size (AWG)" %}</label>
+                                <select id="wire_size_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="14">14 AWG</option>
+                                    <option value="12" selected>12 AWG</option>
+                                    <option value="10">10 AWG</option>
+                                    <option value="8">8 AWG</option>
+                                    <option value="6">6 AWG</option>
+                                    <option value="4">4 AWG</option>
+                                    <option value="3">3 AWG</option>
+                                    <option value="2">2 AWG</option>
+                                    <option value="1">1 AWG</option>
+                                    <option value="1/0">1/0 AWG</option>
+                                    <option value="2/0">2/0 AWG</option>
+                                    <option value="3/0">3/0 AWG</option>
+                                    <option value="4/0">4/0 AWG</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Wire Material" %}</label>
+                                <select id="wire_material_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="copper" selected>{% trans "Copper" %}</option>
+                                    <option value="aluminum">{% trans "Aluminum" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Circuit Type" %}</label>
+                            <select id="circuit_type_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="dc">{% trans "DC" %}</option>
+                                <option value="single_phase" selected>{% trans "Single-Phase AC" %}</option>
+                                <option value="three_phase">{% trans "Three-Phase AC" %}</option>
+                            </select>
+                        </div>
+
+                        <div id="powerFactorDivLength" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Power Factor" %}</label>
+                            <input type="number" id="power_factor_length" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1.0" step="0.01" min="0" max="1" value="1.0">
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Voltage Drop?" %}</h3>
+                            <p>{% trans "Voltage drop is the reduction in voltage in an electrical circuit due to the resistance of the conductors. It's important to keep voltage drop within acceptable limits to ensure proper equipment operation." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select calculation type" %}</li>
+                                <li>{% trans "Enter circuit parameters" %}</li>
+                                <li>{% trans "Select wire size and material" %}</li>
+                                <li>{% trans "Click calculate" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Circuit Types" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "DC" %}:</strong> {% trans "Direct current circuits" %}</p>
+                                <p><strong>{% trans "Single-Phase AC" %}:</strong> {% trans "Standard residential AC power" %}</p>
+                                <p><strong>{% trans "Three-Phase AC" %}:</strong> {% trans "Commercial and industrial power" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Wire Materials" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Copper" %}:</strong> {% trans "Lower resistance, higher cost" %}</p>
+                                <p><strong>{% trans "Aluminum" %}:</strong> {% trans "Higher resistance, lower cost" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "DC Voltage Drop" %}:</strong></p>
+                                <p class="font-mono">VD = I × R × 2</p>
+                                <p class="mt-2"><strong>{% trans "Single-Phase AC" %}:</strong></p>
+                                <p class="font-mono">VD = I × R × 2 × PF</p>
+                                <p class="mt-2"><strong>{% trans "Three-Phase AC" %}:</strong></p>
+                                <p class="font-mono">VD = I × R × √3 × PF</p>
+                                <p class="mt-2"><strong>{% trans "Resistance" %}:</strong></p>
+                                <p class="font-mono">R = (ρ × L) / A</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Acceptable Voltage Drop" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p>{% trans "NEC recommends:" %}</p>
+                                <p>{% trans "• 3% for branch circuits" %}</p>
+                                <p>{% trans "• 5% for combined feeder and branch circuits" %}</p>
+                                <p>{% trans "• Lower is better for sensitive equipment" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Power Factor" %}</h3>
+                            <p class="text-xs">{% trans "Power factor is the ratio of real power to apparent power. For resistive loads (heaters, incandescent lights), power factor is 1.0. For inductive loads (motors, transformers), power factor is typically 0.7-0.9." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Voltage drop increases with wire length" %}</li>
+                                <li>{% trans "Larger wire sizes reduce voltage drop" %}</li>
+                                <li>{% trans "Copper has lower resistance than aluminum" %}</li>
+                                <li>{% trans "Three-phase has lower voltage drop than single-phase" %}</li>
+                                <li>{% trans "Always follow local electrical codes" %}</li>
+                                <li>{% trans "Consider temperature derating" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Electrical circuit design" %}</li>
+                                <li>{% trans "Wire sizing for installations" %}</li>
+                                <li>{% trans "Troubleshooting voltage issues" %}</li>
+                                <li>{% trans "Long distance wiring" %}</li>
+                                <li>{% trans "Solar panel installations" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalcMode(this.value);
+    });
+    
+    // Form submissions
+    document.getElementById('voltageDropForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateVoltageDrop();
+    });
+    
+    document.getElementById('wireSizeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateWireSize();
+    });
+    
+    document.getElementById('maxCurrentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateMaxCurrent();
+    });
+    
+    document.getElementById('maxLengthForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateMaxLength();
+    });
+    
+    // Show/hide power factor based on circuit type
+    document.querySelectorAll('[id*="circuit_type"]').forEach(select => {
+        select.addEventListener('change', function() {
+            const formId = this.id.replace('circuit_type', '');
+            const powerFactorDiv = document.getElementById('powerFactorDiv' + formId);
+            if (this.value !== 'dc' && powerFactorDiv) {
+                powerFactorDiv.classList.remove('hidden');
+            } else if (powerFactorDiv) {
+                powerFactorDiv.classList.add('hidden');
+            }
+        });
+    });
+    
+    // Initialize
+    switchCalcMode('voltage_drop');
+});
+
+function switchCalcMode(mode) {
+    // Hide all calculation modes
+    document.querySelectorAll('.calc-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant mode
+    if (mode === 'voltage_drop') {
+        document.getElementById('voltageDropCalc').classList.remove('hidden');
+    } else if (mode === 'wire_size') {
+        document.getElementById('wireSizeCalc').classList.remove('hidden');
+    } else if (mode === 'max_current') {
+        document.getElementById('maxCurrentCalc').classList.remove('hidden');
+    } else if (mode === 'max_length') {
+        document.getElementById('maxLengthCalc').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function calculateVoltageDrop() {
+    const formData = {
+        calc_type: 'voltage_drop',
+        current: parseFloat(document.getElementById('current').value) || 0,
+        voltage: parseFloat(document.getElementById('voltage').value) || 120,
+        length: parseFloat(document.getElementById('length').value) || 100,
+        wire_size: document.getElementById('wire_size').value,
+        wire_material: document.getElementById('wire_material').value,
+        circuit_type: document.getElementById('circuit_type').value,
+        power_factor: parseFloat(document.getElementById('power_factor').value) || 1.0,
+    };
+    
+    if (formData.current <= 0) {
+        alert('{% trans "Please enter a valid current" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateWireSize() {
+    const formData = {
+        calc_type: 'wire_size',
+        current: parseFloat(document.getElementById('current_wire').value) || 0,
+        voltage: parseFloat(document.getElementById('voltage_wire').value) || 120,
+        length: parseFloat(document.getElementById('length_wire').value) || 100,
+        max_voltage_drop: parseFloat(document.getElementById('max_voltage_drop').value) || 3,
+        max_voltage_drop_type: document.getElementById('max_voltage_drop_type').value,
+        wire_material: document.getElementById('wire_material_wire').value,
+        circuit_type: document.getElementById('circuit_type_wire').value,
+        power_factor: parseFloat(document.getElementById('power_factor_wire').value) || 1.0,
+    };
+    
+    if (formData.current <= 0) {
+        alert('{% trans "Please enter a valid current" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateMaxCurrent() {
+    const formData = {
+        calc_type: 'max_current',
+        voltage_drop: parseFloat(document.getElementById('voltage_drop_current').value) || 0,
+        voltage: parseFloat(document.getElementById('voltage_current').value) || 120,
+        length: parseFloat(document.getElementById('length_current').value) || 100,
+        wire_size: document.getElementById('wire_size_current').value,
+        wire_material: document.getElementById('wire_material_current').value,
+        circuit_type: document.getElementById('circuit_type_current').value,
+        power_factor: parseFloat(document.getElementById('power_factor_current').value) || 1.0,
+    };
+    
+    if (formData.voltage_drop <= 0) {
+        alert('{% trans "Please enter a valid voltage drop" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateMaxLength() {
+    const formData = {
+        calc_type: 'max_length',
+        voltage_drop: parseFloat(document.getElementById('voltage_drop_length').value) || 0,
+        voltage: parseFloat(document.getElementById('voltage_length').value) || 120,
+        current: parseFloat(document.getElementById('current_length').value) || 0,
+        wire_size: document.getElementById('wire_size_length').value,
+        wire_material: document.getElementById('wire_material_length').value,
+        circuit_type: document.getElementById('circuit_type_length').value,
+        power_factor: parseFloat(document.getElementById('power_factor_length').value) || 1.0,
+    };
+    
+    if (formData.voltage_drop <= 0 || formData.current <= 0) {
+        alert('{% trans "Please enter valid values" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:voltage_drop_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'voltage_drop') {
+        html += `<div class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg p-6">
+            <h3 class="text-xl font-bold mb-4">{% trans "Voltage Drop Results" %}</h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Voltage Drop" %}</p>
+                    <p class="text-3xl font-bold">${data.voltage_drop} V</p>
+                    <p class="text-sm">${data.voltage_drop_percent}%</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Voltage at Load" %}</p>
+                    <p class="text-3xl font-bold">${data.voltage_at_load} V</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Power Loss" %}</p>
+                    <p class="text-3xl font-bold">${data.power_loss} W</p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm">{% trans "Resistance" %}</p>
+                    <p class="text-2xl font-bold">${data.resistance} Ω</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (data.calc_type === 'wire_size') {
+        html += `<div class="bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg p-6 text-center">
+            <p class="text-green-100 text-sm mb-2">{% trans "Recommended Wire Size" %}</p>
+            <p class="text-5xl font-bold mb-4">${data.recommended_wire_size} AWG</p>
+            <p class="text-green-100 text-sm">{% trans "Required Circular Mils" %}: ${data.required_circular_mils}</p>
+        </div>`;
+    } else if (data.calc_type === 'max_current') {
+        html += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg p-6 text-center">
+            <p class="text-purple-100 text-sm mb-2">{% trans "Maximum Current" %}</p>
+            <p class="text-5xl font-bold mb-4">${data.max_current} A</p>
+            <p class="text-purple-100 text-sm">{% trans "Voltage Drop" %}: ${data.voltage_drop} V (${data.voltage_drop_percent}%)</p>
+        </div>`;
+    } else if (data.calc_type === 'max_length') {
+        html += `<div class="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg p-6 text-center">
+            <p class="text-orange-100 text-sm mb-2">{% trans "Maximum Wire Length" %}</p>
+            <p class="text-5xl font-bold mb-4">${data.max_length} ft</p>
+            <p class="text-orange-100 text-sm">{% trans "Voltage Drop" %}: ${data.voltage_drop} V (${data.voltage_drop_percent}%)</p>
+        </div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

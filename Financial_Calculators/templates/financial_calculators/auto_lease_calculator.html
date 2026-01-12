@@ -1,0 +1,317 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Auto Lease Calculator - Calculate Car Lease Payments{% endblock %}
+
+{% block meta_description %}Calculate car lease payments using money factor and residual value. Compare lease vs buy.{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-gray-900 via-violet-900 to-purple-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3">🚗 Auto Lease Calculator</h1>
+            <p class="text-violet-200 text-lg max-w-2xl mx-auto">Calculate your car lease payment with money factor and residual value</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Calculator Form -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+                <form id="calculator-form" class="space-y-6">
+                    <!-- Calculation Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-violet-200 mb-3">Calculate</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="calculate_payment" checked class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-violet-400 peer-checked:bg-violet-500/20 transition-all text-center">
+                                    <div class="text-xl">💵</div>
+                                    <div class="text-xs text-white mt-1">Payment</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="lease_vs_buy" class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-violet-400 peer-checked:bg-violet-500/20 transition-all text-center">
+                                    <div class="text-xl">⚖️</div>
+                                    <div class="text-xs text-white mt-1">Lease vs Buy</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="money_factor_convert" class="peer sr-only">
+                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-violet-400 peer-checked:bg-violet-500/20 transition-all text-center">
+                                    <div class="text-xl">🔄</div>
+                                    <div class="text-xs text-white mt-1">MF to APR</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Vehicle Details -->
+                    <div id="payment_fields" class="space-y-4">
+                        <h3 class="text-lg font-semibold text-white">🚙 Vehicle Details</h3>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">MSRP</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                    <input type="text" name="msrp" id="msrp" value="45,000" 
+                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Negotiated Price</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                    <input type="text" name="negotiated_price" id="negotiated_price" value="43,000" 
+                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Down Payment</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                    <input type="text" name="down_payment" id="down_payment" value="2,000" 
+                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Lease Term</label>
+                                <select name="lease_term" id="lease_term" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                    <option value="24">24 months</option>
+                                    <option value="36" selected>36 months</option>
+                                    <option value="39">39 months</option>
+                                    <option value="48">48 months</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Residual Value (%)</label>
+                                <input type="number" name="residual_percent" id="residual_percent" value="55" step="1" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                <p class="text-xs text-violet-300 mt-1">% of MSRP at lease end</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Money Factor</label>
+                                <input type="text" name="money_factor" id="money_factor" value="0.00125" step="0.00001" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                <p class="text-xs text-violet-300 mt-1" id="apr_equiv">≈ 3.00% APR</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Sales Tax (%)</label>
+                                <input type="number" name="sales_tax_rate" id="sales_tax_rate" value="8" step="0.1" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-violet-200 mb-2">Acquisition Fee</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                    <input type="text" name="acquisition_fee" id="acquisition_fee" value="650" 
+                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full py-4 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
+                        Calculate Lease
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="space-y-6">
+                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-violet-400 border-t-transparent mx-auto mb-4"></div>
+                    <p class="text-violet-200">Calculating...</p>
+                </div>
+
+                <div id="results" class="space-y-6">
+                    <!-- Monthly Payment -->
+                    <div class="bg-gradient-to-br from-violet-600 to-purple-600 rounded-2xl p-6 shadow-2xl">
+                        <h3 class="text-violet-100 text-sm font-medium mb-1">Monthly Lease Payment</h3>
+                        <div class="text-4xl font-bold text-white" id="monthly_payment">$489</div>
+                        <div class="text-violet-200 text-sm mt-1" id="payment_note">Including tax</div>
+                    </div>
+
+                    <!-- Payment Breakdown -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Payment Breakdown</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Depreciation</span>
+                                <span class="text-white font-medium" id="depreciation">$333</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Finance Charge (Rent)</span>
+                                <span class="text-white font-medium" id="finance_charge">$120</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Sales Tax</span>
+                                <span class="text-white font-medium" id="sales_tax">$36</span>
+                            </div>
+                            <div class="flex justify-between pt-3 border-t border-white/20">
+                                <span class="text-violet-200 font-medium">Total Monthly</span>
+                                <span class="text-white font-bold" id="total_monthly">$489</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Capitalized Cost -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Capitalized Cost</h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Gross Cap Cost</span>
+                                <span class="text-white" id="gross_cap">$43,650</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Cap Reduction</span>
+                                <span class="text-white" id="cap_reduction">-$2,000</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Adjusted Cap Cost</span>
+                                <span class="text-white font-medium" id="adjusted_cap">$41,650</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Residual Value</span>
+                                <span class="text-white" id="residual_value">$24,750</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Due at Signing -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Due at Signing</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">First Payment</span>
+                                <span class="text-white" id="first_payment">$489</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Down Payment</span>
+                                <span class="text-white" id="down_payment_display">$2,000</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-violet-300">Acquisition Fee</span>
+                                <span class="text-white" id="acq_fee_display">$650</span>
+                            </div>
+                            <div class="flex justify-between pt-3 border-t border-white/20">
+                                <span class="text-violet-200 font-medium">Total Due</span>
+                                <span class="text-white font-bold" id="due_at_signing">$3,139</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Lease Cost -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-violet-300 text-sm">Total Lease Cost</div>
+                            <div class="text-xl font-bold text-white" id="total_cost">$19,604</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-violet-300 text-sm">Cost Per Mile</div>
+                            <div class="text-xl font-bold text-white" id="cost_per_mile">$0.54</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
+// Update APR equivalent when money factor changes
+document.getElementById('money_factor').addEventListener('input', function() {
+    const mf = parseFloat(this.value) || 0;
+    const apr = mf * 2400;
+    document.getElementById('apr_equiv').textContent = `≈ ${apr.toFixed(2)}% APR`;
+});
+
+document.getElementById('calculator-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('loading').classList.remove('hidden');
+    
+    const formData = {
+        calc_type: document.querySelector('input[name="calc_type"]:checked').value,
+        msrp: document.getElementById('msrp').value,
+        negotiated_price: document.getElementById('negotiated_price').value,
+        down_payment: document.getElementById('down_payment').value,
+        lease_term: document.getElementById('lease_term').value,
+        residual_percent: document.getElementById('residual_percent').value,
+        money_factor: document.getElementById('money_factor').value,
+        sales_tax_rate: document.getElementById('sales_tax_rate').value,
+        acquisition_fee: document.getElementById('acquisition_fee').value
+    };
+
+    try {
+        const response = await fetch('{% url "auto_lease_calculator" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        document.getElementById('loading').classList.add('hidden');
+
+        if (data.success) {
+            updateResults(data);
+        } else {
+            alert(data.error || 'Calculation error');
+        }
+    } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        alert('An error occurred');
+    }
+});
+
+function updateResults(data) {
+    if (data.monthly_breakdown) {
+        document.getElementById('monthly_payment').textContent = formatCurrency(data.monthly_breakdown.total_payment);
+        document.getElementById('depreciation').textContent = formatCurrency(data.monthly_breakdown.depreciation);
+        document.getElementById('finance_charge').textContent = formatCurrency(data.monthly_breakdown.finance_charge);
+        document.getElementById('sales_tax').textContent = formatCurrency(data.monthly_breakdown.sales_tax);
+        document.getElementById('total_monthly').textContent = formatCurrency(data.monthly_breakdown.total_payment);
+    }
+    
+    if (data.capitalized_cost) {
+        document.getElementById('gross_cap').textContent = formatCurrency(data.capitalized_cost.gross_cap_cost);
+        document.getElementById('cap_reduction').textContent = '-' + formatCurrency(data.capitalized_cost.cap_reduction);
+        document.getElementById('adjusted_cap').textContent = formatCurrency(data.capitalized_cost.adjusted_cap_cost);
+        document.getElementById('residual_value').textContent = formatCurrency(data.capitalized_cost.residual_value);
+    }
+    
+    if (data.drive_off) {
+        document.getElementById('first_payment').textContent = formatCurrency(data.drive_off.first_payment);
+        document.getElementById('down_payment_display').textContent = formatCurrency(data.drive_off.down_payment);
+        document.getElementById('acq_fee_display').textContent = formatCurrency(data.drive_off.acquisition_fee);
+        document.getElementById('due_at_signing').textContent = formatCurrency(data.drive_off.total_due_at_signing);
+    }
+    
+    if (data.totals) {
+        document.getElementById('total_cost').textContent = formatCurrency(data.totals.total_lease_cost);
+        document.getElementById('cost_per_mile').textContent = '$' + data.totals.cost_per_mile.toFixed(4);
+    }
+}
+
+document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+</script>
+{% endblock %}

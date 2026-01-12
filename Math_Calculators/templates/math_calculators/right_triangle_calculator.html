@@ -1,0 +1,858 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Right Triangle Calculator - Calculate Sides, Angles, Area" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free right triangle calculator to calculate missing sides, angles, area, and perimeter of right triangles. Use Pythagorean theorem and trigonometry with step-by-step solutions. Perfect for geometry homework." %}{% endblock %}
+{% block meta_keywords %}{% trans "right triangle calculator, calculate right triangle, triangle calculator, pythagorean theorem calculator, trigonometry calculator, triangle area calculator, 90 degree triangle calculator, right angle calculator, how to find hypotenuse, geometry calculator, triangle solver" %}{% endblock %}
+
+{% block og_title %}{% trans "Right Triangle Calculator - Calculate Sides, Angles, Area" %}{% endblock %}
+{% block og_description %}{% trans "Free right triangle calculator to calculate missing sides, angles, area, and perimeter of right triangles. Use Pythagorean theorem and trigonometry with step-by-step solutions." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Professional Right Triangle Calculator - Calculate Sides, Angles, Area" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate missing sides and angles of right triangles. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Professional Right Triangle Calculator' %}",
+  "description": "{% trans 'Calculate missing sides, angles, area, and perimeter of right triangles using Pythagorean theorem and trigonometry with step-by-step solutions.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "3300"},
+  "featureList": ["{% trans 'Missing side calculation' %}", "{% trans 'Angle calculation' %}", "{% trans 'Area calculation' %}", "{% trans 'Pythagorean theorem' %}", "{% trans 'Trigonometry' %}", "{% trans 'Step-by-step solutions' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Right Triangle Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate missing sides, angles, area, and perimeter of right triangles using Pythagorean theorem and trigonometry." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calcType" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="from_sides">{% trans "From Two Sides" %}</option>
+                                <option value="find_side">{% trans "Find Missing Side" %}</option>
+                                <option value="from_angle_side">{% trans "From Angle and Side" %}</option>
+                                <option value="find_angle">{% trans "Find Missing Angle" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- From Two Sides Mode -->
+                        <div id="fromSidesMode" class="space-y-4">
+                            <div>
+                                <label for="from_sides_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side a" %}
+                                </label>
+                                <input type="number" id="from_sides_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 3">
+                            </div>
+                            <div>
+                                <label for="from_sides_b" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side b" %}
+                                </label>
+                                <input type="number" id="from_sides_b" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 4">
+                            </div>
+                        </div>
+
+                        <!-- Find Missing Side Mode -->
+                        <div id="findSideMode" class="space-y-4 hidden">
+                            <p class="text-sm text-gray-600 mb-2">{% trans "Enter two sides, leave one blank" %}</p>
+                            <div>
+                                <label for="find_side_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side a" %}
+                                </label>
+                                <input type="number" id="find_side_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank to find">
+                            </div>
+                            <div>
+                                <label for="find_side_b" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side b" %}
+                                </label>
+                                <input type="number" id="find_side_b" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank to find">
+                            </div>
+                            <div>
+                                <label for="find_side_c" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Hypotenuse c" %}
+                                </label>
+                                <input type="number" id="find_side_c" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank to find">
+                            </div>
+                        </div>
+
+                        <!-- From Angle and Side Mode -->
+                        <div id="fromAngleSideMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="angle_side_angle_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Angle A (degrees)" %}
+                                </label>
+                                <input type="number" id="angle_side_angle_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.1" min="0.1" max="89.9" placeholder="e.g., 30">
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">{% trans "Enter one side" %}</p>
+                            <div>
+                                <label for="angle_side_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side a" %}
+                                </label>
+                                <input type="number" id="angle_side_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank if not known">
+                            </div>
+                            <div>
+                                <label for="angle_side_b" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side b" %}
+                                </label>
+                                <input type="number" id="angle_side_b" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank if not known">
+                            </div>
+                            <div>
+                                <label for="angle_side_c" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Hypotenuse c" %}
+                                </label>
+                                <input type="number" id="angle_side_c" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank if not known">
+                            </div>
+                        </div>
+
+                        <!-- Find Missing Angle Mode -->
+                        <div id="findAngleMode" class="space-y-4 hidden">
+                            <p class="text-sm text-gray-600 mb-2">{% trans "Enter one angle and at least one side" %}</p>
+                            <div>
+                                <label for="find_angle_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Angle A (degrees)" %}
+                                </label>
+                                <input type="number" id="find_angle_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.1" min="0" max="90" placeholder="Leave blank to find">
+                            </div>
+                            <div>
+                                <label for="find_angle_b" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Angle B (degrees)" %}
+                                </label>
+                                <input type="number" id="find_angle_b" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.1" min="0" max="90" placeholder="Leave blank to find">
+                            </div>
+                            <div>
+                                <label for="find_angle_side_a" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side a" %}
+                                </label>
+                                <input type="number" id="find_angle_side_a" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank if not known">
+                            </div>
+                            <div>
+                                <label for="find_angle_side_b" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Side b" %}
+                                </label>
+                                <input type="number" id="find_angle_side_b" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank if not known">
+                            </div>
+                            <div>
+                                <label for="find_angle_side_c" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Hypotenuse c" %}
+                                </label>
+                                <input type="number" id="find_angle_side_c" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0" placeholder="Leave blank if not known">
+                            </div>
+                        </div>
+
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            {% trans "Load Example Values" %}
+                        </button>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate triangle' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="copyBtn" class="flex-1 text-sm py-2 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Copy" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select a calculation type and enter the required values to calculate the right triangle properties." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Right Triangle Properties" %}</p>
+                            <div id="resultSummary" class="space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sides and Angles Display -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-gray-200">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Sides" %}</h3>
+                            <div id="sidesDisplay" class="space-y-2"></div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-gray-200">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Angles" %}</h3>
+                            <div id="anglesDisplay" class="space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Area and Perimeter -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-blue-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Area" %}</p>
+                                <p id="area" class="text-2xl sm:text-3xl font-bold text-blue-600 font-mono">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 border-2 border-green-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Perimeter" %}</p>
+                                <p id="perimeter" class="text-2xl sm:text-3xl font-bold text-green-600 font-mono">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Detailed Results" %}
+                        </h3>
+                        <div id="detailedResults" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Sides Chart -->
+                        <div id="sidesChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Side Lengths" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="sidesChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Angles Chart -->
+                        <div id="anglesChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Angles" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="anglesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepByStep" class="space-y-2"></div>
+                    </div>
+
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "From Two Sides" %}:</strong> {% trans "Calculate all properties from two known sides" %}</li>
+                                <li><strong>{% trans "Find Missing Side" %}:</strong> {% trans "Find the missing side using Pythagorean theorem" %}</li>
+                                <li><strong>{% trans "From Angle and Side" %}:</strong> {% trans "Calculate all properties from one angle and one side" %}</li>
+                                <li><strong>{% trans "Find Missing Angle" %}:</strong> {% trans "Find the missing angle using trigonometry" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Formulas Used" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Pythagorean Theorem" %}:</strong> a² + b² = c²</li>
+                                <li><strong>{% trans "Area" %}:</strong> (1/2) × a × b</li>
+                                <li><strong>{% trans "Perimeter" %}:</strong> a + b + c</li>
+                                <li><strong>{% trans "Trigonometry" %}:</strong> sin(A) = a/c, cos(A) = b/c, tan(A) = a/b</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Examples" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 1: From Two Sides" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> a = 3, b = 4</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Result" %}:</strong> c = 5, A ≈ 36.87°, B ≈ 53.13°</p>
+                                    <p class="text-gray-700"><strong>{% trans "Area" %}:</strong> 6, <strong>{% trans "Perimeter" %}:</strong> 12</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const calcType = document.getElementById('calcType');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const initialState = document.getElementById('initialState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    let sidesChart = null;
+    let anglesChart = null;
+    let currentResultData = null;
+
+    // Examples
+    const examples = {
+        from_sides: {a: 3, b: 4},
+        find_side: {a: 3, b: 4, c: ''},
+        from_angle_side: {angle_a: 30, a: 5, b: '', c: ''},
+        find_angle: {angle_a: '', angle_b: '', a: 3, b: '', c: 5}
+    };
+
+    // Update form based on calculation type
+    function updateForm() {
+        const type = calcType.value;
+        
+        // Hide all modes
+        document.getElementById('fromSidesMode').classList.add('hidden');
+        document.getElementById('findSideMode').classList.add('hidden');
+        document.getElementById('fromAngleSideMode').classList.add('hidden');
+        document.getElementById('findAngleMode').classList.add('hidden');
+        
+        // Show relevant mode
+        if (type === 'from_sides') {
+            document.getElementById('fromSidesMode').classList.remove('hidden');
+        } else if (type === 'find_side') {
+            document.getElementById('findSideMode').classList.remove('hidden');
+        } else if (type === 'from_angle_side') {
+            document.getElementById('fromAngleSideMode').classList.remove('hidden');
+        } else if (type === 'find_angle') {
+            document.getElementById('findAngleMode').classList.remove('hidden');
+        }
+    }
+
+    calcType.addEventListener('change', updateForm);
+    updateForm();
+
+    exampleBtn.addEventListener('click', function() {
+        const type = calcType.value;
+        const example = examples[type] || examples.from_sides;
+        
+        if (type === 'from_sides') {
+            document.getElementById('from_sides_a').value = example.a;
+            document.getElementById('from_sides_b').value = example.b;
+        } else if (type === 'find_side') {
+            document.getElementById('find_side_a').value = example.a || '';
+            document.getElementById('find_side_b').value = example.b || '';
+            document.getElementById('find_side_c').value = example.c || '';
+        } else if (type === 'from_angle_side') {
+            document.getElementById('angle_side_angle_a').value = example.angle_a;
+            document.getElementById('angle_side_a').value = example.a || '';
+            document.getElementById('angle_side_b').value = example.b || '';
+            document.getElementById('angle_side_c').value = example.c || '';
+        } else if (type === 'find_angle') {
+            document.getElementById('find_angle_a').value = example.angle_a || '';
+            document.getElementById('find_angle_b').value = example.angle_b || '';
+            document.getElementById('find_angle_side_a').value = example.a || '';
+            document.getElementById('find_angle_side_b').value = example.b || '';
+            document.getElementById('find_angle_side_c').value = example.c || '';
+        }
+    });
+
+    clearBtn.addEventListener('click', function() {
+        // Clear all inputs
+        document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+        initialState.classList.remove('hidden');
+        results.classList.add('hidden');
+        quickActions.classList.add('hidden');
+        errorState.classList.add('hidden');
+        if (sidesChart) {
+            sidesChart.destroy();
+            sidesChart = null;
+        }
+        if (anglesChart) {
+            anglesChart.destroy();
+            anglesChart = null;
+        }
+        currentResultData = null;
+    });
+
+    copyBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const text = `Right Triangle Calculator Results\n\n` +
+                    `Sides:\n` +
+                    `  a = ${currentResultData.a.toFixed(6)}\n` +
+                    `  b = ${currentResultData.b.toFixed(6)}\n` +
+                    `  c = ${currentResultData.c.toFixed(6)}\n\n` +
+                    `Angles:\n` +
+                    `  A = ${currentResultData.angle_a.toFixed(6)}°\n` +
+                    `  B = ${currentResultData.angle_b.toFixed(6)}°\n` +
+                    `  C = 90°\n\n` +
+                    `Area: ${currentResultData.area.toFixed(6)}\n` +
+                    `Perimeter: ${currentResultData.perimeter.toFixed(6)}`;
+
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            copyBtn.classList.add('bg-green-200', 'text-green-800');
+            copyBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            setTimeout(function() {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('bg-green-200', 'text-green-800');
+                copyBtn.classList.add('bg-blue-100', 'text-blue-700');
+            }, 2000);
+        });
+    });
+
+    exportBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const exportData = {
+            ...currentResultData,
+            timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `right_triangle_calculator_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    function displayResults(data) {
+        currentResultData = data;
+
+        initialState.classList.add('hidden');
+        results.classList.remove('hidden');
+        quickActions.classList.remove('hidden');
+        errorState.classList.add('hidden');
+
+        // Update result summary
+        const resultSummary = document.getElementById('resultSummary');
+        resultSummary.innerHTML = `
+            <p class="text-xl sm:text-2xl font-bold font-mono">a = ${data.a.toFixed(4)}, b = ${data.b.toFixed(4)}, c = ${data.c.toFixed(4)}</p>
+            <p class="text-lg sm:text-xl font-mono opacity-90">A = ${data.angle_a.toFixed(2)}°, B = ${data.angle_b.toFixed(2)}°, C = 90°</p>
+        `;
+
+        // Update sides display
+        const sidesDisplay = document.getElementById('sidesDisplay');
+        sidesDisplay.innerHTML = `
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-700">Side a:</span>
+                <span class="text-sm font-bold font-mono text-blue-600">${data.a.toFixed(6)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-700">Side b:</span>
+                <span class="text-sm font-bold font-mono text-green-600">${data.b.toFixed(6)}</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-sm font-medium text-gray-700">Hypotenuse c:</span>
+                <span class="text-sm font-bold font-mono text-purple-600">${data.c.toFixed(6)}</span>
+            </div>
+        `;
+
+        // Update angles display
+        const anglesDisplay = document.getElementById('anglesDisplay');
+        anglesDisplay.innerHTML = `
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-700">Angle A:</span>
+                <span class="text-sm font-bold font-mono text-orange-600">${data.angle_a.toFixed(6)}°</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-sm font-medium text-gray-700">Angle B:</span>
+                <span class="text-sm font-bold font-mono text-pink-600">${data.angle_b.toFixed(6)}°</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-sm font-medium text-gray-700">Angle C:</span>
+                <span class="text-sm font-bold font-mono text-purple-600">90°</span>
+            </div>
+        `;
+
+        // Update area and perimeter
+        document.getElementById('area').textContent = data.area.toFixed(6);
+        document.getElementById('perimeter').textContent = data.perimeter.toFixed(6);
+
+        // Detailed results
+        const detailedResults = document.getElementById('detailedResults');
+        detailedResults.innerHTML = '';
+
+        const items = [
+            {label: 'Side a', value: data.a.toFixed(6)},
+            {label: 'Side b', value: data.b.toFixed(6)},
+            {label: 'Hypotenuse c', value: data.c.toFixed(6), is_primary: true},
+            {label: 'Angle A', value: `${data.angle_a.toFixed(6)}°`},
+            {label: 'Angle B', value: `${data.angle_b.toFixed(6)}°`},
+            {label: 'Angle C', value: '90°', is_primary: true},
+            {label: 'Area', value: data.area.toFixed(6), is_primary: true},
+            {label: 'Perimeter', value: data.perimeter.toFixed(6), is_primary: true}
+        ];
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0';
+            const label = document.createElement('span');
+            label.className = 'text-sm font-medium text-gray-700 mb-1 sm:mb-0';
+            label.textContent = item.label + ':';
+            const value = document.createElement('span');
+            value.className = 'text-sm font-bold font-mono ' + (item.is_primary ? 'text-blue-600' : 'text-gray-900');
+            value.textContent = item.value;
+            div.appendChild(label);
+            div.appendChild(value);
+            detailedResults.appendChild(div);
+        });
+
+        // Charts
+        if (data.chart_data) {
+            // Sides chart
+            if (data.chart_data.sides_chart) {
+                const container = document.getElementById('sidesChartContainer');
+                container.classList.remove('hidden');
+                
+                if (sidesChart) {
+                    sidesChart.destroy();
+                }
+                
+                const ctx = document.getElementById('sidesChart');
+                sidesChart = new Chart(ctx, {
+                    type: data.chart_data.sides_chart.type,
+                    data: data.chart_data.sides_chart.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Angles chart
+            if (data.chart_data.angles_chart) {
+                const container = document.getElementById('anglesChartContainer');
+                container.classList.remove('hidden');
+                
+                if (anglesChart) {
+                    anglesChart.destroy();
+                }
+                
+                const ctx = document.getElementById('anglesChart');
+                anglesChart = new Chart(ctx, {
+                    type: data.chart_data.angles_chart.type,
+                    data: data.chart_data.angles_chart.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 90
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Step-by-step
+        const stepByStep = document.getElementById('stepByStep');
+        stepByStep.innerHTML = '';
+        data.step_by_step.forEach((step, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg text-sm text-gray-700';
+            if (step.startsWith('Step') || step.startsWith('Given')) {
+                div.classList.add('font-semibold', 'text-gray-900');
+            }
+            if (step === '') {
+                div.className = 'h-2';
+            }
+            div.textContent = step;
+            stepByStep.appendChild(div);
+        });
+
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const type = calcType.value;
+        let requestData = {calc_type: type};
+
+        if (type === 'from_sides') {
+            const a = document.getElementById('from_sides_a').value;
+            const b = document.getElementById('from_sides_b').value;
+            if (!a || !b) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter both sides.';
+                return;
+            }
+            requestData.a = parseFloat(a);
+            requestData.b = parseFloat(b);
+        } else if (type === 'find_side') {
+            const a = document.getElementById('find_side_a').value.trim();
+            const b = document.getElementById('find_side_b').value.trim();
+            const c = document.getElementById('find_side_c').value.trim();
+            
+            const filled = [a, b, c].filter(v => v !== '').length;
+            if (filled !== 2) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter exactly two sides, leaving one blank.';
+                return;
+            }
+            
+            if (a) requestData.a = parseFloat(a);
+            if (b) requestData.b = parseFloat(b);
+            if (c) requestData.c = parseFloat(c);
+        } else if (type === 'from_angle_side') {
+            const angle_a = document.getElementById('angle_side_angle_a').value;
+            if (!angle_a) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter angle A.';
+                return;
+            }
+            requestData.angle_a = parseFloat(angle_a);
+            
+            const a = document.getElementById('angle_side_a').value.trim();
+            const b = document.getElementById('angle_side_b').value.trim();
+            const c = document.getElementById('angle_side_c').value.trim();
+            
+            const filled = [a, b, c].filter(v => v !== '').length;
+            if (filled === 0) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter at least one side.';
+                return;
+            }
+            
+            if (a) requestData.a = parseFloat(a);
+            if (b) requestData.b = parseFloat(b);
+            if (c) requestData.c = parseFloat(c);
+        } else if (type === 'find_angle') {
+            const angle_a = document.getElementById('find_angle_a').value.trim();
+            const angle_b = document.getElementById('find_angle_b').value.trim();
+            const a = document.getElementById('find_angle_side_a').value.trim();
+            const b = document.getElementById('find_angle_side_b').value.trim();
+            const c = document.getElementById('find_angle_side_c').value.trim();
+            
+            const angles_filled = [angle_a, angle_b].filter(v => v !== '').length;
+            if (angles_filled !== 1) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter exactly one angle, leaving one blank.';
+                return;
+            }
+            
+            const sides_filled = [a, b, c].filter(v => v !== '').length;
+            if (sides_filled === 0) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter at least one side.';
+                return;
+            }
+            
+            if (angle_a) requestData.angle_a = parseFloat(angle_a);
+            if (angle_b) requestData.angle_b = parseFloat(angle_b);
+            if (a) requestData.a = parseFloat(a);
+            if (b) requestData.b = parseFloat(b);
+            if (c) requestData.c = parseFloat(c);
+        }
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = 'Calculating...';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = data.error || 'An error occurred.';
+            }
+        })
+        .catch(error => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'An error occurred. Please try again.';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

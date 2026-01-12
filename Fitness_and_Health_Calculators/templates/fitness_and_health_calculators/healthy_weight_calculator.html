@@ -1,0 +1,752 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Healthy Weight Calculator" %} - {% trans "Calculate Healthy Weight Range" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate your healthy weight range based on BMI categories. Get ideal weight recommendations for your height." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "healthy weight calculator, ideal weight, BMI calculator, weight range, healthy weight range" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "Healthy Weight Calculator" %} - {% trans "Calculate Healthy Weight Range" %}">
+<meta property="og:description" content="{% trans "Calculate your healthy weight range based on BMI categories. Get ideal weight recommendations for your height." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "Healthy Weight Calculator" %}",
+    "description": "{% trans "Calculate your healthy weight range based on BMI categories." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Healthy Weight Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Healthy Weight Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your healthy weight range based on BMI categories." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Height" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Units" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2" id="unitMetric">
+                                    <span class="text-sm">{% trans "Metric" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2" id="unitImperial">
+                                    <span class="text-sm">{% trans "Imperial" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Height Metric -->
+                        <div id="heightMetric">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %} (cm)</label>
+                            <input type="number" id="height" name="height" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="170" min="100" max="250" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 100-250 cm" %}</p>
+                        </div>
+
+                        <!-- Height Imperial -->
+                        <div id="heightImperial" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="number" id="height_ft" name="height_ft" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-10" 
+                                           value="5" min="3" max="8" step="1">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">ft</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="height_in" name="height_in" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-10" 
+                                           value="7" min="0" max="11" step="1">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">in</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 3'3" - 8'2"" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Weight Range" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your height to see healthy weight ranges based on BMI categories with detailed charts and analysis." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div class="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Ideal Weight Range" %}</p>
+                            <p id="idealRange" class="text-5xl sm:text-6xl font-bold mb-2">0 - 0</p>
+                            <p class="text-sm opacity-90" id="idealUnit">kg</p>
+                            <p class="text-xs opacity-75 mt-2">{% trans "BMI: 18.5 - 24.9" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Weight Ranges Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-blue-50 rounded-lg p-4 border-2 border-blue-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Underweight" %}</p>
+                                <p id="underweightRange" class="text-sm font-bold text-blue-700">0 - 0</p>
+                                <p class="text-xs text-gray-500">BMI &lt; 18.5</p>
+                            </div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 border-2 border-green-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Normal" %}</p>
+                                <p id="normalRange" class="text-sm font-bold text-green-700">0 - 0</p>
+                                <p class="text-xs text-gray-500">BMI 18.5-24.9</p>
+                            </div>
+                        </div>
+                        <div class="bg-yellow-50 rounded-lg p-4 border-2 border-yellow-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Overweight" %}</p>
+                                <p id="overweightRange" class="text-sm font-bold text-yellow-700">0 - 0</p>
+                                <p class="text-xs text-gray-500">BMI 25-29.9</p>
+                            </div>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-4 border-2 border-red-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Obese" %}</p>
+                                <p id="obeseRange" class="text-sm font-bold text-red-700">0 - 0</p>
+                                <p class="text-xs text-gray-500">BMI ≥ 30</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Weight Ranges Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Weight Ranges by BMI" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="rangesChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- BMI Distribution Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                </svg>
+                                {% trans "BMI Categories" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="bmiDistributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weight Range Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Weight Range Comparison" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Weight Ranges Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Weight Ranges by BMI Category" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Category" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "BMI Range" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "Weight Range" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="weightRangesTable" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is Healthy Weight Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is a Healthy Weight?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "A healthy weight is a weight range that is associated with the lowest risk of health problems. It's typically defined using Body Mass Index (BMI), which is a measure of body fat based on height and weight." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "The healthy weight range corresponds to a BMI between 18.5 and 24.9. This range is associated with the lowest risk of developing weight-related health conditions such as heart disease, diabetes, and certain cancers." %}
+                            </p>
+                        </div>
+
+                        <!-- BMI Categories Explained Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "BMI Categories Explained" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Underweight (BMI < 18.5)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "May indicate insufficient body weight for optimal health. Can be associated with nutritional deficiencies, weakened immune system, and bone loss." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Normal Weight (BMI 18.5-24.9)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Associated with the lowest risk of health problems. This is the ideal weight range for most people." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Overweight (BMI 25-29.9)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "May increase the risk of developing health problems such as high blood pressure, type 2 diabetes, and heart disease." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Obese (BMI ≥ 30)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Significantly increases the risk of serious health problems including heart disease, stroke, type 2 diabetes, certain cancers, and sleep apnea." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your preferred unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter your height in centimeters (cm) or feet and inches" %}</li>
+                                <li>{% trans "Click 'Calculate Weight Range' to see your results" %}</li>
+                                <li>{% trans "Review your ideal weight range and all BMI category ranges" %}</li>
+                                <li>{% trans "Use the charts to visualize weight ranges across different BMI categories" %}</li>
+                                <li>{% trans "Refer to the guide below for more information about healthy weight" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Ideal Weight Range" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The weight range corresponding to a BMI between 18.5 and 24.9. This is considered the healthy weight range for your height and is associated with the lowest health risks." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Weight Ranges by Category" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The calculator shows weight ranges for all BMI categories: Underweight, Normal, Overweight, and Obese. These ranges help you understand where your current weight falls and what your target weight range should be." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMI Calculation" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "BMI is calculated using the formula: BMI = weight (kg) / height (m)². The calculator uses this formula to determine weight ranges for each BMI category based on your height." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Factors Affecting Healthy Weight Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Factors Affecting Healthy Weight" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Height:" %}</strong> {% trans "Taller individuals naturally weigh more than shorter individuals. The calculator adjusts weight ranges based on your height." %}</p>
+                                <p><strong>{% trans "Body Composition:" %}</strong> {% trans "Muscle weighs more than fat. Athletes with high muscle mass may have a higher BMI but still be healthy." %}</p>
+                                <p><strong>{% trans "Age:" %}</strong> {% trans "Metabolism changes with age. Older adults may need to adjust their weight goals based on health conditions and activity levels." %}</p>
+                                <p><strong>{% trans "Gender:" %}</strong> {% trans "Men and women have different body compositions. Men typically have more muscle mass, which affects healthy weight ranges." %}</p>
+                                <p><strong>{% trans "Health Conditions:" %}</strong> {% trans "Certain medical conditions may require different weight targets. Always consult with healthcare providers for personalized recommendations." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Tips for Maintaining Healthy Weight Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips for Maintaining a Healthy Weight" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Balanced Diet:" %}</strong> {% trans "Eat a variety of nutrient-dense foods including fruits, vegetables, whole grains, lean proteins, and healthy fats." %}</p>
+                                <p><strong>{% trans "Regular Exercise:" %}</strong> {% trans "Aim for at least 150 minutes of moderate-intensity exercise per week, including both cardio and strength training." %}</p>
+                                <p><strong>{% trans "Portion Control:" %}</strong> {% trans "Be mindful of portion sizes and avoid overeating. Use smaller plates and listen to your body's hunger cues." %}</p>
+                                <p><strong>{% trans "Stay Hydrated:" %}</strong> {% trans "Drink plenty of water throughout the day. Sometimes thirst is mistaken for hunger." %}</p>
+                                <p><strong>{% trans "Get Enough Sleep:" %}</strong> {% trans "Aim for 7-9 hours of quality sleep per night. Poor sleep can affect hormones that regulate appetite." %}</p>
+                                <p><strong>{% trans "Manage Stress:" %}</strong> {% trans "Chronic stress can lead to emotional eating and weight gain. Find healthy ways to manage stress." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "BMI is a screening tool, not a diagnostic tool. It doesn't directly measure body fat or account for muscle mass, bone density, or body composition." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "The healthy weight range is a general guideline. Individual factors such as muscle mass, bone structure, and health conditions should be considered." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "If you're outside the healthy weight range, consult with healthcare providers or registered dietitians for personalized weight management strategies." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. It should not replace professional medical or nutritional advice." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let rangesChart = null;
+let bmiDistributionChart = null;
+let comparisonChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const unitMetric = document.getElementById('unitMetric');
+    const unitImperial = document.getElementById('unitImperial');
+    const heightMetric = document.getElementById('heightMetric');
+    const heightImperial = document.getElementById('heightImperial');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Unit system toggle
+    function updateUnitInputs() {
+        if (unitImperial.checked) {
+            heightMetric.classList.add('hidden');
+            heightImperial.classList.remove('hidden');
+        } else {
+            heightMetric.classList.remove('hidden');
+            heightImperial.classList.add('hidden');
+        }
+        // Clear results when switching units
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    }
+
+    unitMetric.addEventListener('change', updateUnitInputs);
+    unitImperial.addEventListener('change', updateUnitInputs);
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        const formData = {
+            unit_system: unitSystem
+        };
+
+        if (unitSystem === 'imperial') {
+            formData.height = parseFloat(document.getElementById('height_ft').value);
+            formData.height_in = parseFloat(document.getElementById('height_in').value) || 0;
+        } else {
+            formData.height = parseFloat(document.getElementById('height').value);
+        }
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Weight Range" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        document.getElementById('calculateBtn').disabled = true;
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update main result
+            const idealRangeEl = document.getElementById('idealRange');
+            const idealUnitEl = document.getElementById('idealUnit');
+            const underweightRangeEl = document.getElementById('underweightRange');
+            const normalRangeEl = document.getElementById('normalRange');
+            const overweightRangeEl = document.getElementById('overweightRange');
+            const obeseRangeEl = document.getElementById('obeseRange');
+
+            if (idealRangeEl) idealRangeEl.textContent = `${data.ideal_range.min.toLocaleString()} - ${data.ideal_range.max.toLocaleString()}`;
+            if (idealUnitEl) idealUnitEl.textContent = data.unit;
+            if (underweightRangeEl) underweightRangeEl.textContent = `${data.weight_ranges.underweight.min.toLocaleString()} - ${data.weight_ranges.underweight.max.toLocaleString()} ${data.unit}`;
+            if (normalRangeEl) normalRangeEl.textContent = `${data.weight_ranges.normal.min.toLocaleString()} - ${data.weight_ranges.normal.max.toLocaleString()} ${data.unit}`;
+            if (overweightRangeEl) overweightRangeEl.textContent = `${data.weight_ranges.overweight.min.toLocaleString()} - ${data.weight_ranges.overweight.max.toLocaleString()} ${data.unit}`;
+            if (obeseRangeEl) obeseRangeEl.textContent = `${data.weight_ranges.obese.min.toLocaleString()} - ${data.weight_ranges.obese.max.toLocaleString()} ${data.unit}`;
+
+            // Update weight ranges table
+            const tableBody = document.getElementById('weightRangesTable');
+            if (tableBody) {
+                const categoryNames = {
+                    'underweight': '{% trans "Underweight" %}',
+                    'normal': '{% trans "Normal" %}',
+                    'overweight': '{% trans "Overweight" %}',
+                    'obese': '{% trans "Obese" %}'
+                };
+
+                tableBody.innerHTML = '';
+                Object.entries(data.weight_ranges).forEach(([category, range]) => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    const bmiRange = category === 'underweight' ? '&lt; 18.5' : 
+                                    category === 'normal' ? '18.5 - 24.9' :
+                                    category === 'overweight' ? '25 - 29.9' : '≥ 30';
+                    row.innerHTML = `
+                        <td class="py-2 px-3 font-medium text-gray-900">${categoryNames[category]}</td>
+                        <td class="py-2 px-3 text-gray-700 text-right">${bmiRange}</td>
+                        <td class="py-2 px-3 text-gray-900 text-right font-semibold">${range.min.toLocaleString()} - ${range.max.toLocaleString()} ${data.unit}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.ranges_chart) {
+                    createRangesChart(data.chart_data.ranges_chart, data.unit);
+                }
+                if (data.chart_data.bmi_distribution) {
+                    createBMIDistributionChart(data.chart_data.bmi_distribution);
+                }
+                if (data.chart_data.comparison_chart) {
+                    createComparisonChart(data.chart_data.comparison_chart, data.unit);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createRangesChart(chartData, unit) {
+        const ctx = document.getElementById('rangesChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (rangesChart) rangesChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            rangesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 12,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} ${unit}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value).toLocaleString() + ' ' + unit;
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating ranges chart:', error);
+        }
+    }
+
+    function createBMIDistributionChart(chartData) {
+        const ctx = document.getElementById('bmiDistributionChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (bmiDistributionChart) bmiDistributionChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            bmiDistributionChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 12,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    return `${label}: ${value.toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating BMI distribution chart:', error);
+        }
+    }
+
+    function createComparisonChart(chartData, unit) {
+        const ctx = document.getElementById('comparisonChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (comparisonChart) comparisonChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            comparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)} ${unit}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.round(value).toLocaleString() + ' ' + unit;
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating comparison chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

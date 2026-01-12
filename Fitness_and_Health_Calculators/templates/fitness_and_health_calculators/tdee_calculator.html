@@ -1,0 +1,1010 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "TDEE Calculator" %} - {% trans "Total Daily Energy Expenditure" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your Total Daily Energy Expenditure (TDEE). Find out how many calories you burn per day based on your activity level." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'TDEE calculator, total daily energy expenditure, calorie burn calculator, daily calories, BMR calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'TDEE Calculator' %} - {% trans 'Total Daily Energy Expenditure' %}">
+<meta property="og:description" content="{% trans 'Calculate your Total Daily Energy Expenditure based on your activity level.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'TDEE Calculator' %}",
+    "description": "{% trans 'Calculate Total Daily Energy Expenditure' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-orange-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-red-600">{% trans "TDEE Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your Total Daily Energy Expenditure (TDEE) to find out how many calories you burn per day based on your activity level and body composition." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                        <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="unit_system" value="metric" checked class="mr-2">
+                                <span class="text-sm">{% trans "Metric" %}</span>
+                            </label>
+                                <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="unit_system" value="imperial" class="mr-2">
+                                <span class="text-sm">{% trans "Imperial" %}</span>
+                            </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gender" %}</label>
+                        <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="gender" value="male" checked class="mr-2">
+                                <span class="text-sm">{% trans "Male" %}</span>
+                            </label>
+                                <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="gender" value="female" class="mr-2">
+                                <span class="text-sm">{% trans "Female" %}</span>
+                            </label>
+                            </div>
+                        </div>
+
+                        <!-- Age -->
+                        <div>
+                            <label for="age" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Age" %}</label>
+                            <input type="number" id="age" name="age" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base"
+                                value="25" min="15" max="80" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 15-80 years" %}</p>
+                        </div>
+
+                        <!-- Height Metric -->
+                        <div id="heightMetric">
+                            <label for="height" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %} (cm)</label>
+                            <div class="relative">
+                                <input type="number" id="height" name="height" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base"
+                                    value="170" min="100" max="250" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">cm</span>
+                            </div>
+                        </div>
+
+                        <!-- Height Imperial -->
+                        <div id="heightImperial" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="number" id="height_ft" name="height_ft" 
+                                        class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base"
+                                        value="5" min="3" max="8" placeholder="ft" required>
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">ft</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="height_in" name="height_in" 
+                                        class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base"
+                                        value="10" min="0" max="11" placeholder="in" required>
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">in</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label for="weight" class="block text-sm font-medium text-gray-700 mb-1" id="weightLabel">{% trans "Weight" %} (kg)</label>
+                            <div class="relative">
+                                <input type="number" id="weight" name="weight" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base"
+                                    value="70" min="30" max="300" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" id="weightUnit">kg</span>
+                            </div>
+                        </div>
+
+                        <!-- Activity Level -->
+                        <div>
+                            <label for="activity_level" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Activity Level" %}</label>
+                            <select id="activity_level" name="activity_level" 
+                                class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-base bg-white">
+                                <option value="sedentary">{% trans "Sedentary" %} ({% trans "office job" %})</option>
+                                <option value="light">{% trans "Light" %} ({% trans "1-3 days/week" %})</option>
+                                <option value="moderate" selected>{% trans "Moderate" %} ({% trans "3-5 days/week" %})</option>
+                                <option value="active">{% trans "Active" %} ({% trans "6-7 days/week" %})</option>
+                                <option value="very_active">{% trans "Very Active" %} ({% trans "physical job" %})</option>
+                                <option value="athlete">{% trans "Athlete" %} ({% trans "2x training" %})</option>
+                            </select>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate TDEE" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                        </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-orange-50 border-2 border-orange-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+                            <p class="text-orange-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your details to calculate your Total Daily Energy Expenditure (TDEE) and see how many calories you burn per day." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                            <p class="text-orange-100 text-sm sm:text-base mb-2">{% trans "Basal Metabolic Rate" %}</p>
+                            <p id="bmrResult" class="text-4xl sm:text-5xl font-bold mb-2">0</p>
+                            <p class="text-orange-100 text-sm">{% trans "calories/day" %}</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                            <p class="text-blue-100 text-sm sm:text-base mb-2">{% trans "Total Daily Energy Expenditure" %}</p>
+                            <p id="tdeeResult" class="text-4xl sm:text-5xl font-bold mb-2">0</p>
+                            <p class="text-blue-100 text-sm">{% trans "calories/day" %}</p>
+                            <div id="activityBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 bg-white bg-opacity-20"></div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "BMR" %}</p>
+                                <p id="bmrCard" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "TDEE" %}</p>
+                                <p id="tdeeCard" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Activity Multiplier" %}</p>
+                                <p id="multiplierCard" class="text-2xl font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- TDEE by Activity Level Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "TDEE by Activity Level" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="activityLevelsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Macro Breakdown Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Macro Breakdown" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="macroChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Calorie Targets Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Calorie Targets" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="targetsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- BMR Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BMR Formulas Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="bmrComparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TDEE by Activity Level -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "TDEE by Activity Level" %}</h3>
+                        <div class="space-y-2" id="activityLevels">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Calorie Targets Table -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Calorie Targets" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="py-3 px-4 text-left font-semibold text-gray-900">{% trans "Goal" %}</th>
+                                        <th class="py-3 px-4 text-right font-semibold text-gray-900">{% trans "Calories" %}</th>
+                                        <th class="py-3 px-4 text-right font-semibold text-gray-900">{% trans "Change" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="targetsTable" class="divide-y divide-gray-200">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Macros Section -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Suggested Macros (for TDEE)" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-green-50 rounded-lg p-4 border-2 border-green-200 text-center">
+                                <p class="text-2xl font-bold text-green-600" id="proteinG">0g</p>
+                                <p class="text-xs text-gray-600 mt-1">{% trans "Protein (30%)" %}</p>
+                                <p class="text-xs text-gray-500 mt-1" id="proteinCal">0 cal</p>
+                            </div>
+                            <div class="bg-yellow-50 rounded-lg p-4 border-2 border-yellow-200 text-center">
+                                <p class="text-2xl font-bold text-yellow-600" id="carbsG">0g</p>
+                                <p class="text-xs text-gray-600 mt-1">{% trans "Carbs (40%)" %}</p>
+                                <p class="text-xs text-gray-500 mt-1" id="carbsCal">0 cal</p>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-4 border-2 border-red-200 text-center">
+                                <p class="text-2xl font-bold text-red-600" id="fatG">0g</p>
+                                <p class="text-xs text-gray-600 mt-1">{% trans "Fat (30%)" %}</p>
+                                <p class="text-xs text-gray-500 mt-1" id="fatCal">0 cal</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Level Card -->
+                    <div id="activityCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Current Activity Level" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="activityBadgeCard" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="activityDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is TDEE Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is TDEE?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Total Daily Energy Expenditure (TDEE) is the total number of calories your body burns in a day. It includes your Basal Metabolic Rate (BMR) plus the calories burned through physical activity, digestion, and other daily activities." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "TDEE is calculated by multiplying your BMR (the calories your body needs at rest) by an activity multiplier that accounts for your daily physical activity level." %}
+                            </p>
+                            <div class="bg-gray-50 p-4 rounded-lg mt-3">
+                                <p class="font-mono text-center text-sm">{% trans "TDEE = BMR × Activity Multiplier" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- BMR Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is BMR?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Basal Metabolic Rate (BMR) is the number of calories your body burns at rest to maintain basic physiological functions like breathing, circulation, cell production, and brain function. It represents the minimum energy needed to keep your body alive." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "BMR accounts for 60-75% of your total daily calorie burn. It's calculated using formulas that consider your age, gender, height, and weight." %}
+                            </p>
+                        </div>
+
+                        <!-- Activity Levels Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Activity Levels Explained" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-gray-500 pl-4 py-2 bg-gray-50 rounded-r">
+                                    <h4 class="font-semibold text-gray-900 mb-1">{% trans "Sedentary (1.2x)" %}</h4>
+                                    <p class="text-sm text-gray-800">
+                                        {% trans "Little or no exercise. Office job, minimal physical activity. Mostly sitting or lying down." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Light Activity (1.375x)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Light exercise 1-3 days per week. Walking, light jogging, or recreational activities. Light physical work." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Moderate Activity (1.55x)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Moderate exercise 3-5 days per week. Regular workouts, sports, or active lifestyle. Moderate physical work." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Active (1.725x)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Hard exercise 6-7 days per week. Intense workouts, competitive sports, or physically demanding job." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Very Active (1.9x)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "Very hard exercise, physical job. Daily intense exercise or physically demanding work. Multiple training sessions." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Athlete (2.0x)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Professional athlete level. Multiple daily training sessions, competition preparation, extremely high activity level." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Select your gender (affects BMR calculation)" %}</li>
+                                <li>{% trans "Enter your age (between 15 and 80 years)" %}</li>
+                                <li>{% trans "Enter your height and weight" %}</li>
+                                <li>{% trans "Select your activity level based on your exercise frequency and intensity" %}</li>
+                                <li>{% trans "Click 'Calculate TDEE' to see your results" %}</li>
+                                <li>{% trans "Review your BMR, TDEE, calorie targets, and macro recommendations" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "BMR (Basal Metabolic Rate)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The calories your body burns at complete rest. This is your baseline metabolic rate, representing the minimum energy needed for basic body functions." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "TDEE (Total Daily Energy Expenditure)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your total daily calorie burn including all activities. This is the number of calories you need to maintain your current weight. To lose weight, eat below TDEE; to gain weight, eat above TDEE." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Calorie Targets" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Different calorie levels for various goals. A deficit of 500 calories per day typically results in about 1 pound (0.45 kg) of weight loss per week. A surplus of 500 calories per day typically results in about 1 pound of weight gain per week." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Macro Recommendations" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Suggested macronutrient breakdown (30% protein, 40% carbs, 30% fat) for your TDEE. These percentages can be adjusted based on your specific goals and preferences." %}
+                                    </p>
+                </div>
+            </div>
+        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-orange-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-orange-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "These are estimates. Actual calorie needs can vary based on genetics, muscle mass, medical conditions, medications, and other individual factors." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Be honest about your activity level. Overestimating activity can lead to consuming too many calories, while underestimating can lead to too few calories." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "For weight loss, a deficit of 250-500 calories per day is typically sustainable. Extreme deficits (>1000 calories) are not recommended without medical supervision." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for informational purposes only and should not replace professional medical or nutritional advice. Always consult with qualified healthcare providers or registered dietitians for personalized nutrition guidance, especially if you have medical conditions, are taking medications, or have specific dietary needs." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "TDEE can change over time as your weight, muscle mass, and activity level change. Recalculate periodically to ensure accuracy." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let activityLevelsChart = null;
+let targetsChart = null;
+let macroChart = null;
+let bmrComparisonChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const unitRadios = document.querySelectorAll('input[name="unit_system"]');
+    
+    // Unit system toggle
+    unitRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'imperial') {
+                document.getElementById('heightMetric').classList.add('hidden');
+                document.getElementById('heightImperial').classList.remove('hidden');
+                document.getElementById('weightLabel').textContent = '{% trans "Weight" %} (lbs)';
+                document.getElementById('weightUnit').textContent = 'lbs';
+                document.getElementById('weight').value = '160';
+            } else {
+                document.getElementById('heightMetric').classList.remove('hidden');
+                document.getElementById('heightImperial').classList.add('hidden');
+                document.getElementById('weightLabel').textContent = '{% trans "Weight" %} (kg)';
+                document.getElementById('weightUnit').textContent = 'kg';
+                document.getElementById('weight').value = '70';
+            }
+        });
+    });
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.querySelector('input[name="unit_system"][value="metric"]').checked = true;
+        document.querySelector('input[name="gender"][value="male"]').checked = true;
+        document.getElementById('age').value = '25';
+        document.getElementById('height').value = '170';
+        document.getElementById('weight').value = '70';
+        document.getElementById('activity_level').value = 'moderate';
+        document.getElementById('heightMetric').classList.remove('hidden');
+        document.getElementById('heightImperial').classList.add('hidden');
+        document.getElementById('weightLabel').textContent = '{% trans "Weight" %} (kg)';
+        document.getElementById('weightUnit').textContent = 'kg';
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (activityLevelsChart) activityLevelsChart.destroy();
+        if (targetsChart) targetsChart.destroy();
+        if (macroChart) macroChart.destroy();
+        if (bmrComparisonChart) bmrComparisonChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        
+        const formData = {
+                unit_system: unitSystem,
+                gender: document.querySelector('input[name="gender"]:checked').value,
+            age: parseInt(document.getElementById('age').value),
+            weight: parseFloat(document.getElementById('weight').value),
+                activity_level: document.getElementById('activity_level').value
+            };
+            
+            if (unitSystem === 'imperial') {
+            formData.height_ft = parseInt(document.getElementById('height_ft').value);
+            formData.height_in = parseInt(document.getElementById('height_in').value);
+            } else {
+            formData.height = parseFloat(document.getElementById('height').value);
+            }
+            
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate TDEE" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Update main results
+            document.getElementById('bmrResult').textContent = data.bmr.toLocaleString();
+            document.getElementById('tdeeResult').textContent = data.tdee.toLocaleString();
+            
+            // Update summary cards
+            document.getElementById('bmrCard').textContent = data.bmr.toLocaleString() + ' cal';
+            document.getElementById('tdeeCard').textContent = data.tdee.toLocaleString() + ' cal';
+            document.getElementById('multiplierCard').textContent = '×' + data.multiplier.toFixed(2);
+            
+            // Update activity badge
+            const activityBadge = document.getElementById('activityBadge');
+            if (activityBadge && data.activity_color_info) {
+                activityBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.activity_color_info.tailwind_classes;
+                activityBadge.textContent = data.activity_category;
+            }
+            
+            // Update activity card
+            const activityBadgeCard = document.getElementById('activityBadgeCard');
+            const activityDescription = document.getElementById('activityDescription');
+            if (activityBadgeCard && data.activity_color_info) {
+                const colors = {
+                    'blue': 'bg-blue-600',
+                    'green': 'bg-green-600',
+                    'yellow': 'bg-yellow-600',
+                    'orange': 'bg-orange-600',
+                    'red': 'bg-red-600',
+                    'gray': 'bg-gray-600'
+                };
+                activityBadgeCard.className = 'px-4 py-2 rounded-lg text-white font-semibold ' + (colors[data.activity_color] || 'bg-gray-600');
+                activityBadgeCard.textContent = data.activity_category;
+            }
+            if (activityDescription && data.activity_description) {
+                activityDescription.textContent = data.activity_description;
+            }
+            
+            // Update activity levels list
+            const levelNames = {
+                'sedentary': '{% trans "Sedentary" %}',
+                'light': '{% trans "Light" %}',
+                'moderate': '{% trans "Moderate" %}',
+                'active': '{% trans "Active" %}',
+                'very_active': '{% trans "Very Active" %}',
+                'athlete': '{% trans "Athlete" %}'
+            };
+            
+            document.getElementById('activityLevels').innerHTML = Object.entries(data.all_tdees).map(([level, cal]) => {
+                const isActive = level === data.activity_level;
+                const colorClasses = {
+                    'sedentary': 'border-gray-500 bg-gray-50',
+                    'light': 'border-blue-500 bg-blue-50',
+                    'moderate': 'border-green-500 bg-green-50',
+                    'active': 'border-yellow-500 bg-yellow-50',
+                    'very_active': 'border-orange-500 bg-orange-50',
+                    'athlete': 'border-red-500 bg-red-50'
+                };
+                const bgClass = colorClasses[level] || 'border-gray-500 bg-gray-50';
+                return `
+                    <div class="flex justify-between items-center py-3 px-4 border-l-4 ${bgClass} rounded-r-lg ${isActive ? 'font-bold shadow-md' : ''}">
+                        <span class="text-gray-900">${levelNames[level]}</span>
+                        <span class="text-gray-900 font-semibold">${cal.toLocaleString()} cal</span>
+                    </div>
+                `;
+            }).join('');
+            
+            // Update targets table
+            const targetNames = {
+                'extreme_loss': ['{% trans "Extreme Loss" %}', '-1000', 'text-red-600'],
+                'loss': ['{% trans "Weight Loss" %}', '-500', 'text-orange-600'],
+                'mild_loss': ['{% trans "Mild Loss" %}', '-250', 'text-yellow-600'],
+                'maintain': ['{% trans "Maintain" %}', '0', 'text-green-600 font-bold'],
+                'mild_gain': ['{% trans "Mild Gain" %}', '+250', 'text-blue-600'],
+                'gain': ['{% trans "Weight Gain" %}', '+500', 'text-indigo-600'],
+                'extreme_gain': ['{% trans "Extreme Gain" %}', '+1000', 'text-purple-600']
+            };
+            
+            document.getElementById('targetsTable').innerHTML = Object.entries(data.targets).map(([goal, cal]) => {
+                const [name, change, cls] = targetNames[goal];
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 px-4 ${cls} font-medium">${name}</td>
+                        <td class="py-3 px-4 text-right font-semibold text-gray-900">${cal.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-right ${cls} font-medium">${change}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Update macros
+            document.getElementById('proteinG').textContent = data.macros.protein.grams + 'g';
+            document.getElementById('carbsG').textContent = data.macros.carbs.grams + 'g';
+            document.getElementById('fatG').textContent = data.macros.fat.grams + 'g';
+            document.getElementById('proteinCal').textContent = data.macros.protein.calories + ' cal';
+            document.getElementById('carbsCal').textContent = data.macros.carbs.calories + ' cal';
+            document.getElementById('fatCal').textContent = data.macros.fat.calories + ' cal';
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.activity_levels_chart) {
+                    createActivityLevelsChart(data.chart_data.activity_levels_chart);
+                }
+                if (data.chart_data.targets_chart) {
+                    createTargetsChart(data.chart_data.targets_chart);
+                }
+                if (data.chart_data.macro_chart) {
+                    createMacroChart(data.chart_data.macro_chart);
+                }
+                if (data.chart_data.bmr_comparison_chart) {
+                    createBmrComparisonChart(data.chart_data.bmr_comparison_chart, data.bmr_formulas);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createActivityLevelsChart(chartData) {
+        const ctx = document.getElementById('activityLevelsChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (activityLevelsChart) {
+            activityLevelsChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            activityLevelsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toLocaleString() + ' cal';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' cal';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating activity levels chart:', error);
+        }
+    }
+    
+    function createTargetsChart(chartData) {
+        const ctx = document.getElementById('targetsChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (targetsChart) {
+            targetsChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            targetsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toLocaleString() + ' cal';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' cal';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating targets chart:', error);
+        }
+    }
+    
+    function createMacroChart(chartData) {
+        const ctx = document.getElementById('macroChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (macroChart) {
+            macroChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            macroChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed + '%';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating macro chart:', error);
+        }
+    }
+    
+    function createBmrComparisonChart(chartData, bmrFormulas) {
+        const ctx = document.getElementById('bmrComparisonChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (bmrComparisonChart) {
+            bmrComparisonChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        // Update chart data with actual BMR values
+        chartData.data.datasets[0].data = [
+            bmrFormulas.mifflin_st_jeor,
+            bmrFormulas.harris_benedict
+        ];
+        
+        try {
+            bmrComparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toLocaleString() + ' cal';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' cal';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+        }
+    });
+        } catch (error) {
+            console.error('Error creating BMR comparison chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

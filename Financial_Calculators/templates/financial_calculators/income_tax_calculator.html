@@ -1,0 +1,825 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Income Tax Calculator" %} - {% trans "Free 2024 Federal Tax Estimator" %}{% endblock %}
+
+{% block meta_description %}{% trans "Free income tax calculator for 2024. Estimate your federal income tax, FICA, state tax, and take-home pay. Includes all filing statuses, deductions, and tax credits." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'income tax calculator, federal tax calculator, 2024 tax brackets, tax estimator, take home pay calculator, effective tax rate, marginal tax rate, FICA calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Income Tax Calculator 2024' %} - {% trans 'Estimate Your Federal & State Taxes' %}">
+<meta property="og:description" content="{% trans 'Calculate your income tax with 2024 federal brackets. Includes FICA, state tax, deductions, and credits.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{% trans 'Income Tax Calculator 2024' %}">
+<meta name="twitter:description" content="{% trans 'Free income tax estimator with 2024 federal brackets.' %}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Income Tax Calculator' %}",
+    "description": "{% trans 'Calculate federal income tax, FICA, and state tax with 2024 tax brackets' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "{% trans 'What are the 2024 federal tax brackets?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'For 2024, the federal tax brackets range from 10% to 37%. The brackets depend on your filing status (single, married filing jointly, married filing separately, or head of household).' %}"
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "{% trans 'What is the difference between marginal and effective tax rate?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'Your marginal tax rate is the rate you pay on your last dollar of income. Your effective tax rate is your total tax divided by total income, representing your average tax burden.' %}"
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "{% trans 'What is FICA tax?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'FICA includes Social Security (6.2% up to $168,600) and Medicare (1.45%, plus 0.9% additional on income over $200,000 for single filers).' %}"
+            }
+        }
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Breadcrumb -->
+    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
+                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="flex-shrink-0"><a href="{% url 'financial_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Financial Calculators" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Income Tax Calculator" %}</li>
+            </ol>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <!-- Header -->
+        <header class="mb-6 lg:mb-8">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Income Tax Calculator" %}</h1>
+            <p class="text-gray-600 text-sm sm:text-base lg:text-lg max-w-3xl">{% trans "Estimate your 2024 federal income tax, FICA taxes, and take-home pay. Includes all filing statuses, deductions, and tax credits." %}</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Calculator Form -->
+            <div class="xl:col-span-4">
+                <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path>
+                        </svg>
+                        {% trans "Tax Information" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Gross Income -->
+                        <div>
+                            <label for="gross_income" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Annual Gross Income" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="gross_income" name="gross_income" inputmode="decimal"
+                                    class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="75,000" value="75,000" required
+                                    aria-label="{% trans 'Annual gross income in dollars' %}">
+                            </div>
+                        </div>
+
+                        <!-- Filing Status -->
+                        <div>
+                            <label for="filing_status" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Filing Status" %}</label>
+                            <select id="filing_status" name="filing_status" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base appearance-none bg-white">
+                                <option value="single">{% trans "Single" %}</option>
+                                <option value="married_joint">{% trans "Married Filing Jointly" %}</option>
+                                <option value="married_separate">{% trans "Married Filing Separately" %}</option>
+                                <option value="head_of_household">{% trans "Head of Household" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Pre-Tax Deductions Toggle -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <button type="button" id="togglePretax" class="flex items-center justify-between w-full text-sm font-medium text-blue-600 hover:text-blue-800">
+                                <span>{% trans "Pre-Tax Deductions" %}</span>
+                                <svg id="pretaxIcon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <div id="pretaxSection" class="hidden mt-4 space-y-3 bg-gray-50 rounded-lg p-4">
+                                <!-- 401k -->
+                                <div>
+                                    <label for="retirement_401k" class="block text-xs font-medium text-gray-600 mb-1">{% trans "401(k) Contributions" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="retirement_401k" name="retirement_401k" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                </div>
+                                
+                                <!-- HSA -->
+                                <div>
+                                    <label for="hsa_contribution" class="block text-xs font-medium text-gray-600 mb-1">{% trans "HSA Contributions" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="hsa_contribution" name="hsa_contribution" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                </div>
+
+                                <!-- Other Pre-Tax -->
+                                <div>
+                                    <label for="other_pretax" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Other Pre-Tax Deductions" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="other_pretax" name="other_pretax" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deductions Toggle -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <button type="button" id="toggleDeductions" class="flex items-center justify-between w-full text-sm font-medium text-blue-600 hover:text-blue-800">
+                                <span>{% trans "Tax Deductions" %}</span>
+                                <svg id="deductionsIcon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <div id="deductionsSection" class="hidden mt-4 space-y-3 bg-gray-50 rounded-lg p-4">
+                                <div class="flex gap-2 mb-3">
+                                    <button type="button" id="standardBtn" class="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white">{% trans "Standard" %}</button>
+                                    <button type="button" id="itemizedBtn" class="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700">{% trans "Itemized" %}</button>
+                                </div>
+                                <input type="hidden" id="deduction_type" name="deduction_type" value="standard">
+                                
+                                <div id="itemizedInput" class="hidden">
+                                    <label for="itemized_deductions" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Total Itemized Deductions" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="itemized_deductions" name="itemized_deductions" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                </div>
+                                
+                                <p id="standardNote" class="text-xs text-gray-500">{% trans "Standard deduction will be applied based on your filing status." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Credits Toggle -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <button type="button" id="toggleCredits" class="flex items-center justify-between w-full text-sm font-medium text-blue-600 hover:text-blue-800">
+                                <span>{% trans "Tax Credits" %}</span>
+                                <svg id="creditsIcon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <div id="creditsSection" class="hidden mt-4 space-y-3 bg-green-50 rounded-lg p-4">
+                                <div>
+                                    <label for="child_tax_credit" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Child Tax Credit" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="child_tax_credit" name="child_tax_credit" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "$2,000 per qualifying child under 17" %}</p>
+                                </div>
+
+                                <div>
+                                    <label for="other_credits" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Other Tax Credits" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="other_credits" name="other_credits" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- State Tax -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <label for="state_tax_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "State Tax Rate" %} <span class="text-gray-400 font-normal">({% trans "optional" %})</span></label>
+                            <div class="relative">
+                                <input type="text" id="state_tax_rate" name="state_tax_rate" inputmode="decimal"
+                                    class="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="0" value="0">
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Calculate Tax" %}
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Clear" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="xl:col-span-8">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Your Tax Estimate" %}</h3>
+                    <p class="text-gray-500">{% trans "Enter your income and filing status to see your estimated federal tax, FICA, and take-home pay." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white rounded-xl border border-gray-200 p-6">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                        <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-red-800 font-medium">{% trans "Error" %}</h3>
+                            <p id="errorMessage" class="text-red-600 text-sm mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsState" class="hidden space-y-6">
+                    <!-- Take Home Pay Card -->
+                    <div class="bg-green-600 rounded-xl p-6 text-white">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <p class="text-green-100 text-sm font-medium mb-1">{% trans "Annual Take-Home Pay" %}</p>
+                                <p id="annualTakeHome" class="text-3xl sm:text-4xl font-bold">$0</p>
+                            </div>
+                            <div class="flex gap-6 text-sm">
+                                <div>
+                                    <p class="text-green-200">{% trans "Monthly" %}</p>
+                                    <p id="monthlyTakeHome" class="font-semibold text-lg">$0</p>
+                                </div>
+                                <div>
+                                    <p class="text-green-200">{% trans "Bi-Weekly" %}</p>
+                                    <p id="biweeklyTakeHome" class="font-semibold text-lg">$0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Federal Tax" %}</p>
+                            <p id="federalTax" class="text-lg font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "FICA Taxes" %}</p>
+                            <p id="ficaTax" class="text-lg font-bold text-orange-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "State Tax" %}</p>
+                            <p id="stateTax" class="text-lg font-bold text-purple-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Total Tax" %}</p>
+                            <p id="totalTax" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Tax Rates -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-blue-50 rounded-xl border border-blue-200 p-4 text-center">
+                            <p class="text-xs font-medium text-blue-600 mb-1">{% trans "Marginal Rate" %}</p>
+                            <p id="marginalRate" class="text-2xl font-bold text-blue-700">0%</p>
+                            <p class="text-xs text-blue-600 mt-1">{% trans "Rate on last dollar earned" %}</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl border border-green-200 p-4 text-center">
+                            <p class="text-xs font-medium text-green-600 mb-1">{% trans "Effective Federal Rate" %}</p>
+                            <p id="effectiveFederal" class="text-2xl font-bold text-green-700">0%</p>
+                            <p class="text-xs text-green-600 mt-1">{% trans "Average federal tax rate" %}</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-xl border border-purple-200 p-4 text-center">
+                            <p class="text-xs font-medium text-purple-600 mb-1">{% trans "Effective Total Rate" %}</p>
+                            <p id="effectiveTotal" class="text-2xl font-bold text-purple-700">0%</p>
+                            <p class="text-xs text-purple-600 mt-1">{% trans "Including FICA & state" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Income Breakdown" %}</h3>
+                            <div class="h-64">
+                                <canvas id="incomeChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Tax Distribution" %}</h3>
+                            <div class="h-64">
+                                <canvas id="taxChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tax Bracket Breakdown -->
+                    <div class="bg-white rounded-xl border border-gray-200">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">{% trans "Federal Tax Bracket Breakdown" %}</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "Bracket" %}</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{% trans "Rate" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Taxable Income" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Tax" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bracketTable" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Income Summary -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Income Summary" %}</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">{% trans "Gross Income" %}</span>
+                                <span id="summaryGross" class="font-semibold text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">{% trans "Pre-Tax Deductions" %}</span>
+                                <span id="summaryPretax" class="font-semibold text-green-600">-$0</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">{% trans "Adjusted Gross Income (AGI)" %}</span>
+                                <span id="summaryAgi" class="font-semibold text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600" id="deductionLabel">{% trans "Standard Deduction" %}</span>
+                                <span id="summaryDeduction" class="font-semibold text-green-600">-$0</span>
+                            </div>
+                            <div class="flex justify-between py-2 bg-gray-50 rounded-lg px-3 -mx-3">
+                                <span class="text-gray-900 font-medium">{% trans "Taxable Income" %}</span>
+                                <span id="summaryTaxable" class="font-bold text-gray-900">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FICA Breakdown -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "FICA Tax Breakdown" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-orange-50 rounded-lg p-4">
+                                <p class="text-sm text-orange-600 mb-1">{% trans "Social Security (6.2%)" %}</p>
+                                <p id="socialSecurity" class="text-xl font-bold text-orange-700">$0</p>
+                            </div>
+                            <div class="bg-orange-50 rounded-lg p-4">
+                                <p class="text-sm text-orange-600 mb-1">{% trans "Medicare (1.45%)" %}</p>
+                                <p id="medicare" class="text-xl font-bold text-orange-700">$0</p>
+                            </div>
+                            <div class="bg-orange-100 rounded-lg p-4">
+                                <p class="text-sm text-orange-700 mb-1">{% trans "Total FICA" %}</p>
+                                <p id="totalFica" class="text-xl font-bold text-orange-800">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-8 lg:mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- How to Use -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    {% trans "How to Use This Calculator" %}
+                </h2>
+                <ol class="space-y-3 text-gray-600 text-sm">
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">1</span>
+                        <span><strong>{% trans "Enter Your Income" %}</strong> - {% trans "Your total annual income before taxes" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">2</span>
+                        <span><strong>{% trans "Select Filing Status" %}</strong> - {% trans "Single, Married, or Head of Household" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">3</span>
+                        <span><strong>{% trans "Add Deductions" %}</strong> - {% trans "401(k), HSA, itemized deductions (optional)" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">4</span>
+                        <span><strong>{% trans "Review Results" %}</strong> - {% trans "See your tax breakdown and take-home pay" %}</span>
+                    </li>
+                </ol>
+            </div>
+
+            <!-- 2024 Tax Brackets -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    {% trans "2024 Federal Tax Brackets (Single)" %}
+                </h2>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">10%</span>
+                        <span class="text-gray-900">$0 - $11,600</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">12%</span>
+                        <span class="text-gray-900">$11,601 - $47,150</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">22%</span>
+                        <span class="text-gray-900">$47,151 - $100,525</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">24%</span>
+                        <span class="text-gray-900">$100,526 - $191,950</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">32%</span>
+                        <span class="text-gray-900">$191,951 - $243,725</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">35%</span>
+                        <span class="text-gray-900">$243,726 - $609,350</span>
+                    </div>
+                    <div class="flex justify-between py-2">
+                        <span class="text-gray-600">37%</span>
+                        <span class="text-gray-900">$609,351+</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQs -->
+        <div class="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                {% trans "Frequently Asked Questions" %}
+            </h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "What is the standard deduction for 2024?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "For 2024, the standard deduction is $14,600 for single filers, $29,200 for married filing jointly, and $21,900 for head of household." %}</p>
+                </div>
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "What is FICA tax?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "FICA includes Social Security tax (6.2% on income up to $168,600) and Medicare tax (1.45% on all income, plus 0.9% on income over $200,000 for single filers)." %}</p>
+                </div>
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "Should I itemize or take the standard deduction?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "Itemize only if your total itemized deductions exceed the standard deduction. Common itemized deductions include mortgage interest, state/local taxes (up to $10,000), and charitable contributions." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "How can I reduce my taxable income?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "Contribute to pre-tax accounts like 401(k), traditional IRA, or HSA. These reduce your AGI and therefore your taxable income." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tax Tips -->
+        <div class="mt-6 bg-blue-600 rounded-xl p-6 text-white">
+            <h2 class="text-lg font-bold mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                {% trans "Tax-Saving Tips" %}
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="font-semibold mb-1 text-sm">{% trans "Max Out 401(k)" %}</h3>
+                    <p class="text-blue-100 text-xs">{% trans "Contribute up to $23,000 (2024) to reduce taxable income and save for retirement." %}</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="font-semibold mb-1 text-sm">{% trans "Use an HSA" %}</h3>
+                    <p class="text-blue-100 text-xs">{% trans "Triple tax advantage: deductible contributions, tax-free growth, tax-free withdrawals for medical expenses." %}</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="font-semibold mb-1 text-sm">{% trans "Tax-Loss Harvesting" %}</h3>
+                    <p class="text-blue-100 text-xs">{% trans "Sell losing investments to offset capital gains and reduce your tax bill." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Calculators -->
+        <div class="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">{% trans "Related Calculators" %}</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <a href="{% url 'financial_calculators:salary_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Salary" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:take_home_paycheck_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Paycheck" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:401k_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "401(k)" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:sales_tax_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Sales Tax" %}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const resultsState = document.getElementById('resultsState');
+    
+    let incomeChart = null;
+    let taxChart = null;
+    
+    // Format currency
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+    }
+    
+    function parseNumber(val) {
+        return parseFloat(String(val).replace(/[,$\s%]/g, '')) || 0;
+    }
+    
+    // Format input with commas
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    // Add formatting to currency inputs
+    ['gross_income', 'retirement_401k', 'hsa_contribution', 'other_pretax', 'itemized_deductions', 'child_tax_credit', 'other_credits'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.addEventListener('input', () => formatInput(input));
+    });
+    
+    // Toggle sections
+    function setupToggle(btnId, sectionId, iconId) {
+        document.getElementById(btnId).addEventListener('click', function() {
+            document.getElementById(sectionId).classList.toggle('hidden');
+            document.getElementById(iconId).classList.toggle('rotate-180');
+        });
+    }
+    
+    setupToggle('togglePretax', 'pretaxSection', 'pretaxIcon');
+    setupToggle('toggleDeductions', 'deductionsSection', 'deductionsIcon');
+    setupToggle('toggleCredits', 'creditsSection', 'creditsIcon');
+    
+    // Deduction type toggle
+    document.getElementById('standardBtn').addEventListener('click', function() {
+        document.getElementById('deduction_type').value = 'standard';
+        this.classList.add('bg-blue-600', 'text-white');
+        this.classList.remove('bg-gray-200', 'text-gray-700');
+        document.getElementById('itemizedBtn').classList.remove('bg-blue-600', 'text-white');
+        document.getElementById('itemizedBtn').classList.add('bg-gray-200', 'text-gray-700');
+        document.getElementById('itemizedInput').classList.add('hidden');
+        document.getElementById('standardNote').classList.remove('hidden');
+    });
+    
+    document.getElementById('itemizedBtn').addEventListener('click', function() {
+        document.getElementById('deduction_type').value = 'itemized';
+        this.classList.add('bg-blue-600', 'text-white');
+        this.classList.remove('bg-gray-200', 'text-gray-700');
+        document.getElementById('standardBtn').classList.remove('bg-blue-600', 'text-white');
+        document.getElementById('standardBtn').classList.add('bg-gray-200', 'text-gray-700');
+        document.getElementById('itemizedInput').classList.remove('hidden');
+        document.getElementById('standardNote').classList.add('hidden');
+    });
+    
+    // State management
+    function showState(state) {
+        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
+        state.classList.remove('hidden');
+    }
+    
+    // Clear form
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('gross_income').value = '75,000';
+        showState(initialState);
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState(loadingState);
+        
+        const formData = {
+            gross_income: parseNumber(document.getElementById('gross_income').value),
+            filing_status: document.getElementById('filing_status').value,
+            retirement_401k: parseNumber(document.getElementById('retirement_401k').value),
+            hsa_contribution: parseNumber(document.getElementById('hsa_contribution').value),
+            other_pretax: parseNumber(document.getElementById('other_pretax').value),
+            deduction_type: document.getElementById('deduction_type').value,
+            itemized_deductions: parseNumber(document.getElementById('itemized_deductions').value),
+            child_tax_credit: parseNumber(document.getElementById('child_tax_credit').value),
+            other_credits: parseNumber(document.getElementById('other_credits').value),
+            state_tax_rate: parseNumber(document.getElementById('state_tax_rate').value),
+        };
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                document.getElementById('errorMessage').textContent = data.error;
+                showState(errorState);
+                return;
+            }
+            
+            // Update take-home pay
+            document.getElementById('annualTakeHome').textContent = formatCurrency(data.take_home.annual);
+            document.getElementById('monthlyTakeHome').textContent = formatCurrency(data.take_home.monthly);
+            document.getElementById('biweeklyTakeHome').textContent = formatCurrency(data.take_home.biweekly);
+            
+            // Update summary cards
+            document.getElementById('federalTax').textContent = formatCurrency(data.federal_tax.after_credits);
+            document.getElementById('ficaTax').textContent = formatCurrency(data.fica.total);
+            document.getElementById('stateTax').textContent = formatCurrency(data.state_tax.amount);
+            document.getElementById('totalTax').textContent = formatCurrency(data.totals.total_with_fica);
+            
+            // Update rates
+            document.getElementById('marginalRate').textContent = data.rates.marginal + '%';
+            document.getElementById('effectiveFederal').textContent = data.rates.effective_federal.toFixed(1) + '%';
+            document.getElementById('effectiveTotal').textContent = data.rates.effective_total.toFixed(1) + '%';
+            
+            // Update income summary
+            document.getElementById('summaryGross').textContent = formatCurrency(data.income.gross);
+            document.getElementById('summaryPretax').textContent = '-' + formatCurrency(data.income.pretax_deductions);
+            document.getElementById('summaryAgi').textContent = formatCurrency(data.income.agi);
+            document.getElementById('deductionLabel').textContent = data.income.deduction_type === 'standard' ? '{% trans "Standard Deduction" %}' : '{% trans "Itemized Deductions" %}';
+            document.getElementById('summaryDeduction').textContent = '-' + formatCurrency(data.income.deduction);
+            document.getElementById('summaryTaxable').textContent = formatCurrency(data.income.taxable_income);
+            
+            // Update FICA
+            document.getElementById('socialSecurity').textContent = formatCurrency(data.fica.social_security);
+            document.getElementById('medicare').textContent = formatCurrency(data.fica.medicare);
+            document.getElementById('totalFica').textContent = formatCurrency(data.fica.total);
+            
+            // Update bracket table
+            const bracketBody = document.getElementById('bracketTable');
+            bracketBody.innerHTML = data.federal_tax.breakdown.map(b => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">${b.bracket}</td>
+                    <td class="px-4 py-3 text-sm text-center font-medium text-blue-600">${b.rate}</td>
+                    <td class="px-4 py-3 text-sm text-right text-gray-700">${formatCurrency(b.income)}</td>
+                    <td class="px-4 py-3 text-sm text-right font-medium text-red-600">${formatCurrency(b.tax)}</td>
+                </tr>
+            `).join('');
+            
+            // Render charts
+            renderCharts(data);
+            
+            showState(resultsState);
+            
+            if (window.innerWidth < 1280) {
+                resultsState.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+        } catch (err) {
+            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+            showState(errorState);
+        }
+    });
+    
+    function renderCharts(data) {
+        // Destroy existing charts
+        if (incomeChart) incomeChart.destroy();
+        if (taxChart) taxChart.destroy();
+        
+        // Income breakdown chart
+        const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+        incomeChart = new Chart(incomeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['{% trans "Take-Home Pay" %}', '{% trans "Federal Tax" %}', '{% trans "FICA" %}', '{% trans "State Tax" %}', '{% trans "Pre-Tax Deductions" %}'],
+                datasets: [{
+                    data: [
+                        data.take_home.annual,
+                        data.federal_tax.after_credits,
+                        data.fica.total,
+                        data.state_tax.amount,
+                        data.income.pretax_deductions
+                    ],
+                    backgroundColor: ['#22c55e', '#ef4444', '#f97316', '#8b5cf6', '#3b82f6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+            }
+        });
+        
+        // Tax distribution chart
+        const taxCtx = document.getElementById('taxChart').getContext('2d');
+        taxChart = new Chart(taxCtx, {
+            type: 'bar',
+            data: {
+                labels: ['{% trans "Federal" %}', '{% trans "Social Security" %}', '{% trans "Medicare" %}', '{% trans "State" %}'],
+                datasets: [{
+                    label: '{% trans "Tax Amount" %}',
+                    data: [
+                        data.federal_tax.after_credits,
+                        data.fica.social_security,
+                        data.fica.medicare,
+                        data.state_tax.amount
+                    ],
+                    backgroundColor: ['#ef4444', '#f97316', '#fb923c', '#8b5cf6']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: function(value) { return '$' + value.toLocaleString(); } }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

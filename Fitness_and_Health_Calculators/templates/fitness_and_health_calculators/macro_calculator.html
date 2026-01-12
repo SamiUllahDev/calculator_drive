@@ -1,0 +1,964 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Macro Calculator" %} - {% trans "Macronutrient Breakdown Calculator" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your macronutrient breakdown from total calories. Get protein, fat, and carbohydrate grams and percentages for your diet goals." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'macro calculator, macronutrient calculator, protein calculator, carb calculator, fat calculator, macro split' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Macro Calculator' %} - {% trans 'Calculate Macronutrients' %}">
+<meta property="og:description" content="{% trans 'Calculate your macronutrient breakdown from total calories. Get protein, fat, and carbohydrate grams.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Macro Calculator' %}",
+    "description": "{% trans 'Calculate macronutrient breakdown from total calories' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Macro Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your macronutrient breakdown from total calories. Get detailed protein, fat, and carbohydrate grams and percentages for your diet goals." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        {% trans "Macro Split" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Total Calories -->
+                        <div>
+                            <label for="total_calories" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Total Daily Calories" %}</label>
+                            <div class="relative">
+                                <input type="number" id="total_calories" name="total_calories" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="2000" value="2000" min="1" max="10000" step="1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">kcal</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-10,000 kcal" %}</p>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Quick Presets" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" onclick="setPreset('balanced')" class="px-3 py-2 text-xs border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 transition-all">{% trans "Balanced" %}</button>
+                                <button type="button" onclick="setPreset('high_protein')" class="px-3 py-2 text-xs border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 transition-all">{% trans "High Protein" %}</button>
+                                <button type="button" onclick="setPreset('low_carb')" class="px-3 py-2 text-xs border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 transition-all">{% trans "Low Carb" %}</button>
+                                <button type="button" onclick="setPreset('keto')" class="px-3 py-2 text-xs border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 transition-all">{% trans "Keto" %}</button>
+                            </div>
+                        </div>
+
+                        <!-- Protein -->
+                        <div>
+                            <label for="protein_percent" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Protein" %} (%)
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="protein_percent" name="protein_percent" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="30" value="30" min="0" max="100" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">%</span>
+                            </div>
+                            <div class="mt-1">
+                                <input type="range" id="protein_slider" min="0" max="100" value="30" step="0.1" 
+                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            </div>
+                        </div>
+
+                        <!-- Fat -->
+                        <div>
+                            <label for="fat_percent" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Fat" %} (%)
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="fat_percent" name="fat_percent" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="30" value="30" min="0" max="100" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">%</span>
+                            </div>
+                            <div class="mt-1">
+                                <input type="range" id="fat_slider" min="0" max="100" value="30" step="0.1" 
+                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-yellow-600">
+                            </div>
+                        </div>
+
+                        <!-- Carbs -->
+                        <div>
+                            <label for="carbs_percent" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Carbohydrates" %} (%)
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="carbs_percent" name="carbs_percent" 
+                                    class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="40" value="40" min="0" max="100" step="0.1" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">%</span>
+                            </div>
+                            <div class="mt-1">
+                                <input type="range" id="carbs_slider" min="0" max="100" value="40" step="0.1" 
+                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600">
+                            </div>
+                        </div>
+
+                        <!-- Total Percentage Display -->
+                        <div class="bg-gray-50 rounded-lg p-3 border-2 border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700">{% trans "Total" %}:</span>
+                                <span id="total_percent" class="text-lg font-bold text-gray-900">100%</span>
+                            </div>
+                            <div id="percent_warning" class="hidden mt-2 text-xs text-red-600 font-medium"></div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate Macros" %}</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your total calories and macro percentages, then click Calculate to see your detailed macronutrient breakdown with charts and meal distribution." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Total Daily Calories" %}</p>
+                            <p id="totalCaloriesDisplay" class="text-5xl sm:text-6xl font-bold mb-2">0</p>
+                            <p class="text-sm opacity-90">kcal</p>
+                            <div id="splitCategoryBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="splitCategoryText">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Macro Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-blue-600 rounded-xl p-6 text-white shadow-lg">
+                            <p class="text-blue-100 text-sm font-medium mb-1">{% trans "Protein" %}</p>
+                            <p id="proteinGrams" class="text-3xl font-bold">0g</p>
+                            <p id="proteinCal" class="text-blue-200 text-sm mt-1">0 kcal</p>
+                            <p id="proteinPercent" class="text-blue-200 text-xs mt-1">0%</p>
+                        </div>
+                        <div class="bg-yellow-600 rounded-xl p-6 text-white shadow-lg">
+                            <p class="text-yellow-100 text-sm font-medium mb-1">{% trans "Fat" %}</p>
+                            <p id="fatGrams" class="text-3xl font-bold">0g</p>
+                            <p id="fatCal" class="text-yellow-200 text-sm mt-1">0 kcal</p>
+                            <p id="fatPercent" class="text-yellow-200 text-xs mt-1">0%</p>
+                        </div>
+                        <div class="bg-green-600 rounded-xl p-6 text-white shadow-lg">
+                            <p class="text-green-100 text-sm font-medium mb-1">{% trans "Carbs" %}</p>
+                            <p id="carbsGrams" class="text-3xl font-bold">0g</p>
+                            <p id="carbsCal" class="text-green-200 text-sm mt-1">0 kcal</p>
+                            <p id="carbsPercent" class="text-green-200 text-xs mt-1">0%</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Macro Breakdown Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Macro Breakdown" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="macroCaloriesChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Macro Grams Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Macro Grams" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="macroGramsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Percentage Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Percentage Comparison" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="percentageChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Meal Distribution Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Meal Distribution" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="mealChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meal Distribution Cards -->
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Meal Distribution" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="mealDistribution">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Split Category Description -->
+                    <div id="splitCategoryCard" class="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Macro Split Category" %}</h3>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div id="splitCategoryBadge" class="px-4 py-2 rounded-lg text-white font-semibold"></div>
+                            <p id="splitCategoryDescription" class="text-gray-600 flex-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What are Macros Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What are Macronutrients?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Macronutrients (macros) are the three main nutrients your body needs in large amounts: protein, carbohydrates, and fats. Each provides energy (calories) and serves unique functions in your body." %}
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                <p class="text-center font-mono text-lg font-bold text-gray-900">{% trans "Total Calories = Protein + Fat + Carbs" %}</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Protein and carbohydrates provide 4 calories per gram, while fat provides 9 calories per gram. Understanding your macro breakdown helps you optimize your diet for your specific goals." %}
+                            </p>
+                        </div>
+
+                        <!-- Macro Functions Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Macronutrient Functions" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Protein (4 cal/g)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Essential for muscle building, repair, and maintenance. Supports immune function, hormone production, and satiety. Recommended: 0.8-2.2g per kg body weight depending on activity level." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Fat (9 cal/g)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Provides energy, supports hormone production, aids vitamin absorption, and protects organs. Essential for brain health. Recommended: 20-35% of total calories." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Carbohydrates (4 cal/g)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Primary energy source for your body and brain. Supports exercise performance and recovery. Recommended: 45-65% of total calories for most people, lower for low-carb diets." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your total daily calorie target (use a TDEE calculator if unsure)" %}</li>
+                                <li>{% trans "Use quick presets or manually adjust macro percentages using sliders" %}</li>
+                                <li>{% trans "Ensure percentages sum to 100% (the calculator will warn you if they don't)" %}</li>
+                                <li>{% trans "Click 'Calculate Macros' to see your breakdown" %}</li>
+                                <li>{% trans "Review the charts and meal distribution recommendations" %}</li>
+                                <li>{% trans "Adjust percentages based on your goals and preferences" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Common Macro Splits Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Macro Splits" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Balanced: 30% Protein, 30% Fat, 40% Carbs" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Standard balanced diet suitable for most people. Good for general health and maintenance." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "High Protein: 40% Protein, 30% Fat, 30% Carbs" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Ideal for muscle building, weight loss with muscle preservation, and increased satiety." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Low Carb: 35% Protein, 40% Fat, 25% Carbs" %}</h4>
+                                    <p class="text-sm text-indigo-800">
+                                        {% trans "Reduced carbohydrate intake. Good for weight loss, blood sugar control, and some athletes." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Ketogenic: 20% Protein, 70% Fat, 10% Carbs" %}</h4>
+                                    <p class="text-sm text-purple-800">
+                                        {% trans "Very low carbohydrate, high fat diet. Promotes ketosis. Requires careful planning and monitoring." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Macro Grams" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The actual amount in grams you should consume daily. Use this for meal planning and tracking." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Macro Calories" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The calories contributed by each macronutrient. These should sum to your total daily calories." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Meal Distribution" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Suggested breakdown across meals: Breakfast (25%), Lunch (35%), Dinner (30%), Snacks (10%). Adjust based on your schedule and preferences." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Macro percentages must sum to exactly 100%. The calculator will warn you if they don't." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Optimal macro splits vary based on goals, activity level, body composition, and individual preferences." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Meal distribution is a suggestion. Adjust timing based on your schedule, training, and preferences." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Consult with registered dietitians or nutritionists for personalized macro recommendations, especially for specific health conditions." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let macroCaloriesChart = null;
+let macroGramsChart = null;
+let percentageChart = null;
+let mealChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    
+    // Slider sync with inputs
+    ['protein', 'fat', 'carbs'].forEach(macro => {
+        const slider = document.getElementById(macro + '_slider');
+        const input = document.getElementById(macro + '_percent');
+        
+        slider.addEventListener('input', function() {
+            input.value = this.value;
+            updateTotal();
+        });
+        
+        input.addEventListener('input', function() {
+            slider.value = this.value;
+            updateTotal();
+        });
+    });
+    
+    function updateTotal() {
+        const protein = parseFloat(document.getElementById('protein_percent').value) || 0;
+        const fat = parseFloat(document.getElementById('fat_percent').value) || 0;
+        const carbs = parseFloat(document.getElementById('carbs_percent').value) || 0;
+        const total = protein + fat + carbs;
+        
+        document.getElementById('total_percent').textContent = total.toFixed(1) + '%';
+        
+        const warning = document.getElementById('percent_warning');
+        if (Math.abs(total - 100) > 0.1) {
+            warning.classList.remove('hidden');
+            warning.textContent = '{% trans "Percentages must sum to 100%" %}';
+        } else {
+            warning.classList.add('hidden');
+        }
+    }
+    
+    function setPreset(preset) {
+        const presets = {
+            'balanced': {protein: 30, fat: 30, carbs: 40},
+            'high_protein': {protein: 40, fat: 30, carbs: 30},
+            'low_carb': {protein: 35, fat: 40, carbs: 25},
+            'keto': {protein: 20, fat: 70, carbs: 10}
+        };
+        
+        const p = presets[preset];
+        document.getElementById('protein_percent').value = p.protein;
+        document.getElementById('fat_percent').value = p.fat;
+        document.getElementById('carbs_percent').value = p.carbs;
+        document.getElementById('protein_slider').value = p.protein;
+        document.getElementById('fat_slider').value = p.fat;
+        document.getElementById('carbs_slider').value = p.carbs;
+        updateTotal();
+    }
+    
+    window.setPreset = setPreset;
+    
+    // Reset button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('total_calories').value = '2000';
+        document.getElementById('protein_percent').value = '30';
+        document.getElementById('fat_percent').value = '30';
+        document.getElementById('carbs_percent').value = '40';
+        ['protein', 'fat', 'carbs'].forEach(m => {
+            document.getElementById(m + '_slider').value = document.getElementById(m + '_percent').value;
+        });
+        updateTotal();
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+        if (macroCaloriesChart) macroCaloriesChart.destroy();
+        if (macroGramsChart) macroGramsChart.destroy();
+        if (percentageChart) percentageChart.destroy();
+        if (mealChart) mealChart.destroy();
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        
+        const formData = {
+            total_calories: parseFloat(document.getElementById('total_calories').value),
+            protein_percent: parseFloat(document.getElementById('protein_percent').value),
+            fat_percent: parseFloat(document.getElementById('fat_percent').value),
+            carbs_percent: parseFloat(document.getElementById('carbs_percent').value)
+        };
+        
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Macros" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+            
+            // Display results
+            displayResults(data);
+            
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+    
+    function displayResults(data) {
+        try {
+            // Update total calories
+            const totalCaloriesDisplay = document.getElementById('totalCaloriesDisplay');
+            if (totalCaloriesDisplay) totalCaloriesDisplay.textContent = data.total_calories.toLocaleString();
+            
+            // Update macro cards
+            document.getElementById('proteinGrams').textContent = data.macros.protein.grams + 'g';
+            document.getElementById('proteinCal').textContent = data.macros.protein.calories + ' kcal';
+            document.getElementById('proteinPercent').textContent = data.macros.protein.percent + '%';
+            
+            document.getElementById('fatGrams').textContent = data.macros.fat.grams + 'g';
+            document.getElementById('fatCal').textContent = data.macros.fat.calories + ' kcal';
+            document.getElementById('fatPercent').textContent = data.macros.fat.percent + '%';
+            
+            document.getElementById('carbsGrams').textContent = data.macros.carbs.grams + 'g';
+            document.getElementById('carbsCal').textContent = data.macros.carbs.calories + ' kcal';
+            document.getElementById('carbsPercent').textContent = data.macros.carbs.percent + '%';
+            
+            // Update split category
+            const splitCategoryBadge = document.getElementById('splitCategoryBadge');
+            const splitCategoryText = document.getElementById('splitCategoryText');
+            const splitCategoryDescription = document.getElementById('splitCategoryDescription');
+            
+            if (splitCategoryText) splitCategoryText.textContent = data.split_category;
+            if (splitCategoryDescription && data.category_description) {
+                splitCategoryDescription.textContent = data.category_description;
+            }
+            if (splitCategoryBadge && data.color_info) {
+                splitCategoryBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+            }
+            
+            // Update result card color
+            const resultCard = document.getElementById('resultCard');
+            const colors = {
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'green': 'bg-gradient-to-br from-green-600 to-green-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'purple': 'bg-gradient-to-br from-purple-600 to-purple-700',
+                'indigo': 'bg-gradient-to-br from-indigo-600 to-indigo-700',
+                'gray': 'bg-gradient-to-br from-gray-600 to-gray-700'
+            };
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.category_color] || 'bg-gradient-to-br from-gray-600 to-gray-700');
+            }
+            
+            // Update meal distribution
+            const mealContainer = document.getElementById('mealDistribution');
+            const meals = data.meals;
+            mealContainer.innerHTML = `
+                <div class="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Breakfast" %} (25%)</h4>
+                    <p class="text-2xl font-bold text-blue-600">${meals.breakfast.calories} kcal</p>
+                    <p class="text-xs text-gray-600 mt-1">P: ${meals.breakfast.protein}g | F: ${meals.breakfast.fat}g | C: ${meals.breakfast.carbs}g</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Lunch" %} (35%)</h4>
+                    <p class="text-2xl font-bold text-green-600">${meals.lunch.calories} kcal</p>
+                    <p class="text-xs text-gray-600 mt-1">P: ${meals.lunch.protein}g | F: ${meals.lunch.fat}g | C: ${meals.lunch.carbs}g</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Dinner" %} (30%)</h4>
+                    <p class="text-2xl font-bold text-purple-600">${meals.dinner.calories} kcal</p>
+                    <p class="text-xs text-gray-600 mt-1">P: ${meals.dinner.protein}g | F: ${meals.dinner.fat}g | C: ${meals.dinner.carbs}g</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 border-2 border-yellow-200">
+                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Snacks" %} (10%)</h4>
+                    <p class="text-2xl font-bold text-yellow-600">${meals.snacks.calories} kcal</p>
+                    <p class="text-xs text-gray-600 mt-1">P: ${meals.snacks.protein}g | F: ${meals.snacks.fat}g | C: ${meals.snacks.carbs}g</p>
+                </div>
+            `;
+            
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.macro_calories_chart) {
+                    createMacroCaloriesChart(data.chart_data.macro_calories_chart);
+                }
+                if (data.chart_data.macro_grams_chart) {
+                    createMacroGramsChart(data.chart_data.macro_grams_chart);
+                }
+                if (data.chart_data.percentage_chart) {
+                    createPercentageChart(data.chart_data.percentage_chart);
+                }
+                if (data.chart_data.meal_chart) {
+                    createMealChart(data.chart_data.meal_chart);
+                }
+            }
+            
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function createMacroCaloriesChart(chartData) {
+        const ctx = document.getElementById('macroCaloriesChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (macroCaloriesChart) {
+            macroCaloriesChart.destroy();
+        }
+        
+        if (!chartData || !chartData.center_text) return;
+        
+        const centerText = chartData.center_text;
+        const totalColor = centerText.color;
+        
+        try {
+            macroCaloriesChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            display: true,
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const percent = ((value / centerText.value) * 100).toFixed(1);
+                                    return label + ': ' + value + ' kcal (' + percent + '%)';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    afterDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
+                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 28px Arial';
+                        ctx.fillStyle = totalColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(centerText.value.toLocaleString(), centerX, centerY - 10);
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#6b7280';
+                        ctx.fillText(centerText.label, centerX, centerY + 18);
+                        ctx.restore();
+                    }
+                }]
+            });
+        } catch (error) {
+            console.error('Error creating macro calories chart:', error);
+        }
+    }
+    
+    function createMacroGramsChart(chartData) {
+        const ctx = document.getElementById('macroGramsChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (macroGramsChart) {
+            macroGramsChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            macroGramsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + 'g';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + 'g';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating macro grams chart:', error);
+        }
+    }
+    
+    function createPercentageChart(chartData) {
+        const ctx = document.getElementById('percentageChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (percentageChart) {
+            percentageChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            percentageChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating percentage chart:', error);
+        }
+    }
+    
+    function createMealChart(chartData) {
+        const ctx = document.getElementById('mealChart');
+        if (!ctx) return;
+        
+        if (!checkChartJS()) return;
+        
+        if (mealChart) {
+            mealChart.destroy();
+        }
+        
+        if (!chartData || !chartData.data) return;
+        
+        try {
+            mealChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.y + ' kcal';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + ' kcal';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating meal chart:', error);
+        }
+    }
+    
+    updateTotal();
+});
+</script>
+{% endblock %}

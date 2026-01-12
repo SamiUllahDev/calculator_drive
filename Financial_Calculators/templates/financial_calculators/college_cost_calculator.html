@@ -1,0 +1,212 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}College Cost Calculator - Plan Your Education Savings{% endblock %}
+
+{% block meta_description %}Calculate future college costs and create a savings plan with 529 projections.{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3">🎓 College Cost Calculator</h1>
+            <p class="text-blue-200 text-lg">Plan and save for your child's education</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+                <form id="calculator-form" class="space-y-6">
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-white">👶 Child's Information</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-blue-200 mb-2">Current Age</label>
+                                <input type="number" name="child_age" id="child_age" value="5" min="0" max="18"
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-blue-200 mb-2">College Start Age</label>
+                                <input type="number" name="college_age" id="college_age" value="18" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-white">🏫 College Details</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-blue-200 mb-2">Type of College</label>
+                            <select name="college_type" id="college_type" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                                <option value="public_in_state" class="bg-gray-800">Public In-State ($23,250/yr)</option>
+                                <option value="public_out_state" class="bg-gray-800">Public Out-of-State ($40,550/yr)</option>
+                                <option value="private" class="bg-gray-800">Private University ($54,500/yr)</option>
+                                <option value="community" class="bg-gray-800">Community College ($12,000/yr)</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-blue-200 mb-2">Years of College</label>
+                                <input type="number" name="years_of_college" id="years_of_college" value="4" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-blue-200 mb-2">Cost Inflation (%)</label>
+                                <input type="number" name="inflation_rate" id="inflation_rate" value="5" step="0.5" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-white">💰 Your Savings</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-blue-200 mb-2">Current Savings</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <input type="text" name="current_savings" id="current_savings" value="10,000" 
+                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-blue-200 mb-2">Expected Return Rate (%)</label>
+                            <input type="number" name="return_rate" id="return_rate" value="7" step="0.5" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
+                        Calculate College Costs
+                    </button>
+                </form>
+            </div>
+
+            <div class="space-y-6">
+                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-400 border-t-transparent mx-auto mb-4"></div>
+                    <p class="text-blue-200">Calculating...</p>
+                </div>
+
+                <div id="results" class="space-y-6">
+                    <div class="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 shadow-2xl">
+                        <h3 class="text-blue-100 text-sm font-medium mb-1">Projected Total Cost</h3>
+                        <div class="text-4xl font-bold text-white" id="total_cost">$120,000</div>
+                        <div class="text-blue-200 text-sm mt-1" id="cost_detail">4 years at Public In-State</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-blue-300 text-sm">Years Until College</div>
+                            <div class="text-2xl font-bold text-white" id="years_until">13 years</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-blue-300 text-sm">Future Annual Cost</div>
+                            <div class="text-xl font-bold text-white" id="future_annual_cost">$43,000</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-blue-300 text-sm">Projected Savings</div>
+                            <div class="text-xl font-bold text-green-400" id="projected_savings">$24,000</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-blue-300 text-sm">Funding Gap</div>
+                            <div class="text-xl font-bold text-red-400" id="funding_gap">$96,000</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">💵 Monthly Savings Needed</h3>
+                        <div class="text-center">
+                            <div class="text-5xl font-bold text-blue-400" id="monthly_savings">$615</div>
+                            <p class="text-blue-200 mt-2">per month to reach your goal</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Savings Growth</h3>
+                        <canvas id="savingsChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let savingsChart = null;
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
+document.getElementById('calculator-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('loading').classList.remove('hidden');
+    
+    const formData = {
+        child_age: document.getElementById('child_age').value,
+        college_age: document.getElementById('college_age').value,
+        college_type: document.getElementById('college_type').value,
+        years_of_college: document.getElementById('years_of_college').value,
+        inflation_rate: document.getElementById('inflation_rate').value,
+        current_savings: document.getElementById('current_savings').value,
+        return_rate: document.getElementById('return_rate').value
+    };
+
+    try {
+        const response = await fetch('{% url "college_cost_calculator" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify(formData)
+        });
+        const data = await response.json();
+        document.getElementById('loading').classList.add('hidden');
+        if (data.success) updateResults(data);
+        else alert(data.error || 'Calculation error');
+    } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        alert('An error occurred');
+    }
+});
+
+function updateResults(data) {
+    document.getElementById('total_cost').textContent = formatCurrency(data.total_cost);
+    document.getElementById('cost_detail').textContent = `${data.years_of_college} years at ${data.college_type_display}`;
+    document.getElementById('years_until').textContent = data.years_until_college + ' years';
+    document.getElementById('future_annual_cost').textContent = formatCurrency(data.future_annual_cost);
+    document.getElementById('projected_savings').textContent = formatCurrency(data.projected_savings);
+    document.getElementById('funding_gap').textContent = formatCurrency(data.funding_gap);
+    document.getElementById('monthly_savings').textContent = formatCurrency(data.monthly_savings_needed);
+    updateChart(data);
+}
+
+function updateChart(data) {
+    const ctx = document.getElementById('savingsChart').getContext('2d');
+    if (savingsChart) savingsChart.destroy();
+    if (data.savings_growth) {
+        savingsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.savings_growth.map(g => 'Year ' + g.year),
+                datasets: [{
+                    label: 'Savings', data: data.savings_growth.map(g => g.savings),
+                    borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#fff' } } },
+                scales: {
+                    x: { ticks: { color: '#93c5fd' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                    y: { ticks: { color: '#93c5fd' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                }
+            }
+        });
+    }
+}
+
+document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+</script>
+{% endblock %}

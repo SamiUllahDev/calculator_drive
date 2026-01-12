@@ -1,0 +1,716 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Body Surface Area Calculator" %} - {% trans "BSA Calculation" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate body surface area (BSA) using multiple formulas including Du Bois, Mosteller, Haycock, and Gehan & George." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "BSA calculator, body surface area, Du Bois formula, Mosteller formula, medical calculator" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "Body Surface Area Calculator" %} - {% trans "BSA Calculation" %}">
+<meta property="og:description" content="{% trans "Calculate body surface area using multiple proven formulas including Du Bois, Mosteller, Haycock, and Gehan & George." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "Body Surface Area Calculator" %}",
+    "description": "{% trans "Calculate body surface area (BSA) using multiple proven formulas." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Body Surface Area Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Body Surface Area Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate body surface area (BSA) using multiple proven formulas including Du Bois, Mosteller, Haycock, and Gehan & George." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Measurements" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2" id="unitMetric">
+                                    <span class="text-sm">{% trans "Metric" %} (cm, kg)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2" id="unitImperial">
+                                    <span class="text-sm">{% trans "Imperial" %} (in, lbs)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Height -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="relative">
+                                <input type="number" id="height" name="height" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-12" 
+                                       value="170" min="50" max="250" step="0.1" required>
+                                <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" id="heightUnit">cm</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 50-250 cm" %}</p>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Weight" %}</label>
+                            <div class="relative">
+                                <input type="number" id="weight" name="weight" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base pr-12" 
+                                       value="70" min="1" max="500" step="0.1" required>
+                                <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" id="weightUnit">kg</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1-500 kg" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate BSA" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your height and weight to calculate your Body Surface Area (BSA) using multiple proven formulas." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Average Body Surface Area" %}</p>
+                            <p id="averageBsa" class="text-5xl sm:text-6xl font-bold mb-2">0.000 m²</p>
+                            <p class="text-sm opacity-90">{% trans "Based on 4 formulas" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Du Bois" %}</p>
+                                <p id="duBois" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Mosteller" %}</p>
+                                <p id="mosteller" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Haycock" %}</p>
+                                <p id="haycock" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Gehan & George" %}</p>
+                                <p id="gehan" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- BSA Formulas Comparison Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BSA Formulas Comparison" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="formulasChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- BSA Range Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BSA Range" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="rangeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BSA Formulas Details Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "BSA by Formula" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Formula" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "BSA (m²)" %}</th>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Notes" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="formulasTable" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is BSA Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Body Surface Area (BSA)?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Body Surface Area (BSA) is the total surface area of the human body. It's measured in square meters (m²) and is used in various medical applications, particularly for calculating drug dosages, determining cardiac index, and assessing metabolic rate." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "BSA provides a more accurate measure than body weight alone for many medical calculations, as it accounts for both height and weight, giving a better representation of body size." %}
+                            </p>
+                        </div>
+
+                        <!-- BSA Formulas Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "BSA Calculation Formulas" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Du Bois Formula (1916)" %}</h4>
+                                    <p class="text-sm text-blue-800 mb-2">
+                                        {% trans "One of the oldest and most widely used formulas. Considered the gold standard." %}
+                                    </p>
+                                    <p class="font-mono text-xs text-blue-900">
+                                        {% trans "BSA = 0.007184 × weight^0.425 × height^0.725" %}
+                                    </p>
+                                    <p class="text-xs text-blue-700 mt-1">
+                                        {% trans "Where weight is in kg and height is in cm" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Mosteller Formula (1987)" %}</h4>
+                                    <p class="text-sm text-green-800 mb-2">
+                                        {% trans "Simplified formula, easy to remember and calculate. Commonly used in clinical practice." %}
+                                    </p>
+                                    <p class="font-mono text-xs text-green-900">
+                                        {% trans "BSA = √((height × weight) / 3600)" %}
+                                    </p>
+                                    <p class="text-xs text-green-700 mt-1">
+                                        {% trans "Where height is in cm and weight is in kg" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Haycock Formula (1978)" %}</h4>
+                                    <p class="text-sm text-yellow-800 mb-2">
+                                        {% trans "Developed specifically for pediatric populations but also accurate for adults." %}
+                                    </p>
+                                    <p class="font-mono text-xs text-yellow-900">
+                                        {% trans "BSA = 0.024265 × weight^0.5378 × height^0.3964" %}
+                                    </p>
+                                    <p class="text-xs text-yellow-700 mt-1">
+                                        {% trans "Where weight is in kg and height is in cm" %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Gehan & George Formula (1970)" %}</h4>
+                                    <p class="text-sm text-purple-800 mb-2">
+                                        {% trans "Another commonly used formula, particularly in oncology and chemotherapy dosing." %}
+                                    </p>
+                                    <p class="font-mono text-xs text-purple-900">
+                                        {% trans "BSA = 0.0235 × weight^0.51456 × height^0.42246" %}
+                                    </p>
+                                    <p class="text-xs text-purple-700 mt-1">
+                                        {% trans "Where weight is in kg and height is in cm" %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Medical Applications Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Medical Applications of BSA" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Drug Dosage Calculation:" %}</strong> {% trans "Many medications, especially chemotherapy drugs, are dosed based on BSA rather than body weight to ensure appropriate drug levels." %}</p>
+                                <p><strong>{% trans "Cardiac Index:" %}</strong> {% trans "BSA is used to calculate cardiac index (cardiac output divided by BSA), which helps assess heart function." %}</p>
+                                <p><strong>{% trans "Renal Function:" %}</strong> {% trans "Glomerular filtration rate (GFR) is often normalized to BSA for more accurate assessment of kidney function." %}</p>
+                                <p><strong>{% trans "Metabolic Rate:" %}</strong> {% trans "BSA correlates with metabolic rate and is used in some metabolic calculations." %}</p>
+                                <p><strong>{% trans "Fluid Requirements:" %}</strong> {% trans "Some fluid replacement calculations use BSA to determine appropriate volumes." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your preferred unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter your height accurately" %}</li>
+                                <li>{% trans "Enter your current weight" %}</li>
+                                <li>{% trans "Click 'Calculate BSA' to see your results" %}</li>
+                                <li>{% trans "Review the BSA values from all four formulas" %}</li>
+                                <li>{% trans "Compare the average BSA with individual formula results" %}</li>
+                                <li>{% trans "Use the charts to visualize differences between formulas" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Average BSA" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The average of all four formulas provides a balanced estimate. This is often used when precision is important." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Individual Formula Results" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Each formula may give slightly different results. The Du Bois formula is considered the gold standard, while Mosteller is the simplest to calculate." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Formula Differences" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Small differences between formulas are normal and expected. The range chart shows the minimum, average, and maximum values." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Typical BSA Values Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Typical BSA Values" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Adults:" %}</strong> {% trans "Typically ranges from 1.5 to 2.0 m² for average-sized adults" %}</p>
+                                <p><strong>{% trans "Children:" %}</strong> {% trans "BSA increases with age and size, ranging from approximately 0.2 m² for newborns to adult values" %}</p>
+                                <p><strong>{% trans "Men vs Women:" %}</strong> {% trans "Men typically have slightly higher BSA than women of the same height due to generally higher weight" %}</p>
+                                <p><strong>{% trans "Athletes:" %}</strong> {% trans "May have higher BSA due to increased muscle mass" %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "BSA calculations are estimates based on mathematical formulas. Actual body surface area may vary slightly." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "For medical purposes, always consult with healthcare professionals. BSA-based drug dosages should be calculated and verified by qualified medical personnel." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Different formulas may be preferred for specific populations (e.g., pediatric vs adult, oncology vs general medicine)." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. It should not replace professional medical advice or calculations." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Formula Selection Guide Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Which Formula to Use?" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Du Bois:" %}</strong> {% trans "Most accurate for general use, considered the gold standard. Recommended for most medical applications." %}</p>
+                                <p><strong>{% trans "Mosteller:" %}</strong> {% trans "Simplest to calculate, commonly used in clinical practice. Good for quick estimates." %}</p>
+                                <p><strong>{% trans "Haycock:" %}</strong> {% trans "Particularly accurate for pediatric populations. Also works well for adults." %}</p>
+                                <p><strong>{% trans "Gehan & George:" %}</strong> {% trans "Often used in oncology and chemotherapy dosing calculations." %}</p>
+                                <p><strong>{% trans "Average:" %}</strong> {% trans "Using the average of all formulas provides a balanced estimate and reduces the impact of outliers." %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let formulasChart = null;
+let rangeChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const unitMetric = document.getElementById('unitMetric');
+    const unitImperial = document.getElementById('unitImperial');
+    const heightUnit = document.getElementById('heightUnit');
+    const weightUnit = document.getElementById('weightUnit');
+    const heightInput = document.getElementById('height');
+    const weightInput = document.getElementById('weight');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Unit system toggle
+    function updateUnitInputs() {
+        if (unitImperial.checked) {
+            heightUnit.textContent = 'in';
+            weightUnit.textContent = 'lbs';
+            heightInput.min = '20';
+            heightInput.max = '100';
+            heightInput.value = '67';
+            weightInput.min = '2';
+            weightInput.max = '1100';
+            weightInput.value = '154';
+        } else {
+            heightUnit.textContent = 'cm';
+            weightUnit.textContent = 'kg';
+            heightInput.min = '50';
+            heightInput.max = '250';
+            heightInput.value = '170';
+            weightInput.min = '1';
+            weightInput.max = '500';
+            weightInput.value = '70';
+        }
+        // Clear results when switching units
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    }
+
+    unitMetric.addEventListener('change', updateUnitInputs);
+    unitImperial.addEventListener('change', updateUnitInputs);
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const formData = {
+            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
+            height: parseFloat(heightInput.value),
+            weight: parseFloat(weightInput.value)
+        };
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate BSA" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        document.getElementById('calculateBtn').disabled = true;
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update main result
+            const averageBsaEl = document.getElementById('averageBsa');
+            if (averageBsaEl) averageBsaEl.textContent = data.formulas.average.toFixed(3) + ' m²';
+
+            // Update individual formulas
+            const duBoisEl = document.getElementById('duBois');
+            const mostellerEl = document.getElementById('mosteller');
+            const haycockEl = document.getElementById('haycock');
+            const gehanEl = document.getElementById('gehan');
+
+            if (duBoisEl) duBoisEl.textContent = data.formulas.du_bois.toFixed(3) + ' m²';
+            if (mostellerEl) mostellerEl.textContent = data.formulas.mosteller.toFixed(3) + ' m²';
+            if (haycockEl) haycockEl.textContent = data.formulas.haycock.toFixed(3) + ' m²';
+            if (gehanEl) gehanEl.textContent = data.formulas.gehan.toFixed(3) + ' m²';
+
+            // Update formulas table
+            const formulasTable = document.getElementById('formulasTable');
+            if (formulasTable) {
+                const formulas = [
+                    { name: '{% trans "Du Bois" %}', value: data.formulas.du_bois, note: '{% trans "Gold standard, most accurate" %}' },
+                    { name: '{% trans "Mosteller" %}', value: data.formulas.mosteller, note: '{% trans "Simplest, commonly used" %}' },
+                    { name: '{% trans "Haycock" %}', value: data.formulas.haycock, note: '{% trans "Good for pediatric populations" %}' },
+                    { name: '{% trans "Gehan & George" %}', value: data.formulas.gehan, note: '{% trans "Used in oncology" %}' },
+                    { name: '{% trans "Average" %}', value: data.formulas.average, note: '{% trans "Balanced estimate" %}' }
+                ];
+                
+                formulasTable.innerHTML = formulas.map(formula => `
+                    <tr class="${formula.name === '{% trans "Average" %}' ? 'bg-blue-50' : ''}">
+                        <td class="py-2 px-3 font-medium ${formula.name === '{% trans "Average" %}' ? 'text-blue-900' : 'text-gray-900'}">${formula.name}</td>
+                        <td class="py-2 px-3 text-right font-bold ${formula.name === '{% trans "Average" %}' ? 'text-blue-900' : 'text-gray-900'}">${formula.value.toFixed(3)} m²</td>
+                        <td class="py-2 px-3 text-sm ${formula.name === '{% trans "Average" %}' ? 'text-blue-800' : 'text-gray-600'}">${formula.note}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.formulas_chart) {
+                    createFormulasChart(data.chart_data.formulas_chart);
+                }
+                if (data.chart_data.range_chart) {
+                    createRangeChart(data.chart_data.range_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createFormulasChart(chartData) {
+        const ctx = document.getElementById('formulasChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (formulasChart) formulasChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            formulasChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `BSA: ${context.parsed.y.toFixed(3)} m²`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(3) + ' m²';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating formulas chart:', error);
+        }
+    }
+
+    function createRangeChart(chartData) {
+        const ctx = document.getElementById('rangeChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (rangeChart) rangeChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            rangeChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `BSA: ${context.parsed.y.toFixed(3)} m²`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(3) + ' m²';
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating range chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,383 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Debt Payoff Calculator - Pay Off Debt Faster" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate how long to pay off debt and how much interest you'll pay. See how extra payments can save you money and time." %}{% endblock %}
+{% block meta_keywords %}{% trans "debt payoff calculator, debt repayment, pay off debt faster, debt calculator, interest savings" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Debt Payoff Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate your debt payoff timeline and interest savings.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Debt Payoff Calculator' %}",
+    "description": "{% trans 'Calculate debt payoff timeline and interest with different payment strategies.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Debt Payoff Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Debt Payoff Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Find out when you'll be debt-free and how extra payments can save you money." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Debt Details" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div>
+                            <label for="debt_amount" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Current Debt Balance" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="debt_amount" name="debt_amount" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="15,000" inputmode="decimal" value="15,000" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Annual Interest Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate" name="interest_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="18" inputmode="decimal" value="18" required>
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="monthly_payment" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Payment" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_payment" name="monthly_payment" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="400" inputmode="decimal" value="400" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="extra_payment" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Extra Monthly Payment" %} <span class="text-gray-400">({% trans "optional" %})</span></label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="extra_payment" name="extra_payment" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-right"
+                                       placeholder="100" inputmode="decimal" value="100">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition">
+                            {% trans "Calculate Payoff" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- Main Results -->
+                    <div class="bg-green-600 text-white rounded-lg p-6 mb-6 text-center">
+                        <p class="text-green-100 text-sm mb-1">{% trans "Debt-Free By" %}</p>
+                        <p id="payoffDateResult" class="text-3xl font-bold">-</p>
+                        <p class="text-green-100 text-sm mt-2">
+                            <span id="payoffMonthsResult">0</span> {% trans "months" %} 
+                            (<span id="payoffYearsResult">0</span> {% trans "years" %})
+                        </p>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Total Interest" %}</p>
+                            <p id="totalInterestResult" class="text-lg font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Total Paid" %}</p>
+                            <p id="totalPaidResult" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Time Saved" %}</p>
+                            <p id="timeSavedResult" class="text-lg font-bold text-green-600">0 mo</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-500 mb-1">{% trans "Interest Saved" %}</p>
+                            <p id="interestSavedResult" class="text-lg font-bold text-green-600">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Chart and Scenarios -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Total Cost Breakdown" %}</h3>
+                            <div class="relative h-48">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Extra Payment Scenarios" %}</h3>
+                            <div class="overflow-x-auto max-h-48">
+                                <table class="w-full text-xs">
+                                    <thead class="bg-gray-50 text-gray-700">
+                                        <tr>
+                                            <th class="px-2 py-2 text-left font-medium">{% trans "Extra" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Time" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Saved" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scenariosBody" class="divide-y divide-gray-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Schedule -->
+                    <div class="bg-white border border-gray-200 rounded-lg">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="font-semibold text-gray-900">{% trans "Payment Schedule" %}</h3>
+                        </div>
+                        <div class="overflow-x-auto max-h-64">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-700 sticky top-0">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">{% trans "Date" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Payment" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Principal" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Interest" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Balance" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleBody" class="divide-y divide-gray-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Plan Your Debt Freedom" %}</h3>
+                        <p class="text-gray-500">{% trans "Enter your debt details to see your payoff timeline." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debt Payoff Tips -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Debt Payoff Strategies" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Avalanche Method" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Pay minimums on all debts, then put extra toward the highest interest rate debt. Saves the most money in interest." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Snowball Method" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Pay minimums on all debts, then put extra toward the smallest balance. Quick wins boost motivation." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "How much extra should I pay?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Even $25-50 extra per month makes a difference. Pay as much as your budget allows after covering essentials and building a small emergency fund." %}</p>
+                    </div>
+            </div>
+
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left">
+                        <span class="font-medium text-gray-900">{% trans "Should I save or pay off debt?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "First save $1,000 for emergencies. Then focus on high-interest debt (over 7-8%). For lower rates, balance between saving and paying debt." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    let pieChart = null;
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency', currency: 'USD',
+            minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    ['debt_amount', 'monthly_payment', 'extra_payment'].forEach(id => {
+        document.getElementById(id).addEventListener('input', function() { formatInput(this); });
+    });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.nextElementSibling.classList.toggle('hidden');
+            this.querySelector('svg').classList.toggle('rotate-180');
+        });
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.textContent = '{% trans "Calculating..." %}';
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    debt_amount: document.getElementById('debt_amount').value.replace(/,/g, ''),
+                    interest_rate: document.getElementById('interest_rate').value,
+                    monthly_payment: document.getElementById('monthly_payment').value.replace(/,/g, ''),
+                    extra_payment: document.getElementById('extra_payment').value.replace(/,/g, '') || 0,
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error);
+                return;
+            }
+            
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // Update results
+            document.getElementById('payoffDateResult').textContent = data.summary.payoff_date;
+            document.getElementById('payoffMonthsResult').textContent = data.summary.payoff_months;
+            document.getElementById('payoffYearsResult').textContent = data.summary.payoff_years;
+            document.getElementById('totalInterestResult').textContent = formatCurrency(data.summary.total_interest);
+            document.getElementById('totalPaidResult').textContent = formatCurrency(data.summary.total_paid);
+            document.getElementById('timeSavedResult').textContent = data.summary.time_saved + ' mo';
+            document.getElementById('interestSavedResult').textContent = formatCurrency(data.summary.interest_saved);
+            
+            // Scenarios table
+            const scenariosBody = document.getElementById('scenariosBody');
+            scenariosBody.innerHTML = '';
+            data.scenarios.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.className = s.extra == data.summary.extra_payment ? 'bg-blue-50' : 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-2 py-2">+$${s.extra}</td>
+                    <td class="px-2 py-2 text-right">${s.years} yr</td>
+                    <td class="px-2 py-2 text-right text-green-600">${formatCurrency(s.interest_saved)}</td>
+                `;
+                scenariosBody.appendChild(tr);
+            });
+            
+            // Schedule table
+            const scheduleBody = document.getElementById('scheduleBody');
+            scheduleBody.innerHTML = '';
+            data.schedule.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-4 py-2">${row.date}</td>
+                    <td class="px-4 py-2 text-right">${formatCurrency(row.payment)}</td>
+                    <td class="px-4 py-2 text-right text-green-600">${formatCurrency(row.principal)}</td>
+                    <td class="px-4 py-2 text-right text-red-600">${formatCurrency(row.interest)}</td>
+                    <td class="px-4 py-2 text-right">${formatCurrency(row.balance)}</td>
+                `;
+                scheduleBody.appendChild(tr);
+            });
+            
+            // Chart
+            if (pieChart) pieChart.destroy();
+            
+            pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['{% trans "Principal" %}', '{% trans "Interest" %}'],
+                    datasets: [{
+                        data: [data.chart_data.breakdown.principal, data.chart_data.breakdown.interest],
+                        backgroundColor: ['#3b82f6', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+            
+        } catch (error) {
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '{% trans "Calculate Payoff" %}';
+        }
+    });
+        });
+    </script>
+{% endblock %}

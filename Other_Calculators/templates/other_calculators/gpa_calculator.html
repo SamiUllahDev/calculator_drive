@@ -1,0 +1,616 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "GPA Calculator - Calculate Grade Point Average" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free GPA calculator to calculate semester and cumulative Grade Point Average (GPA). Supports 4.0, 4.3, and 5.0 GPA scales with step-by-step solutions. Perfect for college and high school students." %}{% endblock %}
+{% block meta_keywords %}{% trans "GPA calculator, calculate GPA, grade point average calculator, college GPA calculator, high school GPA calculator, semester GPA calculator, cumulative GPA calculator, GPA scale, weighted GPA calculator, unweighted GPA calculator, GPA converter, how to calculate GPA, university GPA calculator, academic calculator" %}{% endblock %}
+
+{% block og_title %}{% trans "GPA Calculator - Calculate Grade Point Average" %}{% endblock %}
+{% block og_description %}{% trans "Free GPA calculator to calculate semester and cumulative Grade Point Average (GPA). Supports 4.0, 4.3, and 5.0 GPA scales with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/gpa-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "GPA Calculator - Calculate Grade Point Average" %}{% endblock %}
+{% block twitter_description %}{% trans "Free GPA calculator to calculate semester and cumulative Grade Point Average (GPA). Supports 4.0, 4.3, and 5.0 GPA scales. Perfect for college and high school students." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/gpa-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'GPA Calculator - Calculate Grade Point Average, Semester GPA, Cumulative GPA' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "2200"},
+  "description": "{% trans 'Free online GPA calculator to calculate semester and cumulative Grade Point Average with support for 4.0, 4.3, and 5.0 scales with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "GPA Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate semester and cumulative Grade Point Average with support for 4.0, 4.3, and 5.0 scales with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="gpaCalculatorForm" onsubmit="calculateGPA(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="scale" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "GPA Scale" %}
+                            </label>
+                            <select id="scale" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="4.0" selected>{% trans "4.0 Scale" %}</option>
+                                <option value="4.3">{% trans "4.3 Scale" %}</option>
+                                <option value="5.0">{% trans "5.0 Scale" %}</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-sm font-medium text-gray-700">{% trans "Courses" %}</label>
+                                <span class="text-xs text-gray-500" id="courseCount">0 {% trans "courses" %}</span>
+                            </div>
+                            <div id="coursesContainer" class="space-y-3 max-h-96 overflow-y-auto">
+                                <!-- Course rows will be added here -->
+                            </div>
+                            <button type="button" id="addCourse" class="mt-3 w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-400 hover:text-blue-600 transition text-sm">
+                                + {% trans "Add Course" %}
+                            </button>
+                        </div>
+
+                        <!-- Current GPA Section -->
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <h4 class="font-medium text-gray-900 mb-3">{% trans "Current GPA (Optional)" %}</h4>
+                            <p class="text-xs text-gray-500 mb-3">{% trans "Enter your current GPA to calculate cumulative" %}</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">{% trans "Current GPA" %}</label>
+                                    <input type="number" id="current_gpa" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" step="0.01" min="0" max="5" placeholder="3.5">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">{% trans "Credits Earned" %}</label>
+                                    <input type="number" id="current_credits" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0" placeholder="60">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="mt-6 w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate GPA" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Semester GPA" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="semesterGpa">0.00</div>
+                        <div class="flex items-center justify-center gap-2 mt-3">
+                            <span id="letterGrade" class="bg-white/20 px-3 py-1 rounded-lg text-sm font-medium">A</span>
+                            <span id="standing" class="text-blue-100 text-sm">{% trans "Good Standing" %}</span>
+                        </div>
+                    </div>
+
+                    <!-- Cumulative GPA -->
+                    <div id="cumulativeSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6 hidden">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Cumulative GPA" %}</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-600">{% trans "Cumulative GPA" %}</span>
+                            <span id="cumulativeGpa" class="text-3xl font-bold text-blue-600">0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-500">{% trans "Total Credits" %}</span>
+                            <span id="totalCumulativeCredits" class="font-medium text-gray-900">0</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm mt-2">
+                            <span class="text-gray-500">{% trans "Letter Grade" %}</span>
+                            <span id="cumulativeLetter" class="font-medium text-gray-900">-</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm mt-2">
+                            <span class="text-gray-500">{% trans "Academic Standing" %}</span>
+                            <span id="cumulativeStanding" class="font-medium text-gray-900">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Charts -->
+                    <div id="chartsSection" class="space-y-6">
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Grade Distribution" %}</h3>
+                            <div style="position: relative; height: 300px;">
+                                <canvas id="gradeDistributionChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "GPA Comparison" %}</h3>
+                            <div style="position: relative; height: 300px;">
+                                <canvas id="gpaComparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Your GPA" %}</h3>
+                    <p class="text-gray-500">{% trans "Add courses and click Calculate to see your GPA with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is GPA?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "Grade Point Average (GPA) is a numerical representation of a student's academic performance. It is calculated by dividing the total quality points earned by the total credit hours attempted. GPA is used by educational institutions to evaluate student performance, determine academic standing, and make decisions about scholarships, honors, and graduation eligibility." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select your GPA scale (4.0, 4.3, or 5.0) from the dropdown." %}</li>
+                        <li>{% trans "Add courses by clicking the 'Add Course' button." %}</li>
+                        <li>{% trans "Enter the course name, select the grade, and enter the number of credits for each course." %}</li>
+                        <li>{% trans "Optionally, enter your current GPA and credits earned to calculate cumulative GPA." %}</li>
+                        <li>{% trans "Click 'Calculate GPA' to see your results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "GPA Scales" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "4.0 Scale" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Most common scale in the United States. A+ and A both equal 4.0." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "4.3 Scale" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Used by some institutions. A+ equals 4.3, allowing for higher distinction." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "5.0 Scale" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Used for weighted GPAs, often for honors or AP courses." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "GPA Formula" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Semester GPA:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">GPA = Total Quality Points / Total Credits</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Quality Points:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Quality Points = Grade Points × Credits</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Cumulative GPA:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Cumulative GPA = (Previous Points + New Points) / (Previous Credits + New Credits)</p>
+                        <p class="text-sm text-gray-700 mt-4">{% trans "Where:" %}</p>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                            <li>{% trans "Grade Points = Points assigned to letter grade (A=4.0, B=3.0, etc.)" %}</li>
+                            <li>{% trans "Credits = Credit hours for the course" %}</li>
+                            <li>{% trans "Quality Points = Grade Points × Credits" %}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Grade Scale Reference" %}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border border-gray-300 rounded-lg">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-2 px-3 text-left border-b">{% trans "Grade" %}</th>
+                                    <th class="py-2 px-3 text-center border-b">{% trans "4.0 Scale" %}</th>
+                                    <th class="py-2 px-3 text-center border-b">{% trans "4.3 Scale" %}</th>
+                                    <th class="py-2 px-3 text-center border-b">{% trans "5.0 Scale" %}</th>
+                                    <th class="py-2 px-3 text-left border-b">{% trans "Percentage" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">A+</td><td class="text-center">4.0</td><td class="text-center">4.3</td><td class="text-center">5.0</td><td>97-100%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">A</td><td class="text-center">4.0</td><td class="text-center">4.0</td><td class="text-center">5.0</td><td>93-96%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">A-</td><td class="text-center">3.7</td><td class="text-center">3.7</td><td class="text-center">4.7</td><td>90-92%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">B+</td><td class="text-center">3.3</td><td class="text-center">3.3</td><td class="text-center">4.3</td><td>87-89%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">B</td><td class="text-center">3.0</td><td class="text-center">3.0</td><td class="text-center">4.0</td><td>83-86%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">B-</td><td class="text-center">2.7</td><td class="text-center">2.7</td><td class="text-center">3.7</td><td>80-82%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">C+</td><td class="text-center">2.3</td><td class="text-center">2.3</td><td class="text-center">3.3</td><td>77-79%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">C</td><td class="text-center">2.0</td><td class="text-center">2.0</td><td class="text-center">3.0</td><td>73-76%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">C-</td><td class="text-center">1.7</td><td class="text-center">1.7</td><td class="text-center">2.7</td><td>70-72%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">D+</td><td class="text-center">1.3</td><td class="text-center">1.3</td><td class="text-center">2.3</td><td>67-69%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">D</td><td class="text-center">1.0</td><td class="text-center">1.0</td><td class="text-center">2.0</td><td>63-66%</td></tr>
+                                <tr class="border-b hover:bg-gray-50"><td class="py-2 px-3 font-medium">D-</td><td class="text-center">0.7</td><td class="text-center">0.7</td><td class="text-center">1.7</td><td>60-62%</td></tr>
+                                <tr class="hover:bg-gray-50"><td class="py-2 px-3 font-medium">F</td><td class="text-center">0.0</td><td class="text-center">0.0</td><td class="text-center">0.0</td><td>0-59%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "Credits must be greater than zero for each course." %}</li>
+                        <li>{% trans "Credits typically range from 1 to 6 per course, but can vary by institution." %}</li>
+                        <li>{% trans "Current GPA must be between 0 and the maximum for the selected scale." %}</li>
+                        <li>{% trans "Cumulative GPA is calculated only when both current GPA and credits are provided." %}</li>
+                        <li>{% trans "Academic standing is determined by the ratio of GPA to maximum scale value." %}</li>
+                        <li>{% trans "Letter grade conversion may vary slightly between institutions." %}</li>
+                        <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Academic Standing" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Dean's List" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "GPA ≥ 90% of maximum (e.g., ≥ 3.6 on 4.0 scale)" %}</p>
+                        </div>
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Good Standing" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "GPA ≥ 75% of maximum (e.g., ≥ 3.0 on 4.0 scale)" %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Satisfactory" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "GPA ≥ 50% of maximum (e.g., ≥ 2.0 on 4.0 scale)" %}</p>
+                        </div>
+                        <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                            <h4 class="font-semibold text-orange-900 mb-1">{% trans "Academic Warning" %}</h4>
+                            <p class="text-sm text-orange-800">{% trans "GPA ≥ 25% of maximum (e.g., ≥ 1.0 on 4.0 scale)" %}</p>
+                        </div>
+                        <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                            <h4 class="font-semibold text-red-900 mb-1">{% trans "Probation" %}</h4>
+                            <p class="text-sm text-red-800">{% trans "GPA < 25% of maximum (e.g., < 1.0 on 4.0 scale)" %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Academic planning and goal setting" %}</li>
+                        <li>{% trans "Scholarship eligibility determination" %}</li>
+                        <li>{% trans "Graduate school applications" %}</li>
+                        <li>{% trans "Academic standing monitoring" %}</li>
+                        <li>{% trans "Course selection planning" %}</li>
+                        <li>{% trans "Grade improvement tracking" %}</li>
+                        <li>{% trans "Honor roll and Dean's List eligibility" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let gradeDistributionChart = null;
+let gpaComparisonChart = null;
+
+const grades = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'];
+
+function updateCourseCount() {
+    const count = document.querySelectorAll('.course-row').length;
+    document.getElementById('courseCount').textContent = `${count} {% trans "courses" %}`;
+}
+
+function addCourse() {
+    const coursesContainer = document.getElementById('coursesContainer');
+    const courseCount = document.querySelectorAll('.course-row').length;
+    
+    const courseHtml = `
+        <div class="course-row flex gap-2 items-center" data-id="${courseCount + 1}">
+            <input type="text" class="course-name flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="{% trans 'Course Name' %}">
+            <select class="course-grade w-20 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500">
+                ${grades.map(g => `<option value="${g}">${g}</option>`).join('')}
+            </select>
+            <input type="number" class="course-credits w-20 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500" value="3" min="0.5" max="20" step="0.5">
+            <button type="button" class="remove-course text-red-500 hover:text-red-700 p-1 transition">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    `;
+    coursesContainer.insertAdjacentHTML('beforeend', courseHtml);
+    updateCourseCount();
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 3});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateGPA(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    const courses = [];
+    document.querySelectorAll('.course-row').forEach(row => {
+        const name = row.querySelector('.course-name').value.trim();
+        const grade = row.querySelector('.course-grade').value;
+        const credits = parseFloat(row.querySelector('.course-credits').value);
+        
+        if (grade && credits && credits > 0) {
+            courses.push({
+                name: name || '{% trans "Course" %}',
+                grade: grade,
+                credits: credits
+            });
+        }
+    });
+    
+    if (courses.length === 0) {
+        errorEl.textContent = '{% trans "Please add at least one valid course." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    const currentGpa = document.getElementById('current_gpa').value;
+    const currentCredits = document.getElementById('current_credits').value;
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify({
+                courses: courses,
+                scale: document.getElementById('scale').value,
+                current_gpa: currentGpa || null,
+                current_credits: currentCredits || null
+            })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update semester GPA
+        document.getElementById('semesterGpa').textContent = formatNumber(data.semester_gpa);
+        document.getElementById('letterGrade').textContent = data.letter_grade;
+        document.getElementById('standing').textContent = data.standing;
+        
+        // Update cumulative GPA
+        if (data.cumulative_gpa) {
+            document.getElementById('cumulativeSection').classList.remove('hidden');
+            document.getElementById('cumulativeGpa').textContent = formatNumber(data.cumulative_gpa);
+            document.getElementById('totalCumulativeCredits').textContent = data.cumulative_credits;
+            document.getElementById('cumulativeLetter').textContent = data.cumulative_letter || '-';
+            document.getElementById('cumulativeStanding').textContent = data.cumulative_standing || '-';
+        } else {
+            document.getElementById('cumulativeSection').classList.add('hidden');
+        }
+        
+        // Update details
+        let detailsHtml = `
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p class="text-2xl font-bold text-blue-600">${data.total_credits}</p>
+                <p class="text-sm text-gray-600">{% trans "Semester Credits" %}</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                <p class="text-2xl font-bold text-green-600">${data.total_quality_points}</p>
+                <p class="text-sm text-gray-600">{% trans "Quality Points" %}</p>
+            </div>
+            <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <p class="text-2xl font-bold text-purple-600">${data.scale}</p>
+                <p class="text-sm text-gray-600">{% trans "GPA Scale" %}</p>
+            </div>
+        `;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Charts
+        if (data.chart_data) {
+            // Grade Distribution Chart
+            if (data.chart_data.grade_distribution) {
+                const chartEl = document.getElementById('gradeDistributionChart');
+                if (chartEl) {
+                    if (gradeDistributionChart) gradeDistributionChart.destroy();
+                    gradeDistributionChart = new Chart(chartEl.getContext('2d'), data.chart_data.grade_distribution);
+                }
+            }
+            
+            // GPA Comparison Chart
+            if (data.chart_data.gpa_comparison) {
+                const chartEl = document.getElementById('gpaComparisonChart');
+                if (chartEl) {
+                    if (gpaComparisonChart) gpaComparisonChart.destroy();
+                    gpaComparisonChart = new Chart(chartEl.getContext('2d'), data.chart_data.gpa_comparison);
+                }
+            }
+            
+            document.getElementById('chartsSection').classList.remove('hidden');
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|GPA|Cumulative)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate GPA" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    const coursesContainer = document.getElementById('coursesContainer');
+    
+    // Add initial courses
+    addCourse();
+    addCourse();
+    addCourse();
+    
+    document.getElementById('addCourse').addEventListener('click', addCourse);
+    
+    // Remove course
+    coursesContainer.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-course')) {
+            const row = e.target.closest('.course-row');
+            if (coursesContainer.children.length > 1) {
+                row.remove();
+                updateCourseCount();
+            }
+        }
+    });
+    
+    // Update course count on input
+    coursesContainer.addEventListener('input', updateCourseCount);
+});
+</script>
+{% endblock %}

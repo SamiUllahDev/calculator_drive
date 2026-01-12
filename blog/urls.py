@@ -1,0 +1,16 @@
+from django.urls import path
+from . import views
+
+app_name = 'blog'
+
+urlpatterns = [
+    path('', views.PostListView.as_view(), name='post_list'),
+    path('feed/', views.blog_rss_feed, name='rss_feed'),
+    path('create/', views.PostCreateView.as_view(), name='post_create'),
+    path('edit/<slug:slug>/', views.PostUpdateView.as_view(), name='post_edit'),
+    path('tag/<slug:slug>/', views.TagPostListView.as_view(), name='tag_detail'),
+    path('tinymce/upload/', views.tinymce_image_upload, name='tinymce_image_upload'),
+    path('<slug:category_slug>/', views.CategoryPostListView.as_view(), name='category_detail'),
+    path('<slug:category_slug>/<slug:slug>/', views.PostDetailView.as_view(), name='post_detail'),
+    path('<slug:category_slug>/<slug:post_slug>/comment/<int:comment_id>/reply/', views.comment_reply, name='comment_reply'),
+] 

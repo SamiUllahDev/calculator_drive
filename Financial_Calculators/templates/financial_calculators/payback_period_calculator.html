@@ -1,0 +1,325 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Payback Period Calculator - Investment Recovery Analysis{% endblock %}
+
+{% block meta_description %}Calculate simple and discounted payback periods for your investments.{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-violet-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-3">⏱️ Payback Period Calculator</h1>
+            <p class="text-indigo-200 text-lg max-w-2xl mx-auto">Calculate how long it takes to recover your investment</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Calculator Form -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+                <form id="calculator-form" class="space-y-6">
+                    <!-- Calculation Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-indigo-200 mb-3">Calculation Type</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="simple" checked class="peer sr-only">
+                                <div class="p-4 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-indigo-400 peer-checked:bg-indigo-500/20 transition-all text-center">
+                                    <div class="text-2xl">📊</div>
+                                    <div class="text-sm text-white mt-1">Uniform Cash Flows</div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="calc_type" value="uneven" class="peer sr-only">
+                                <div class="p-4 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-indigo-400 peer-checked:bg-indigo-500/20 transition-all text-center">
+                                    <div class="text-2xl">📈</div>
+                                    <div class="text-sm text-white mt-1">Variable Cash Flows</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Initial Investment -->
+                    <div>
+                        <label class="block text-sm font-medium text-indigo-200 mb-2">Initial Investment</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                            <input type="text" name="initial_investment" id="initial_investment" value="100,000" 
+                                class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
+                        </div>
+                    </div>
+
+                    <!-- Simple Fields -->
+                    <div id="simple_fields" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-indigo-200 mb-2">Annual Cash Flow</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <input type="text" name="annual_cash_flow" id="annual_cash_flow" value="25,000" 
+                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Variable Fields -->
+                    <div id="uneven_fields" class="hidden space-y-4">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-sm font-medium text-indigo-200">Annual Cash Flows</label>
+                            <button type="button" id="add_year" class="px-3 py-1 bg-indigo-500/30 text-indigo-200 rounded-lg text-sm">+ Add Year</button>
+                        </div>
+                        <div id="cash_flows_container" class="space-y-2">
+                            <div class="cash-flow-row flex gap-2 items-center">
+                                <span class="text-indigo-300 w-16 text-sm">Year 1</span>
+                                <div class="relative flex-1">
+                                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="text" class="cash-flow w-full pl-6 pr-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="20,000">
+                                </div>
+                            </div>
+                            <div class="cash-flow-row flex gap-2 items-center">
+                                <span class="text-indigo-300 w-16 text-sm">Year 2</span>
+                                <div class="relative flex-1">
+                                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="text" class="cash-flow w-full pl-6 pr-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="25,000">
+                                </div>
+                            </div>
+                            <div class="cash-flow-row flex gap-2 items-center">
+                                <span class="text-indigo-300 w-16 text-sm">Year 3</span>
+                                <div class="relative flex-1">
+                                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="text" class="cash-flow w-full pl-6 pr-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="30,000">
+                                </div>
+                            </div>
+                            <div class="cash-flow-row flex gap-2 items-center">
+                                <span class="text-indigo-300 w-16 text-sm">Year 4</span>
+                                <div class="relative flex-1">
+                                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="text" class="cash-flow w-full pl-6 pr-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="35,000">
+                                </div>
+                            </div>
+                            <div class="cash-flow-row flex gap-2 items-center">
+                                <span class="text-indigo-300 w-16 text-sm">Year 5</span>
+                                <div class="relative flex-1">
+                                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="text" class="cash-flow w-full pl-6 pr-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="40,000">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-indigo-200 mb-2">Discount Rate (%) - For discounted payback</label>
+                            <input type="number" name="discount_rate" id="discount_rate" value="10" step="0.5" 
+                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full py-4 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
+                        Calculate Payback Period
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="space-y-6">
+                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-400 border-t-transparent mx-auto mb-4"></div>
+                    <p class="text-indigo-200">Calculating...</p>
+                </div>
+
+                <div id="results" class="space-y-6">
+                    <!-- Main Result -->
+                    <div class="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl p-6 shadow-2xl">
+                        <h3 class="text-indigo-100 text-sm font-medium mb-1">Payback Period</h3>
+                        <div class="text-4xl font-bold text-white" id="payback_display">4.0 years</div>
+                        <div class="text-indigo-200 text-sm mt-1" id="payback_detail">Investment recovered in 4 years, 0 months</div>
+                    </div>
+
+                    <!-- Comparison Cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-indigo-300 text-sm">Simple Payback</div>
+                            <div class="text-xl font-bold text-white" id="simple_payback">4.0 years</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-indigo-300 text-sm">Discounted Payback</div>
+                            <div class="text-xl font-bold text-white" id="discounted_payback">4.8 years</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-indigo-300 text-sm">Total Cash Flows</div>
+                            <div class="text-xl font-bold text-white" id="total_cash_flows">$150,000</div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                            <div class="text-indigo-300 text-sm">Net Return</div>
+                            <div class="text-xl font-bold text-white" id="net_return">$50,000</div>
+                        </div>
+                    </div>
+
+                    <!-- Recovery Timeline -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">💰 Recovery Timeline</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-indigo-300 border-b border-white/20">
+                                        <th class="text-left py-2">Year</th>
+                                        <th class="text-right py-2">Cash Flow</th>
+                                        <th class="text-right py-2">Cumulative</th>
+                                        <th class="text-right py-2">Remaining</th>
+                                        <th class="text-right py-2">% Recovered</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="timeline_table" class="text-white"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                        <h3 class="text-lg font-semibold text-white mb-4">Investment Recovery Progress</h3>
+                        <div id="progress_bars" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
+// Toggle fields based on calculation type
+document.querySelectorAll('input[name="calc_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        if (this.value === 'simple') {
+            document.getElementById('simple_fields').classList.remove('hidden');
+            document.getElementById('uneven_fields').classList.add('hidden');
+        } else {
+            document.getElementById('simple_fields').classList.add('hidden');
+            document.getElementById('uneven_fields').classList.remove('hidden');
+        }
+    });
+});
+
+// Add year functionality
+document.getElementById('add_year').addEventListener('click', function() {
+    const container = document.getElementById('cash_flows_container');
+    const count = container.querySelectorAll('.cash-flow-row').length + 1;
+    const row = document.createElement('div');
+    row.className = 'cash-flow-row flex gap-2 items-center';
+    row.innerHTML = `
+        <span class="text-indigo-300 w-16 text-sm">Year ${count}</span>
+        <div class="relative flex-1">
+            <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+            <input type="text" class="cash-flow w-full pl-6 pr-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="0">
+        </div>
+    `;
+    container.appendChild(row);
+});
+
+document.getElementById('calculator-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('loading').classList.remove('hidden');
+    
+    const calcType = document.querySelector('input[name="calc_type"]:checked').value;
+    
+    let formData = {
+        calc_type: calcType,
+        initial_investment: document.getElementById('initial_investment').value
+    };
+
+    if (calcType === 'simple') {
+        formData.annual_cash_flow = document.getElementById('annual_cash_flow').value;
+    } else {
+        const cashFlows = [];
+        document.querySelectorAll('.cash-flow').forEach(input => {
+            cashFlows.push(input.value.replace(/,/g, ''));
+        });
+        formData.cash_flows = cashFlows;
+        formData.discount_rate = document.getElementById('discount_rate').value;
+    }
+
+    try {
+        const response = await fetch('{% url "payback_period_calculator" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        document.getElementById('loading').classList.add('hidden');
+
+        if (data.success) {
+            updateResults(data);
+        } else {
+            alert(data.error || 'Calculation error');
+        }
+    } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        alert('An error occurred');
+    }
+});
+
+function updateResults(data) {
+    const payback = data.payback_years || data.simple_payback;
+    const years = Math.floor(payback);
+    const months = Math.round((payback - years) * 12);
+    
+    document.getElementById('payback_display').textContent = payback.toFixed(1) + ' years';
+    document.getElementById('payback_detail').textContent = `Investment recovered in ${years} years, ${months} months`;
+    
+    document.getElementById('simple_payback').textContent = (data.simple_payback || payback).toFixed(2) + ' years';
+    document.getElementById('discounted_payback').textContent = data.discounted_payback ? data.discounted_payback.toFixed(2) + ' years' : 'N/A';
+    document.getElementById('total_cash_flows').textContent = formatCurrency(data.total_cash_flows || data.annual_cash_flow * Math.ceil(payback));
+    document.getElementById('net_return').textContent = formatCurrency(data.net_return || (data.total_cash_flows - data.initial_investment));
+
+    // Update timeline table
+    const tbody = document.getElementById('timeline_table');
+    tbody.innerHTML = '';
+    
+    if (data.breakdown) {
+        data.breakdown.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-white/10';
+            const remaining = Math.max(0, data.initial_investment - row.cumulative);
+            tr.innerHTML = `
+                <td class="py-2">${row.year}</td>
+                <td class="text-right">${formatCurrency(row.cash_flow)}</td>
+                <td class="text-right">${formatCurrency(row.cumulative)}</td>
+                <td class="text-right">${formatCurrency(remaining)}</td>
+                <td class="text-right">${row.recovered_percent.toFixed(1)}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Update progress bars
+    const progressContainer = document.getElementById('progress_bars');
+    progressContainer.innerHTML = '';
+    
+    if (data.breakdown) {
+        data.breakdown.slice(0, 6).forEach(row => {
+            const div = document.createElement('div');
+            const percent = Math.min(100, row.recovered_percent);
+            div.innerHTML = `
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-indigo-300">Year ${row.year}</span>
+                    <span class="text-white">${percent.toFixed(1)}%</span>
+                </div>
+                <div class="w-full bg-white/10 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-indigo-500 to-violet-500 h-2 rounded-full transition-all" style="width: ${percent}%"></div>
+                </div>
+            `;
+            progressContainer.appendChild(div);
+        });
+    }
+}
+
+document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+</script>
+{% endblock %}

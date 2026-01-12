@@ -1,0 +1,657 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Weight Calculator - Convert Weight Units & Calculate Weight" %}{% endblock %}
+{% block meta_description %}{% trans "Free online Weight Calculator. Convert between weight units (kg, lbs, oz, grams), calculate weight from mass, and find your weight on different planets." %}{% endblock %}
+{% block meta_keywords %}{% trans "weight calculator, weight converter, convert weight, mass calculator, weight on planets calculator, unit converter, kg to lbs converter, pounds to kilograms converter, weight conversion calculator, body weight calculator, weight unit converter, metric weight converter, imperial weight converter, weight finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Weight Calculator - Convert Weight Units & Calculate Weight" %}{% endblock %}
+{% block og_description %}{% trans "Convert between weight units, calculate weight from mass, and find your weight on different planets. Free online calculator." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Weight Calculator - Convert Weight Units & Calculate Weight" %}{% endblock %}
+{% block twitter_description %}{% trans "Convert weight units and calculate weight on different planets. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Weight Calculator' %}",
+  "description": "{% trans 'Free online Weight Calculator. Convert between weight units, calculate weight from mass, and find your weight on different planets.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.7", "ratingCount": "1600"},
+  "featureList": ["{% trans 'Weight unit conversion' %}", "{% trans 'Weight from mass calculation' %}", "{% trans 'Weight on planets' %}", "{% trans 'Multiple unit support' %}", "{% trans 'Metric and imperial' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Weight Calculator" %}</h1>
+            <p class="text-lg text-gray-600">{% trans "Convert weight units and calculate weight from mass" %}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Calculator -->
+            <div class="lg:col-span-2">
+                <!-- Calculation Type Selector -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="convert">{% trans "Convert Weight Units" %}</option>
+                        <option value="from_mass">{% trans "Calculate Weight from Mass" %}</option>
+                        <option value="from_weight">{% trans "Calculate Mass from Weight" %}</option>
+                        <option value="planet">{% trans "Weight on Planets" %}</option>
+                    </select>
+                </div>
+
+                <!-- Convert Calculator -->
+                <div id="convertCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Convert Weight Units" %}</h2>
+                    <form id="convertForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight" %}</label>
+                            <input type="number" id="weight" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" step="0.001" min="0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "From Unit" %}</label>
+                                <select id="from_unit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="kg" selected>{% trans "Kilogram (kg)" %}</option>
+                                    <option value="g">{% trans "Gram (g)" %}</option>
+                                    <option value="mg">{% trans "Milligram (mg)" %}</option>
+                                    <option value="lb">{% trans "Pound (lb)" %}</option>
+                                    <option value="oz">{% trans "Ounce (oz)" %}</option>
+                                    <option value="st">{% trans "Stone (st)" %}</option>
+                                    <option value="t">{% trans "Metric Ton (t)" %}</option>
+                                    <option value="ton">{% trans "US Ton (ton)" %}</option>
+                                    <option value="ct">{% trans "Carat (ct)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "To Unit" %}</label>
+                                <select id="to_unit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="kg">{% trans "Kilogram (kg)" %}</option>
+                                    <option value="g">{% trans "Gram (g)" %}</option>
+                                    <option value="mg">{% trans "Milligram (mg)" %}</option>
+                                    <option value="lb" selected>{% trans "Pound (lb)" %}</option>
+                                    <option value="oz">{% trans "Ounce (oz)" %}</option>
+                                    <option value="st">{% trans "Stone (st)" %}</option>
+                                    <option value="t">{% trans "Metric Ton (t)" %}</option>
+                                    <option value="ton">{% trans "US Ton (ton)" %}</option>
+                                    <option value="ct">{% trans "Carat (ct)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Convert" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- From Mass Calculator -->
+                <div id="fromMassCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Weight from Mass" %}</h2>
+                    <form id="fromMassForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass" %}</label>
+                            <input type="number" id="mass" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" step="0.001" min="0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass Unit" %}</label>
+                            <select id="mass_unit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="kg" selected>{% trans "Kilogram (kg)" %}</option>
+                                <option value="g">{% trans "Gram (g)" %}</option>
+                                <option value="lb">{% trans "Pound (lb)" %}</option>
+                                <option value="oz">{% trans "Ounce (oz)" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gravity (m/s²)" %}</label>
+                            <input type="number" id="gravity" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="9.80665" step="0.001" min="0" value="9.80665">
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Standard Earth gravity: 9.80665 m/s²" %}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight Unit" %}</label>
+                            <select id="weight_unit_mass" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="N" selected>{% trans "Newton (N)" %}</option>
+                                <option value="lb">{% trans "Pound (lb)" %}</option>
+                                <option value="kg">{% trans "Kilogram-force (kg)" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- From Weight Calculator -->
+                <div id="fromWeightCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Calculate Mass from Weight" %}</h2>
+                    <form id="fromWeightForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight" %}</label>
+                            <input type="number" id="weight_mass" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" step="0.001" min="0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight Unit" %}</label>
+                            <select id="weight_unit" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="N" selected>{% trans "Newton (N)" %}</option>
+                                <option value="lb">{% trans "Pound (lb)" %}</option>
+                                <option value="kg">{% trans "Kilogram-force (kg)" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gravity (m/s²)" %}</label>
+                            <input type="number" id="gravity_mass" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="9.80665" step="0.001" min="0" value="9.80665">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mass Unit" %}</label>
+                            <select id="mass_unit_weight" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="kg" selected>{% trans "Kilogram (kg)" %}</option>
+                                <option value="g">{% trans "Gram (g)" %}</option>
+                                <option value="lb">{% trans "Pound (lb)" %}</option>
+                                <option value="oz">{% trans "Ounce (oz)" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Planet Calculator -->
+                <div id="planetCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Weight on Planets" %}</h2>
+                    <form id="planetForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Your Weight on Earth" %}</label>
+                            <input type="number" id="weight_earth" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="70" step="0.1" min="0">
+                            <span class="error-message text-red-500 text-sm hidden"></span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight Unit" %}</label>
+                            <select id="weight_unit_planet" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="kg" selected>{% trans "Kilogram (kg)" %}</option>
+                                <option value="lb">{% trans "Pound (lb)" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Select Planet" %}</label>
+                            <select id="planet" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="moon">{% trans "Moon" %}</option>
+                                <option value="mercury">{% trans "Mercury" %}</option>
+                                <option value="venus">{% trans "Venus" %}</option>
+                                <option value="mars">{% trans "Mars" %}</option>
+                                <option value="jupiter">{% trans "Jupiter" %}</option>
+                                <option value="saturn">{% trans "Saturn" %}</option>
+                                <option value="uranus">{% trans "Uranus" %}</option>
+                                <option value="neptune">{% trans "Neptune" %}</option>
+                                <option value="sun">{% trans "Sun" %}</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="mt-6"></div>
+                </div>
+
+                <!-- Chart Section -->
+                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Guide Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
+                    
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Weight?" %}</h3>
+                            <p>{% trans "Weight is the force exerted on an object due to gravity. It depends on both the object's mass and the gravitational acceleration. Weight = Mass × Gravity." %}</p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>{% trans "Select calculation type" %}</li>
+                                <li>{% trans "Enter values" %}</li>
+                                <li>{% trans "Select units" %}</li>
+                                <li>{% trans "Click calculate" %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Weight Units" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Metric" %}:</strong> kg, g, mg, t</p>
+                                <p><strong>{% trans "Imperial" %}:</strong> lb, oz, st, ton</p>
+                                <p><strong>{% trans "Other" %}:</strong> ct (carat), N (Newton)</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Conversions" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p>1 kg = 2.20462 lb</p>
+                                <p>1 lb = 0.453592 kg</p>
+                                <p>1 oz = 28.3495 g</p>
+                                <p>1 stone = 6.35029 kg</p>
+                                <p>1 ton = 1000 kg</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Weight from Mass" %}:</strong></p>
+                                <p class="font-mono">W = m × g</p>
+                                <p class="mt-2"><strong>{% trans "Mass from Weight" %}:</strong></p>
+                                <p class="font-mono">m = W / g</p>
+                                <p class="mt-2"><strong>{% trans "Where" %}:</strong></p>
+                                <p>W = Weight (N)</p>
+                                <p>m = Mass (kg)</p>
+                                <p>g = Gravity (m/s²)</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Planetary Gravity" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p>{% trans "Earth: 9.81 m/s²" %}</p>
+                                <p>{% trans "Moon: 1.62 m/s²" %}</p>
+                                <p>{% trans "Mars: 3.71 m/s²" %}</p>
+                                <p>{% trans "Jupiter: 24.79 m/s²" %}</p>
+                                <p>{% trans "Sun: 274 m/s²" %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Mass vs Weight" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
+                                <p><strong>{% trans "Mass" %}:</strong> {% trans "Amount of matter (constant)" %}</p>
+                                <p><strong>{% trans "Weight" %}:</strong> {% trans "Force due to gravity (varies)" %}</p>
+                                <p>{% trans "Your mass is the same everywhere, but your weight changes with gravity." %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Weight depends on gravity" %}</li>
+                                <li>{% trans "Mass is constant regardless of location" %}</li>
+                                <li>{% trans "Standard Earth gravity: 9.80665 m/s²" %}</li>
+                                <li>{% trans "Weight on Moon is about 1/6 of Earth" %}</li>
+                                <li>{% trans "Weight on Jupiter is about 2.5× Earth" %}</li>
+                                <li>{% trans "Use Newtons for scientific calculations" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>{% trans "Unit conversions" %}</li>
+                                <li>{% trans "Physics calculations" %}</li>
+                                <li>{% trans "Cooking measurements" %}</li>
+                                <li>{% trans "Shipping and logistics" %}</li>
+                                <li>{% trans "Fitness and health" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resultChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calcTypeSelect = document.getElementById('calcType');
+    
+    // Switch calculation modes
+    calcTypeSelect.addEventListener('change', function() {
+        switchCalcMode(this.value);
+    });
+    
+    // Form submissions
+    document.getElementById('convertForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateConvert();
+    });
+    
+    document.getElementById('fromMassForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateFromMass();
+    });
+    
+    document.getElementById('fromWeightForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculateFromWeight();
+    });
+    
+    document.getElementById('planetForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculatePlanet();
+    });
+    
+    // Real-time validation
+    setupValidation();
+    
+    // Initialize
+    switchCalcMode('convert');
+});
+
+function switchCalcMode(mode) {
+    // Hide all calculation modes
+    document.querySelectorAll('.calc-mode').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show relevant mode
+    if (mode === 'convert') {
+        document.getElementById('convertCalc').classList.remove('hidden');
+    } else if (mode === 'from_mass') {
+        document.getElementById('fromMassCalc').classList.remove('hidden');
+    } else if (mode === 'from_weight') {
+        document.getElementById('fromWeightCalc').classList.remove('hidden');
+    } else if (mode === 'planet') {
+        document.getElementById('planetCalc').classList.remove('hidden');
+    }
+    
+    // Clear results
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function setupValidation() {
+    // Weight validation
+    const weightInputs = document.querySelectorAll('input[type="number"][id*="weight"], input[type="number"][id*="mass"]');
+    weightInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validateWeight(this);
+        });
+    });
+}
+
+function validateWeight(input) {
+    const value = parseFloat(input.value);
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    
+    input.classList.remove('border-red-500');
+    if (errorSpan) {
+        errorSpan.classList.add('hidden');
+        errorSpan.textContent = '';
+    }
+    
+    if (isNaN(value) || value < 0) {
+        showError(input, '{% trans "Weight must be non-negative" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function showError(input, message) {
+    input.classList.add('border-red-500');
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    if (errorSpan) {
+        errorSpan.textContent = message;
+        errorSpan.classList.remove('hidden');
+    }
+}
+
+function calculateConvert() {
+    const formData = {
+        calc_type: 'convert',
+        weight: parseFloat(document.getElementById('weight').value) || 0,
+        from_unit: document.getElementById('from_unit').value,
+        to_unit: document.getElementById('to_unit').value,
+    };
+    
+    if (formData.weight < 0) {
+        alert('{% trans "Please enter a valid weight" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateFromMass() {
+    const formData = {
+        calc_type: 'from_mass',
+        mass: parseFloat(document.getElementById('mass').value) || 0,
+        mass_unit: document.getElementById('mass_unit').value,
+        gravity: parseFloat(document.getElementById('gravity').value) || 9.80665,
+        weight_unit: document.getElementById('weight_unit_mass').value,
+    };
+    
+    if (formData.mass <= 0) {
+        alert('{% trans "Please enter a valid mass" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculateFromWeight() {
+    const formData = {
+        calc_type: 'from_weight',
+        weight: parseFloat(document.getElementById('weight_mass').value) || 0,
+        weight_unit: document.getElementById('weight_unit').value,
+        gravity: parseFloat(document.getElementById('gravity_mass').value) || 9.80665,
+        mass_unit: document.getElementById('mass_unit_weight').value,
+    };
+    
+    if (formData.weight <= 0) {
+        alert('{% trans "Please enter a valid weight" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function calculatePlanet() {
+    const formData = {
+        calc_type: 'planet',
+        weight_earth: parseFloat(document.getElementById('weight_earth').value) || 0,
+        weight_unit: document.getElementById('weight_unit_planet').value,
+        planet: document.getElementById('planet').value,
+    };
+    
+    if (formData.weight_earth <= 0) {
+        alert('{% trans "Please enter a valid weight" %}');
+        return;
+    }
+    
+    sendRequest(formData);
+}
+
+function sendRequest(formData) {
+    fetch('{% url "other_calculators:weight_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            alert('{% trans "Error" %}: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    const resultContent = document.getElementById('resultContent');
+    const stepByStepDiv = document.getElementById('stepByStep');
+    
+    let html = '<div class="space-y-4">';
+    
+    if (data.calc_type === 'convert') {
+        html += `<div class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg p-6 text-center">
+            <p class="text-blue-100 text-sm mb-2">${data.weight} ${data.from_unit}</p>
+            <p class="text-sm text-blue-100 mb-2">{% trans "equals" %}</p>
+            <p class="text-5xl font-bold">${data.result}</p>
+            <p class="text-2xl font-semibold mt-2">${data.to_unit}</p>
+        </div>`;
+    } else if (data.calc_type === 'from_mass') {
+        html += `<div class="bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg p-6">
+            <h3 class="text-xl font-bold mb-4">{% trans "Weight Calculation" %}</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-green-100 text-sm">{% trans "Weight (Newtons)" %}</p>
+                    <p class="text-3xl font-bold">${data.weight_newtons} N</p>
+                </div>
+                <div>
+                    <p class="text-green-100 text-sm">{% trans "Weight ({unit})").format(unit=data.weight_unit)}</p>
+                    <p class="text-3xl font-bold">${data.weight_result} ${data.weight_unit}</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (data.calc_type === 'from_weight') {
+        html += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg p-6">
+            <h3 class="text-xl font-bold mb-4">{% trans "Mass Calculation" %}</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-purple-100 text-sm">{% trans "Mass (kg)" %}</p>
+                    <p class="text-3xl font-bold">${data.mass_kg} kg</p>
+                </div>
+                <div>
+                    <p class="text-purple-100 text-sm">{% trans "Mass ({unit})").format(unit=data.mass_unit)}</p>
+                    <p class="text-3xl font-bold">${data.mass_result} ${data.mass_unit}</p>
+                </div>
+            </div>
+        </div>`;
+    } else if (data.calc_type === 'planet') {
+        html += `<div class="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg p-6 text-center">
+            <p class="text-orange-100 text-sm mb-2">{% trans "Weight on {planet}").format(planet=data.planet.capitalize())}</p>
+            <p class="text-5xl font-bold mb-4">${data.weight_planet} ${data.weight_unit}</p>
+            <p class="text-orange-100 text-sm">{% trans "Gravity ratio" %}: ${data.gravity_ratio}×</p>
+        </div>`;
+        html += `<div class="bg-gray-50 rounded-lg p-4">
+            <h4 class="font-semibold text-gray-900 mb-3">{% trans "Weight on All Planets" %}</h4>
+            <div class="grid grid-cols-2 gap-2 text-sm">`;
+        for (const [planet, weight] of Object.entries(data.planet_weights)) {
+            html += `<div class="flex justify-between">
+                <span class="font-medium">${planet.charAt(0).toUpperCase() + planet.slice(1)}:</span>
+                <span class="text-gray-700">${weight} ${data.weight_unit}</span>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+    
+    html += '</div>';
+    resultContent.innerHTML = html;
+    
+    // Display step-by-step solution
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
+        data.step_by_step.forEach(step => {
+            if (step === '') {
+                stepsHtml += '<div class="my-2"></div>';
+            } else {
+                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
+            }
+        });
+        stepsHtml += '</div></div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    
+    // Display chart if available
+    if (data.chart_data) {
+        displayChart(data.chart_data);
+    }
+}
+
+function displayChart(chartData) {
+    const chartSection = document.getElementById('chartSection');
+    const canvas = document.getElementById('resultChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (resultChart) {
+        resultChart.destroy();
+    }
+    
+    // Find the first chart config
+    const chartKey = Object.keys(chartData)[0];
+    const config = chartData[chartKey];
+    
+    if (config) {
+        resultChart = new Chart(ctx, config);
+        chartSection.classList.remove('hidden');
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

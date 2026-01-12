@@ -1,0 +1,670 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Investment Calculator - ROI & Portfolio Growth Calculator" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate investment returns, ROI, and portfolio growth. See inflation-adjusted values, tax impact, and compare scenarios with our free investment calculator." %}{% endblock %}
+{% block meta_keywords %}{% trans "investment calculator, ROI calculator, portfolio growth, compound returns, investment planning, future value" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Investment Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate your investment growth, ROI, and compare different scenarios.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Investment Calculator' %}",
+    "description": "{% trans 'Calculate investment returns with inflation and tax adjustments.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "{% trans 'What is ROI?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'ROI (Return on Investment) measures how much profit or loss your investment generates relative to its cost, expressed as a percentage.' %}"
+            }
+        }
+    ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/financial-calculators/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'Investment Calculator' %}", "item": "/financial-calculators/investment-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Investment Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Investment Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Project your investment growth, analyze ROI, and see how inflation and taxes affect your returns." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">{% trans "Investment Details" %}</h2>
+                    
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Initial Investment -->
+                        <div>
+                            <label for="initial_investment" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Initial Investment" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="initial_investment" name="initial_investment" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="10,000" inputmode="decimal" value="10,000"
+                                       aria-label="{% trans 'Initial investment amount' %}">
+                            </div>
+                        </div>
+
+                        <!-- Monthly Contribution -->
+                        <div>
+                            <label for="monthly_contribution" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Contribution" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_contribution" name="monthly_contribution" 
+                                       class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="500" inputmode="decimal" value="500"
+                                       aria-label="{% trans 'Monthly contribution amount' %}">
+                            </div>
+                        </div>
+
+                        <!-- Annual Return -->
+                        <div>
+                            <label for="annual_return" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Expected Annual Return" %}</label>
+                            <div class="relative">
+                                <input type="text" id="annual_return" name="annual_return" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="7" inputmode="decimal" value="7" required
+                                       aria-label="{% trans 'Expected annual return percentage' %}">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "S&P 500 historical average: ~10%" %}</p>
+                        </div>
+
+                        <!-- Investment Period -->
+                        <div>
+                            <label for="years" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Investment Period (Years)" %}</label>
+                            <input type="text" id="years" name="years" 
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                   placeholder="20" inputmode="numeric" value="20" required
+                                   aria-label="{% trans 'Investment period in years' %}">
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-900 mb-3">{% trans "Adjustments" %} <span class="text-gray-400 font-normal">({% trans "optional" %})</span></h3>
+                        </div>
+
+                        <!-- Inflation Rate -->
+                        <div>
+                            <label for="inflation_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Inflation Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="inflation_rate" name="inflation_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="3" inputmode="decimal" value="3"
+                                       aria-label="{% trans 'Expected inflation rate' %}">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Tax Rate -->
+                        <div>
+                            <label for="tax_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Capital Gains Tax Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="tax_rate" name="tax_rate" 
+                                       class="w-full pl-4 pr-8 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right"
+                                       placeholder="15" inputmode="decimal" value="15"
+                                       aria-label="{% trans 'Capital gains tax rate' %}">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                
+                <!-- Results -->
+                <div id="resultsSection" class="hidden">
+                    
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Final Balance" %}</p>
+                            <p id="finalBalanceResult" class="text-xl font-bold text-green-600">$0.00</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "Total Gains" %}</p>
+                            <p id="totalGainsResult" class="text-xl font-bold text-blue-600">$0.00</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "ROI" %}</p>
+                            <p id="roiResult" class="text-xl font-bold text-purple-600">0%</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                            <p class="text-sm text-gray-600 mb-1">{% trans "CAGR" %}</p>
+                            <p id="cagrResult" class="text-xl font-bold text-orange-600">0%</p>
+                        </div>
+                    </div>
+
+                    <!-- Inflation & Tax Impact -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <h3 class="font-semibold text-yellow-800 mb-2">{% trans "Inflation Impact" %}</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-yellow-700">{% trans "Inflation-Adjusted Value" %}</span>
+                                    <span id="inflationAdjustedValue" class="font-medium text-yellow-900">$0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-yellow-700">{% trans "Purchasing Power Lost" %}</span>
+                                    <span id="purchasingPowerLost" class="font-medium text-yellow-900">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <h3 class="font-semibold text-red-800 mb-2">{% trans "Tax Impact" %}</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-red-700">{% trans "Taxes Owed on Gains" %}</span>
+                                    <span id="taxesOwed" class="font-medium text-red-900">$0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-red-700">{% trans "After-Tax Value" %}</span>
+                                    <span id="afterTaxValue" class="font-medium text-red-900">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Growth Chart -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Portfolio Growth Over Time" %}</h3>
+                        <div class="relative h-72">
+                            <canvas id="growthChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown & Scenarios -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Investment Breakdown" %}</h3>
+                            <div class="relative h-64">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Return Scenarios" %}</h3>
+                            <div id="scenariosContainer" class="space-y-3 pt-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Yearly Breakdown Table -->
+                    <div class="bg-white border border-gray-200 rounded-lg">
+                        <div class="p-4 border-b border-gray-200">
+                            <h3 class="font-semibold text-gray-900">{% trans "Year-by-Year Breakdown" %}</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">{% trans "Year" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Contributions" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Gains" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Balance" %}</th>
+                                        <th class="px-4 py-3 text-right font-medium">{% trans "Real Value" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="breakdownTableBody" class="divide-y divide-gray-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Plan Your Investment Growth" %}</h3>
+                        <p class="text-gray-500">{% trans "Enter your investment details to see projected returns, ROI, and compare different scenarios." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How to Use Section -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "How to Use This Calculator" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">1</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Initial Amount" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Enter your starting investment or lump sum amount." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Monthly Additions" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Add any regular monthly contributions you plan to make." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">3</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Set Parameters" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Adjust expected return, inflation, and tax rates." %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">4</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">{% trans "Analyze Results" %}</h3>
+                        <p class="text-gray-600 text-sm">{% trans "Review ROI, inflation-adjusted values, and scenarios." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Investment Concepts -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Understanding Investment Returns" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "ROI vs CAGR" %}</h3>
+                    <p class="text-gray-600 text-sm mb-4">{% trans "ROI shows total return as a percentage of your investment. CAGR (Compound Annual Growth Rate) shows the smoothed annual return, accounting for compounding." %}</p>
+                    
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Real vs Nominal Returns" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Nominal returns are before inflation adjustment. Real returns (inflation-adjusted) show the actual increase in purchasing power." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Dollar-Cost Averaging" %}</h3>
+                    <p class="text-gray-600 text-sm mb-4">{% trans "Investing a fixed amount regularly (like monthly contributions) reduces the impact of volatility by buying more shares when prices are low." %}</p>
+                    
+                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Tax Considerations" %}</h3>
+                    <p class="text-gray-600 text-sm">{% trans "Long-term capital gains (held 1+ years) are typically taxed at lower rates than short-term gains. Tax-advantaged accounts like IRAs can reduce or defer taxes." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Frequently Asked Questions" %}</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left" aria-expanded="false">
+                        <span class="font-medium text-gray-900">{% trans "What annual return should I expect?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Historical stock market returns average 7-10% annually (inflation-adjusted). Bonds typically return 2-5%. Conservative estimates use 6-7%, while aggressive estimates use 9-10%." %}</p>
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left" aria-expanded="false">
+                        <span class="font-medium text-gray-900">{% trans "How does inflation affect my investments?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Inflation reduces purchasing power. If your investment grows 7% but inflation is 3%, your real return is about 4%. Always consider inflation-adjusted (real) returns when planning." %}</p>
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-200 pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left" aria-expanded="false">
+                        <span class="font-medium text-gray-900">{% trans "When do I pay capital gains tax?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Capital gains tax is owed when you sell investments at a profit. Tax rates depend on how long you held the investment and your income level. Tax-advantaged accounts (401k, IRA) can defer or eliminate these taxes." %}</p>
+                    </div>
+                </div>
+                
+                <div class="pb-4">
+                    <button class="faq-toggle w-full flex items-center justify-between text-left" aria-expanded="false">
+                        <span class="font-medium text-gray-900">{% trans "Is it better to invest lump sum or monthly?" %}</span>
+                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="faq-content hidden mt-2 text-gray-600 text-sm">
+                        <p>{% trans "Statistically, lump sum investing outperforms dollar-cost averaging about 2/3 of the time. However, monthly investing reduces emotional risk and is more practical for most people who invest from income." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Investment Tips -->
+        <div class="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
+            <h2 class="text-xl font-bold text-green-900 mb-4">{% trans "Investment Best Practices" %}</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Diversify across asset classes - don't put all eggs in one basket." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Use tax-advantaged accounts (401k, IRA) to minimize tax impact." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Keep investment fees low - they compound against you over time." %}</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-green-800 text-sm">{% trans "Stay invested long-term - time in the market beats timing the market." %}</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const resultsSection = document.getElementById('resultsSection');
+    const initialState = document.getElementById('initialState');
+    
+    let growthChart = null;
+    let breakdownChart = null;
+    
+    // Format number as currency
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+    
+    // Format input with commas
+    function formatInput(input) {
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+    
+    // Add formatting to inputs
+    ['initial_investment', 'monthly_contribution'].forEach(id => {
+        const input = document.getElementById(id);
+        input.addEventListener('input', () => formatInput(input));
+    });
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const content = this.nextElementSibling;
+            const icon = this.querySelector('svg');
+            content.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        });
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('calculateBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-flex items-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>{% trans "Calculating..." %}</span>';
+        
+        try {
+            const formData = {
+                initial_investment: document.getElementById('initial_investment').value.replace(/,/g, '') || 0,
+                monthly_contribution: document.getElementById('monthly_contribution').value.replace(/,/g, '') || 0,
+                annual_return: document.getElementById('annual_return').value,
+                years: document.getElementById('years').value,
+                inflation_rate: document.getElementById('inflation_rate').value || 0,
+                tax_rate: document.getElementById('tax_rate').value || 0,
+            };
+            
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert(data.error || '{% trans "An error occurred. Please check your inputs." %}');
+                return;
+            }
+            
+            // Show results
+            initialState.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+            
+            // Update summary cards
+            document.getElementById('finalBalanceResult').textContent = formatCurrency(data.summary.final_balance);
+            document.getElementById('totalGainsResult').textContent = formatCurrency(data.summary.total_gains);
+            document.getElementById('roiResult').textContent = data.summary.roi.toFixed(1) + '%';
+            document.getElementById('cagrResult').textContent = data.summary.cagr.toFixed(2) + '%';
+            
+            // Update inflation impact
+            document.getElementById('inflationAdjustedValue').textContent = formatCurrency(data.inflation_adjusted.value);
+            document.getElementById('purchasingPowerLost').textContent = formatCurrency(data.inflation_adjusted.purchasing_power_lost);
+            
+            // Update tax impact
+            document.getElementById('taxesOwed').textContent = formatCurrency(data.tax_impact.taxes_owed);
+            document.getElementById('afterTaxValue').textContent = formatCurrency(data.tax_impact.after_tax_value);
+            
+            // Render scenarios
+            renderScenarios(data.scenarios, data.input.annual_return);
+            
+            // Render breakdown table
+            renderBreakdownTable(data.yearly_breakdown);
+            
+            // Render charts
+            renderCharts(data);
+            
+        } catch (error) {
+            console.error('Error:', error);
+            alert('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '{% trans "Calculate" %}';
+        }
+    });
+    
+    function renderScenarios(scenarios, currentRate) {
+        const container = document.getElementById('scenariosContainer');
+        container.innerHTML = '';
+        
+        scenarios.forEach(scenario => {
+            const isCurrent = scenario.rate === currentRate;
+            const div = document.createElement('div');
+            div.className = `p-3 rounded-lg ${isCurrent ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`;
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="text-sm ${isCurrent ? 'text-blue-800 font-medium' : 'text-gray-700'}">
+                        ${scenario.rate}% {% trans "return" %} ${isCurrent ? '({% trans "selected" %})' : ''}
+                    </span>
+                    <span class="font-bold ${isCurrent ? 'text-blue-800' : 'text-gray-900'}">${formatCurrency(scenario.final_balance)}</span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+    
+    function renderBreakdownTable(breakdown) {
+        const tbody = document.getElementById('breakdownTableBody');
+        tbody.innerHTML = '';
+        
+        breakdown.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            tr.innerHTML = `
+                <td class="px-4 py-2 text-gray-900 font-medium">${row.year_num}</td>
+                <td class="px-4 py-2 text-right text-blue-600">${formatCurrency(row.contributions)}</td>
+                <td class="px-4 py-2 text-right text-green-600">${formatCurrency(row.gains)}</td>
+                <td class="px-4 py-2 text-right text-gray-900 font-bold">${formatCurrency(row.end_balance)}</td>
+                <td class="px-4 py-2 text-right text-yellow-600">${formatCurrency(row.inflation_adjusted)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function renderCharts(data) {
+        // Destroy existing charts
+        if (growthChart) growthChart.destroy();
+        if (breakdownChart) breakdownChart.destroy();
+        
+        const chartData = data.chart_data;
+        
+        // Growth Chart
+        const growthCtx = document.getElementById('growthChart').getContext('2d');
+        growthChart = new Chart(growthCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: '{% trans "Portfolio Value" %}',
+                        data: chartData.balance,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: '{% trans "Total Contributions" %}',
+                        data: chartData.contributions,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: '{% trans "Inflation-Adjusted" %}',
+                        data: chartData.inflation_adjusted,
+                        borderColor: '#f59e0b',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Breakdown Pie Chart
+        const breakdownCtx = document.getElementById('breakdownChart').getContext('2d');
+        breakdownChart = new Chart(breakdownCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['{% trans "Total Contributions" %}', '{% trans "Investment Gains" %}'],
+                datasets: [{
+                    data: [data.summary.total_contributions, data.summary.total_gains],
+                    backgroundColor: ['#3b82f6', '#22c55e'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

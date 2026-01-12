@@ -1,0 +1,1037 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Calorie Calculator" %} - {% trans "Daily Calorie Needs" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle. Free calorie calculator with macro breakdown." %}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<meta name="keywords" content="{% trans "calorie calculator, daily calories, weight loss calories, calorie intake, macro calculator" %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans "Calorie Calculator" %} - {% trans "Daily Calorie Needs" %}">
+<meta property="og:description" content="{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle." %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans "Calorie Calculator" %}",
+    "description": "{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle." %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Calorie Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Calorie Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Find out how many calories you need to reach your fitness goals." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2" id="unitMetric">
+                                    <span class="text-sm">{% trans "Metric" %} (cm, kg)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2" id="unitImperial">
+                                    <span class="text-sm">{% trans "Imperial" %} (ft, lbs)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gender" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="male" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Male" %}</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="gender" value="female" class="mr-2">
+                                    <span class="text-sm">{% trans "Female" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Age -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Age" %}</label>
+                            <input type="number" id="age" name="age" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="25" min="15" max="80" step="1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 15-80 years" %}</p>
+                        </div>
+
+                        <!-- Height Metric -->
+                        <div id="heightMetric">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %} (cm)</label>
+                            <input type="number" id="height" name="height" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="170" min="100" max="250" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 100-250 cm" %}</p>
+                        </div>
+
+                        <!-- Height Imperial -->
+                        <div id="heightImperial" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="number" id="height_ft" name="height_ft" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                           value="5" min="3" max="8" required>
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "ft" %}</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="height_in" name="height_in" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                           value="10" min="0" max="11" step="0.1">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "in" %}</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 3-8 ft, 0-11 in" %}</p>
+                        </div>
+
+                        <!-- Weight -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" id="weightLabel">{% trans "Weight" %} (kg)</label>
+                            <input type="number" id="weight" name="weight" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                   value="70" min="30" max="300" step="0.1" required>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 30-300 kg" %}</p>
+                        </div>
+
+                        <!-- Activity Level -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Activity Level" %}</label>
+                            <select id="activity_level" name="activity_level" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="sedentary">{% trans "Sedentary" %} ({% trans "office job" %})</option>
+                                <option value="light">{% trans "Lightly Active" %} (1-3 {% trans "days/week" %})</option>
+                                <option value="moderate" selected>{% trans "Moderately Active" %} (3-5 {% trans "days/week" %})</option>
+                                <option value="active">{% trans "Very Active" %} (6-7 {% trans "days/week" %})</option>
+                                <option value="very_active">{% trans "Extra Active" %} ({% trans "physical job" %})</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Select your activity level" %}</p>
+                        </div>
+
+                        <!-- Goal -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Goal" %}</label>
+                            <select id="goal" name="goal" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="lose_fast">{% trans "Lose weight fast" %} (-1000 cal)</option>
+                                <option value="lose">{% trans "Lose weight" %} (-500 cal)</option>
+                                <option value="lose_slow">{% trans "Lose weight slowly" %} (-250 cal)</option>
+                                <option value="maintain" selected>{% trans "Maintain weight" %} (0 cal)</option>
+                                <option value="gain_slow">{% trans "Gain weight slowly" %} (+250 cal)</option>
+                                <option value="gain">{% trans "Gain weight" %} (+500 cal)</option>
+                                <option value="gain_fast">{% trans "Gain weight fast" %} (+1000 cal)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Select your fitness goal" %}</p>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate Calories" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your details and goal to get personalized calorie recommendations with macro breakdown and meal distribution." %}
+                    </p>
+                </div>
+
+                <!-- Results Section - Shows at Top When Calculated -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-green-500 to-teal-500 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Daily Calorie Target" %}</p>
+                            <p id="targetCalories" class="text-5xl sm:text-6xl font-bold mb-2">0</p>
+                            <p class="text-sm opacity-90 mb-2">{% trans "calories/day" %}</p>
+                            <p id="projectionText" class="text-sm opacity-90 mt-2"></p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "BMR" %}</p>
+                                <p id="bmrValue" class="text-sm font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "TDEE" %}</p>
+                                <p id="tdeeValue" class="text-sm font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Goal" %}</p>
+                                <p id="goalDisplay" class="text-xs font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Macro Breakdown Cards -->
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <span class="text-red-600 font-bold text-sm" id="proteinPercent">30%</span>
+                            </div>
+                            <p class="text-2xl sm:text-3xl font-bold text-gray-900" id="proteinG">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Protein" %}</p>
+                            <p class="text-xs text-gray-400" id="proteinCal">0 cal</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <span class="text-yellow-600 font-bold text-sm" id="carbsPercent">40%</span>
+                            </div>
+                            <p class="text-2xl sm:text-3xl font-bold text-gray-900" id="carbsG">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Carbs" %}</p>
+                            <p class="text-xs text-gray-400" id="carbsCal">0 cal</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <span class="text-blue-600 font-bold text-sm" id="fatPercent">30%</span>
+                            </div>
+                            <p class="text-2xl sm:text-3xl font-bold text-gray-900" id="fatG">0g</p>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Fat" %}</p>
+                            <p class="text-xs text-gray-400" id="fatCal">0 cal</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- BMR vs TDEE vs Target Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "BMR vs TDEE vs Target" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="comparisonChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Macros Chart -->
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                </svg>
+                                {% trans "Macronutrients" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="macrosChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meal Distribution Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Meal Distribution" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="mealChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- All Goals Comparison Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Calories by Goal" %}
+                        </h3>
+                        <div class="relative h-[300px] min-h-[300px]">
+                            <canvas id="goalsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Meal Distribution Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Suggested Meal Distribution" %}</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                            <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="breakfast">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Breakfast" %}</p>
+                                <p class="text-xs text-gray-400">25%</p>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="lunch">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Lunch" %}</p>
+                                <p class="text-xs text-gray-400">35%</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="dinner">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Dinner" %}</p>
+                                <p class="text-xs text-gray-400">30%</p>
+                            </div>
+                            <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                                <p class="text-lg sm:text-xl font-bold text-gray-900" id="snacks">0</p>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Snacks" %}</p>
+                                <p class="text-xs text-gray-400">10%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- All Goals Comparison Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Calories by Goal" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-2 px-3 font-medium text-gray-700">{% trans "Goal" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "Calories" %}</th>
+                                        <th class="text-right py-2 px-3 font-medium text-gray-700">{% trans "Change" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="goalsTable" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What are Calories Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What are Calories?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "A calorie is a unit of energy. In nutrition, calories refer to the energy people get from the food and drink they consume, and the energy they use in physical activity. The number of calories you need each day depends on your age, gender, height, weight, and activity level." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "Understanding your daily calorie needs is essential for achieving your fitness goals, whether you want to lose weight, maintain your current weight, or gain muscle." %}
+                            </p>
+                        </div>
+
+                        <!-- BMR and TDEE Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding BMR and TDEE" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "BMR (Basal Metabolic Rate)" %}</h4>
+                                    <p class="text-sm text-orange-800">
+                                        {% trans "The number of calories your body burns at rest to maintain basic life functions like breathing, circulation, and cell production." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "TDEE (Total Daily Energy Expenditure)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Your total daily calorie burn, including BMR plus calories burned through physical activity and exercise. This is the number of calories you need to maintain your current weight." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Target Calories" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Your TDEE adjusted based on your goal. A deficit (negative adjustment) helps you lose weight, while a surplus (positive adjustment) helps you gain weight." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calorie Goals Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calorie Goals Explained" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Lose Weight Fast (-1000 cal):" %}</strong> {% trans "Aggressive weight loss. May be difficult to maintain long-term. Consult a healthcare provider." %}</p>
+                                <p><strong>{% trans "Lose Weight (-500 cal):" %}</strong> {% trans "Moderate weight loss. Typically results in ~0.5 kg (1 lb) per week. Sustainable for most people." %}</p>
+                                <p><strong>{% trans "Lose Weight Slowly (-250 cal):" %}</strong> {% trans "Gradual weight loss. Typically results in ~0.25 kg (0.5 lb) per week. Very sustainable." %}</p>
+                                <p><strong>{% trans "Maintain Weight (0 cal):" %}</strong> {% trans "Eat at your TDEE level to maintain your current weight." %}</p>
+                                <p><strong>{% trans "Gain Weight Slowly (+250 cal):" %}</strong> {% trans "Gradual weight gain. Good for lean muscle building." %}</p>
+                                <p><strong>{% trans "Gain Weight (+500 cal):" %}</strong> {% trans "Moderate weight gain. Typically results in ~0.5 kg (1 lb) per week." %}</p>
+                                <p><strong>{% trans "Gain Weight Fast (+1000 cal):" %}</strong> {% trans "Aggressive weight gain. May result in more fat gain than muscle." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Macronutrients Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Macronutrients" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                                    <h4 class="font-semibold text-red-900 mb-1">{% trans "Protein (4 calories per gram)" %}</h4>
+                                    <p class="text-sm text-red-800">
+                                        {% trans "Essential for muscle repair and growth. Higher protein intake is recommended for weight loss (35%) and muscle gain (30%)." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                                    <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Carbohydrates (4 calories per gram)" %}</h4>
+                                    <p class="text-sm text-yellow-800">
+                                        {% trans "Primary energy source. Higher carb intake (45%) is recommended for weight gain, moderate (35-40%) for maintenance and weight loss." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Fat (9 calories per gram)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "Important for hormone production and nutrient absorption. Typically 25-30% of total calories." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select your preferred unit system (Metric or Imperial)" %}</li>
+                                <li>{% trans "Enter your gender, age, height, and weight" %}</li>
+                                <li>{% trans "Select your activity level based on your weekly exercise routine" %}</li>
+                                <li>{% trans "Choose your fitness goal (lose weight, maintain, or gain weight)" %}</li>
+                                <li>{% trans "Click 'Calculate Calories' to see your results" %}</li>
+                                <li>{% trans "Review your daily calorie target, macro breakdown, and meal distribution" %}</li>
+                                <li>{% trans "Use the charts to visualize your calorie needs and macro distribution" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Meal Distribution Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Meal Distribution" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "The calculator suggests distributing your daily calories across meals as follows:" %}
+                            </p>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Breakfast (25%):" %}</strong> {% trans "Start your day with a balanced meal to fuel your morning activities." %}</p>
+                                <p><strong>{% trans "Lunch (35%):" %}</strong> {% trans "Your largest meal, providing energy for the afternoon." %}</p>
+                                <p><strong>{% trans "Dinner (30%):" %}</strong> {% trans "Evening meal to support recovery and prevent late-night hunger." %}</p>
+                                <p><strong>{% trans "Snacks (10%):" %}</strong> {% trans "Small snacks throughout the day to maintain energy levels." %}</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed mt-3">
+                                {% trans "Note: Meal distribution is flexible. Adjust based on your schedule and preferences while maintaining your total daily calorie target." %}
+                            </p>
+                        </div>
+
+                        <!-- Understanding Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Daily Calorie Target" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The total number of calories you should consume daily to achieve your selected goal. This is your TDEE adjusted by the goal-specific calorie change." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Weekly Projection" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "An estimate of how much weight you'll lose or gain per week based on your calorie deficit or surplus. A deficit of 500 calories per day typically results in ~0.5 kg (1 lb) weight loss per week." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Macronutrient Breakdown" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The recommended distribution of protein, carbohydrates, and fat based on your goal. Macros are adjusted to optimize results for weight loss, maintenance, or weight gain." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Meal Distribution" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Suggested calorie distribution across meals throughout the day. This helps you plan your meals and maintain consistent energy levels." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tips for Success Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Tips for Success" %}</h3>
+                            <div class="space-y-2 text-gray-700 text-sm">
+                                <p><strong>{% trans "Track Your Food:" %}</strong> {% trans "Use a food tracking app to monitor your calorie intake and ensure you're meeting your targets." %}</p>
+                                <p><strong>{% trans "Be Consistent:" %}</strong> {% trans "Consistency is key. Aim to hit your calorie target most days of the week." %}</p>
+                                <p><strong>{% trans "Adjust as Needed:" %}</strong> {% trans "Monitor your progress and adjust calories if you're not seeing desired results after 2-3 weeks." %}</p>
+                                <p><strong>{% trans "Focus on Whole Foods:" %}</strong> {% trans "Prioritize nutrient-dense whole foods over processed foods for better health and satiety." %}</p>
+                                <p><strong>{% trans "Stay Hydrated:" %}</strong> {% trans "Drink plenty of water throughout the day. Sometimes thirst is mistaken for hunger." %}</p>
+                                <p><strong>{% trans "Combine with Exercise:" %}</strong> {% trans "Regular exercise enhances your results and improves overall health." %}</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Calorie calculations are estimates. Individual metabolism can vary based on genetics, muscle mass, hormones, and other factors." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "For best results, track your food intake and weight regularly, and adjust your calorie targets based on your progress." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Extreme calorie deficits or surpluses may not be sustainable or healthy. Consult with a healthcare provider or registered dietitian for personalized advice." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. It should not replace professional medical or nutritional advice." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let comparisonChart = null;
+let macrosChart = null;
+let mealChart = null;
+let goalsChart = null;
+
+// Check if Chart.js is loaded
+function checkChartJS() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const unitMetric = document.getElementById('unitMetric');
+    const unitImperial = document.getElementById('unitImperial');
+    const heightMetricDiv = document.getElementById('heightMetric');
+    const heightImperialDiv = document.getElementById('heightImperial');
+    const weightLabel = document.getElementById('weightLabel');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+
+    // Unit system toggle
+    function updateUnitInputs() {
+        if (unitImperial.checked) {
+            heightMetricDiv.classList.add('hidden');
+            heightImperialDiv.classList.remove('hidden');
+            weightLabel.textContent = '{% trans "Weight" %} (lbs)';
+            document.getElementById('weight').min = '66';
+            document.getElementById('weight').max = '660';
+            document.getElementById('weight').value = '160';
+        } else {
+            heightMetricDiv.classList.remove('hidden');
+            heightImperialDiv.classList.add('hidden');
+            weightLabel.textContent = '{% trans "Weight" %} (kg)';
+            document.getElementById('weight').min = '30';
+            document.getElementById('weight').max = '300';
+            document.getElementById('weight').value = '70';
+        }
+        // Clear results when switching units
+        if (results) results.classList.add('hidden');
+        if (initialState) initialState.classList.remove('hidden');
+    }
+
+    unitMetric.addEventListener('change', updateUnitInputs);
+    unitImperial.addEventListener('change', updateUnitInputs);
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous states
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+
+        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        const formData = {
+            unit_system: unitSystem,
+            gender: document.querySelector('input[name="gender"]:checked').value,
+            age: parseInt(document.getElementById('age').value),
+            weight: parseFloat(document.getElementById('weight').value),
+            activity_level: document.getElementById('activity_level').value,
+            goal: document.getElementById('goal').value
+        };
+
+        if (unitSystem === 'imperial') {
+            formData.height_ft = parseInt(document.getElementById('height_ft').value);
+            formData.height_in = parseFloat(document.getElementById('height_in').value) || 0;
+        } else {
+            formData.height = parseFloat(document.getElementById('height').value);
+        }
+
+        // Update button state
+        const submitBtn = document.getElementById('calculateBtnText');
+        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Calories" %}';
+        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
+        document.getElementById('calculateBtn').disabled = true;
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+
+            if (!data.success) {
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
+                    errorState.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Display results
+            displayResults(data);
+
+        } catch (err) {
+            if (loadingState) loadingState.classList.add('hidden');
+            if (submitBtn) submitBtn.textContent = originalText;
+            document.getElementById('calculateBtn').disabled = false;
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+            console.error('Error:', err);
+        }
+    });
+
+    function displayResults(data) {
+        try {
+            // Update main result
+            const targetCaloriesEl = document.getElementById('targetCalories');
+            const projectionTextEl = document.getElementById('projectionText');
+            if (targetCaloriesEl) targetCaloriesEl.textContent = Math.round(data.target_calories).toLocaleString();
+            if (projectionTextEl) projectionTextEl.textContent = data.weekly_projection.text;
+
+            // Update stats
+            const bmrValueEl = document.getElementById('bmrValue');
+            const tdeeValueEl = document.getElementById('tdeeValue');
+            const goalDisplayEl = document.getElementById('goalDisplay');
+
+            if (bmrValueEl) bmrValueEl.textContent = Math.round(data.bmr).toLocaleString();
+            if (tdeeValueEl) tdeeValueEl.textContent = Math.round(data.tdee).toLocaleString();
+            if (goalDisplayEl) {
+                const goalNames = {
+                    'lose_fast': '{% trans "Lose Fast" %}',
+                    'lose': '{% trans "Lose" %}',
+                    'lose_slow': '{% trans "Lose Slow" %}',
+                    'maintain': '{% trans "Maintain" %}',
+                    'gain_slow': '{% trans "Gain Slow" %}',
+                    'gain': '{% trans "Gain" %}',
+                    'gain_fast': '{% trans "Gain Fast" %}'
+                };
+                goalDisplayEl.textContent = goalNames[data.goal] || data.goal;
+            }
+
+            // Update macros
+            const proteinGEl = document.getElementById('proteinG');
+            const carbsGEl = document.getElementById('carbsG');
+            const fatGEl = document.getElementById('fatG');
+            const proteinPercentEl = document.getElementById('proteinPercent');
+            const carbsPercentEl = document.getElementById('carbsPercent');
+            const fatPercentEl = document.getElementById('fatPercent');
+            const proteinCalEl = document.getElementById('proteinCal');
+            const carbsCalEl = document.getElementById('carbsCal');
+            const fatCalEl = document.getElementById('fatCal');
+
+            if (proteinGEl) proteinGEl.textContent = Math.round(data.macros.protein.grams) + 'g';
+            if (carbsGEl) carbsGEl.textContent = Math.round(data.macros.carbs.grams) + 'g';
+            if (fatGEl) fatGEl.textContent = Math.round(data.macros.fat.grams) + 'g';
+            if (proteinPercentEl) proteinPercentEl.textContent = data.macros.protein.percent + '%';
+            if (carbsPercentEl) carbsPercentEl.textContent = data.macros.carbs.percent + '%';
+            if (fatPercentEl) fatPercentEl.textContent = data.macros.fat.percent + '%';
+            if (proteinCalEl) proteinCalEl.textContent = Math.round(data.macros.protein.calories) + ' cal';
+            if (carbsCalEl) carbsCalEl.textContent = Math.round(data.macros.carbs.calories) + ' cal';
+            if (fatCalEl) fatCalEl.textContent = Math.round(data.macros.fat.calories) + ' cal';
+
+            // Update meals
+            const breakfastEl = document.getElementById('breakfast');
+            const lunchEl = document.getElementById('lunch');
+            const dinnerEl = document.getElementById('dinner');
+            const snacksEl = document.getElementById('snacks');
+
+            if (breakfastEl) breakfastEl.textContent = data.meals.breakfast.toLocaleString();
+            if (lunchEl) lunchEl.textContent = data.meals.lunch.toLocaleString();
+            if (dinnerEl) dinnerEl.textContent = data.meals.dinner.toLocaleString();
+            if (snacksEl) snacksEl.textContent = data.meals.snacks.toLocaleString();
+
+            // Update result card color
+            const colors = {
+                'red': 'bg-gradient-to-br from-red-600 to-red-700',
+                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
+                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+                'green': 'bg-gradient-to-br from-green-600 to-teal-600',
+                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
+                'indigo': 'bg-gradient-to-br from-indigo-600 to-indigo-700',
+                'purple': 'bg-gradient-to-br from-purple-600 to-purple-700'
+            };
+            const resultCard = document.getElementById('resultCard');
+            if (resultCard) {
+                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.goal_color] || 'bg-gradient-to-br from-green-600 to-teal-600');
+            }
+
+            // Update goals table
+            const goalsTable = document.getElementById('goalsTable');
+            if (goalsTable) {
+                const goals = [
+                    {key: 'lose_fast', label: '{% trans "Lose Fast" %}', change: '-1000'},
+                    {key: 'lose', label: '{% trans "Lose" %}', change: '-500'},
+                    {key: 'lose_slow', label: '{% trans "Lose Slow" %}', change: '-250'},
+                    {key: 'maintain', label: '{% trans "Maintain" %}', change: '0'},
+                    {key: 'gain_slow', label: '{% trans "Gain Slow" %}', change: '+250'},
+                    {key: 'gain', label: '{% trans "Gain" %}', change: '+500'},
+                    {key: 'gain_fast', label: '{% trans "Gain Fast" %}', change: '+1000'}
+                ];
+                
+                goalsTable.innerHTML = goals.map(g => {
+                    const isActive = g.key === data.goal;
+                    return `
+                        <tr class="${isActive ? 'bg-green-50' : ''}">
+                            <td class="py-2 px-3 ${isActive ? 'font-bold text-green-900' : 'text-gray-900'}">${g.label}</td>
+                            <td class="py-2 px-3 text-right font-medium ${isActive ? 'text-green-900' : 'text-gray-900'}">${Math.round(data.all_targets[g.key]).toLocaleString()}</td>
+                            <td class="py-2 px-3 text-right ${isActive ? 'text-green-700 font-bold' : 'text-gray-600'}">${g.change}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Create/Update Charts
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.comparison_chart) {
+                    createComparisonChart(data.chart_data.comparison_chart);
+                }
+                if (data.chart_data.macros_chart) {
+                    createMacrosChart(data.chart_data.macros_chart);
+                }
+                if (data.chart_data.meal_chart) {
+                    createMealChart(data.chart_data.meal_chart);
+                }
+                if (data.chart_data.goals_chart) {
+                    createGoalsChart(data.chart_data.goals_chart);
+                }
+            }
+
+            // Show results
+            if (results) {
+                results.classList.remove('hidden');
+                setTimeout(() => {
+                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            if (errorState) {
+                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
+                errorState.classList.remove('hidden');
+            }
+        }
+    }
+
+    function createComparisonChart(chartData) {
+        const ctx = document.getElementById('comparisonChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (comparisonChart) comparisonChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            comparisonChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating comparison chart:', error);
+        }
+    }
+
+    function createMacrosChart(chartData) {
+        const ctx = document.getElementById('macrosChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (macrosChart) macrosChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            macrosChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 12,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    return `${label}: ${Math.round(value).toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating macros chart:', error);
+        }
+    }
+
+    function createMealChart(chartData) {
+        const ctx = document.getElementById('mealChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (mealChart) mealChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            mealChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating meal chart:', error);
+        }
+    }
+
+    function createGoalsChart(chartData) {
+        const ctx = document.getElementById('goalsChart');
+        if (!ctx) return;
+        if (!checkChartJS()) return;
+        if (goalsChart) goalsChart.destroy();
+        if (!chartData || !chartData.data) return;
+
+        try {
+            goalsChart = new Chart(ctx, {
+                type: chartData.type,
+                data: chartData.data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.x.toLocaleString()} {% trans "calories" %}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: '#f3f4f6' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                },
+                                font: { size: 11 }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1500 }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating goals chart:', error);
+        }
+    }
+});
+</script>
+{% endblock %}

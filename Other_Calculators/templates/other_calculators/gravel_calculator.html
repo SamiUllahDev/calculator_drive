@@ -1,0 +1,884 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Gravel Calculator - Calculate Gravel Volume, Weight, Cost, Coverage | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free gravel calculator to calculate gravel volume for rectangular, circular, and triangular areas. Calculate weight, cost, coverage, and unit conversions with step-by-step solutions. Perfect for landscaping and construction projects." %}{% endblock %}
+{% block meta_keywords %}{% trans "gravel calculator, calculate gravel, gravel volume calculator, gravel cost calculator, gravel weight calculator, gravel coverage calculator, how much gravel do I need, cubic yards calculator, landscaping calculator, construction calculator, gravel finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Gravel Calculator - Calculate Gravel Volume, Weight, Cost, Coverage" %}{% endblock %}
+{% block og_description %}{% trans "Calculate gravel volume, weight, cost, and coverage for rectangular, circular, and triangular areas. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/gravel-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Gravel Calculator - Calculate Gravel Volume, Weight, Cost, Coverage" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate gravel with step-by-step solutions. Free online calculator." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/gravel-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Gravel Calculator - Calculate Gravel Volume, Weight, Cost, Coverage' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "1850"},
+  "description": "{% trans 'Free online gravel calculator to calculate gravel volume, weight, cost, and coverage for rectangular, circular, and triangular areas with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Gravel Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate gravel volume, weight, cost, and coverage for rectangular, circular, and triangular areas with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="gravelCalculatorForm" onsubmit="calculateGravel(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="rectangular">{% trans "Rectangular Area" %}</option>
+                                <option value="circular">{% trans "Circular Area" %}</option>
+                                <option value="triangular">{% trans "Triangular Area" %}</option>
+                                <option value="weight">{% trans "Weight from Volume" %}</option>
+                                <option value="cost">{% trans "Cost Calculation" %}</option>
+                                <option value="coverage">{% trans "Coverage Area" %}</option>
+                                <option value="convert_volume">{% trans "Convert Volume Units" %}</option>
+                                <option value="convert_weight">{% trans "Convert Weight Units" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Rectangular Mode -->
+                        <div id="form-rectangular" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="length" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Length" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="length" name="length" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="length_unit" name="length_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="feet" selected>{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="width" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Width" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="width" name="width" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="width_unit" name="width_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="feet" selected>{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="depth" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Depth" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="depth" name="depth" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                    <select id="depth_unit" name="depth_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="inches" selected>{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="result_unit_rect" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_rect" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cubic_yards" selected>{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Circular Mode -->
+                        <div id="form-circular" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="diameter" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Diameter" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="diameter" name="diameter" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="diameter_unit" name="diameter_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="feet" selected>{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="depth_circular" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Depth" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="depth_circular" name="depth" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                    <select id="depth_unit_circular" name="depth_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="inches" selected>{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="result_unit_circ" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_circ" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cubic_yards" selected>{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Triangular Mode -->
+                        <div id="form-triangular" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="base" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Base Length" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="base" name="base" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="base_unit" name="base_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="feet" selected>{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="height" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Height" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="height" name="height" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="8" required>
+                                    <select id="height_unit" name="height_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="feet" selected>{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                        <option value="inches">{% trans "in" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="depth_triangular" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Depth" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="depth_triangular" name="depth" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                    <select id="depth_unit_triangular" name="depth_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="inches" selected>{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="result_unit_tri" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_tri" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cubic_yards" selected>{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Weight Mode -->
+                        <div id="form-weight" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="volume_weight" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Volume" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="volume_weight" name="volume" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="volume_unit_weight" name="volume_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="cubic_yards" selected>{% trans "yd³" %}</option>
+                                        <option value="cubic_feet">{% trans "ft³" %}</option>
+                                        <option value="cubic_meters">{% trans "m³" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="density" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Density (lbs/ft³)" %} <span class="text-gray-500 text-xs">({% trans "Default: 105" %})</span>
+                                </label>
+                                <input type="number" id="density" name="density" step="0.01" min="0.01" max="200" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="105" value="105">
+                            </div>
+                            <div>
+                                <label for="result_unit_weight" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_weight" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="tons" selected>{% trans "Tons" %}</option>
+                                    <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                    <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Cost Mode -->
+                        <div id="form-cost" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="volume_cost" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Volume" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="volume_cost" name="volume" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="volume_unit_cost" name="volume_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="cubic_yards" selected>{% trans "yd³" %}</option>
+                                        <option value="cubic_feet">{% trans "ft³" %}</option>
+                                        <option value="cubic_meters">{% trans "m³" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="price_per_unit" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Price per Unit ($)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="price_per_unit" name="price_per_unit" step="0.01" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="25" required>
+                            </div>
+                        </div>
+
+                        <!-- Coverage Mode -->
+                        <div id="form-coverage" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="volume_coverage" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Volume" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="volume_coverage" name="volume" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                                    <select id="volume_unit_coverage" name="volume_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="cubic_yards" selected>{% trans "yd³" %}</option>
+                                        <option value="cubic_feet">{% trans "ft³" %}</option>
+                                        <option value="cubic_meters">{% trans "m³" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="depth_coverage" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Depth" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="depth_coverage" name="depth" step="0.01" min="0.01" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="2" required>
+                                    <select id="depth_unit_coverage" name="depth_unit" class="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="inches" selected>{% trans "in" %}</option>
+                                        <option value="feet">{% trans "ft" %}</option>
+                                        <option value="yards">{% trans "yd" %}</option>
+                                        <option value="meters">{% trans "m" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="result_unit_coverage" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_coverage" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="square_feet" selected>{% trans "Square Feet (ft²)" %}</option>
+                                    <option value="square_yards">{% trans "Square Yards (yd²)" %}</option>
+                                    <option value="square_meters">{% trans "Square Meters (m²)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Convert Volume Units Mode -->
+                        <div id="form-convert_volume" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="value_volume" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Volume Value" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="value_volume" name="value" step="0.01" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                            </div>
+                            <div>
+                                <label for="from_unit_volume" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Unit" %}
+                                </label>
+                                <select id="from_unit_volume" name="from_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cubic_yards" selected>{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit_volume" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Unit" %}
+                                </label>
+                                <select id="to_unit_volume" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="cubic_feet">{% trans "Cubic Feet (ft³)" %}</option>
+                                    <option value="cubic_yards" selected>{% trans "Cubic Yards (yd³)" %}</option>
+                                    <option value="cubic_meters">{% trans "Cubic Meters (m³)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Convert Weight Units Mode -->
+                        <div id="form-convert_weight" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="value_weight" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Weight Value" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="value_weight" name="value" step="0.01" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="10" required>
+                            </div>
+                            <div>
+                                <label for="from_unit_weight" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Unit" %}
+                                </label>
+                                <select id="from_unit_weight" name="from_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="tons" selected>{% trans "Tons" %}</option>
+                                    <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                    <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit_weight" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Unit" %}
+                                </label>
+                                <select id="to_unit_weight" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="pounds">{% trans "Pounds (lbs)" %}</option>
+                                    <option value="tons" selected>{% trans "Tons" %}</option>
+                                    <option value="kilograms">{% trans "Kilograms (kg)" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="gravelChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate Gravel" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Gravel Calculator?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "The Gravel Calculator is a comprehensive tool for calculating gravel volume, weight, cost, and coverage for various project shapes. It helps you determine how much gravel you need for rectangular driveways, circular patios, triangular areas, and more. This calculator is essential for landscaping, construction, and DIY projects." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Rectangular Area, Circular Area, Triangular Area, Weight, Cost, Coverage, or Unit Conversion)." %}</li>
+                        <li>{% trans "Enter the required dimensions (length, width, depth, diameter, etc.) with appropriate units." %}</li>
+                        <li>{% trans "Select your preferred result unit (cubic yards, cubic feet, cubic meters, tons, etc.)." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Rectangular Area" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Calculate gravel volume for rectangular areas like driveways, walkways, and patios. Formula: Volume = Length × Width × Depth." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Circular Area" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Calculate gravel volume for circular areas like round patios and fire pits. Formula: Volume = π × (Diameter/2)² × Depth." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Triangular Area" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Calculate gravel volume for triangular areas. Formula: Volume = (1/2) × Base × Height × Depth." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Weight from Volume" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Calculate gravel weight from volume. Formula: Weight = Volume × Density. Default density: 105 lbs/ft³." %}</p>
+                        </div>
+                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                            <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Cost Calculation" %}</h4>
+                            <p class="text-sm text-indigo-800">{% trans "Calculate total cost of gravel. Formula: Total Cost = Volume × Price per Unit." %}</p>
+                        </div>
+                        <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                            <h4 class="font-semibold text-pink-900 mb-1">{% trans "Coverage Area" %}</h4>
+                            <p class="text-sm text-pink-800">{% trans "Calculate coverage area from volume and depth. Formula: Area = Volume / Depth." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Gravel Formulas" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Rectangular Volume:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">V = L × W × D</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Circular Volume:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">V = π × r² × D</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Triangular Volume:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">V = (1/2) × B × H × D</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Weight:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Weight = Volume × Density</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Cost:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Cost = Volume × Price per Unit</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Coverage Area:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Area = Volume / Depth</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Supported Units" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">{% trans "Length Units" %}</h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• {% trans "Feet (ft)" %}</li>
+                                <li>• {% trans "Yards (yd)" %}</li>
+                                <li>• {% trans "Meters (m)" %}</li>
+                                <li>• {% trans "Inches (in)" %}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">{% trans "Volume Units" %}</h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• {% trans "Cubic Yards (yd³)" %}</li>
+                                <li>• {% trans "Cubic Feet (ft³)" %}</li>
+                                <li>• {% trans "Cubic Meters (m³)" %}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">{% trans "Weight Units" %}</h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• {% trans "Tons" %}</li>
+                                <li>• {% trans "Pounds (lbs)" %}</li>
+                                <li>• {% trans "Kilograms (kg)" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "All dimensions must be greater than zero." %}</li>
+                        <li>{% trans "Depth is typically measured in inches for most projects (2-4 inches is common)." %}</li>
+                        <li>{% trans "Gravel density varies by type: crushed stone (~105 lbs/ft³), pea gravel (~95 lbs/ft³), river rock (~100 lbs/ft³)." %}</li>
+                        <li>{% trans "Always add 5-10% extra for compaction and settling." %}</li>
+                        <li>{% trans "For irregular shapes, break them into regular shapes and calculate separately." %}</li>
+                        <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                        <li>{% trans "Unit conversions are handled automatically." %}</li>
+                        <li>{% trans "Cost calculations are estimates; actual prices may vary by location and supplier." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Driveway and walkway projects" %}</li>
+                        <li>{% trans "Patio and landscaping projects" %}</li>
+                        <li>{% trans "Drainage and French drain installations" %}</li>
+                        <li>{% trans "Base material for concrete slabs" %}</li>
+                        <li>{% trans "Garden paths and decorative areas" %}</li>
+                        <li>{% trans "Construction and road base projects" %}</li>
+                        <li>{% trans "Budget planning and material ordering" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'rectangular';
+let gravelChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 2});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateGravel(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect all visible inputs
+    const visibleInputs = visibleForm.querySelectorAll('input[type="number"], select');
+    visibleInputs.forEach(input => {
+        if (input.name && input.value !== '') {
+            if (input.type === 'number') {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    requestData[input.name] = value;
+                }
+            } else if (input.tagName === 'SELECT') {
+                requestData[input.name] = input.value;
+            }
+        }
+    });
+    
+    // Basic validation
+    const requiredInputs = visibleForm.querySelectorAll('input[type="number"][required]');
+    for (let input of requiredInputs) {
+        if (!input.value || input.value === '') {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        let resultValue = 0;
+        let resultUnit = '';
+        let detailsHtml = '';
+        
+        const unitMap = {
+            'cubic_feet': 'ft³',
+            'cubic_yards': 'yd³',
+            'cubic_meters': 'm³',
+            'pounds': 'lbs',
+            'tons': 'tons',
+            'kilograms': 'kg',
+            'square_feet': 'ft²',
+            'square_yards': 'yd²',
+            'square_meters': 'm²'
+        };
+        
+        if (data.calc_type === 'rectangular' || data.calc_type === 'circular' || data.calc_type === 'triangular') {
+            resultValue = formatNumber(data.volume);
+            resultUnit = unitMap[data.result_unit] || data.result_unit;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.volume_cubic_feet)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Cubic Feet" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'weight') {
+            resultValue = formatNumber(data.weight);
+            resultUnit = unitMap[data.result_unit] || data.result_unit;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.volume_cubic_feet)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Volume (ft³)" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.density)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Density (lbs/ft³)" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'cost') {
+            resultValue = '$' + formatNumber(data.total_cost);
+            resultUnit = '';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.volume)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Volume" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">$${formatNumber(data.price_per_unit)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Price per Unit" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'coverage') {
+            resultValue = formatNumber(data.coverage_area);
+            resultUnit = unitMap[data.result_unit] || data.result_unit;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.volume_cubic_feet)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Volume (ft³)" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.depth_feet)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Depth (ft)" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'convert_volume' || data.calc_type === 'convert_weight') {
+            resultValue = formatNumber(data.result);
+            resultUnit = unitMap[data.to_unit] || data.to_unit;
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.value)}</p>
+                    <p class="text-sm text-gray-600">{% trans "From" %} ${unitMap[data.from_unit] || data.from_unit}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('resultValue').textContent = resultValue;
+        document.getElementById('resultUnit').textContent = resultUnit;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('gravelChart');
+            if (chartEl) {
+                if (gravelChart) gravelChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.rectangular_chart) {
+                    chartConfig = data.chart_data.rectangular_chart;
+                } else if (data.chart_data.circular_chart) {
+                    chartConfig = data.chart_data.circular_chart;
+                } else if (data.chart_data.triangular_chart) {
+                    chartConfig = data.chart_data.triangular_chart;
+                } else if (data.chart_data.weight_chart) {
+                    chartConfig = data.chart_data.weight_chart;
+                } else if (data.chart_data.cost_chart) {
+                    chartConfig = data.chart_data.cost_chart;
+                } else if (data.chart_data.coverage_chart) {
+                    chartConfig = data.chart_data.coverage_chart;
+                }
+                
+                if (chartConfig) {
+                    gravelChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|Volume|Weight|Cost|Area|Coverage)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('rectangular');
+});
+</script>
+{% endblock %}

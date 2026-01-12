@@ -1,0 +1,787 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Free Online Calculator - Basic Math Calculator with Steps" %} | Calculators.com{% endblock %}
+{% block meta_description %}{% trans "Free online calculator for basic math operations. Add, subtract, multiply, divide with step-by-step solutions. Perfect for students, professionals, and everyday calculations. No signup required." %}{% endblock %}
+{% block meta_keywords %}{% trans "calculator, online calculator, free calculator, math calculator, basic calculator, simple calculator, calculator online, calculator with steps, arithmetic calculator, addition calculator, subtraction calculator, multiplication calculator, division calculator, calculator app, calculator tool, free math calculator, calculator website" %}{% endblock %}
+
+{% block og_title %}{% trans "Free Online Calculator - Basic Math Calculator with Steps" %}{% endblock %}
+{% block og_description %}{% trans "Free online calculator for basic math operations. Add, subtract, multiply, divide with step-by-step solutions. Perfect for students, professionals, and everyday calculations." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Free Online Calculator - Basic Math Calculator with Steps" %}{% endblock %}
+{% block twitter_description %}{% trans "Free online calculator for basic math operations. Add, subtract, multiply, divide with step-by-step solutions. No signup required." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+    }
+    .step-by-step {
+        background: linear-gradient(to right, #f0f9ff, #e0f2fe);
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 4px;
+    }
+    .history-item {
+        background: #f9fafb;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: background 0.2s;
+        max-height: 100px;
+        overflow-y: auto;
+    }
+    .history-item:hover {
+        background: #f3f4f6;
+    }
+    .calc-display {
+        background: #1f2937;
+        color: #f9fafb;
+        font-size: 2rem;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: right;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        word-break: break-all;
+        font-family: 'Courier New', monospace;
+    }
+    .calc-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 1rem;
+        border-radius: 8px;
+        font-size: 1.25rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .calc-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    .calc-button:active {
+        transform: translateY(0);
+    }
+    .calc-button.operator {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .calc-button.function {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        font-size: 0.9rem;
+    }
+    .calc-button.equals {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        grid-column: span 2;
+    }
+    .calc-button.clear {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+</style>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Free Online Calculator' %}",
+  "description": "{% trans 'Free online calculator for basic math operations. Add, subtract, multiply, divide with step-by-step solutions. Perfect for students, professionals, and everyday calculations. No signup required.' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "5200"},
+  "featureList": ["{% trans 'Arithmetic operations' %}", "{% trans 'Advanced functions' %}", "{% trans 'Expression evaluation' %}", "{% trans 'Step-by-step solutions' %}", "{% trans 'Calculation history' %}", "{% trans 'Charts and visualizations' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Free Online Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Free online calculator for basic math operations. Add, subtract, multiply, divide with step-by-step solutions. Perfect for students, professionals, and everyday calculations." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm">
+                        {% csrf_token %}
+                    </form>
+
+                    <!-- Calculator Display -->
+                    <div class="calc-display mb-4" id="calcDisplay">0</div>
+
+                    <!-- Input Mode Selection -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {% trans "Input Mode" %}
+                        </label>
+                        <select id="inputMode" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="keypad">{% trans "Calculator Keypad" %}</option>
+                            <option value="expression">{% trans "Expression Input" %}</option>
+                            <option value="operations">{% trans "Operation Selection" %}</option>
+                        </select>
+                    </div>
+
+                    <!-- Expression Input -->
+                    <div id="expressionInputContainer" class="hidden mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {% trans "Enter Expression" %}
+                        </label>
+                        <input type="text" id="expressionInput" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="e.g., 2 + 3 * 4, (10 + 5) / 3">
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Supports: +, -, *, /, ^, %, parentheses" %}</p>
+                    </div>
+
+                    <!-- Operation Selection -->
+                    <div id="operationInputContainer" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Operation Type" %}
+                            </label>
+                            <select id="operationType" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <optgroup label="{% trans 'Basic Operations' %}">
+                                    <option value="add">{% trans "Addition (+)" %}</option>
+                                    <option value="subtract">{% trans "Subtraction (-)" %}</option>
+                                    <option value="multiply">{% trans "Multiplication (×)" %}</option>
+                                    <option value="divide">{% trans "Division (÷)" %}</option>
+                                    <option value="power">{% trans "Power (^)" %}</option>
+                                    <option value="modulo">{% trans "Modulo (%)" %}</option>
+                                </optgroup>
+                                <optgroup label="{% trans 'Advanced Functions' %}">
+                                    <option value="sqrt">{% trans "Square Root (√)" %}</option>
+                                    <option value="square">{% trans "Square (x²)" %}</option>
+                                    <option value="cube">{% trans "Cube (x³)" %}</option>
+                                    <option value="inverse">{% trans "Inverse (1/x)" %}</option>
+                                    <option value="percent">{% trans "Percentage (%)" %}</option>
+                                    <option value="abs">{% trans "Absolute Value" %}</option>
+                                    <option value="round">{% trans "Round" %}</option>
+                                    <option value="floor">{% trans "Floor" %}</option>
+                                    <option value="ceil">{% trans "Ceiling" %}</option>
+                                    <option value="sin">{% trans "Sine" %}</option>
+                                    <option value="cos">{% trans "Cosine" %}</option>
+                                    <option value="tan">{% trans "Tangent" %}</option>
+                                    <option value="log">{% trans "Logarithm (base 10)" %}</option>
+                                    <option value="ln">{% trans "Natural Logarithm" %}</option>
+                                    <option value="exp">{% trans "Exponential (e^x)" %}</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div id="num1Container">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "First Number" %}
+                            </label>
+                            <input type="number" id="num1" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" step="any" placeholder="Enter number">
+                        </div>
+                        <div id="num2Container">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Second Number" %}
+                            </label>
+                            <input type="number" id="num2" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" step="any" placeholder="Enter number">
+                        </div>
+                    </div>
+
+                    <!-- Calculator Keypad -->
+                    <div id="keypadContainer" class="grid grid-cols-4 gap-3 mb-4">
+                        <button type="button" class="calc-button clear" onclick="clearDisplay()">C</button>
+                        <button type="button" class="calc-button function" onclick="appendToDisplay('(')">(</button>
+                        <button type="button" class="calc-button function" onclick="appendToDisplay(')')">)</button>
+                        <button type="button" class="calc-button operator" onclick="appendToDisplay('/')">÷</button>
+                        
+                        <button type="button" class="calc-button" onclick="appendToDisplay('7')">7</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('8')">8</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('9')">9</button>
+                        <button type="button" class="calc-button operator" onclick="appendToDisplay('*')">×</button>
+                        
+                        <button type="button" class="calc-button" onclick="appendToDisplay('4')">4</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('5')">5</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('6')">6</button>
+                        <button type="button" class="calc-button operator" onclick="appendToDisplay('-')">-</button>
+                        
+                        <button type="button" class="calc-button" onclick="appendToDisplay('1')">1</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('2')">2</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('3')">3</button>
+                        <button type="button" class="calc-button operator" onclick="appendToDisplay('+')">+</button>
+                        
+                        <button type="button" class="calc-button" onclick="appendToDisplay('0')">0</button>
+                        <button type="button" class="calc-button" onclick="appendToDisplay('.')">.</button>
+                        <button type="button" class="calc-button function" onclick="appendToDisplay('%')">%</button>
+                        <button type="button" class="calc-button operator" onclick="appendToDisplay('^')">^</button>
+                        
+                        <button type="button" class="calc-button function" onclick="appendToDisplay('sqrt(')">√</button>
+                        <button type="button" class="calc-button function" onclick="appendToDisplay('abs(')">|x|</button>
+                        <button type="button" class="calc-button equals" onclick="calculateExpression()">=</button>
+                    </div>
+
+                    <!-- Calculate Button -->
+                    <button type="button" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
+                        {% trans "Calculate" %}
+                    </button>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error Display -->
+                    <div id="errorDisplay" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p class="text-red-700 font-medium" id="errorMessage"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden">
+                    <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Results" %}
+                        </h2>
+
+                        <!-- Main Result Card -->
+                        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border-2 border-blue-200">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-600 mb-2" id="operationDisplay">{% trans "Result" %}</p>
+                                <p class="text-4xl sm:text-5xl font-bold text-blue-600 mb-2" id="resultDisplay">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Calculation Details -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Calculation Details" %}</h3>
+                            <div id="calculationDetails" class="bg-gray-50 rounded-lg p-4 space-y-3">
+                                <!-- Details will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Charts -->
+                        <div id="chartsContainer" class="space-y-6 mb-6">
+                            <!-- History Chart -->
+                            <div id="historyChartContainer" class="bg-white border border-gray-200 rounded-lg p-4 hidden">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3">{% trans "Calculation History Trend" %}</h4>
+                                <div class="chart-container">
+                                    <canvas id="historyChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Distribution Chart -->
+                            <div id="distributionChartContainer" class="bg-white border border-gray-200 rounded-lg p-4 hidden">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3">{% trans "Result Distribution" %}</h4>
+                                <div class="chart-container">
+                                    <canvas id="distributionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step-by-Step Solution -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                            <div id="stepByStep" class="space-y-2">
+                                <!-- Steps will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap gap-3">
+                            <button id="clearBtn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">
+                                <i class="bi bi-x-circle mr-1"></i>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 bg-green-100 hover:bg-green-200 text-green-700 font-medium py-2 px-4 rounded-lg transition-colors">
+                                <i class="bi bi-download mr-1"></i>
+                                {% trans "Export Results (JSON)" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- How to Use -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                                <li>{% trans "Choose your input mode: Calculator Keypad, Expression Input, or Operation Selection" %}</li>
+                                <li>{% trans "Enter your numbers and select operation (or type expression)" %}</li>
+                                <li>{% trans "Click 'Calculate' to see results" %}</li>
+                                <li>{% trans "View step-by-step solutions and charts" %}</li>
+                                <li>{% trans "Use calculation history to track your calculations" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Features -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "Features" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>{% trans "Basic operations: Addition, Subtraction, Multiplication, Division" %}</li>
+                                <li>{% trans "Advanced operations: Power, Modulo, Square Root, Trigonometric functions" %}</li>
+                                <li>{% trans "Expression evaluation: Type complex expressions with parentheses" %}</li>
+                                <li>{% trans "Interactive charts showing calculation history" %}</li>
+                                <li>{% trans "Step-by-step solutions for all calculations" %}</li>
+                                <li>{% trans "Calculation history tracking" %}</li>
+                                <li>{% trans "Export results as JSON" %}</li>
+                            </ul>
+                        </div>
+
+                        <!-- Operations -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "Supported Operations" %}</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-blue-900 mb-2">{% trans "Basic Operations" %}</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>+ {% trans "Addition" %}</li>
+                                        <li>- {% trans "Subtraction" %}</li>
+                                        <li>× {% trans "Multiplication" %}</li>
+                                        <li>÷ {% trans "Division" %}</li>
+                                        <li>^ {% trans "Power" %}</li>
+                                        <li>% {% trans "Modulo" %}</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-green-900 mb-2">{% trans "Advanced Functions" %}</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>√ {% trans "Square Root" %}</li>
+                                        <li>x² {% trans "Square" %}</li>
+                                        <li>x³ {% trans "Cube" %}</li>
+                                        <li>1/x {% trans "Inverse" %}</li>
+                                        <li>sin, cos, tan {% trans "Trigonometric" %}</li>
+                                        <li>log, ln {% trans "Logarithms" %}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>{% trans "Division by zero is not allowed" %}</li>
+                                <li>{% trans "Square root requires non-negative numbers" %}</li>
+                                <li>{% trans "Logarithm requires positive numbers" %}</li>
+                                <li>{% trans "Trigonometric functions use degrees" %}</li>
+                                <li>{% trans "Expression evaluation supports parentheses for grouping" %}</li>
+                                <li>{% trans "Use % for percentage (e.g., 50% = 0.5)" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Chart instances
+    let historyChartInstance = null;
+    let distributionChartInstance = null;
+    
+    // Store current results and history
+    let currentResults = null;
+    let calculationHistory = [];
+    
+    // DOM Elements
+    const inputMode = document.getElementById('inputMode');
+    const expressionInputContainer = document.getElementById('expressionInputContainer');
+    const operationInputContainer = document.getElementById('operationInputContainer');
+    const keypadContainer = document.getElementById('keypadContainer');
+    const expressionInput = document.getElementById('expressionInput');
+    const operationType = document.getElementById('operationType');
+    const num1 = document.getElementById('num1');
+    const num2 = document.getElementById('num2');
+    const num1Container = document.getElementById('num1Container');
+    const num2Container = document.getElementById('num2Container');
+    const calcDisplay = document.getElementById('calcDisplay');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const resultsSection = document.getElementById('resultsSection');
+    const loadingState = document.getElementById('loadingState');
+    const errorDisplay = document.getElementById('errorDisplay');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    // Input mode change handler
+    inputMode.addEventListener('change', function() {
+        expressionInputContainer.classList.add('hidden');
+        operationInputContainer.classList.add('hidden');
+        keypadContainer.classList.add('hidden');
+        
+        if (this.value === 'expression') {
+            expressionInputContainer.classList.remove('hidden');
+        } else if (this.value === 'operations') {
+            operationInputContainer.classList.remove('hidden');
+            updateOperationInputs();
+        } else {
+            keypadContainer.classList.remove('hidden');
+        }
+    });
+
+    // Operation type change handler
+    operationType.addEventListener('change', updateOperationInputs);
+
+    function updateOperationInputs() {
+        const op = operationType.value;
+        const singleOperandOps = ['sqrt', 'square', 'cube', 'inverse', 'percent', 'abs', 'round', 'floor', 'ceil', 'sin', 'cos', 'tan', 'log', 'ln', 'exp'];
+        
+        if (singleOperandOps.includes(op)) {
+            num2Container.classList.add('hidden');
+        } else {
+            num2Container.classList.remove('hidden');
+        }
+    }
+
+    // Calculator display functions
+    function appendToDisplay(value) {
+        if (calcDisplay.textContent === '0') {
+            calcDisplay.textContent = value;
+        } else {
+            calcDisplay.textContent += value;
+        }
+    }
+
+    function clearDisplay() {
+        calcDisplay.textContent = '0';
+    }
+
+    function calculateExpression() {
+        const expression = calcDisplay.textContent;
+        if (expression && expression !== '0') {
+            expressionInput.value = expression;
+            inputMode.value = 'expression';
+            expressionInputContainer.classList.remove('hidden');
+            keypadContainer.classList.add('hidden');
+            performCalculation();
+        }
+    }
+
+    // Format number helper
+    function formatNumber(num) {
+        if (typeof num !== 'number' || isNaN(num) || !isFinite(num)) return 'N/A';
+        if (Math.abs(num) >= 1000000) return num.toExponential(6);
+        if (Math.abs(num) < 0.0001 && num !== 0) return num.toExponential(6);
+        return num.toLocaleString('en-US', {maximumFractionDigits: 10});
+    }
+
+    // Create charts
+    function createHistoryChart(chartData) {
+        const ctx = document.getElementById('historyChart');
+        if (!ctx || !chartData) return;
+        
+        if (historyChartInstance) {
+            historyChartInstance.destroy();
+        }
+
+        const container = document.getElementById('historyChartContainer');
+        if (container) container.classList.remove('hidden');
+
+        historyChartInstance = new Chart(ctx, {
+            type: chartData.type,
+            data: chartData.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { enabled: true }
+                },
+                scales: {
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+    }
+
+    function createDistributionChart(chartData) {
+        const ctx = document.getElementById('distributionChart');
+        if (!ctx || !chartData) return;
+        
+        if (distributionChartInstance) {
+            distributionChartInstance.destroy();
+        }
+
+        const container = document.getElementById('distributionChartContainer');
+        if (container) container.classList.remove('hidden');
+
+        distributionChartInstance = new Chart(ctx, {
+            type: chartData.type,
+            data: chartData.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { enabled: true }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+
+    // Display results
+    function displayResults(data) {
+        try {
+            if (!data || !data.success) {
+                throw new Error(data?.error || 'Invalid data received');
+            }
+
+            const displayData = data.display_data || {};
+            const result = data.result;
+
+            // Main result
+            const resultDisplay = document.getElementById('resultDisplay');
+            const operationDisplay = document.getElementById('operationDisplay');
+            if (resultDisplay) resultDisplay.textContent = formatNumber(result);
+            if (operationDisplay) operationDisplay.textContent = displayData.operation_display || 'Result';
+
+            // Calculation details
+            const calculationDetails = document.getElementById('calculationDetails');
+            if (calculationDetails && displayData.calculation_details) {
+                let html = '';
+                displayData.calculation_details.forEach((item) => {
+                    const textClass = item.is_primary ? 'font-bold text-lg text-blue-600' : 'font-medium text-gray-900';
+                    html += `
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span class="text-gray-700">${item.label}</span>
+                            <span class="${textClass}">${item.value}</span>
+                        </div>
+                    `;
+                });
+                calculationDetails.innerHTML = html;
+            }
+
+            // Step-by-step
+            const stepByStep = document.getElementById('stepByStep');
+            if (stepByStep) {
+                if (data.step_by_step_html && data.step_by_step_html.length > 0) {
+                    stepByStep.innerHTML = data.step_by_step_html.map((item) => `
+                        <div class="step-by-step">
+                            <span class="font-semibold text-blue-600">${item.content}</span>
+                        </div>
+                    `).join('');
+                } else if (data.step_by_step && data.step_by_step.length > 0) {
+                    stepByStep.innerHTML = data.step_by_step.map((step) => `
+                        <div class="step-by-step">
+                            <span class="font-semibold text-blue-600">${step}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Charts
+            const chartData = data.chart_data || {};
+            if (chartData.history_chart) createHistoryChart(chartData.history_chart);
+            if (chartData.distribution_chart) createDistributionChart(chartData.distribution_chart);
+
+            // Update history
+            if (data.history) {
+                calculationHistory = data.history;
+            }
+
+            // Store results
+            currentResults = data;
+
+            // Show results
+            resultsSection.classList.remove('hidden');
+            errorDisplay.classList.add('hidden');
+            
+            // Update display with result
+            if (result !== undefined && result !== null) {
+                calcDisplay.textContent = formatNumber(result);
+            }
+
+        } catch (error) {
+            console.error('Error displaying results:', error);
+            errorDisplay.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = error.message || 'An error occurred';
+        }
+    }
+
+    // Perform calculation
+    async function performCalculation() {
+        const mode = inputMode.value;
+        let requestData = {
+            timestamp: new Date().toISOString(),
+            history: calculationHistory
+        };
+
+        if (mode === 'expression') {
+            const expression = expressionInput.value.trim();
+            if (!expression) {
+                errorDisplay.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = 'Please enter an expression.';
+                return;
+            }
+            requestData.expression = expression;
+        } else if (mode === 'operations') {
+            const op = operationType.value;
+            const n1 = num1.value;
+            
+            if (!n1) {
+                errorDisplay.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = 'Please enter the first number.';
+                return;
+            }
+
+            requestData.operation = op;
+            requestData.num1 = parseFloat(n1);
+            
+            const singleOperandOps = ['sqrt', 'square', 'cube', 'inverse', 'percent', 'abs', 'round', 'floor', 'ceil', 'sin', 'cos', 'tan', 'log', 'ln', 'exp'];
+            if (!singleOperandOps.includes(op)) {
+                const n2 = num2.value;
+                if (!n2) {
+                    errorDisplay.classList.remove('hidden');
+                    document.getElementById('errorMessage').textContent = 'Please enter the second number.';
+                    return;
+                }
+                requestData.num2 = parseFloat(n2);
+            }
+        } else {
+            // Keypad mode - use display value as expression
+            const expression = calcDisplay.textContent;
+            if (!expression || expression === '0') {
+                errorDisplay.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = 'Please enter a calculation.';
+                return;
+            }
+            requestData.expression = expression;
+        }
+
+        loadingState.classList.remove('hidden');
+        errorDisplay.classList.add('hidden');
+        resultsSection.classList.add('hidden');
+
+        try {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            const data = await response.json();
+            loadingState.classList.add('hidden');
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorDisplay.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = data.error || 'Calculation failed';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            loadingState.classList.add('hidden');
+            errorDisplay.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = 'Network error. Please try again.';
+        }
+    }
+
+    // Event listeners
+    calculateBtn.addEventListener('click', performCalculation);
+    
+    // Enter key support
+    expressionInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performCalculation();
+    });
+    num1.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performCalculation();
+    });
+    num2.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performCalculation();
+    });
+
+    // Clear button
+    clearBtn.addEventListener('click', function() {
+        resultsSection.classList.add('hidden');
+        errorDisplay.classList.add('hidden');
+        clearDisplay();
+        expressionInput.value = '';
+        num1.value = '';
+        num2.value = '';
+    });
+
+    // Export button
+    exportBtn.addEventListener('click', function() {
+        if (!currentResults) {
+            alert('No results to export. Please calculate first.');
+            return;
+        }
+        
+        const resultsData = {
+            timestamp: new Date().toISOString(),
+            result: currentResults.result,
+            operation: currentResults.operation,
+            display_data: currentResults.display_data,
+            step_by_step: currentResults.step_by_step,
+            history: calculationHistory
+        };
+        
+        const blob = new Blob([JSON.stringify(resultsData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'basic_calculator_results.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Initialize
+    updateOperationInputs();
+</script>
+{% endblock %}

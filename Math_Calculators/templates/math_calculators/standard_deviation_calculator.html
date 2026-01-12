@@ -1,0 +1,603 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Standard Deviation Calculator - Calculate SD, Variance, Mean" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free standard deviation calculator to calculate standard deviation, variance, mean, and other statistics. Calculate sample and population standard deviation with step-by-step solutions. Perfect for statistics and data analysis." %}{% endblock %}
+{% block meta_keywords %}{% trans "standard deviation calculator, calculate standard deviation, variance calculator, statistics calculator, sample standard deviation calculator, population standard deviation calculator, SD calculator, how to calculate standard deviation, sigma calculator, standard deviation formula, variance formula, statistics tool, data analysis calculator" %}{% endblock %}
+
+{% block og_title %}{% trans "Standard Deviation Calculator - Calculate SD, Variance, Mean" %}{% endblock %}
+{% block og_description %}{% trans "Free standard deviation calculator to calculate standard deviation, variance, mean, and other statistics. Calculate sample and population standard deviation with step-by-step solutions." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Professional Standard Deviation Calculator - Calculate SD, Variance, Mean" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate standard deviation, variance, and mean with step-by-step solutions. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Professional Standard Deviation Calculator' %}",
+  "description": "{% trans 'Calculate standard deviation, variance, mean, median, and other statistics with step-by-step solutions and visualizations.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "3200"},
+  "featureList": ["{% trans 'Standard deviation calculation' %}", "{% trans 'Variance calculation' %}", "{% trans 'Mean calculation' %}", "{% trans 'Sample and population SD' %}", "{% trans 'Step-by-step solutions' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Standard Deviation Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate standard deviation, variance, mean, median, and other statistics with step-by-step solutions and visualizations." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Numbers Input -->
+                        <div>
+                            <label for="numbers" class="block text-sm font-medium text-gray-700 mb-2">
+                                <svg class="w-4 h-4 inline mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                                </svg>
+                                {% trans "Numbers" %} <span class="text-xs text-gray-500">({% trans "comma, space, or newline separated" %})</span>
+                            </label>
+                            <textarea id="numbers" 
+                                      class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                      rows="6" 
+                                      placeholder="e.g., 10, 20, 30, 40, 50&#10;or&#10;10 20 30 40 50" 
+                                      required></textarea>
+                        </div>
+
+                        <!-- Sample vs Population -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Type" %}
+                            </label>
+                            <select id="isSample" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="true">{% trans "Sample Standard Deviation" %}</option>
+                                <option value="false">{% trans "Population Standard Deviation" %}</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Sample uses (n-1), Population uses n" %}</p>
+                        </div>
+
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            {% trans "Load Example Values" %}
+                        </button>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate standard deviation' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="copyBtn" class="flex-1 text-sm py-2 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Copy" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter numbers separated by commas, spaces, or newlines to calculate standard deviation and other statistics." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Standard Deviation" %}</p>
+                            <p id="resultValue" class="text-4xl sm:text-5xl font-bold font-mono">0</p>
+                            <p id="resultType" class="text-sm sm:text-base opacity-90 mt-2"></p>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-xl shadow-lg p-4 border-2 border-blue-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Mean" %}</p>
+                                <p id="statMean" class="text-xl sm:text-2xl font-bold text-blue-600 font-mono">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 border-2 border-green-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Variance" %}</p>
+                                <p id="statVariance" class="text-xl sm:text-2xl font-bold text-green-600 font-mono">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 border-2 border-purple-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Count" %}</p>
+                                <p id="statCount" class="text-xl sm:text-2xl font-bold text-purple-600 font-mono">-</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 border-2 border-orange-200">
+                            <div class="text-center">
+                                <p class="text-xs sm:text-sm text-gray-600 mb-1">{% trans "Range" %}</p>
+                                <p id="statRange" class="text-xl sm:text-2xl font-bold text-orange-600 font-mono">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% trans "Detailed Statistics" %}
+                        </h3>
+                        <div id="detailedResults" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Histogram Chart -->
+                        <div id="histogramChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Frequency Distribution" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="histogramChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Statistics Chart -->
+                        <div id="statisticsChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Statistics Comparison" %}
+                            </h3>
+                            <div class="relative h-[300px] min-h-[300px]">
+                                <canvas id="statisticsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepByStep" class="space-y-2"></div>
+                    </div>
+
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Standard Deviation?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "Standard deviation measures the spread or dispersion of data points around the mean. A low standard deviation indicates data points are close to the mean, while a high standard deviation indicates data points are spread out." %}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Sample vs Population" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Sample Standard Deviation" %}:</strong> {% trans "Uses (n-1) in denominator. Use when data is a sample from a larger population." %}</li>
+                                <li><strong>{% trans "Population Standard Deviation" %}:</strong> {% trans "Uses n in denominator. Use when data represents the entire population." %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Formulas" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li><strong>{% trans "Sample SD" %}:</strong> s = √[Σ(x - x̄)² / (n-1)]</li>
+                                <li><strong>{% trans "Population SD" %}:</strong> σ = √[Σ(x - μ)² / n]</li>
+                                <li><strong>{% trans "Variance" %}:</strong> {% trans "Square of standard deviation" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Examples" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 1: Sample Data" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> 10, 20, 30, 40, 50</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Mean" %}:</strong> 30</p>
+                                    <p class="text-gray-700"><strong>{% trans "Sample SD" %}:</strong> ≈ 15.81</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const initialState = document.getElementById('initialState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    let histogramChart = null;
+    let statisticsChart = null;
+    let currentResultData = null;
+
+    // Examples
+    const examples = [
+        '10, 20, 30, 40, 50',
+        '5, 10, 15, 20, 25, 30, 35',
+        '12, 15, 18, 20, 22, 25, 28, 30',
+        '100, 105, 110, 115, 120'
+    ];
+    let exampleIndex = 0;
+
+    exampleBtn.addEventListener('click', function() {
+        document.getElementById('numbers').value = examples[exampleIndex];
+        exampleIndex = (exampleIndex + 1) % examples.length;
+    });
+
+    clearBtn.addEventListener('click', function() {
+        document.getElementById('numbers').value = '';
+        document.getElementById('isSample').value = 'true';
+        initialState.classList.remove('hidden');
+        results.classList.add('hidden');
+        quickActions.classList.add('hidden');
+        errorState.classList.add('hidden');
+        if (histogramChart) {
+            histogramChart.destroy();
+            histogramChart = null;
+        }
+        if (statisticsChart) {
+            statisticsChart.destroy();
+            statisticsChart = null;
+        }
+        currentResultData = null;
+    });
+
+    copyBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const text = `Standard Deviation Calculator Results\n\n` +
+                    `Type: ${currentResultData.is_sample ? 'Sample' : 'Population'}\n` +
+                    `Count: ${currentResultData.count}\n` +
+                    `Mean: ${currentResultData.mean.toFixed(6)}\n` +
+                    `Standard Deviation: ${currentResultData.stdev.toFixed(6)}\n` +
+                    `Variance: ${currentResultData.variance.toFixed(6)}\n` +
+                    `Median: ${currentResultData.median.toFixed(6)}\n` +
+                    `Min: ${currentResultData.minimum.toFixed(6)}\n` +
+                    `Max: ${currentResultData.maximum.toFixed(6)}\n` +
+                    `Range: ${currentResultData.range.toFixed(6)}`;
+
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            copyBtn.classList.add('bg-green-200', 'text-green-800');
+            copyBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            setTimeout(function() {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('bg-green-200', 'text-green-800');
+                copyBtn.classList.add('bg-blue-100', 'text-blue-700');
+            }, 2000);
+        });
+    });
+
+    exportBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const exportData = {
+            ...currentResultData,
+            timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `standard_deviation_calculator_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    function displayResults(data) {
+        currentResultData = data;
+
+        initialState.classList.add('hidden');
+        results.classList.remove('hidden');
+        quickActions.classList.remove('hidden');
+        errorState.classList.add('hidden');
+
+        // Update result card
+        document.getElementById('resultValue').textContent = data.stdev.toFixed(6);
+        document.getElementById('resultType').textContent = data.is_sample ? 'Sample Standard Deviation' : 'Population Standard Deviation';
+
+        // Update statistics cards
+        document.getElementById('statMean').textContent = data.mean.toFixed(4);
+        document.getElementById('statVariance').textContent = data.variance.toFixed(4);
+        document.getElementById('statCount').textContent = data.count;
+        document.getElementById('statRange').textContent = data.range.toFixed(4);
+
+        // Detailed results
+        const detailedResults = document.getElementById('detailedResults');
+        detailedResults.innerHTML = '';
+
+        const items = [
+            {label: 'Type', value: data.is_sample ? 'Sample' : 'Population', is_primary: true},
+            {label: 'Count (n)', value: data.count.toString()},
+            {label: 'Mean (x̄)', value: data.mean.toFixed(6), is_primary: true},
+            {label: 'Standard Deviation', value: data.stdev.toFixed(6), is_primary: true},
+            {label: 'Variance', value: data.variance.toFixed(6), is_primary: true},
+            {label: 'Median', value: data.median.toFixed(6)},
+            {label: 'Mode', value: data.mode !== null ? data.mode.toFixed(6) : 'N/A'},
+            {label: 'Minimum', value: data.minimum.toFixed(6)},
+            {label: 'Maximum', value: data.maximum.toFixed(6)},
+            {label: 'Range', value: data.range.toFixed(6)},
+            {label: 'Sum', value: data.sum.toFixed(6)},
+            {label: 'Q1 (First Quartile)', value: data.q1.toFixed(6)},
+            {label: 'Q2 (Median)', value: data.q2.toFixed(6)},
+            {label: 'Q3 (Third Quartile)', value: data.q3.toFixed(6)}
+        ];
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0';
+            const label = document.createElement('span');
+            label.className = 'text-sm font-medium text-gray-700 mb-1 sm:mb-0';
+            label.textContent = item.label + ':';
+            const value = document.createElement('span');
+            value.className = 'text-sm font-bold font-mono ' + (item.is_primary ? 'text-blue-600' : 'text-gray-900');
+            value.textContent = item.value;
+            div.appendChild(label);
+            div.appendChild(value);
+            detailedResults.appendChild(div);
+        });
+
+        // Charts
+        if (data.chart_data) {
+            // Histogram chart
+            if (data.chart_data.histogram_chart) {
+                const container = document.getElementById('histogramChartContainer');
+                container.classList.remove('hidden');
+                
+                if (histogramChart) {
+                    histogramChart.destroy();
+                }
+                
+                const ctx = document.getElementById('histogramChart');
+                histogramChart = new Chart(ctx, {
+                    type: data.chart_data.histogram_chart.type,
+                    data: data.chart_data.histogram_chart.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Statistics chart
+            if (data.chart_data.statistics_chart) {
+                const container = document.getElementById('statisticsChartContainer');
+                container.classList.remove('hidden');
+                
+                if (statisticsChart) {
+                    statisticsChart.destroy();
+                }
+                
+                const ctx = document.getElementById('statisticsChart');
+                statisticsChart = new Chart(ctx, {
+                    type: data.chart_data.statistics_chart.type,
+                    data: data.chart_data.statistics_chart.data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Step-by-step
+        const stepByStep = document.getElementById('stepByStep');
+        stepByStep.innerHTML = '';
+        data.step_by_step.forEach((step, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg text-sm text-gray-700';
+            if (step.startsWith('Step') || step.startsWith('Given')) {
+                div.classList.add('font-semibold', 'text-gray-900');
+            }
+            if (step === '') {
+                div.className = 'h-2';
+            }
+            div.textContent = step;
+            stepByStep.appendChild(div);
+        });
+
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const numbers = document.getElementById('numbers').value.trim();
+        const isSample = document.getElementById('isSample').value === 'true';
+
+        if (!numbers) {
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'Please enter at least one number.';
+            return;
+        }
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = 'Calculating...';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                numbers: numbers,
+                is_sample: isSample
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = data.error || 'An error occurred.';
+            }
+        })
+        .catch(error => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'An error occurred. Please try again.';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,501 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Day Counter - Count Days Between Dates | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free day counter to count days between dates, days since a date, days until a date, and countdown to events. Calculate with step-by-step solutions. Perfect for planning and tracking important dates." %}{% endblock %}
+{% block meta_keywords %}{% trans "day counter, count days, days between dates, days since, days until, countdown calculator, day calculator, date counter, days calculator, date difference calculator, business days calculator, calendar days calculator" %}{% endblock %}
+
+{% block og_title %}{% trans "Day Counter - Count Days Between Dates" %}{% endblock %}
+{% block og_description %}{% trans "Count days between dates, days since a date, days until a date, and countdown to events. Free online day counter with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/day-counter-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "Day Counter - Professional Day Counting Tool" %}{% endblock %}
+{% block twitter_description %}{% trans "Count days between dates and calculate countdowns. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/day-counter-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'Day Counter - Professional Day Counting Tool' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "2650"},
+  "description": "{% trans 'Free online day counter for counting days between dates, days since a date, days until a date, and countdown to events with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Day Counter" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Count days between dates, days since a date, days until a date, and create countdowns to events with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="dayCounterForm" onsubmit="calculateDays(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="between">{% trans "Days Between" %}</option>
+                                <option value="since">{% trans "Days Since" %}</option>
+                                <option value="until">{% trans "Days Until" %}</option>
+                                <option value="countdown">{% trans "Countdown" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Days Between Mode -->
+                        <div id="form-between" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Start Date" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="start_date" name="start_date" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "End Date" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="end_date" name="end_date" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+
+                        <!-- Days Since Mode -->
+                        <div id="form-since" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="past_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Past Date" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="past_date" name="past_date" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+
+                        <!-- Days Until Mode -->
+                        <div id="form-until" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="future_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Future Date" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="future_date" name="future_date" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+
+                        <!-- Countdown Mode -->
+                        <div id="form-countdown" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="event_name" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Event Name" %} <span class="text-gray-400 text-xs font-normal">({% trans "optional" %})</span>
+                                </label>
+                                <input type="text" id="event_name" name="event_name" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="{% trans 'e.g., Birthday, Wedding' %}">
+                            </div>
+                            <div>
+                                <label for="event_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Event Date" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="event_date" name="event_date" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Count Days" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+  </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Day Count Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultDetails"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="daysChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Count Days" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter dates to see the day count with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is a Day Counter?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "A day counter is a tool that calculates the number of days between dates, days since a past date, days until a future date, or creates countdowns to specific events. This calculator handles all calendar complexities including leap years, varying month lengths, and year boundaries to provide accurate day counts." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Days Between, Days Since, Days Until, or Countdown)." %}</li>
+                        <li>{% trans "Enter the required dates in the input form." %}</li>
+                        <li>{% trans "For countdown, optionally enter an event name." %}</li>
+                        <li>{% trans "Click 'Count Days' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                        <li>{% trans "Use the copy or print buttons to save your results." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Days Between" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Calculate the exact number of days between two dates. Includes breakdown into weeks, months, hours, minutes, seconds, and business days." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Days Since" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Calculate how many days have passed since a past date. Useful for tracking time elapsed since events, milestones, or important dates." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Days Until" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Calculate how many days remain until a future date. Perfect for planning, deadlines, and upcoming events." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Countdown" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Create a countdown to a specific event with an optional event name. Shows days, weeks, months, hours, and minutes until the event." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Business Days" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                        {% trans "Business days are weekdays (Monday through Friday) excluding weekends. When calculating days between dates, the calculator automatically excludes Saturdays and Sundays. Business days are commonly used in:" %}
+                    </p>
+                    <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                        <li>{% trans "Project planning and deadlines" %}</li>
+                        <li>{% trans "Shipping and delivery estimates" %}</li>
+                        <li>{% trans "Work schedules and payroll" %}</li>
+                        <li>{% trans "Legal and contract terms" %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Day Counting Methods" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Simple Subtraction:" %}</strong> {% trans "For total days, we simply subtract the start date from the end date." %}</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Relativedelta:" %}</strong> {% trans "Used for precise year, month, and day breakdowns. Accounts for varying month lengths and leap years." %}</p>
+                        <p class="text-sm text-gray-700"><strong>{% trans "Business Days:" %}</strong> {% trans "Calculated by counting weekdays (Monday-Friday) between dates, excluding weekends." %}</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "All calculations account for leap years, including February 29th." %}</li>
+                        <li>{% trans "Month lengths vary (28, 29, 30, or 31 days) and are handled correctly." %}</li>
+                        <li>{% trans "Year boundaries and month boundaries are calculated precisely." %}</li>
+                        <li>{% trans "Business days exclude weekends (Saturday and Sunday) only. Holidays are not excluded." %}</li>
+                        <li>{% trans "Dates must be between year 1 and year 9999 AD." %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'between';
+let daysChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function formatNumber(num) {
+    return num.toLocaleString('en-US');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateDays(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    
+    // Collect data based on mode
+    if (currentMode === 'between') {
+        requestData.start_date = document.getElementById('start_date').value;
+        requestData.end_date = document.getElementById('end_date').value;
+    } else if (currentMode === 'since') {
+        requestData.past_date = document.getElementById('past_date').value;
+    } else if (currentMode === 'until') {
+        requestData.future_date = document.getElementById('future_date').value;
+    } else if (currentMode === 'countdown') {
+        requestData.event_date = document.getElementById('event_date').value;
+        requestData.event_name = document.getElementById('event_name').value || '{% trans "Event" %}';
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Counting..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display
+        document.getElementById('resultValue').textContent = formatNumber(data.total_days);
+        document.getElementById('resultDetails').textContent = data.formatted;
+        
+        // Details cards
+        if (data.breakdown) {
+            let detailsHtml = '';
+            if (data.breakdown.weeks !== undefined) {
+                detailsHtml += `<div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.breakdown.weeks)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Weeks" %}</p>
+                </div>`;
+            }
+            if (data.breakdown.months !== undefined) {
+                detailsHtml += `<div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.breakdown.months)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Months" %}</p>
+                </div>`;
+            }
+            if (data.breakdown.business_days !== undefined) {
+                detailsHtml += `<div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.breakdown.business_days)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Business Days" %}</p>
+                </div>`;
+            }
+            if (data.breakdown.hours !== undefined) {
+                detailsHtml += `<div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    <p class="text-2xl font-bold text-yellow-600">${formatNumber(data.breakdown.hours)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Hours" %}</p>
+                </div>`;
+            }
+            document.getElementById('detailsSection').innerHTML = detailsHtml;
+        }
+        
+        // Chart
+        if (data.chart_data?.days_chart) {
+            const chartEl = document.getElementById('daysChart');
+            if (chartEl) {
+                if (daysChart) daysChart.destroy();
+                daysChart = new Chart(chartEl.getContext('2d'), data.chart_data.days_chart);
+            }
+        } else {
+            document.getElementById('chartsSection')?.classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && text.length < 100;
+                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
+                const isNote = /^(Note|Important|Remember)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else if (isNote) {
+                    return `<div class="mb-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-yellow-800 text-sm">${text}</p>
+                        </div>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Count Days" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start_date').value = today;
+    document.getElementById('end_date').value = today;
+    document.getElementById('past_date').value = today;
+    document.getElementById('future_date').value = today;
+    document.getElementById('event_date').value = today;
+    switchMode('between');
+});
+</script>
+{% endblock %}

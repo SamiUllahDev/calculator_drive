@@ -1,0 +1,322 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Ideal Weight Calculator" %} - {% trans "Calculate Your Ideal Body Weight" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate your ideal body weight using multiple formulas (Robinson, Miller, Devine, Hamwi). Get personalized weight recommendations." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'ideal weight calculator, ideal body weight, healthy weight, weight calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Ideal Weight Calculator' %} - {% trans 'Calculate Ideal Body Weight' %}">
+<meta property="og:description" content="{% trans 'Calculate your ideal body weight using multiple scientific formulas.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Ideal Weight Calculator' %}",
+    "description": "{% trans 'Calculate ideal body weight using multiple formulas' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Breadcrumb -->
+    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
+                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="flex-shrink-0"><a href="{% url 'fitness_and_health_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Health Calculators" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Ideal Weight Calculator" %}</li>
+            </ol>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <!-- Header -->
+        <header class="mb-6 lg:mb-8">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Ideal Weight Calculator" %}</h1>
+            <p class="text-gray-600 text-sm sm:text-base lg:text-lg max-w-3xl">{% trans "Calculate your ideal body weight using multiple scientific formulas (Robinson, Miller, Devine, Hamwi)." %}</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Calculator Form -->
+            <div class="xl:col-span-4">
+                <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Unit System -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="unit_system" value="metric" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Metric" %}</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="unit_system" value="imperial" class="mr-2">
+                                    <span class="text-sm">{% trans "Imperial" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Gender" %}</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="gender" value="male" checked class="mr-2">
+                                    <span class="text-sm">{% trans "Male" %}</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="gender" value="female" class="mr-2">
+                                    <span class="text-sm">{% trans "Female" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Height Metric -->
+                        <div id="heightMetric">
+                            <label for="height" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %} (cm)</label>
+                            <div class="relative">
+                                <input type="number" id="height" name="height" 
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="170" value="170" min="120" max="250" step="0.1" required>
+                            </div>
+                        </div>
+
+                        <!-- Height Imperial -->
+                        <div id="heightImperial" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <input type="number" id="height_ft" name="height" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-base"
+                                        placeholder="5" value="5" min="4" max="8" required>
+                                    <span class="text-xs text-gray-500">{% trans "feet" %}</span>
+                                </div>
+                                <div>
+                                    <input type="number" id="height_in" name="height_in" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-base"
+                                        placeholder="10" value="10" min="0" max="11" required>
+                                    <span class="text-xs text-gray-500">{% trans "inches" %}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Calculate Ideal Weight" %}
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Reset" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="xl:col-span-8">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Your Ideal Weight" %}</h3>
+                    <p class="text-gray-500">{% trans "Enter your height and gender, then click Calculate to see your ideal weight using multiple formulas." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white rounded-xl border border-gray-200 p-6">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                        <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-red-800 font-medium">{% trans "Error" %}</h3>
+                            <p id="errorMessage" class="text-red-600 text-sm mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsState" class="hidden space-y-6">
+                    <!-- Main Result Card -->
+                    <div class="bg-blue-600 rounded-xl p-6 text-white">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <p class="text-blue-100 text-sm font-medium mb-1">{% trans "Average Ideal Weight" %}</p>
+                                <p id="averageWeight" class="text-3xl sm:text-4xl font-bold">0 <span id="weightUnit">kg</span></p>
+                                <p class="text-blue-200 text-sm mt-1">{% trans "Based on 4 formulas" %}</p>
+                            </div>
+                            <div class="text-sm">
+                                <p class="text-blue-200">{% trans "BMI Range" %}</p>
+                                <p id="bmiRange" class="font-semibold text-lg">18.5-24.9</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formula Results -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Results by Formula" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Robinson" %} (1983)</p>
+                                <p id="robinsonWeight" class="text-xl font-bold text-gray-900">0 <span class="text-sm unit">kg</span></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Miller" %} (1983)</p>
+                                <p id="millerWeight" class="text-xl font-bold text-gray-900">0 <span class="text-sm unit">kg</span></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Devine" %} (1974)</p>
+                                <p id="devineWeight" class="text-xl font-bold text-gray-900">0 <span class="text-sm unit">kg</span></p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Hamwi" %} (1964)</p>
+                                <p id="hamwiWeight" class="text-xl font-bold text-gray-900">0 <span class="text-sm unit">kg</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BMI Range -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Healthy Weight Range (BMI 18.5-24.9)" %}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-green-50 rounded-lg p-4">
+                                <p class="text-sm font-medium text-gray-700 mb-1">{% trans "Minimum" %}</p>
+                                <p id="minWeight" class="text-2xl font-bold text-green-600">0 <span class="text-sm unit">kg</span></p>
+                                <p class="text-xs text-gray-600 mt-1">BMI 18.5</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <p class="text-sm font-medium text-gray-700 mb-1">{% trans "Maximum" %}</p>
+                                <p id="maxWeight" class="text-2xl font-bold text-blue-600">0 <span class="text-sm unit">kg</span></p>
+                                <p class="text-xs text-gray-600 mt-1">BMI 24.9</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const resultsState = document.getElementById('resultsState');
+    
+    // Unit system toggle
+    document.querySelectorAll('input[name="unit_system"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'metric') {
+                document.getElementById('heightMetric').classList.remove('hidden');
+                document.getElementById('heightImperial').classList.add('hidden');
+            } else {
+                document.getElementById('heightMetric').classList.add('hidden');
+                document.getElementById('heightImperial').classList.remove('hidden');
+            }
+        });
+    });
+    
+    function showState(state) {
+        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
+        state.classList.remove('hidden');
+    }
+    
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        document.getElementById('height').value = '170';
+        document.getElementById('height_ft').value = '5';
+        document.getElementById('height_in').value = '10';
+        showState(initialState);
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState(loadingState);
+        
+        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        const formData = {
+            unit_system: unitSystem,
+            gender: document.querySelector('input[name="gender"]:checked').value,
+            height: parseFloat(document.getElementById('height').value) || parseFloat(document.getElementById('height_ft').value),
+            height_in: unitSystem === 'imperial' ? parseFloat(document.getElementById('height_in').value) : 0
+        };
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                document.getElementById('errorMessage').textContent = data.error;
+                showState(errorState);
+                return;
+            }
+            
+            // Update results
+            const unit = data.unit;
+            document.getElementById('averageWeight').innerHTML = data.formulas.average + ' <span id="weightUnit">' + unit + '</span>';
+            document.getElementById('robinsonWeight').innerHTML = data.formulas.robinson + ' <span class="text-sm unit">' + unit + '</span>';
+            document.getElementById('millerWeight').innerHTML = data.formulas.miller + ' <span class="text-sm unit">' + unit + '</span>';
+            document.getElementById('devineWeight').innerHTML = data.formulas.devine + ' <span class="text-sm unit">' + unit + '</span>';
+            document.getElementById('hamwiWeight').innerHTML = data.formulas.hamwi + ' <span class="text-sm unit">' + unit + '</span>';
+            document.getElementById('minWeight').innerHTML = data.bmi_range.min + ' <span class="text-sm unit">' + unit + '</span>';
+            document.getElementById('maxWeight').innerHTML = data.bmi_range.max + ' <span class="text-sm unit">' + unit + '</span>';
+            
+            showState(resultsState);
+            
+            if (window.innerWidth < 1280) {
+                resultsState.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+        } catch (err) {
+            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+            showState(errorState);
+        }
+    });
+});
+</script>
+{% endblock %}

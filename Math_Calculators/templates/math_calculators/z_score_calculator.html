@@ -1,0 +1,683 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Z-Score Calculator - Calculate Z-Scores, Probabilities, Percentiles" %} | Free Online{% endblock %}
+{% block meta_description %}{% trans "Free z-score calculator to calculate z-scores, raw scores, probabilities, and percentiles with step-by-step solutions and normal distribution visualizations. Perfect for statistics and data analysis." %}{% endblock %}
+{% block meta_keywords %}{% trans "z-score calculator, calculate z score, z score calculator online, standard score calculator, normal distribution calculator, z value calculator, standard normal distribution calculator, how to calculate z score, statistics calculator, probability calculator, z score finder" %}{% endblock %}
+
+{% block og_title %}{% trans "Z-Score Calculator - Calculate Z-Scores, Probabilities, Percentiles" %}{% endblock %}
+{% block og_description %}{% trans "Free z-score calculator to calculate z-scores, raw scores, probabilities, and percentiles with step-by-step solutions and normal distribution visualizations." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+
+{% block twitter_title %}{% trans "Professional Z-Score Calculator - Calculate Z-Scores, Probabilities, Percentiles" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate z-scores, probabilities, and percentiles. Free online calculator." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "{% trans 'Professional Z-Score Calculator' %}",
+  "description": "{% trans 'Calculate z-scores, raw scores, probabilities, and percentiles with step-by-step solutions and normal distribution visualizations.' %}",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "2500"},
+  "featureList": ["{% trans 'Z-score calculation' %}", "{% trans 'Raw score calculation' %}", "{% trans 'Probability calculation' %}", "{% trans 'Percentile calculation' %}", "{% trans 'Normal distribution visualization' %}"]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Z-Score Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate z-scores, raw scores, probabilities, and percentiles with step-by-step solutions and normal distribution visualizations." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Calculator" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Mode -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Mode" %}
+                            </label>
+                            <select id="mode" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                <option value="z_score">{% trans "Calculate Z-Score" %}</option>
+                                <option value="raw_score">{% trans "Calculate Raw Score" %}</option>
+                                <option value="probability">{% trans "Calculate Probability" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Z-Score Mode -->
+                        <div id="zScoreMode" class="space-y-4">
+                            <div>
+                                <label for="z_raw_score" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Raw Score (X)" %}
+                                </label>
+                                <input type="number" id="z_raw_score" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" placeholder="e.g., 75">
+                            </div>
+                            <div>
+                                <label for="z_mean" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Mean (μ)" %}
+                                </label>
+                                <input type="number" id="z_mean" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" placeholder="e.g., 70">
+                            </div>
+                            <div>
+                                <label for="z_std_dev" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Standard Deviation (σ)" %}
+                                </label>
+                                <input type="number" id="z_std_dev" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 10">
+                            </div>
+                        </div>
+
+                        <!-- Raw Score Mode -->
+                        <div id="rawScoreMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="r_z_score" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Z-Score (z)" %}
+                                </label>
+                                <input type="number" id="r_z_score" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" placeholder="e.g., 1.5">
+                            </div>
+                            <div>
+                                <label for="r_mean" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Mean (μ)" %}
+                                </label>
+                                <input type="number" id="r_mean" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" placeholder="e.g., 70">
+                            </div>
+                            <div>
+                                <label for="r_std_dev" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Standard Deviation (σ)" %}
+                                </label>
+                                <input type="number" id="r_std_dev" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" min="0.0001" placeholder="e.g., 10">
+                            </div>
+                        </div>
+
+                        <!-- Probability Mode -->
+                        <div id="probabilityMode" class="space-y-4 hidden">
+                            <div>
+                                <label for="p_z_score" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Z-Score (z)" %}
+                                </label>
+                                <input type="number" id="p_z_score" 
+                                       class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       step="0.0001" placeholder="e.g., 1.96">
+                            </div>
+                            <div>
+                                <label for="tail_type" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Tail Type" %}
+                                </label>
+                                <select id="tail_type" class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+                                    <option value="left">{% trans "Left Tail (P(Z ≤ z))" %}</option>
+                                    <option value="right">{% trans "Right Tail (P(Z ≥ z))" %}</option>
+                                    <option value="two">{% trans "Two-Tailed (P(|Z| ≥ |z|))" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Example Values Button -->
+                        <button type="button" id="exampleBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            {% trans "Load Example Values" %}
+                        </button>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2" aria-label="{% trans 'Calculate z-score' %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="mt-4 pt-4 border-t border-gray-200 hidden">
+                        <div class="flex gap-2">
+                            <button id="clearBtn" class="flex-1 text-sm py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {% trans "Clear" %}
+                            </button>
+                            <button id="copyBtn" class="flex-1 text-sm py-2 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Copy" %}
+                            </button>
+                            <button id="exportBtn" class="flex-1 text-sm py-2 px-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Export" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select a calculation mode and enter the required values to calculate z-scores, raw scores, or probabilities." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    
+                    <!-- Main Result Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Z-Score Card -->
+                        <div id="zScoreCard" class="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-6 shadow-xl text-white">
+                            <div class="text-center">
+                                <p class="text-sm opacity-90 mb-2">{% trans "Z-Score" %}</p>
+                                <p id="zScoreValue" class="text-3xl sm:text-4xl font-bold font-mono">0</p>
+                            </div>
+                        </div>
+                        <!-- Probability Card -->
+                        <div id="probabilityCard" class="bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 rounded-xl p-6 shadow-xl text-white">
+                            <div class="text-center">
+                                <p class="text-sm opacity-90 mb-2">{% trans "Probability" %}</p>
+                                <p id="probabilityValue" class="text-3xl sm:text-4xl font-bold font-mono">0</p>
+                                <p id="probabilityPercent" class="text-sm opacity-90 mt-2"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Information -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Input Values Card -->
+                        <div id="inputValuesCard" class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hidden">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                                <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                {% trans "Input Values" %}
+                            </h3>
+                            <div id="inputValues" class="space-y-3"></div>
+                        </div>
+                        <!-- Percentile Card -->
+                        <div id="percentileCard" class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                                <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                {% trans "Percentile" %}
+                            </h3>
+                            <div id="percentileValue" class="text-3xl font-bold font-mono text-green-600">0%</div>
+                            <p class="text-sm text-gray-600 mt-2">{% trans "Percentage of values below this z-score" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Chart Container -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                            </svg>
+                            {% trans "Normal Distribution" %}
+                        </h3>
+                        <div class="relative h-[400px] min-h-[400px]">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepByStep" class="space-y-2"></div>
+                    </div>
+
+                </div>
+
+                <!-- User Guide Section -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Z-Score Formula" %}</h3>
+                            <p class="text-gray-700 text-sm mb-2">
+                                <strong>z = (X - μ) / σ</strong>
+                            </p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700 text-sm">
+                                <li><strong>z:</strong> {% trans "Z-score (standard score)" %}</li>
+                                <li><strong>X:</strong> {% trans "Raw score (observed value)" %}</li>
+                                <li><strong>μ:</strong> {% trans "Mean (average)" %}</li>
+                                <li><strong>σ:</strong> {% trans "Standard deviation" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Interpretation" %}</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "z = 0: Value equals the mean" %}</li>
+                                <li>{% trans "z > 0: Value is above the mean" %}</li>
+                                <li>{% trans "z < 0: Value is below the mean" %}</li>
+                                <li>{% trans "|z| < 1: Within 1 standard deviation (68% of data)" %}</li>
+                                <li>{% trans "|z| < 2: Within 2 standard deviations (95% of data)" %}</li>
+                                <li>{% trans "|z| < 3: Within 3 standard deviations (99.7% of data)" %}</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Examples" %}</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 1: Calculate Z-Score" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> X = 75, μ = 70, σ = 10</p>
+                                    <p class="text-gray-700"><strong>{% trans "Result" %}:</strong> z = (75 - 70) / 10 = 0.5</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-semibold text-gray-900 mb-2">{% trans "Example 2: Calculate Raw Score" %}</p>
+                                    <p class="text-gray-700 mb-1"><strong>{% trans "Input" %}:</strong> z = 1.5, μ = 70, σ = 10</p>
+                                    <p class="text-gray-700"><strong>{% trans "Result" %}:</strong> X = 70 + (1.5 × 10) = 85</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const mode = document.getElementById('mode');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const initialState = document.getElementById('initialState');
+    const results = document.getElementById('results');
+    const quickActions = document.getElementById('quickActions');
+    const exampleBtn = document.getElementById('exampleBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    let distributionChart = null;
+    let currentResultData = null;
+
+    // Examples
+    const examples = {
+        z_score: {raw_score: 75, mean: 70, std_dev: 10},
+        raw_score: {z_score: 1.5, mean: 70, std_dev: 10},
+        probability: {z_score: 1.96, tail_type: 'two'}
+    };
+
+    // Update form based on mode
+    function updateForm() {
+        const selectedMode = mode.value;
+        
+        // Hide all modes
+        document.getElementById('zScoreMode').classList.add('hidden');
+        document.getElementById('rawScoreMode').classList.add('hidden');
+        document.getElementById('probabilityMode').classList.add('hidden');
+        
+        // Show relevant mode
+        if (selectedMode === 'z_score') {
+            document.getElementById('zScoreMode').classList.remove('hidden');
+        } else if (selectedMode === 'raw_score') {
+            document.getElementById('rawScoreMode').classList.remove('hidden');
+        } else if (selectedMode === 'probability') {
+            document.getElementById('probabilityMode').classList.remove('hidden');
+        }
+    }
+
+    mode.addEventListener('change', updateForm);
+    updateForm();
+
+    exampleBtn.addEventListener('click', function() {
+        const selectedMode = mode.value;
+        const example = examples[selectedMode] || examples.z_score;
+        
+        // Clear all inputs first
+        document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+        
+        if (selectedMode === 'z_score') {
+            document.getElementById('z_raw_score').value = example.raw_score;
+            document.getElementById('z_mean').value = example.mean;
+            document.getElementById('z_std_dev').value = example.std_dev;
+        } else if (selectedMode === 'raw_score') {
+            document.getElementById('r_z_score').value = example.z_score;
+            document.getElementById('r_mean').value = example.mean;
+            document.getElementById('r_std_dev').value = example.std_dev;
+        } else if (selectedMode === 'probability') {
+            document.getElementById('p_z_score').value = example.z_score;
+            document.getElementById('tail_type').value = example.tail_type;
+        }
+    });
+
+    clearBtn.addEventListener('click', function() {
+        document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+        initialState.classList.remove('hidden');
+        results.classList.add('hidden');
+        quickActions.classList.add('hidden');
+        errorState.classList.add('hidden');
+        if (distributionChart) {
+            distributionChart.destroy();
+            distributionChart = null;
+        }
+        currentResultData = null;
+    });
+
+    copyBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const text = `Z-Score Calculator Results\n\n` +
+                    `Mode: ${currentResultData.mode}\n` +
+                    `Z-Score: ${currentResultData.z_score.toFixed(6)}\n` +
+                    `Probability: ${currentResultData.probability.toFixed(6)} (${(currentResultData.probability*100).toFixed(2)}%)\n` +
+                    `Percentile: ${currentResultData.percentile.toFixed(2)}%`;
+
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            copyBtn.classList.add('bg-green-200', 'text-green-800');
+            copyBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            setTimeout(function() {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('bg-green-200', 'text-green-800');
+                copyBtn.classList.add('bg-blue-100', 'text-blue-700');
+            }, 2000);
+        });
+    });
+
+    exportBtn.addEventListener('click', function() {
+        if (!currentResultData) return;
+
+        const exportData = {
+            ...currentResultData,
+            timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `z_score_calculator_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    function displayResults(data) {
+        currentResultData = data;
+
+        initialState.classList.add('hidden');
+        results.classList.remove('hidden');
+        quickActions.classList.remove('hidden');
+        errorState.classList.add('hidden');
+
+        // Update result cards
+        document.getElementById('zScoreValue').textContent = data.z_score.toFixed(6);
+        document.getElementById('probabilityValue').textContent = data.probability.toFixed(6);
+        document.getElementById('probabilityPercent').textContent = `(${(data.probability*100).toFixed(2)}%)`;
+        document.getElementById('percentileValue').textContent = data.percentile.toFixed(2) + '%';
+
+        // Input values
+        const inputValuesCard = document.getElementById('inputValuesCard');
+        const inputValues = document.getElementById('inputValues');
+        inputValues.innerHTML = '';
+        inputValuesCard.classList.remove('hidden');
+        
+        const inputs = [];
+        if (data.raw_score !== undefined) inputs.push({label: 'Raw Score (X)', value: data.raw_score.toFixed(6)});
+        if (data.mean !== undefined) inputs.push({label: 'Mean (μ)', value: data.mean.toFixed(6)});
+        if (data.std_dev !== undefined) inputs.push({label: 'Standard Deviation (σ)', value: data.std_dev.toFixed(6)});
+        if (data.tail_type !== undefined) {
+            const tailNames = {left: 'Left Tail', right: 'Right Tail', two: 'Two-Tailed'};
+            inputs.push({label: 'Tail Type', value: tailNames[data.tail_type] || data.tail_type});
+        }
+
+        inputs.forEach(input => {
+            const div = document.createElement('div');
+            div.className = 'flex justify-between py-2 border-b border-gray-200 last:border-b-0';
+            const label = document.createElement('span');
+            label.className = 'text-sm font-medium text-gray-700';
+            label.textContent = input.label + ':';
+            const value = document.createElement('span');
+            value.className = 'text-sm font-bold font-mono text-blue-600';
+            value.textContent = input.value;
+            div.appendChild(label);
+            div.appendChild(value);
+            inputValues.appendChild(div);
+        });
+
+        // Chart
+        if (data.chart_data && data.chart_data.distribution_chart) {
+            if (distributionChart) {
+                distributionChart.destroy();
+            }
+            
+            const ctx = document.getElementById('distributionChart');
+            const chartConfig = data.chart_data.distribution_chart;
+            
+            // Process data for Chart.js
+            const labels = chartConfig.data.labels;
+            const datasets = chartConfig.data.datasets.map(dataset => {
+                return {
+                    ...dataset,
+                    data: dataset.data.map((y, i) => ({x: parseFloat(labels[i]), y: y}))
+                };
+            });
+            
+            distributionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Z-Score'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Probability Density'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Step-by-step
+        const stepByStep = document.getElementById('stepByStep');
+        stepByStep.innerHTML = '';
+        data.step_by_step.forEach((step, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg text-sm text-gray-700';
+            if (step.startsWith('Step') || step.startsWith('Given')) {
+                div.classList.add('font-semibold', 'text-gray-900');
+            }
+            if (step === '') {
+                div.className = 'h-2';
+            }
+            div.textContent = step;
+            stepByStep.appendChild(div);
+        });
+
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const selectedMode = mode.value;
+        let requestData = {mode: selectedMode};
+
+        if (selectedMode === 'z_score') {
+            const raw_score = document.getElementById('z_raw_score').value;
+            const mean = document.getElementById('z_mean').value;
+            const std_dev = document.getElementById('z_std_dev').value;
+            if (!raw_score || !mean || !std_dev) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter all values.';
+                return;
+            }
+            requestData.raw_score = parseFloat(raw_score);
+            requestData.mean = parseFloat(mean);
+            requestData.std_dev = parseFloat(std_dev);
+        } else if (selectedMode === 'raw_score') {
+            const z_score = document.getElementById('r_z_score').value;
+            const mean = document.getElementById('r_mean').value;
+            const std_dev = document.getElementById('r_std_dev').value;
+            if (!z_score || !mean || !std_dev) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter all values.';
+                return;
+            }
+            requestData.z_score = parseFloat(z_score);
+            requestData.mean = parseFloat(mean);
+            requestData.std_dev = parseFloat(std_dev);
+        } else if (selectedMode === 'probability') {
+            const z_score = document.getElementById('p_z_score').value;
+            const tail_type = document.getElementById('tail_type').value;
+            if (!z_score) {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = 'Please enter z-score.';
+                return;
+            }
+            requestData.z_score = parseFloat(z_score);
+            requestData.tail_type = tail_type;
+        }
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = 'Calculating...';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                errorState.classList.remove('hidden');
+                errorMessage.textContent = data.error || 'An error occurred.';
+            }
+        })
+        .catch(error => {
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = 'Calculate';
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = 'An error occurred. Please try again.';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

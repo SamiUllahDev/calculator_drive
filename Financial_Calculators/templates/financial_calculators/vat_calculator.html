@@ -1,0 +1,311 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "VAT Calculator - Add or Remove VAT" %}{% endblock %}
+
+{% block meta_description %}{% trans "Calculate VAT amounts, add VAT to net prices, or remove VAT from gross prices. Supports all international VAT/GST rates." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'VAT calculator, value added tax, GST calculator, VAT remover, net to gross, tax calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'VAT Calculator' %}">
+<meta property="og:description" content="{% trans 'Add or remove VAT/GST from prices with our free calculator.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'VAT Calculator' %}",
+    "description": "{% trans 'Calculate VAT amounts and prices' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-emerald-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-emerald-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "VAT Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "VAT Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Add VAT to net prices or remove VAT from gross prices. Supports all international VAT and GST rates." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Input Form -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <form id="calculatorForm" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    <!-- Calculator Mode -->
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "What would you like to do?" %}</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" class="calc-mode-btn active p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-center transition" data-mode="add_vat">
+                                <span class="block text-2xl mb-1">➕</span>
+                                <span class="font-medium text-emerald-700">{% trans "Add VAT" %}</span>
+                                <span class="block text-xs text-emerald-600">{% trans "Net → Gross" %}</span>
+                            </button>
+                            <button type="button" class="calc-mode-btn p-4 rounded-xl border-2 border-gray-200 text-center transition hover:border-gray-300" data-mode="remove_vat">
+                                <span class="block text-2xl mb-1">➖</span>
+                                <span class="font-medium text-gray-700">{% trans "Remove VAT" %}</span>
+                                <span class="block text-xs text-gray-500">{% trans "Gross → Net" %}</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="calc_type" value="add_vat">
+                    </div>
+
+                    <!-- Amount -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="amount" id="amountLabel">{% trans "Net Amount (excluding VAT)" %}</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-3 text-gray-500 text-lg">£</span>
+                            <input type="number" id="amount" class="w-full pl-8 pr-3 py-3 text-xl border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" value="100" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <!-- VAT Rate -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="vat_rate">{% trans "VAT Rate" %}</label>
+                        <div class="relative">
+                            <input type="number" id="vat_rate" class="w-full px-3 py-3 pr-10 text-xl border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" value="20" step="0.1" min="0" max="100">
+                            <span class="absolute right-3 top-3 text-gray-500 text-lg">%</span>
+                        </div>
+                    </div>
+
+                    <!-- Quick VAT Rate Buttons -->
+                    <div>
+                        <p class="text-sm text-gray-600 mb-2">{% trans "Common rates:" %}</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" class="quick-rate px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition" data-rate="20">🇬🇧 20%</button>
+                            <button type="button" class="quick-rate px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition" data-rate="19">🇩🇪 19%</button>
+                            <button type="button" class="quick-rate px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition" data-rate="21">🇳🇱 21%</button>
+                            <button type="button" class="quick-rate px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition" data-rate="10">🇯🇵 10%</button>
+                            <button type="button" class="quick-rate px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition" data-rate="5">🇨🇦 5%</button>
+                            <button type="button" class="quick-rate px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition" data-rate="10">🇦🇺 10%</button>
+                        </div>
+                    </div>
+
+                    <!-- Calculate Button -->
+                    <button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 px-4 rounded-lg font-semibold text-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg">
+                        {% trans "Calculate" %}
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div class="space-y-6">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
+                    <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-3xl">🧮</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Ready to Calculate" %}</h3>
+                    <p class="text-gray-600">{% trans "Enter an amount and VAT rate to see the breakdown." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
+                    <div class="animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white border border-red-200 rounded-xl shadow-sm p-6">
+                    <div class="flex items-center text-red-600 mb-2">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="font-semibold">{% trans "Error" %}</span>
+                    </div>
+                    <p id="errorMessage" class="text-gray-700"></p>
+                </div>
+
+                <!-- Results -->
+                <div id="resultsState" class="hidden space-y-4">
+                    <!-- Main Result -->
+                    <div class="bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-xl p-6">
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-emerald-100 text-sm">{% trans "Net" %}</p>
+                                <p class="text-2xl font-bold" id="netResult">£0.00</p>
+                            </div>
+                            <div class="border-x border-white/30">
+                                <p class="text-emerald-100 text-sm">{% trans "VAT" %}</p>
+                                <p class="text-2xl font-bold" id="vatResult">£0.00</p>
+                            </div>
+                            <div>
+                                <p class="text-emerald-100 text-sm">{% trans "Gross" %}</p>
+                                <p class="text-2xl font-bold" id="grossResult">£0.00</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rate Display -->
+                    <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
+                        <p class="text-gray-600">{% trans "VAT Rate:" %} <span class="font-bold text-emerald-600" id="rateDisplay">20%</span></p>
+                    </div>
+
+                    <!-- Formula -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <p class="text-sm text-gray-600 font-mono" id="formulaDisplay"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VAT Rates by Country -->
+        <div class="mt-12 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "VAT/GST Rates by Country" %}</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇬🇧 UK</span><span class="text-emerald-600 font-bold">20%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇩🇪 Germany</span><span class="text-emerald-600 font-bold">19%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇫🇷 France</span><span class="text-emerald-600 font-bold">20%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇮🇹 Italy</span><span class="text-emerald-600 font-bold">22%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇪🇸 Spain</span><span class="text-emerald-600 font-bold">21%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇳🇱 Netherlands</span><span class="text-emerald-600 font-bold">21%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇸🇪 Sweden</span><span class="text-emerald-600 font-bold">25%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇨🇭 Switzerland</span><span class="text-emerald-600 font-bold">7.7%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇦🇺 Australia</span><span class="text-emerald-600 font-bold">10%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇨🇦 Canada</span><span class="text-emerald-600 font-bold">5%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇯🇵 Japan</span><span class="text-emerald-600 font-bold">10%</span></div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center"><span class="block font-medium">🇮🇳 India</span><span class="text-emerald-600 font-bold">18%</span></div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "What is VAT?" %}</h2>
+                <p class="text-sm text-gray-600 mb-3">{% trans "VAT (Value Added Tax) is a consumption tax placed on products whenever value is added at each stage of production or distribution. It's used in over 160 countries worldwide." %}</p>
+                <p class="text-sm text-gray-600">{% trans "GST (Goods and Services Tax) is similar to VAT and is used in countries like Australia, Canada, and India." %}</p>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "VAT Formulas" %}</h2>
+                <div class="space-y-2 text-sm font-mono bg-gray-50 p-3 rounded-lg">
+                    <p class="text-gray-700">{% trans "Add VAT:" %} <span class="text-emerald-600">Gross = Net × (1 + VAT%)</span></p>
+                    <p class="text-gray-700">{% trans "Remove VAT:" %} <span class="text-emerald-600">Net = Gross ÷ (1 + VAT%)</span></p>
+                    <p class="text-gray-700">{% trans "VAT Amount:" %} <span class="text-emerald-600">VAT = Gross - Net</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const modeBtns = document.querySelectorAll('.calc-mode-btn');
+    const quickBtns = document.querySelectorAll('.quick-rate');
+    
+    // Quick rate buttons
+    quickBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('vat_rate').value = this.dataset.rate;
+        });
+    });
+    
+    // Mode switching
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            modeBtns.forEach(b => {
+                b.classList.remove('active', 'border-emerald-500', 'bg-emerald-50');
+                b.classList.add('border-gray-200');
+            });
+            this.classList.add('active', 'border-emerald-500', 'bg-emerald-50');
+            this.classList.remove('border-gray-200');
+            
+            const mode = this.dataset.mode;
+            document.getElementById('calc_type').value = mode;
+            
+            // Update label
+            if (mode === 'add_vat') {
+                document.getElementById('amountLabel').textContent = 'Net Amount (excluding VAT)';
+            } else {
+                document.getElementById('amountLabel').textContent = 'Gross Amount (including VAT)';
+            }
+        });
+    });
+    
+    function formatCurrency(num) {
+        return '£' + num.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    
+    function showState(state) {
+        document.getElementById('initialState').classList.add('hidden');
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.add('hidden');
+        document.getElementById('resultsState').classList.add('hidden');
+        
+        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
+        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
+        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
+        else if (state === 'results') document.getElementById('resultsState').classList.remove('hidden');
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState('loading');
+        
+        const data = {
+            calc_type: document.getElementById('calc_type').value,
+            amount: parseFloat(document.getElementById('amount').value) || 0,
+            vat_rate: parseFloat(document.getElementById('vat_rate').value) || 0
+        };
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                displayResults(result);
+                showState('results');
+            } else {
+                document.getElementById('errorMessage').textContent = result.error || 'An error occurred';
+                showState('error');
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+            showState('error');
+        }
+    });
+    
+    function displayResults(result) {
+        document.getElementById('netResult').textContent = formatCurrency(result.net_amount);
+        document.getElementById('vatResult').textContent = formatCurrency(result.vat_amount);
+        document.getElementById('grossResult').textContent = formatCurrency(result.gross_amount);
+        document.getElementById('rateDisplay').textContent = result.vat_rate + '%';
+        document.getElementById('formulaDisplay').textContent = result.formula;
+    }
+});
+</script>
+{% endblock %}

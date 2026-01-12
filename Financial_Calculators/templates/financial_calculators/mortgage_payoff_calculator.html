@@ -1,0 +1,716 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Mortgage Payoff Calculator" %} - {% trans "Calculate Payoff Date & Savings" %}{% endblock %}
+
+{% block meta_description %}{% trans "Free mortgage payoff calculator to find when your mortgage will be paid off. See how extra payments, biweekly payments, or lump sums can save you money." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'mortgage payoff calculator, early mortgage payoff, extra payment calculator, biweekly payment savings, mortgage interest savings' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Mortgage Payoff Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate when your mortgage will be paid off and see how extra payments save money.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Mortgage Payoff Calculator' %}",
+    "description": "{% trans 'Calculate mortgage payoff date and savings with extra payments' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "{% trans 'How do extra payments save money?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'Extra payments go directly to principal, reducing the balance that accrues interest. This means you pay less interest overall and finish your loan faster.' %}"
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "{% trans 'What are biweekly payments?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'Biweekly payments mean paying half your monthly payment every two weeks. With 52 weeks per year, you make 26 half-payments (13 full payments) instead of 12.' %}"
+            }
+        }
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Breadcrumb -->
+    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
+                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="flex-shrink-0"><a href="{% url 'financial_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Financial Calculators" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Mortgage Payoff Calculator" %}</li>
+            </ol>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <!-- Header -->
+        <header class="mb-6 lg:mb-8">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Mortgage Payoff Calculator" %}</h1>
+            <p class="text-gray-600 text-sm sm:text-base lg:text-lg max-w-3xl">{% trans "Calculate how extra payments or biweekly payments can save on interest and shorten your mortgage term." %}</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Calculator Form -->
+            <div class="xl:col-span-5">
+                <!-- Mode Tabs -->
+                <div class="bg-white rounded-t-xl border border-gray-200 border-b-0">
+                    <div class="flex">
+                        <button id="tabMode1" class="mode-tab flex-1 py-3 px-4 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 text-center">
+                            {% trans "Know Remaining Term" %}
+                        </button>
+                        <button id="tabMode2" class="mode-tab active flex-1 py-3 px-4 text-sm font-medium text-blue-600 border-b-2 border-blue-600 text-center">
+                            {% trans "Don't Know Term" %}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mode 1: Know Term -->
+                <div id="formMode1" class="hidden bg-white rounded-b-xl border border-gray-200 border-t-0 p-4 sm:p-6">
+                    <p class="text-xs text-gray-500 mb-4">{% trans "Use this for new loans or loans without extra payments made." %}</p>
+                    
+                    <form id="calculatorForm1" class="space-y-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="calc_mode" value="mode1">
+                        
+                        <div>
+                            <label for="original_amount" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Original Loan Amount" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="original_amount" name="original_amount" inputmode="decimal"
+                                    class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="400,000" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="original_term" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Original Loan Term" %}</label>
+                            <select id="original_term" name="original_term" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base appearance-none bg-white bg-no-repeat bg-right pr-10"
+                                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236B7280%22 stroke-width=%222%22%3E%3Cpath d=%22M19 9l-7 7-7-7%22/%3E%3C/svg%3E'); background-size: 1.25rem;">
+                                <option value="15">15 {% trans "years" %}</option>
+                                <option value="20">20 {% trans "years" %}</option>
+                                <option value="30" selected>30 {% trans "years" %}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="interest_rate1" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Interest Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate1" name="interest_rate" inputmode="decimal"
+                                    class="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="6.5" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Remaining Term" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="number" id="remaining_years" name="remaining_years" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                        placeholder="25" min="0" max="50" required>
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "yrs" %}</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="remaining_months_input" name="remaining_months" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                        placeholder="0" min="0" max="11" value="0">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "mos" %}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Repayment Options -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Repayment Option" %}</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="repayment_option1" value="normal" class="w-4 h-4 text-blue-600" checked>
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Normal repayment" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="repayment_option1" value="extra" class="w-4 h-4 text-blue-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Extra payments" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="repayment_option1" value="biweekly" class="w-4 h-4 text-blue-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Biweekly repayment" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Extra Payment Options -->
+                        <div id="extraOptions1" class="hidden space-y-3 bg-green-50 rounded-lg p-4">
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Monthly" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="extra_monthly1" name="extra_monthly" inputmode="decimal"
+                                            class="w-full pl-5 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Yearly" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="extra_yearly1" name="extra_yearly" inputmode="decimal"
+                                            class="w-full pl-5 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "One-time" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="one_time1" name="one_time_payment" inputmode="decimal"
+                                            class="w-full pl-5 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Mode 2: Don't Know Term -->
+                <div id="formMode2" class="bg-white rounded-b-xl border border-gray-200 border-t-0 p-4 sm:p-6">
+                    <p class="text-xs text-gray-500 mb-4">{% trans "Find values in your monthly statement." %}</p>
+                    
+                    <form id="calculatorForm2" class="space-y-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="calc_mode" value="mode2">
+                        
+                        <div>
+                            <label for="remaining_balance" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Unpaid Principal Balance" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="remaining_balance" name="remaining_balance" inputmode="decimal"
+                                    class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="230,000" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="monthly_payment" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Payment" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_payment" name="monthly_payment" inputmode="decimal"
+                                    class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="1,500" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="interest_rate2" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Interest Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate2" name="interest_rate" inputmode="decimal"
+                                    class="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="6.5" required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Repayment Options -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Repayment Option" %}</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="repayment_option2" value="normal" class="w-4 h-4 text-blue-600" checked>
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Normal repayment" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="repayment_option2" value="extra" class="w-4 h-4 text-blue-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Extra payments" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="repayment_option2" value="biweekly" class="w-4 h-4 text-blue-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Biweekly repayment" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Extra Payment Options -->
+                        <div id="extraOptions2" class="hidden space-y-3 bg-green-50 rounded-lg p-4">
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Monthly" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="extra_monthly2" name="extra_monthly" inputmode="decimal"
+                                            class="w-full pl-5 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Yearly" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="extra_yearly2" name="extra_yearly" inputmode="decimal"
+                                            class="w-full pl-5 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "One-time" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="one_time2" name="one_time_payment" inputmode="decimal"
+                                            class="w-full pl-5 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="xl:col-span-7">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Your Payoff Analysis" %}</h3>
+                    <p class="text-gray-500">{% trans "Enter your mortgage details to see when you'll pay it off and how much you can save." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white rounded-xl border border-gray-200 p-6">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                        <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-red-800 font-medium">{% trans "Error" %}</h3>
+                            <p id="errorMessage" class="text-red-600 text-sm mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsState" class="hidden space-y-6">
+                    <!-- Payoff Header -->
+                    <div class="bg-blue-600 rounded-xl p-6 text-white">
+                        <h2 class="text-xl font-bold mb-1">{% trans "Payoff in" %} <span id="payoffTime" class="text-yellow-300">-</span></h2>
+                        <p class="text-blue-100 text-sm">{% trans "Your mortgage will be paid off by" %} <span id="payoffDate" class="font-semibold text-white">-</span></p>
+                    </div>
+
+                    <!-- Savings Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 border-l-4 border-l-green-500">
+                            <p class="text-sm font-medium text-gray-500 mb-1">{% trans "Interest Savings" %}</p>
+                            <p id="interestSaved" class="text-2xl font-bold text-green-600">$0</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {% trans "Original:" %} <span id="originalInterest">$0</span> → <span id="payoffInterest">$0</span>
+                            </p>
+                            <p id="interestPct" class="text-xs text-green-600 font-medium mt-1"></p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 border-l-4 border-l-purple-500">
+                            <p class="text-sm font-medium text-gray-500 mb-1">{% trans "Time Savings" %}</p>
+                            <p id="timeSaved" class="text-2xl font-bold text-purple-600">0</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {% trans "Original:" %} <span id="originalTime">-</span> → <span id="payoffTimeSmall">-</span>
+                            </p>
+                            <p id="timePct" class="text-xs text-purple-600 font-medium mt-1"></p>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Table -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Payment Comparison" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Original" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "With Payoff" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{% trans "Monthly Payment" %}</td>
+                                        <td id="tblOrigPayment" class="px-4 py-3 text-sm text-gray-600 text-right">$0</td>
+                                        <td id="tblPayoffPayment" class="px-4 py-3 text-sm text-green-600 font-medium text-right">$0</td>
+                                    </tr>
+                                    <tr class="bg-gray-50">
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{% trans "Total Payments" %}</td>
+                                        <td id="tblOrigTotal" class="px-4 py-3 text-sm text-gray-600 text-right">$0</td>
+                                        <td id="tblPayoffTotal" class="px-4 py-3 text-sm text-green-600 font-medium text-right">$0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{% trans "Total Interest" %}</td>
+                                        <td id="tblOrigInterest" class="px-4 py-3 text-sm text-gray-600 text-right">$0</td>
+                                        <td id="tblPayoffInterestAmt" class="px-4 py-3 text-sm text-green-600 font-medium text-right">$0</td>
+                                    </tr>
+                                    <tr class="bg-gray-50">
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{% trans "Payoff In" %}</td>
+                                        <td id="tblOrigTerm" class="px-4 py-3 text-sm text-gray-600 text-right">-</td>
+                                        <td id="tblPayoffTerm" class="px-4 py-3 text-sm text-green-600 font-medium text-right">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Scenarios Table -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "What If You Pay Extra?" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "Extra/Month" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Payoff Time" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Time Saved" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Interest Saved" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scenariosBody" class="divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Amortization Schedule -->
+                    <div class="bg-white rounded-xl border border-gray-200">
+                        <button id="toggleSchedule" class="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <span class="font-semibold text-gray-900">{% trans "View Amortization Schedule" %}</span>
+                            <svg id="scheduleIcon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="scheduleContainer" class="hidden border-t border-gray-200">
+                            <div class="overflow-x-auto p-4">
+                                <table class="min-w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "Date" %}</th>
+                                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Payment" %}</th>
+                                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Principal" %}</th>
+                                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Interest" %}</th>
+                                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Balance" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scheduleBody" class="divide-y divide-gray-200"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-8 lg:mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- How to Use -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {% trans "Principal and Interest" %}
+                </h2>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <p>{% trans "A mortgage payment has two parts: principal (the loan amount) and interest (the cost of borrowing)." %}</p>
+                    <ul class="space-y-2">
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0"></span>
+                            <span>{% trans "Early payments are mostly interest" %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0"></span>
+                            <span>{% trans "As your balance decreases, interest charges fall" %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0"></span>
+                            <span>{% trans "Extra payments reduce principal directly" %}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Extra Payments -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    {% trans "Extra Payments" %}
+                </h2>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <p>{% trans "Extra payments can dramatically lower your overall interest costs." %}</p>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <strong>{% trans "Example:" %}</strong> {% trans "A one-time $1,000 payment on a $200,000 loan at 5% can save $3,420 in interest and pay off 4 months early." %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQs -->
+        <div class="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                {% trans "Frequently Asked Questions" %}
+            </h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "What are biweekly payments?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "Pay half your mortgage every two weeks. With 52 weeks/year, you make 26 half-payments (13 full payments) instead of 12, paying off faster." %}</p>
+                </div>
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "Are there prepayment penalties?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "Some loans have penalties for paying off early. FHA, VA, and most federal loans prohibit prepayment penalties. Check your loan documents." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "Should I pay extra or invest instead?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "It depends on your interest rate vs potential returns, tax situation, and risk tolerance. Consider consulting a financial advisor." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Calculators -->
+        <div class="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">{% trans "Related Calculators" %}</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <a href="{% url 'financial_calculators:mortgage_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Mortgage" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:mortgage_amortization_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Amortization" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:refinance_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Refinance" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:loan_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Loan" %}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabMode1 = document.getElementById('tabMode1');
+    const tabMode2 = document.getElementById('tabMode2');
+    const formMode1 = document.getElementById('formMode1');
+    const formMode2 = document.getElementById('formMode2');
+    const form1 = document.getElementById('calculatorForm1');
+    const form2 = document.getElementById('calculatorForm2');
+    
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const resultsState = document.getElementById('resultsState');
+    
+    // Mode tabs
+    tabMode1.addEventListener('click', function() {
+        tabMode1.classList.add('text-blue-600', 'border-blue-600');
+        tabMode1.classList.remove('text-gray-500', 'border-transparent');
+        tabMode2.classList.remove('text-blue-600', 'border-blue-600');
+        tabMode2.classList.add('text-gray-500', 'border-transparent');
+        formMode1.classList.remove('hidden');
+        formMode2.classList.add('hidden');
+    });
+    
+    tabMode2.addEventListener('click', function() {
+        tabMode2.classList.add('text-blue-600', 'border-blue-600');
+        tabMode2.classList.remove('text-gray-500', 'border-transparent');
+        tabMode1.classList.remove('text-blue-600', 'border-blue-600');
+        tabMode1.classList.add('text-gray-500', 'border-transparent');
+        formMode2.classList.remove('hidden');
+        formMode1.classList.add('hidden');
+    });
+    
+    // Extra options toggles
+    document.querySelectorAll('input[name="repayment_option1"]').forEach(r => {
+        r.addEventListener('change', () => document.getElementById('extraOptions1').classList.toggle('hidden', r.value !== 'extra' || !r.checked));
+    });
+    document.querySelectorAll('input[name="repayment_option2"]').forEach(r => {
+        r.addEventListener('change', () => document.getElementById('extraOptions2').classList.toggle('hidden', r.value !== 'extra' || !r.checked));
+    });
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+    }
+    
+    function parseNumber(val) {
+        return parseFloat(String(val).replace(/[,$\s]/g, '')) || 0;
+    }
+    
+    function showState(state) {
+        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
+        state.classList.remove('hidden');
+    }
+    
+    // Toggle schedule
+    document.getElementById('toggleSchedule').addEventListener('click', function() {
+        document.getElementById('scheduleContainer').classList.toggle('hidden');
+        document.getElementById('scheduleIcon').classList.toggle('rotate-180');
+    });
+    
+    async function handleSubmit(e, formNum) {
+        e.preventDefault();
+        showState(loadingState);
+        
+        const form = formNum === 1 ? form1 : form2;
+        const repaymentOption = form.querySelector(`input[name="repayment_option${formNum}"]:checked`).value;
+        
+        const formData = {
+            calc_mode: formNum === 1 ? 'mode1' : 'mode2',
+            repayment_option: repaymentOption,
+        };
+        
+        if (formNum === 1) {
+            formData.original_amount = parseNumber(document.getElementById('original_amount').value);
+            formData.original_term = parseInt(document.getElementById('original_term').value);
+            formData.interest_rate = parseNumber(document.getElementById('interest_rate1').value);
+            formData.remaining_years = parseInt(document.getElementById('remaining_years').value) || 0;
+            formData.remaining_months = parseInt(document.getElementById('remaining_months_input').value) || 0;
+            formData.extra_monthly = parseNumber(document.getElementById('extra_monthly1').value);
+            formData.extra_yearly = parseNumber(document.getElementById('extra_yearly1').value);
+            formData.one_time_payment = parseNumber(document.getElementById('one_time1').value);
+        } else {
+            formData.remaining_balance = parseNumber(document.getElementById('remaining_balance').value);
+            formData.monthly_payment = parseNumber(document.getElementById('monthly_payment').value);
+            formData.interest_rate = parseNumber(document.getElementById('interest_rate2').value);
+            formData.extra_monthly = parseNumber(document.getElementById('extra_monthly2').value);
+            formData.extra_yearly = parseNumber(document.getElementById('extra_yearly2').value);
+            formData.one_time_payment = parseNumber(document.getElementById('one_time2').value);
+        }
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                document.getElementById('errorMessage').textContent = data.error;
+                showState(errorState);
+                return;
+            }
+            
+            // Update results
+            document.getElementById('payoffTime').textContent = data.payoff.time_string;
+            document.getElementById('payoffDate').textContent = data.payoff.payoff_date;
+            
+            document.getElementById('interestSaved').textContent = formatCurrency(data.savings.interest_saved);
+            document.getElementById('originalInterest').textContent = formatCurrency(data.original.total_interest);
+            document.getElementById('payoffInterest').textContent = formatCurrency(data.payoff.total_interest);
+            document.getElementById('interestPct').textContent = `{% trans "Pay" %} ${data.savings.interest_pct}% {% trans "less" %}`;
+            
+            document.getElementById('timeSaved').textContent = data.savings.time_saved_string;
+            document.getElementById('originalTime').textContent = data.original.time_string;
+            document.getElementById('payoffTimeSmall').textContent = data.payoff.time_string;
+            document.getElementById('timePct').textContent = `{% trans "Payoff" %} ${data.savings.time_pct}% {% trans "faster" %}`;
+            
+            document.getElementById('tblOrigPayment').textContent = formatCurrency(data.original.monthly_payment);
+            document.getElementById('tblPayoffPayment').textContent = formatCurrency(data.payoff.monthly_payment);
+            document.getElementById('tblOrigTotal').textContent = formatCurrency(data.original.total_payments);
+            document.getElementById('tblPayoffTotal').textContent = formatCurrency(data.payoff.total_payments);
+            document.getElementById('tblOrigInterest').textContent = formatCurrency(data.original.total_interest);
+            document.getElementById('tblPayoffInterestAmt').textContent = formatCurrency(data.payoff.total_interest);
+            document.getElementById('tblOrigTerm').textContent = data.original.time_string;
+            document.getElementById('tblPayoffTerm').textContent = data.payoff.time_string;
+            
+            document.getElementById('scenariosBody').innerHTML = data.scenarios.map(s => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${s.extra === 'biweekly' ? '{% trans "Biweekly" %}' : formatCurrency(s.extra)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600 text-right">${s.payoff_time}</td>
+                    <td class="px-4 py-3 text-sm text-purple-600 text-right font-medium">${s.time_saved}</td>
+                    <td class="px-4 py-3 text-sm text-green-600 text-right font-medium">${formatCurrency(s.interest_saved)}</td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('scheduleBody').innerHTML = data.schedule.map(row => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-3 py-3 text-xs text-gray-500">${row.month}</td>
+                    <td class="px-3 py-3 text-xs text-gray-900">${row.date}</td>
+                    <td class="px-3 py-3 text-xs text-gray-900 text-right">${formatCurrency(row.payment)}</td>
+                    <td class="px-3 py-3 text-xs text-green-600 text-right">${formatCurrency(row.principal + row.extra)}</td>
+                    <td class="px-3 py-3 text-xs text-red-600 text-right">${formatCurrency(row.interest)}</td>
+                    <td class="px-3 py-3 text-xs text-gray-900 text-right font-medium">${formatCurrency(row.balance)}</td>
+                </tr>
+            `).join('');
+            
+            showState(resultsState);
+            
+            if (window.innerWidth < 1280) resultsState.scrollIntoView({ behavior: 'smooth' });
+            
+        } catch (err) {
+            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred." %}';
+            showState(errorState);
+        }
+    }
+    
+    form1.addEventListener('submit', (e) => handleSubmit(e, 1));
+    form2.addEventListener('submit', (e) => handleSubmit(e, 2));
+});
+</script>
+{% endblock %}

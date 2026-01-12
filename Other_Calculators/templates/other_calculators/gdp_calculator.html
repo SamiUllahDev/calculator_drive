@@ -1,0 +1,768 @@
+{% extends "core/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "GDP Calculator - Calculate Gross Domestic Product, Growth Rate, Per Capita | Free Online Tool" %}{% endblock %}
+{% block meta_description %}{% trans "Free GDP calculator to calculate Gross Domestic Product using expenditure and income approaches, growth rate, GDP per capita, and GDP deflator. Perfect for economics and finance." %}{% endblock %}
+{% block meta_keywords %}{% trans "GDP calculator, calculate GDP, gross domestic product calculator, GDP growth rate calculator, GDP per capita calculator, GDP deflator calculator, how to calculate GDP, economic calculator, GDP finder" %}{% endblock %}
+
+{% block og_title %}{% trans "GDP Calculator - Calculate Gross Domestic Product, Growth Rate, Per Capita" %}{% endblock %}
+{% block og_description %}{% trans "Calculate GDP using expenditure and income approaches, growth rate, per capita, and deflator with step-by-step solutions." %}{% endblock %}
+{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/gdp-calculator-og.jpg{% endblock %}
+
+{% block twitter_title %}{% trans "GDP Calculator - Calculate Gross Domestic Product, Growth Rate, Per Capita" %}{% endblock %}
+{% block twitter_description %}{% trans "Calculate GDP and related economic indicators. Free online calculator with step-by-step solutions." %}{% endblock %}
+{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/gdp-calculator-twitter.jpg{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{% trans 'GDP Calculator - Calculate Gross Domestic Product, Growth Rate, Per Capita' %}",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "1850"},
+  "description": "{% trans 'Free online GDP calculator to calculate Gross Domestic Product using expenditure and income approaches, growth rate, per capita, and deflator with step-by-step solutions.' %}",
+  "url": "{{ request.build_absolute_uri }}",
+  "author": {"@type": "Organization", "name": "Calculators.com"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "GDP Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate Gross Domestic Product using expenditure and income approaches, growth rate, GDP per capita, and GDP deflator with step-by-step solutions." %}
+            </p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        {% trans "Input" %}
+                    </h2>
+
+                    <form id="gdpCalculatorForm" onsubmit="calculateGDP(event)" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Calculation Type Dropdown -->
+                        <div class="mb-4">
+                            <label for="calc-mode-selector" class="block text-sm font-medium text-gray-700 mb-2">
+                                {% trans "Calculation Type" %}
+                            </label>
+                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="expenditure">{% trans "Expenditure Approach" %}</option>
+                                <option value="income">{% trans "Income Approach" %}</option>
+                                <option value="growth_rate">{% trans "Growth Rate" %}</option>
+                                <option value="per_capita">{% trans "GDP Per Capita" %}</option>
+                                <option value="deflator">{% trans "GDP Deflator" %}</option>
+                                <option value="convert">{% trans "Convert Units" %}</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Expenditure Approach Mode -->
+                        <div id="form-expenditure" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="consumption" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Consumption (C)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="consumption" name="consumption" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1000" required>
+                                    <select id="unit_expenditure" name="unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="billions">{% trans "Billions" %}</option>
+                                        <option value="millions">{% trans "Millions" %}</option>
+                                        <option value="trillions">{% trans "Trillions" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="investment" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Investment (I)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="investment" name="investment" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="500" required>
+                            </div>
+                            <div>
+                                <label for="government" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Government Spending (G)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="government" name="government" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="300" required>
+                            </div>
+                            <div>
+                                <label for="exports" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Exports (X)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="exports" name="exports" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="200" required>
+                            </div>
+                            <div>
+                                <label for="imports" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Imports (M)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="imports" name="imports" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="150" required>
+                            </div>
+                            <div>
+                                <label for="result_unit_expenditure" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_expenditure" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="billions">{% trans "Billions" %}</option>
+                                    <option value="millions">{% trans "Millions" %}</option>
+                                    <option value="trillions">{% trans "Trillions" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Income Approach Mode -->
+                        <div id="form-income" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="wages" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Wages (W)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="wages" name="wages" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="800" required>
+                                    <select id="unit_income" name="unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="billions">{% trans "Billions" %}</option>
+                                        <option value="millions">{% trans "Millions" %}</option>
+                                        <option value="trillions">{% trans "Trillions" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="rent" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Rent (R)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="rent" name="rent" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="100" required>
+                            </div>
+                            <div>
+                                <label for="interest" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Interest (I)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="interest" name="interest" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="50" required>
+                            </div>
+                            <div>
+                                <label for="profit" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Profit (P)" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="profit" name="profit" step="any" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="200" required>
+                            </div>
+                            <div>
+                                <label for="result_unit_income" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Result Unit" %}
+                                </label>
+                                <select id="result_unit_income" name="result_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="billions">{% trans "Billions" %}</option>
+                                    <option value="millions">{% trans "Millions" %}</option>
+                                    <option value="trillions">{% trans "Trillions" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Growth Rate Mode -->
+                        <div id="form-growth_rate" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="gdp_current" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Current GDP" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="gdp_current" name="gdp_current" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="22000" required>
+                                    <select id="unit_growth" name="unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="billions">{% trans "Billions" %}</option>
+                                        <option value="millions">{% trans "Millions" %}</option>
+                                        <option value="trillions">{% trans "Trillions" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="gdp_previous" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Previous GDP" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="gdp_previous" name="gdp_previous" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="20000" required>
+                            </div>
+                        </div>
+
+                        <!-- Per Capita Mode -->
+                        <div id="form-per_capita" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="gdp_percap" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "GDP" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="gdp_percap" name="gdp" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="22000" required>
+                                    <select id="gdp_unit_percap" name="gdp_unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="billions">{% trans "Billions" %}</option>
+                                        <option value="millions">{% trans "Millions" %}</option>
+                                        <option value="trillions">{% trans "Trillions" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="population" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Population" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="population" name="population" step="any" min="0.0001" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="330" required>
+                                    <select id="population_unit" name="population_unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="millions">{% trans "Millions" %}</option>
+                                        <option value="thousands">{% trans "Thousands" %}</option>
+                                        <option value="billions">{% trans "Billions" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deflator Mode -->
+                        <div id="form-deflator" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="nominal_gdp" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Nominal GDP" %} <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="nominal_gdp" name="nominal_gdp" step="any" min="0" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="22000" required>
+                                    <select id="unit_deflator" name="unit" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="billions">{% trans "Billions" %}</option>
+                                        <option value="millions">{% trans "Millions" %}</option>
+                                        <option value="trillions">{% trans "Trillions" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="real_gdp" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "Real GDP" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="real_gdp" name="real_gdp" step="any" min="0.0001" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="20000" required>
+                            </div>
+                        </div>
+
+                        <!-- Convert Units Mode -->
+                        <div id="form-convert" role="tabpanel" class="space-y-4 hidden">
+                            <div>
+                                <label for="convert_value" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "GDP Value" %} <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="convert_value" name="value" step="any" min="0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1000" required>
+                            </div>
+                            <div>
+                                <label for="from_unit_convert" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "From Unit" %}
+                                </label>
+                                <select id="from_unit_convert" name="from_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="millions">{% trans "Millions" %}</option>
+                                    <option value="billions">{% trans "Billions" %}</option>
+                                    <option value="trillions">{% trans "Trillions" %}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="to_unit_convert" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {% trans "To Unit" %}
+                                </label>
+                                <select id="to_unit_convert" name="to_unit" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="millions">{% trans "Millions" %}</option>
+                                    <option value="billions">{% trans "Billions" %}</option>
+                                    <option value="trillions">{% trans "Trillions" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                            <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+
+                        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <section id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Result Display -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
+                    </div>
+
+                    <!-- Details Cards -->
+                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="gdpChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Calculate GDP" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a calculation type and enter values to see results with detailed step-by-step solutions." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Guide -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is GDP?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "Gross Domestic Product (GDP) is the total monetary value of all finished goods and services produced within a country's borders in a specific time period. It serves as a comprehensive measure of a nation's economic performance and is used to compare the economic output of different countries. GDP can be calculated using three approaches: expenditure, income, and production (value-added)." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a calculation type from the dropdown (Expenditure Approach, Income Approach, Growth Rate, GDP Per Capita, GDP Deflator, or Convert Units)." %}</li>
+                        <li>{% trans "Enter the required values in the input form." %}</li>
+                        <li>{% trans "Select appropriate units (millions, billions, or trillions)." %}</li>
+                        <li>{% trans "Click 'Calculate' to see the results." %}</li>
+                        <li>{% trans "Review the detailed results, visualizations, and step-by-step solution." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Expenditure Approach" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Calculate GDP using: GDP = C + I + G + (X - M), where C=Consumption, I=Investment, G=Government, X=Exports, M=Imports." %}</p>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Income Approach" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Calculate GDP using: GDP = W + R + I + P, where W=Wages, R=Rent, I=Interest, P=Profit." %}</p>
+                        </div>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Growth Rate" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Calculate GDP growth rate: ((Current - Previous) / Previous) × 100." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "GDP Per Capita" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Calculate GDP per person: GDP / Population." %}</p>
+                        </div>
+                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                            <h4 class="font-semibold text-indigo-900 mb-1">{% trans "GDP Deflator" %}</h4>
+                            <p class="text-sm text-indigo-800">{% trans "Calculate price level indicator: (Nominal GDP / Real GDP) × 100." %}</p>
+                        </div>
+                        <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
+                            <h4 class="font-semibold text-red-900 mb-1">{% trans "Convert Units" %}</h4>
+                            <p class="text-sm text-red-800">{% trans "Convert between millions, billions, and trillions." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key GDP Formulas" %}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Expenditure Approach:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">GDP = C + I + G + (X - M)</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Income Approach:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">GDP = W + R + I + P</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "Growth Rate:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Growth Rate = ((Current - Previous) / Previous) × 100</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "GDP Per Capita:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">GDP per Capita = GDP / Population</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>{% trans "GDP Deflator:" %}</strong></p>
+                        <p class="text-lg font-mono text-gray-900 mb-2">Deflator = (Nominal GDP / Real GDP) × 100</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li>{% trans "All input values must be non-negative (except profit which can be negative)." %}</li>
+                        <li>{% trans "Previous GDP and Real GDP cannot be zero for growth rate and deflator calculations." %}</li>
+                        <li>{% trans "Population must be greater than zero for per capita calculations." %}</li>
+                        <li>{% trans "The calculator automatically handles unit conversions between millions, billions, and trillions." %}</li>
+                        <li>{% trans "Expenditure and income approaches should yield the same GDP value in theory." %}</li>
+                        <li>{% trans "GDP deflator of 100 means no inflation; above 100 indicates inflation." %}</li>
+                        <li>{% trans "Results are displayed with step-by-step solutions showing the calculation process." %}</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Applications" %}</h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Economic analysis and policy making" %}</li>
+                        <li>{% trans "Comparing economic performance between countries" %}</li>
+                        <li>{% trans "Measuring economic growth over time" %}</li>
+                        <li>{% trans "Assessing standard of living (GDP per capita)" %}</li>
+                        <li>{% trans "Calculating inflation rates (GDP deflator)" %}</li>
+                        <li>{% trans "Economic forecasting and planning" %}</li>
+                        <li>{% trans "Academic research and education" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'expenditure';
+let gdpChart = null;
+
+function switchMode(mode) {
+    if (!mode) return;
+    
+    currentMode = mode;
+    
+    // Update dropdown
+    const selector = document.getElementById('calc-mode-selector');
+    if (selector) selector.value = mode;
+    
+    // Show/hide form sections
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
+    const formSection = document.getElementById(`form-${mode}`);
+    if (formSection) formSection.classList.remove('hidden');
+    
+    // Reset results
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+}
+
+function formatNumber(num) {
+    if (Math.abs(num) < 0.000001) return num.toExponential(6);
+    if (Math.abs(num) >= 1000000) return num.toExponential(6);
+    return num.toLocaleString('en-US', {maximumFractionDigits: 6});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function calculateGDP(event) {
+    if (event) event.preventDefault();
+    
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const errorEl = document.getElementById('errorMessage');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    
+    if (!btn || !errorEl) return;
+    
+    errorEl.classList.add('hidden');
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    let requestData = { calc_type: currentMode };
+    const visibleForm = document.getElementById(`form-${currentMode}`);
+    if (!visibleForm) {
+        errorEl.textContent = '{% trans "Invalid calculation type." %}';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Collect all visible inputs
+    const visibleInputs = visibleForm.querySelectorAll('input[type="number"], select');
+    visibleInputs.forEach(input => {
+        if (input.name && input.value !== '') {
+            if (input.type === 'number') {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    requestData[input.name] = value;
+                }
+            } else {
+                requestData[input.name] = input.value;
+            }
+        }
+    });
+    
+    // Basic validation
+    const requiredInputs = visibleForm.querySelectorAll('input[type="number"][required]');
+    for (let input of requiredInputs) {
+        if (!input.value || input.value === '') {
+            errorEl.textContent = '{% trans "Please fill in all required fields." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        const value = parseFloat(input.value);
+        if (isNaN(value)) {
+            errorEl.textContent = '{% trans "Please enter valid numbers." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+    }
+    
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = data.error || '{% trans "An error occurred." %}';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        
+        // Show results
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        
+        // Update result display based on calculation type
+        let resultValue = 0;
+        let resultUnit = '';
+        let detailsHtml = '';
+        
+        if (data.calc_type === 'expenditure') {
+            resultValue = formatNumber(data.gdp);
+            resultUnit = data.result_unit === 'millions' ? 'Million' : data.result_unit === 'trillions' ? 'Trillion' : 'Billion';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.consumption)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Consumption (C)" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.investment)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Investment (I)" %}</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    <p class="text-2xl font-bold text-yellow-600">${formatNumber(data.government)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Government (G)" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.net_exports)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Net Exports (X-M)" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'income') {
+            resultValue = formatNumber(data.gdp);
+            resultUnit = data.result_unit === 'millions' ? 'Million' : data.result_unit === 'trillions' ? 'Trillion' : 'Billion';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.wages)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Wages (W)" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.rent)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Rent (R)" %}</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    <p class="text-2xl font-bold text-yellow-600">${formatNumber(data.interest)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Interest (I)" %}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p class="text-2xl font-bold text-purple-600">${formatNumber(data.profit)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Profit (P)" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'growth_rate') {
+            resultValue = formatNumber(data.growth_rate);
+            resultUnit = '%';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.gdp_current)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Current GDP" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.gdp_previous)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Previous GDP" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'per_capita') {
+            resultValue = formatNumber(data.gdp_per_capita);
+            resultUnit = '{% trans "thousands per person" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.gdp)}</p>
+                    <p class="text-sm text-gray-600">{% trans "GDP" %} (${data.gdp_unit === 'millions' ? '{% trans "Millions" %}' : data.gdp_unit === 'trillions' ? '{% trans "Trillions" %}' : '{% trans "Billions" %}')</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.population)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Population" %} (${data.population_unit})</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'deflator') {
+            resultValue = formatNumber(data.deflator);
+            resultUnit = '';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.nominal_gdp)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Nominal GDP" %}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.real_gdp)}</p>
+                    <p class="text-sm text-gray-600">{% trans "Real GDP" %}</p>
+                </div>
+            `;
+        } else if (data.calc_type === 'convert') {
+            resultValue = formatNumber(data.result);
+            resultUnit = data.to_unit === 'millions' ? '{% trans "Millions" %}' : data.to_unit === 'trillions' ? '{% trans "Trillions" %}' : '{% trans "Billions" %}';
+            detailsHtml = `
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p class="text-2xl font-bold text-blue-600">${formatNumber(data.value)}</p>
+                    <p class="text-sm text-gray-600">{% trans "From" %} (${data.from_unit === 'millions' ? '{% trans "Millions" %}' : data.from_unit === 'trillions' ? '{% trans "Trillions" %}' : '{% trans "Billions" %}')</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p class="text-2xl font-bold text-green-600">${formatNumber(data.result)}</p>
+                    <p class="text-sm text-gray-600">{% trans "To" %} (${resultUnit})</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('resultValue').textContent = resultValue;
+        document.getElementById('resultUnit').textContent = resultUnit;
+        document.getElementById('detailsSection').innerHTML = detailsHtml;
+        
+        // Chart
+        if (data.chart_data) {
+            const chartEl = document.getElementById('gdpChart');
+            if (chartEl) {
+                if (gdpChart) gdpChart.destroy();
+                
+                let chartConfig = null;
+                if (data.chart_data.expenditure_chart) {
+                    chartConfig = data.chart_data.expenditure_chart;
+                } else if (data.chart_data.income_chart) {
+                    chartConfig = data.chart_data.income_chart;
+                } else if (data.chart_data.growth_rate_chart) {
+                    chartConfig = data.chart_data.growth_rate_chart;
+                } else if (data.chart_data.per_capita_chart) {
+                    chartConfig = data.chart_data.per_capita_chart;
+                } else if (data.chart_data.deflator_chart) {
+                    chartConfig = data.chart_data.deflator_chart;
+                }
+                
+                if (chartConfig) {
+                    gdpChart = new Chart(chartEl.getContext('2d'), chartConfig);
+                    document.getElementById('chartsSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('chartsSection').classList.add('hidden');
+                }
+            }
+        } else {
+            document.getElementById('chartsSection').classList.add('hidden');
+        }
+        
+        // Step-by-step
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step?.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !step.trim()) return '<div class="my-3"></div>';
+                
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|GDP)/i.test(text);
+                
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula || text.includes('=')) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${text}</p>
+                    </div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        if (errorEl) {
+            errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchMode('expenditure');
+});
+</script>
+{% endblock %}

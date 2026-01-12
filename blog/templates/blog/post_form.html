@@ -1,0 +1,225 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{% if is_create %}Create{% else %}Edit{% endif %} Post - BlueSEOTools{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<style>
+    /* Custom styles for image previews */
+    .tox-dialog__body-content .tox-form__group .tox-label + div img {
+        max-height: 400px;
+        max-width: 100%;
+    }
+    
+    /* Custom styles for the TinyMCE editor */
+    .tox-tinymce {
+        border-radius: 0.375rem;
+        border-color: #dee2e6;
+    }
+    
+    /* Image caption styles */
+    .mce-content-body figure.image {
+        margin: 1em auto;
+        text-align: center;
+    }
+    
+    .mce-content-body figure.image figcaption {
+        color: #999;
+        font-size: 0.9em;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="py-6 bg-blue-50 mb-6">
+    <div class="max-w-7xl mx-auto px-4">
+        <nav aria-label="breadcrumb" class="mb-2">
+            <ol class="flex flex-wrap gap-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600">Home</a></li>
+                <li>/</li>
+                <li><a href="{% url 'blog:post_list' %}" class="hover:text-blue-600">Blog</a></li>
+                <li>/</li>
+                <li class="text-gray-800">{% if is_create %}Create{% else %}Edit{% endif %} Post</li>
+            </ol>
+        </nav>
+        <h1 class="text-2xl font-bold">{% if is_create %}Create New Post{% else %}Edit Post: {{ form.instance.title }}{% endif %}</h1>
+    </div>
+</header>
+
+<div class="max-w-5xl mx-auto px-4 pb-10">
+    <div>
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6">
+            <div class="border-b border-gray-200 px-4 py-3 flex items-center gap-2">
+                <i class="fas fa-edit text-blue-600"></i>
+                <h2 class="text-base font-semibold m-0">Post Details</h2>
+            </div>
+            <div class="p-4">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.errors %}
+                            <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 mb-3">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                Please correct the errors below.
+                            </div>
+                        {% endif %}
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.title.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Title <span class="text-red-600">*</span></label>
+                            {{ form.title }}
+                            {% if form.title.help_text %}
+                            <p class="text-xs text-gray-600 mt-1">{{ form.title.help_text }}</p>
+                            {% endif %}
+                            {% if form.title.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.title.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="{{ form.category.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Category <span class="text-red-600">*</span></label>
+                                {{ form.category }}
+                                {% if form.category.errors %}
+                                <div class="text-red-600 text-sm mt-1">{{ form.category.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <label for="{{ form.status.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Status <span class="text-red-600">*</span></label>
+                                {{ form.status }}
+                                {% if form.status.help_text %}
+                                <p class="text-xs text-gray-600 mt-1">{{ form.status.help_text }}</p>
+                                {% endif %}
+                                {% if form.status.errors %}
+                                <div class="text-red-600 text-sm mt-1">{{ form.status.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.featured_image.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Featured Image</label>
+                            {% if form.instance.featured_image %}
+                                <div class="mb-3 text-center border border-gray-200 p-2 rounded bg-gray-50">
+                                    <img src="{{ form.instance.featured_image.url }}" alt="Current featured image" class="max-h-52 mx-auto">
+                                    <div class="mt-2">
+                                        <label class="inline-flex items-center gap-2 text-sm">
+                                            <input type="checkbox" id="remove_image" name="remove_image" class="w-4 h-4 border-gray-300 rounded"> Remove current image
+                                        </label>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            <div>
+                                {{ form.featured_image }}
+                            </div>
+                            {% if form.featured_image.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.featured_image.errors }}</div>
+                            {% endif %}
+                            <p class="text-xs text-gray-600 mt-1">Recommended size: 1200x630px (16:9 ratio)</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.excerpt.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Excerpt</label>
+                            {{ form.excerpt }}
+                            {% if form.excerpt.help_text %}
+                            <p class="text-xs text-gray-600 mt-1">{{ form.excerpt.help_text }}</p>
+                            {% endif %}
+                            {% if form.excerpt.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.excerpt.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.content.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Content <span class="text-red-600">*</span></label>
+                            <div class="rich-text-editor">{{ form.content }}</div>
+                            {% if form.content.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.content.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.published_date.id_for_label }}" class="block text-sm font-semibold text-black mb-2">Publication Date</label>
+                            <div class="flex items-stretch gap-2">
+                                {{ form.published_date }}
+                                <span class="inline-flex items-center px-3 border-2 border-gray-300 rounded-lg text-gray-600"><i class="fas fa-calendar-alt"></i></span>
+                            </div>
+                            {% if form.published_date.help_text %}
+                            <p class="text-xs text-gray-600 mt-1">{{ form.published_date.help_text }}</p>
+                            {% endif %}
+                            {% if form.published_date.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.published_date.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="flex flex-col md:flex-row justify-between gap-3">
+                            <a href="{% if form.instance.pk %}{% url 'blog:post_detail' category_slug=form.instance.category.slug slug=form.instance.slug %}{% else %}{% url 'blog:post_list' %}{% endif %}" class="border-2 border-gray-300 hover:border-black hover:bg-gray-50 rounded px-4 py-2 inline-flex items-center gap-2">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            {% if not is_create %}
+                            <div class="relative">
+                                <details class="group">
+                                    <summary class="cursor-pointer border-2 border-red-300 text-red-700 hover:bg-red-50 rounded px-4 py-2 inline-flex items-center gap-2 list-none"><i class="fas fa-trash-alt"></i> Delete</summary>
+                                    <div class="absolute right-0 mt-2 bg-white border border-gray-200 rounded shadow p-3 w-56">
+                                        <div class="text-sm font-semibold mb-2">Confirm Deletion</div>
+                                        <a class="block text-red-600 hover:text-red-700 text-sm mb-2" href="#">Yes, delete this post</a>
+                                        <button type="button" class="text-sm border-2 border-gray-300 rounded px-3 py-1 hover:border-black hover:bg-gray-50">Cancel</button>
+                                    </div>
+                                </details>
+                            </div>
+                            {% endif %}
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 inline-flex items-center gap-2">
+                                <i class="fas fa-{% if is_create %}plus-circle{% else %}save{% endif %}"></i>
+                                {% if is_create %}Create{% else %}Update{% endif %} Post
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-lightbulb text-blue-600 text-xl"></i>
+                    <div>
+                        <h5 class="font-semibold mb-2">Image Upload Tips</h5>
+                        <ul class="list-disc pl-5 text-sm text-blue-900 m-0">
+                            <li>You can upload images directly in the editor using the image button</li>
+                            <li>For best results, resize large images before uploading</li>
+                            <li>Add captions to images by clicking on them in the editor</li>
+                            <li>Maximum image size: 5MB</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Select2 for the category dropdown (default theme)
+        $('#{{ form.category.id_for_label }}').select2({
+            placeholder: "Select a category",
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // Optional: show selected filename next to input if needed
+        const fileInput = document.getElementById('{{ form.featured_image.id_for_label }}');
+        const filenameNote = document.createElement('div');
+        filenameNote.className = 'text-xs text-gray-600 mt-1';
+        fileInput?.parentNode?.appendChild(filenameNote);
+        fileInput?.addEventListener('change', function() {
+            filenameNote.textContent = this.files[0]?.name || '';
+        });
+    });
+</script>
+{{ form.media }}
+{% endblock %} 

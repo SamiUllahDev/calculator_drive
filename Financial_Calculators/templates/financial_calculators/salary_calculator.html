@@ -1,0 +1,613 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Salary Calculator - Convert Hourly, Monthly, Annual Pay" %}{% endblock %}
+
+{% block meta_description %}{% trans "Convert your salary between hourly, weekly, monthly, and annual amounts. Calculate raises, compare job offers, and compute overtime pay." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'salary calculator, hourly to annual, wage calculator, pay converter, overtime calculator, salary comparison' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Salary Calculator' %}">
+<meta property="og:description" content="{% trans 'Convert salary between hourly, monthly, and annual amounts. Compare offers and calculate raises.' %}">
+<meta property="og:type" content="website">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Salary Calculator' %}",
+    "description": "{% trans 'Convert salary and wage amounts between different pay periods' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/finance/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'Salary Calculator' %}", "item": "/finance/salary-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Salary Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Salary Calculator" %}</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Convert your salary between hourly, weekly, monthly, and annual amounts. Calculate raises, compare job offers, and compute overtime pay." %}</p>
+        </div>
+
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6 sticky top-4">
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Calculator Mode Tabs -->
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Calculator Mode" %}</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" class="calc-mode-btn active px-3 py-2 text-sm rounded-lg border-2 border-blue-600 bg-blue-50 text-blue-600 font-medium" data-mode="convert">{% trans "Convert" %}</button>
+                                <button type="button" class="calc-mode-btn px-3 py-2 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="raise">{% trans "Raise" %}</button>
+                                <button type="button" class="calc-mode-btn px-3 py-2 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="compare">{% trans "Compare" %}</button>
+                                <button type="button" class="calc-mode-btn px-3 py-2 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="overtime">{% trans "Overtime" %}</button>
+                            </div>
+                            <input type="hidden" id="calc_type" value="convert">
+                        </div>
+
+                        <!-- Convert Fields -->
+                        <div id="convertFields" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="amount">{% trans "Amount" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="amount" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="50,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="period">{% trans "Pay Period" %}</label>
+                                <select id="period" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                    <option value="hourly">{% trans "Hourly" %}</option>
+                                    <option value="daily">{% trans "Daily" %}</option>
+                                    <option value="weekly">{% trans "Weekly" %}</option>
+                                    <option value="biweekly">{% trans "Bi-weekly" %}</option>
+                                    <option value="semimonthly">{% trans "Semi-monthly" %}</option>
+                                    <option value="monthly">{% trans "Monthly" %}</option>
+                                    <option value="annual" selected>{% trans "Annual" %}</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="hours_per_week">{% trans "Hours/Week" %}</label>
+                                    <input type="number" id="hours_per_week" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="40" min="1" max="168">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="weeks_per_year">{% trans "Weeks/Year" %}</label>
+                                    <input type="number" id="weeks_per_year" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="52" min="1" max="52">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Raise Fields -->
+                        <div id="raiseFields" class="hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="current_salary">{% trans "Current Annual Salary" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="text" id="current_salary" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="50,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Raise Type" %}</label>
+                                <div class="flex space-x-4">
+                                    <label class="flex items-center">
+                                        <input type="radio" name="raise_type" value="percentage" class="h-4 w-4 text-blue-600" checked>
+                                        <span class="ml-2 text-sm text-gray-700">{% trans "Percentage" %}</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="raise_type" value="amount" class="h-4 w-4 text-blue-600">
+                                        <span class="ml-2 text-sm text-gray-700">{% trans "Amount" %}</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="raise_value">{% trans "Raise Value" %}</label>
+                                <div class="relative">
+                                    <input type="number" id="raise_value" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="5" step="0.1">
+                                    <span id="raiseSymbol" class="absolute right-3 top-2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Compare Fields -->
+                        <div id="compareFields" class="hidden space-y-4">
+                            <div class="p-3 bg-blue-50 rounded-lg">
+                                <h4 class="font-medium text-blue-800 text-sm mb-2">{% trans "Offer 1" %}</h4>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="offer1_salary" class="w-full pl-6 pr-2 py-2 text-sm border border-gray-300 rounded-md" value="60,000">
+                                    </div>
+                                    <select id="offer1_period" class="text-sm px-2 py-2 border border-gray-300 rounded-md bg-white">
+                                        <option value="annual" selected>{% trans "Annual" %}</option>
+                                        <option value="hourly">{% trans "Hourly" %}</option>
+                                        <option value="monthly">{% trans "Monthly" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-lg">
+                                <h4 class="font-medium text-green-800 text-sm mb-2">{% trans "Offer 2" %}</h4>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="relative">
+                                        <span class="absolute left-2 top-2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="offer2_salary" class="w-full pl-6 pr-2 py-2 text-sm border border-gray-300 rounded-md" value="55,000">
+                                    </div>
+                                    <select id="offer2_period" class="text-sm px-2 py-2 border border-gray-300 rounded-md bg-white">
+                                        <option value="annual" selected>{% trans "Annual" %}</option>
+                                        <option value="hourly">{% trans "Hourly" %}</option>
+                                        <option value="monthly">{% trans "Monthly" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Overtime Fields -->
+                        <div id="overtimeFields" class="hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="hourly_rate">{% trans "Hourly Rate" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="number" id="hourly_rate" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="25" step="0.01">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="regular_hours">{% trans "Regular Hours" %}</label>
+                                    <input type="number" id="regular_hours" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="40">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="overtime_hours">{% trans "OT Hours" %}</label>
+                                    <input type="number" id="overtime_hours" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="10">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="overtime_multiplier">{% trans "OT Multiplier" %}</label>
+                                <select id="overtime_multiplier" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white">
+                                    <option value="1.5" selected>{% trans "1.5x (Time and a half)" %}</option>
+                                    <option value="2">{% trans "2x (Double time)" %}</option>
+                                    <option value="1.25">{% trans "1.25x" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Button -->
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition focus:ring-4 focus:ring-blue-200">
+                            {% trans "Calculate" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-8">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Enter Your Salary Information" %}</h3>
+                    <p class="text-gray-600">{% trans "Select a calculator mode and enter your details to see conversions and calculations." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div class="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white border border-red-200 rounded-lg p-6">
+                    <div class="flex items-center text-red-600 mb-2">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="font-semibold">{% trans "Error" %}</span>
+                    </div>
+                    <p id="errorMessage" class="text-gray-700"></p>
+                </div>
+
+                <!-- Convert Results -->
+                <div id="convertResults" class="hidden space-y-6">
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Salary Conversions" %}</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="p-4 bg-blue-50 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Hourly" %}</p>
+                                <p class="text-xl font-bold text-blue-600" id="hourlyResult">$0</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Daily" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="dailyResult">$0</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Weekly" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="weeklyResult">$0</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Bi-weekly" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="biweeklyResult">$0</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Semi-monthly" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="semimonthlyResult">$0</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Monthly" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="monthlyResult">$0</p>
+                            </div>
+                            <div class="p-4 bg-green-50 rounded-lg text-center col-span-2">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Annual" %}</p>
+                                <p class="text-2xl font-bold text-green-600" id="annualResult">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raise Results -->
+                <div id="raiseResults" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg p-6">
+                            <p class="text-gray-200 text-sm mb-1">{% trans "Current Salary" %}</p>
+                            <p class="text-3xl font-bold" id="currentSalaryResult">$0</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-lg p-6">
+                            <p class="text-green-100 text-sm mb-1">{% trans "New Salary" %}</p>
+                            <p class="text-3xl font-bold" id="newSalaryResult">$0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Raise Details" %}</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Raise Amount" %}</p>
+                                <p class="text-xl font-bold text-green-600" id="raiseAmountResult">$0</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Percentage" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="raisePercentResult">0%</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Monthly Increase" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="monthlyIncreaseResult">$0</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Per Paycheck" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="paycheckIncreaseResult">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compare Results -->
+                <div id="compareResults" class="hidden space-y-6">
+                    <div class="bg-white border-2 rounded-lg p-6" id="winnerCard">
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 mb-2">{% trans "Better Offer" %}</p>
+                            <p class="text-3xl font-bold" id="betterOffer">-</p>
+                            <p class="text-lg mt-2" id="differenceAmount">$0 {% trans "more per year" %}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                            <h4 class="font-semibold text-blue-800 mb-3">{% trans "Offer 1" %}</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Annual:" %}</span><span class="font-bold" id="offer1Annual">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Monthly:" %}</span><span id="offer1Monthly">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Hourly:" %}</span><span id="offer1Hourly">$0</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                            <h4 class="font-semibold text-green-800 mb-3">{% trans "Offer 2" %}</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Annual:" %}</span><span class="font-bold" id="offer2Annual">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Monthly:" %}</span><span id="offer2Monthly">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Hourly:" %}</span><span id="offer2Hourly">$0</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overtime Results -->
+                <div id="overtimeResults" class="hidden space-y-6">
+                    <div class="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-lg p-6 text-center">
+                        <p class="text-green-100 text-sm mb-1">{% trans "Total Weekly Pay" %}</p>
+                        <p class="text-4xl font-bold" id="totalWeeklyPay">$0</p>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">{% trans "Pay Breakdown" %}</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Regular Pay" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="regularPay">$0</p>
+                            </div>
+                            <div class="text-center p-3 bg-yellow-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Overtime Pay" %}</p>
+                                <p class="text-xl font-bold text-yellow-600" id="overtimePay">$0</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "OT Rate" %}</p>
+                                <p class="text-xl font-bold text-gray-900" id="overtimeRate">$0/hr</p>
+                            </div>
+                            <div class="text-center p-3 bg-blue-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">{% trans "Monthly (est.)" %}</p>
+                                <p class="text-xl font-bold text-blue-600" id="monthlyProjection">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Salary Conversion Reference" %}</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left">{% trans "If you earn..." %}</th>
+                                <th class="px-3 py-2 text-right">{% trans "Annual Equivalent" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr><td class="px-3 py-2">$15/hour</td><td class="px-3 py-2 text-right">$31,200</td></tr>
+                            <tr class="bg-gray-50"><td class="px-3 py-2">$20/hour</td><td class="px-3 py-2 text-right">$41,600</td></tr>
+                            <tr><td class="px-3 py-2">$25/hour</td><td class="px-3 py-2 text-right">$52,000</td></tr>
+                            <tr class="bg-gray-50"><td class="px-3 py-2">$30/hour</td><td class="px-3 py-2 text-right">$62,400</td></tr>
+                            <tr><td class="px-3 py-2">$50/hour</td><td class="px-3 py-2 text-right">$104,000</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">{% trans "Based on 40 hours/week, 52 weeks/year" %}</p>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Understanding Overtime Pay" %}</h2>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <p>{% trans "Under the FLSA, non-exempt employees must receive overtime pay for hours worked over 40 in a workweek at a rate not less than 1.5 times their regular pay rate." %}</p>
+                    <div class="p-3 bg-yellow-50 rounded-lg">
+                        <p class="font-medium text-yellow-800">{% trans "Example:" %}</p>
+                        <p class="text-yellow-700">{% trans "If your regular rate is $20/hour, your overtime rate is $30/hour (1.5x)." %}</p>
+                    </div>
+                    <p>{% trans "Some states have additional overtime requirements, such as daily overtime or double-time on holidays." %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const modeBtns = document.querySelectorAll('.calc-mode-btn');
+    
+    // Mode switching
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            modeBtns.forEach(b => {
+                b.classList.remove('active', 'border-blue-600', 'bg-blue-50', 'text-blue-600');
+                b.classList.add('border-gray-200', 'text-gray-600');
+            });
+            this.classList.add('active', 'border-blue-600', 'bg-blue-50', 'text-blue-600');
+            this.classList.remove('border-gray-200', 'text-gray-600');
+            
+            const mode = this.dataset.mode;
+            document.getElementById('calc_type').value = mode;
+            
+            // Show/hide fields
+            document.getElementById('convertFields').classList.toggle('hidden', mode !== 'convert');
+            document.getElementById('raiseFields').classList.toggle('hidden', mode !== 'raise');
+            document.getElementById('compareFields').classList.toggle('hidden', mode !== 'compare');
+            document.getElementById('overtimeFields').classList.toggle('hidden', mode !== 'overtime');
+        });
+    });
+    
+    // Raise type toggle
+    document.querySelectorAll('input[name="raise_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('raiseSymbol').textContent = this.value === 'percentage' ? '%' : '$';
+        });
+    });
+    
+    // Format currency inputs
+    const currencyInputs = ['amount', 'current_salary', 'offer1_salary', 'offer2_salary'];
+    currencyInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('blur', function() {
+                const value = parseFloat(this.value.replace(/[^0-9.-]/g, ''));
+                if (!isNaN(value)) {
+                    this.value = value.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
+            });
+        }
+    });
+    
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }).format(num);
+    }
+    
+    function parseNumber(str) {
+        return parseFloat(str.toString().replace(/[^0-9.-]/g, '')) || 0;
+    }
+    
+    function showState(state) {
+        document.getElementById('initialState').classList.add('hidden');
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.add('hidden');
+        document.getElementById('convertResults').classList.add('hidden');
+        document.getElementById('raiseResults').classList.add('hidden');
+        document.getElementById('compareResults').classList.add('hidden');
+        document.getElementById('overtimeResults').classList.add('hidden');
+        
+        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
+        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
+        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
+        else if (state === 'convert') document.getElementById('convertResults').classList.remove('hidden');
+        else if (state === 'raise') document.getElementById('raiseResults').classList.remove('hidden');
+        else if (state === 'compare') document.getElementById('compareResults').classList.remove('hidden');
+        else if (state === 'overtime') document.getElementById('overtimeResults').classList.remove('hidden');
+    }
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState('loading');
+        
+        const calcType = document.getElementById('calc_type').value;
+        const data = {
+            calc_type: calcType,
+            amount: parseNumber(document.getElementById('amount').value),
+            period: document.getElementById('period').value,
+            hours_per_week: parseFloat(document.getElementById('hours_per_week').value) || 40,
+            weeks_per_year: parseFloat(document.getElementById('weeks_per_year').value) || 52,
+            current_salary: parseNumber(document.getElementById('current_salary').value),
+            raise_type: document.querySelector('input[name="raise_type"]:checked')?.value || 'percentage',
+            raise_value: parseFloat(document.getElementById('raise_value').value) || 0,
+            offer1_salary: parseNumber(document.getElementById('offer1_salary').value),
+            offer1_period: document.getElementById('offer1_period').value,
+            offer2_salary: parseNumber(document.getElementById('offer2_salary').value),
+            offer2_period: document.getElementById('offer2_period').value,
+            hourly_rate: parseFloat(document.getElementById('hourly_rate').value) || 0,
+            regular_hours: parseFloat(document.getElementById('regular_hours').value) || 40,
+            overtime_hours: parseFloat(document.getElementById('overtime_hours').value) || 0,
+            overtime_multiplier: parseFloat(document.getElementById('overtime_multiplier').value) || 1.5
+        };
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (calcType === 'convert') {
+                    displayConvertResults(result);
+                    showState('convert');
+                } else if (calcType === 'raise') {
+                    displayRaiseResults(result);
+                    showState('raise');
+                } else if (calcType === 'compare') {
+                    displayCompareResults(result);
+                    showState('compare');
+                } else if (calcType === 'overtime') {
+                    displayOvertimeResults(result);
+                    showState('overtime');
+                }
+            } else {
+                document.getElementById('errorMessage').textContent = result.error || 'An error occurred';
+                showState('error');
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+            showState('error');
+        }
+    });
+    
+    function displayConvertResults(result) {
+        const conv = result.conversions;
+        document.getElementById('hourlyResult').textContent = formatCurrency(conv.hourly);
+        document.getElementById('dailyResult').textContent = formatCurrency(conv.daily);
+        document.getElementById('weeklyResult').textContent = formatCurrency(conv.weekly);
+        document.getElementById('biweeklyResult').textContent = formatCurrency(conv.biweekly);
+        document.getElementById('semimonthlyResult').textContent = formatCurrency(conv.semimonthly);
+        document.getElementById('monthlyResult').textContent = formatCurrency(conv.monthly);
+        document.getElementById('annualResult').textContent = formatCurrency(conv.annual);
+    }
+    
+    function displayRaiseResults(result) {
+        document.getElementById('currentSalaryResult').textContent = formatCurrency(result.current_salary);
+        document.getElementById('newSalaryResult').textContent = formatCurrency(result.new_salary);
+        document.getElementById('raiseAmountResult').textContent = formatCurrency(result.raise_amount);
+        document.getElementById('raisePercentResult').textContent = result.percentage_increase.toFixed(1) + '%';
+        document.getElementById('monthlyIncreaseResult').textContent = formatCurrency(result.monthly_increase);
+        document.getElementById('paycheckIncreaseResult').textContent = formatCurrency(result.biweekly_increase);
+    }
+    
+    function displayCompareResults(result) {
+        const comp = result.comparison;
+        const winnerCard = document.getElementById('winnerCard');
+        
+        if (comp.better_offer === 'Offer 1') {
+            winnerCard.className = 'bg-blue-50 border-2 border-blue-300 rounded-lg p-6';
+            document.getElementById('betterOffer').className = 'text-3xl font-bold text-blue-600';
+        } else if (comp.better_offer === 'Offer 2') {
+            winnerCard.className = 'bg-green-50 border-2 border-green-300 rounded-lg p-6';
+            document.getElementById('betterOffer').className = 'text-3xl font-bold text-green-600';
+        } else {
+            winnerCard.className = 'bg-gray-50 border-2 border-gray-300 rounded-lg p-6';
+            document.getElementById('betterOffer').className = 'text-3xl font-bold text-gray-600';
+        }
+        
+        document.getElementById('betterOffer').textContent = comp.better_offer;
+        document.getElementById('differenceAmount').textContent = formatCurrency(Math.abs(comp.difference)) + ' more per year';
+        
+        document.getElementById('offer1Annual').textContent = formatCurrency(result.offer1.annual);
+        document.getElementById('offer1Monthly').textContent = formatCurrency(result.offer1.monthly);
+        document.getElementById('offer1Hourly').textContent = formatCurrency(result.offer1.hourly);
+        
+        document.getElementById('offer2Annual').textContent = formatCurrency(result.offer2.annual);
+        document.getElementById('offer2Monthly').textContent = formatCurrency(result.offer2.monthly);
+        document.getElementById('offer2Hourly').textContent = formatCurrency(result.offer2.hourly);
+    }
+    
+    function displayOvertimeResults(result) {
+        document.getElementById('totalWeeklyPay').textContent = formatCurrency(result.total_weekly_pay);
+        document.getElementById('regularPay').textContent = formatCurrency(result.regular_pay);
+        document.getElementById('overtimePay').textContent = formatCurrency(result.overtime_pay);
+        document.getElementById('overtimeRate').textContent = formatCurrency(result.overtime_rate) + '/hr';
+        document.getElementById('monthlyProjection').textContent = formatCurrency(result.projections.monthly);
+    }
+});
+</script>
+{% endblock %}

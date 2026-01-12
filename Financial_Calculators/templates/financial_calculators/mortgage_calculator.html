@@ -1,0 +1,786 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Mortgage Calculator" %} - {% trans "Free Home Loan Payment Calculator" %}{% endblock %}
+
+{% block meta_description %}{% trans "Free mortgage calculator to estimate monthly payments, total interest, and amortization schedule. Calculate home loan costs including property tax, insurance, PMI, and HOA fees." %}{% endblock %}
+
+{% block extra_head %}
+<meta name="keywords" content="{% trans 'mortgage calculator, home loan calculator, monthly payment calculator, amortization schedule, PMI calculator, property tax calculator, PITI calculator' %}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+
+<meta property="og:title" content="{% trans 'Mortgage Calculator' %} - {% trans 'Calculate Home Loan Payments' %}">
+<meta property="og:description" content="{% trans 'Calculate monthly mortgage payments with taxes, insurance, and PMI. View amortization schedule and see how extra payments save money.' %}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{% trans 'Mortgage Calculator' %}">
+<meta name="twitter:description" content="{% trans 'Free mortgage payment calculator with amortization schedule.' %}">
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Mortgage Calculator' %}",
+    "description": "{% trans 'Calculate monthly mortgage payments with taxes, insurance, and PMI' %}",
+    "url": "{{ request.build_absolute_uri }}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "All",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "{% trans 'What is included in a monthly mortgage payment?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'A monthly mortgage payment typically includes Principal (loan amount), Interest, Property Taxes, Homeowners Insurance (PITI), and sometimes PMI and HOA fees.' %}"
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "{% trans 'What is PMI and when is it required?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'Private Mortgage Insurance (PMI) is typically required when your down payment is less than 20% of the home price. PMI protects the lender if you default on the loan.' %}"
+            }
+        },
+        {
+            "@type": "Question",
+            "name": "{% trans 'How can I lower my monthly mortgage payment?' %}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans 'You can lower your payment by: making a larger down payment, choosing a longer loan term, shopping for lower interest rates, or buying a less expensive home.' %}"
+            }
+        }
+    ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Breadcrumb -->
+    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
+                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="flex-shrink-0"><a href="{% url 'financial_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Financial Calculators" %}</a></li>
+                <li class="text-gray-400 flex-shrink-0">/</li>
+                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Mortgage Calculator" %}</li>
+            </ol>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <!-- Header -->
+        <header class="mb-6 lg:mb-8">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Mortgage Calculator" %}</h1>
+            <p class="text-gray-600 text-sm sm:text-base lg:text-lg max-w-3xl">{% trans "Calculate your monthly mortgage payment including principal, interest, taxes, insurance, and PMI." %}</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Calculator Form -->
+            <div class="xl:col-span-4">
+                <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        {% trans "Loan Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <!-- Home Price -->
+                        <div>
+                            <label for="home_price" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Home Price" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="home_price" name="home_price" inputmode="decimal"
+                                    class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="400,000" value="400,000" required
+                                    aria-label="{% trans 'Home Price in dollars' %}">
+                            </div>
+                        </div>
+
+                        <!-- Down Payment -->
+                        <div>
+                            <label for="down_payment" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Down Payment" %}</label>
+                            <div class="flex gap-2">
+                                <div class="relative flex-1">
+                                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="down_payment" name="down_payment" inputmode="decimal"
+                                        class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                        placeholder="80,000" value="80,000"
+                                        aria-label="{% trans 'Down payment amount' %}">
+                                </div>
+                                <div class="relative w-24">
+                                    <input type="number" id="down_payment_pct" name="down_payment_pct"
+                                        class="w-full pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                        value="20" min="0" max="100" step="0.1"
+                                        aria-label="{% trans 'Down payment percentage' %}">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Loan Term -->
+                        <div>
+                            <label for="loan_term" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Loan Term" %}</label>
+                            <select id="loan_term" name="loan_term" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base appearance-none bg-white bg-no-repeat bg-right pr-10"
+                                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236B7280%22 stroke-width=%222%22%3E%3Cpath d=%22M19 9l-7 7-7-7%22/%3E%3C/svg%3E'); background-size: 1.25rem;">
+                                <option value="10">10 {% trans "Years" %}</option>
+                                <option value="15">15 {% trans "Years" %}</option>
+                                <option value="20">20 {% trans "Years" %}</option>
+                                <option value="25">25 {% trans "Years" %}</option>
+                                <option value="30" selected>30 {% trans "Years" %}</option>
+                            </select>
+                        </div>
+
+                        <!-- Interest Rate -->
+                        <div>
+                            <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Interest Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="interest_rate" name="interest_rate" inputmode="decimal"
+                                    class="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                                    placeholder="6.5" value="6.5" required
+                                    aria-label="{% trans 'Annual interest rate' %}">
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Taxes & Insurance Toggle -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <button type="button" id="toggleTaxes" class="flex items-center justify-between w-full text-sm font-medium text-blue-600 hover:text-blue-800">
+                                <span>{% trans "Include Taxes & Costs" %}</span>
+                                <svg id="taxesIcon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <div id="taxesSection" class="hidden mt-4 space-y-3 bg-gray-50 rounded-lg p-4">
+                                <!-- Property Tax -->
+                                <div>
+                                    <label for="property_tax" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Property Tax (yearly)" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="property_tax" name="property_tax" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="4,800" value="4,800">
+                                    </div>
+                                </div>
+                                
+                                <!-- Home Insurance -->
+                                <div>
+                                    <label for="home_insurance" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Home Insurance (yearly)" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="home_insurance" name="home_insurance" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="1,200" value="1,200">
+                                    </div>
+                                </div>
+                                
+                                <!-- HOA -->
+                                <div>
+                                    <label for="hoa" class="block text-xs font-medium text-gray-600 mb-1">{% trans "HOA Fees (monthly)" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" id="hoa" name="hoa" inputmode="decimal"
+                                            class="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                    </div>
+                                </div>
+                                
+                                <!-- PMI -->
+                                <div>
+                                    <label for="pmi_rate" class="block text-xs font-medium text-gray-600 mb-1">{% trans "PMI Rate (yearly %)" %}</label>
+                                    <div class="relative">
+                                        <input type="text" id="pmi_rate" name="pmi_rate" inputmode="decimal"
+                                            class="w-full pl-4 pr-8 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0.5" value="0.5">
+                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">%</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">{% trans "Applied when down payment < 20%" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Extra Payments Toggle -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <button type="button" id="toggleExtra" class="flex items-center justify-between w-full text-sm font-medium text-blue-600 hover:text-blue-800">
+                                <span>{% trans "Extra Payments" %}</span>
+                                <svg id="extraIcon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <div id="extraSection" class="hidden mt-4 space-y-3 bg-green-50 rounded-lg p-4">
+                                <p class="text-xs text-gray-600 mb-2">{% trans "See how extra payments can save you money" %}</p>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label for="extra_monthly" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Monthly" %}</label>
+                                        <div class="relative">
+                                            <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                            <input type="text" id="extra_monthly" name="extra_monthly" inputmode="decimal"
+                                                class="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="extra_yearly" class="block text-xs font-medium text-gray-600 mb-1">{% trans "Yearly" %}</label>
+                                        <div class="relative">
+                                            <span class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                            <input type="text" id="extra_yearly" name="extra_yearly" inputmode="decimal"
+                                                class="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" id="calculateBtn"
+                                class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                {% trans "Calculate" %}
+                            </button>
+                            <button type="button" id="clearBtn" class="w-full bg-gray-100 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm">
+                                {% trans "Clear" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="xl:col-span-8">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Your Mortgage Results" %}</h3>
+                    <p class="text-gray-500">{% trans "Enter your loan details and click Calculate to see your monthly payment breakdown." %}</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden bg-white rounded-xl border border-gray-200 p-8 lg:p-12 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden bg-white rounded-xl border border-gray-200 p-6">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                        <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-red-800 font-medium">{% trans "Error" %}</h3>
+                            <p id="errorMessage" class="text-red-600 text-sm mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsState" class="hidden space-y-6">
+                    <!-- Monthly Payment Card -->
+                    <div class="bg-blue-600 rounded-xl p-6 text-white">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <p class="text-blue-100 text-sm font-medium mb-1">{% trans "Monthly Payment" %}</p>
+                                <p id="monthlyPayment" class="text-3xl sm:text-4xl font-bold">$0</p>
+                            </div>
+                            <div class="flex gap-6 text-sm">
+                                <div>
+                                    <p class="text-blue-200">{% trans "Principal & Interest" %}</p>
+                                    <p id="principalInterest" class="font-semibold text-lg">$0</p>
+                                </div>
+                                <div id="pmiContainer" class="hidden">
+                                    <p class="text-blue-200">{% trans "PMI" %}</p>
+                                    <p id="pmiAmount" class="font-semibold text-lg">$0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Loan Amount" %}</p>
+                            <p id="loanAmount" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Total Interest" %}</p>
+                            <p id="totalInterest" class="text-lg font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Total Cost" %}</p>
+                            <p id="totalCost" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4">
+                            <p class="text-xs font-medium text-gray-500 mb-1">{% trans "Payoff Date" %}</p>
+                            <p id="payoffDate" class="text-lg font-bold text-gray-900">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Savings Alert -->
+                    <div id="savingsAlert" class="hidden bg-green-50 border border-green-200 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-green-800">{% trans "Extra Payment Savings" %}</p>
+                                <p class="text-green-700 text-sm">
+                                    {% trans "You save" %} <span id="interestSaved" class="font-bold">$0</span> {% trans "in interest and pay off" %} <span id="monthsSaved" class="font-bold">0</span> {% trans "months earlier!" %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Breakdown Chart -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Payment Breakdown" %}</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="h-64">
+                                <canvas id="paymentChart"></canvas>
+                            </div>
+                            <div id="breakdownList" class="space-y-3">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Amortization Schedule -->
+                    <div class="bg-white rounded-xl border border-gray-200">
+                        <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900">{% trans "Amortization Schedule" %}</h3>
+                            <div class="flex items-center gap-2">
+                                <button id="viewMonthly" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-100 text-blue-700">{% trans "Monthly" %}</button>
+                                <button id="viewYearly" class="px-3 py-1.5 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100">{% trans "Yearly" %}</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "Date" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Payment" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Principal" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Interest" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Balance" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleBody" class="divide-y divide-gray-200">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between">
+                            <p id="paginationInfo" class="text-sm text-gray-500"></p>
+                            <div class="flex gap-2">
+                                <button id="prevPage" class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled>{% trans "Previous" %}</button>
+                                <button id="nextPage" class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">{% trans "Next" %}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="mt-8 lg:mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- How to Use -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    {% trans "How to Use This Calculator" %}
+                </h2>
+                <ol class="space-y-3 text-gray-600 text-sm">
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">1</span>
+                        <span><strong>{% trans "Enter Home Price" %}</strong> - {% trans "The total purchase price of the home" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">2</span>
+                        <span><strong>{% trans "Set Down Payment" %}</strong> - {% trans "Your upfront payment (20% avoids PMI)" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">3</span>
+                        <span><strong>{% trans "Choose Loan Term" %}</strong> - {% trans "15 or 30 years are most common" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">4</span>
+                        <span><strong>{% trans "Enter Interest Rate" %}</strong> - {% trans "Your loan's annual percentage rate" %}</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">5</span>
+                        <span><strong>{% trans "Add Taxes & Insurance" %}</strong> - {% trans "Optional but gives accurate PITI payment" %}</span>
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Understanding Your Payment -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {% trans "Understanding Your Payment (PITI)" %}
+                </h2>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <div class="flex items-start">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-gray-900">{% trans "Principal" %}</strong> - {% trans "The amount that goes toward paying off your loan balance" %}</div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-2 h-2 bg-red-500 rounded-full mr-3 mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-gray-900">{% trans "Interest" %}</strong> - {% trans "The cost of borrowing money from the lender" %}</div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3 mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-gray-900">{% trans "Taxes" %}</strong> - {% trans "Property taxes paid to local government" %}</div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-3 mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-gray-900">{% trans "Insurance" %}</strong> - {% trans "Homeowners insurance protects your investment" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQs -->
+        <div class="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                {% trans "Frequently Asked Questions" %}
+            </h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "What is PMI and when is it required?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "Private Mortgage Insurance (PMI) is typically required when your down payment is less than 20%. It protects the lender if you default and usually costs 0.3% to 1.5% of the loan annually." %}</p>
+                </div>
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "Should I choose a 15-year or 30-year mortgage?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "A 15-year mortgage has higher monthly payments but lower total interest. A 30-year mortgage has lower monthly payments but you pay more interest over time. Choose based on your budget and goals." %}</p>
+                </div>
+                <div class="border-b border-gray-100 pb-4">
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "How much should I put down on a house?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "20% is ideal to avoid PMI, but many loans allow 3-5% down. A larger down payment means lower monthly payments and less interest paid overall." %}</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 text-sm">{% trans "How can extra payments save me money?" %}</h3>
+                    <p class="text-gray-600 text-sm mt-1">{% trans "Extra payments go directly toward principal, reducing your balance faster. This means you pay less interest over the life of the loan and can pay off your mortgage years earlier." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips Section -->
+        <div class="mt-6 bg-blue-600 rounded-xl p-6 text-white">
+            <h2 class="text-lg font-bold mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                {% trans "Money-Saving Tips" %}
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="font-semibold mb-1 text-sm">{% trans "Improve Your Credit Score" %}</h3>
+                    <p class="text-blue-100 text-xs">{% trans "A higher credit score can qualify you for lower interest rates, saving thousands over the loan term." %}</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="font-semibold mb-1 text-sm">{% trans "Make Biweekly Payments" %}</h3>
+                    <p class="text-blue-100 text-xs">{% trans "Pay half your monthly payment every two weeks. You'll make 13 full payments per year instead of 12." %}</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="font-semibold mb-1 text-sm">{% trans "Shop Multiple Lenders" %}</h3>
+                    <p class="text-blue-100 text-xs">{% trans "Get quotes from at least 3 lenders. Even a 0.25% rate difference can save thousands." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Calculators -->
+        <div class="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">{% trans "Related Calculators" %}</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <a href="{% url 'financial_calculators:mortgage_amortization_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Amortization" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:mortgage_payoff_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Payoff" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:refinance_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Refinance" %}</span>
+                </a>
+                <a href="{% url 'financial_calculators:house_affordability_calculator' %}" class="flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-gray-700 hover:text-blue-700 text-sm">
+                    <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <span class="truncate">{% trans "Affordability" %}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const resultsState = document.getElementById('resultsState');
+    
+    // Toggle sections
+    document.getElementById('toggleTaxes').addEventListener('click', function() {
+        document.getElementById('taxesSection').classList.toggle('hidden');
+        document.getElementById('taxesIcon').classList.toggle('rotate-180');
+    });
+    
+    document.getElementById('toggleExtra').addEventListener('click', function() {
+        document.getElementById('extraSection').classList.toggle('hidden');
+        document.getElementById('extraIcon').classList.toggle('rotate-180');
+    });
+    
+    // Format number
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+    }
+    
+    function parseNumber(val) {
+        return parseFloat(String(val).replace(/[,$\s]/g, '')) || 0;
+    }
+    
+    // Down payment sync
+    const homePrice = document.getElementById('home_price');
+    const downPayment = document.getElementById('down_payment');
+    const downPaymentPct = document.getElementById('down_payment_pct');
+    
+    homePrice.addEventListener('input', function() {
+        const price = parseNumber(this.value);
+        const pct = parseFloat(downPaymentPct.value) || 20;
+        downPayment.value = (price * pct / 100).toLocaleString();
+    });
+    
+    downPaymentPct.addEventListener('input', function() {
+        const price = parseNumber(homePrice.value);
+        const pct = parseFloat(this.value) || 0;
+        downPayment.value = (price * pct / 100).toLocaleString();
+    });
+    
+    downPayment.addEventListener('input', function() {
+        const price = parseNumber(homePrice.value);
+        const dp = parseNumber(this.value);
+        if (price > 0) {
+            downPaymentPct.value = (dp / price * 100).toFixed(1);
+        }
+    });
+    
+    // State management
+    function showState(state) {
+        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
+        state.classList.remove('hidden');
+    }
+    
+    // Chart
+    let paymentChart = null;
+    
+    // Pagination
+    let scheduleData = [];
+    let currentPage = 1;
+    const itemsPerPage = 12;
+    
+    document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderSchedule(); } });
+    document.getElementById('nextPage').addEventListener('click', () => { 
+        if (currentPage < Math.ceil(scheduleData.length / itemsPerPage)) { currentPage++; renderSchedule(); } 
+    });
+    
+    function renderSchedule() {
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = Math.min(start + itemsPerPage, scheduleData.length);
+        const tbody = document.getElementById('scheduleBody');
+        
+        tbody.innerHTML = scheduleData.slice(start, end).map(row => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm text-gray-500">${row.month}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${row.date}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.payment)}</td>
+                <td class="px-4 py-3 text-sm text-green-600 text-right">${formatCurrency((row.principal || 0) + (row.extra || 0))}</td>
+                <td class="px-4 py-3 text-sm text-red-600 text-right">${formatCurrency(row.interest)}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.balance)}</td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('paginationInfo').textContent = `{% trans "Showing" %} ${start + 1}-${end} {% trans "of" %} ${scheduleData.length}`;
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage >= Math.ceil(scheduleData.length / itemsPerPage);
+    }
+    
+    // Clear
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        form.reset();
+        homePrice.value = '400,000';
+        downPayment.value = '80,000';
+        downPaymentPct.value = '20';
+        showState(initialState);
+    });
+    
+    // Calculate
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        showState(loadingState);
+        
+        const formData = {
+            home_price: parseNumber(homePrice.value),
+            down_payment: parseNumber(downPayment.value),
+            loan_term: parseInt(document.getElementById('loan_term').value),
+            interest_rate: parseNumber(document.getElementById('interest_rate').value),
+            property_tax: parseNumber(document.getElementById('property_tax').value),
+            home_insurance: parseNumber(document.getElementById('home_insurance').value),
+            hoa_fee: parseNumber(document.getElementById('hoa').value),
+            pmi_rate: parseNumber(document.getElementById('pmi_rate').value),
+            extra_monthly: parseNumber(document.getElementById('extra_monthly').value),
+            extra_yearly: parseNumber(document.getElementById('extra_yearly').value),
+        };
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                document.getElementById('errorMessage').textContent = data.error;
+                showState(errorState);
+                return;
+            }
+            
+            // Update results - using correct nested structure from backend
+            const mp = data.monthly_payment;
+            const ld = data.loan_details;
+            const totals = data.totals;
+            
+            document.getElementById('monthlyPayment').textContent = formatCurrency(mp.total);
+            document.getElementById('principalInterest').textContent = formatCurrency(mp.principal_interest);
+            document.getElementById('loanAmount').textContent = formatCurrency(ld.loan_amount);
+            document.getElementById('totalInterest').textContent = formatCurrency(totals.interest);
+            document.getElementById('totalCost').textContent = formatCurrency(totals.all_payments);
+            document.getElementById('payoffDate').textContent = ld.payoff_date;
+            
+            // PMI
+            if (mp.pmi > 0) {
+                document.getElementById('pmiContainer').classList.remove('hidden');
+                document.getElementById('pmiAmount').textContent = formatCurrency(mp.pmi);
+            } else {
+                document.getElementById('pmiContainer').classList.add('hidden');
+            }
+            
+            // Savings (check if biweekly data exists)
+            if (data.biweekly && data.biweekly.interest_saved > 0) {
+                document.getElementById('savingsAlert').classList.remove('hidden');
+                document.getElementById('interestSaved').textContent = formatCurrency(data.biweekly.interest_saved);
+                document.getElementById('monthsSaved').textContent = data.biweekly.time_saved_months;
+            } else {
+                document.getElementById('savingsAlert').classList.add('hidden');
+            }
+            
+            // Build payment breakdown for chart
+            const breakdown = [];
+            if (mp.principal_interest > 0) breakdown.push({ label: '{% trans "Principal & Interest" %}', value: mp.principal_interest, color: '#3B82F6' });
+            if (mp.property_tax > 0) breakdown.push({ label: '{% trans "Property Tax" %}', value: mp.property_tax, color: '#F59E0B' });
+            if (mp.home_insurance > 0) breakdown.push({ label: '{% trans "Insurance" %}', value: mp.home_insurance, color: '#10B981' });
+            if (mp.pmi > 0) breakdown.push({ label: '{% trans "PMI" %}', value: mp.pmi, color: '#8B5CF6' });
+            if (mp.hoa > 0) breakdown.push({ label: '{% trans "HOA" %}', value: mp.hoa, color: '#EC4899' });
+            if (mp.other > 0) breakdown.push({ label: '{% trans "Other" %}', value: mp.other, color: '#6B7280' });
+            
+            // Chart - only create if we have data
+            if (paymentChart) paymentChart.destroy();
+            if (breakdown.length > 0) {
+                const ctx = document.getElementById('paymentChart').getContext('2d');
+                paymentChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: breakdown.map(d => d.label),
+                        datasets: [{ data: breakdown.map(d => d.value), backgroundColor: breakdown.map(d => d.color) }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { 
+                            legend: { position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + formatCurrency(context.raw);
+                                    }
+                                }
+                            }
+                        } 
+                    }
+                });
+            }
+            
+            // Breakdown list
+            document.getElementById('breakdownList').innerHTML = breakdown.map(d => `
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 rounded-full mr-2" style="background-color: ${d.color}"></span>
+                        <span class="text-sm text-gray-600">${d.label}</span>
+                    </div>
+                    <span class="text-sm font-semibold text-gray-900">${formatCurrency(d.value)}</span>
+                </div>
+            `).join('');
+            
+            // Schedule - use amortization_schedule from backend
+            scheduleData = data.amortization_schedule || [];
+            currentPage = 1;
+            renderSchedule();
+            
+            showState(resultsState);
+            
+            if (window.innerWidth < 1280) {
+                resultsState.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+        } catch (err) {
+            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
+            showState(errorState);
+        }
+    });
+});
+</script>
+{% endblock %}
