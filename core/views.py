@@ -4,6 +4,10 @@ from django.views.generic import TemplateView
 
 # Create your views here.
 
+def custom_404_view(request, exception):
+    """Custom handler for 404 errors."""
+    return render(request, 'core/404.html', status=404)
+
 class Index(View):  # Changed to PascalCase naming convention
     def get(self, request):
         return render(request, 'core/index.html')

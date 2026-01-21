@@ -22,6 +22,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from core.sitemap_view import sitemap
 from core.sitemaps import (
+from core.views import custom_404_view
     StaticViewSitemap,
     CalculatorIndexSitemap,
     MathCalculatorSitemap,
@@ -70,3 +71,6 @@ urlpatterns += i18n_patterns(
 # Serve media files in development mode
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Custom error handlers
+handler404 = 'core.views.custom_404_view'
