@@ -22,7 +22,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from core.sitemap_view import sitemap
 from core.sitemaps import (
-from core.views import custom_404_view
     StaticViewSitemap,
     CalculatorIndexSitemap,
     MathCalculatorSitemap,
@@ -33,6 +32,7 @@ from core.views import custom_404_view
     BlogCategorySitemap,
     BlogTagSitemap,
 )
+from core.views import custom_404_view
 
 # Sitemap dictionary
 sitemaps = {
