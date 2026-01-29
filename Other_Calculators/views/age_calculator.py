@@ -3,7 +3,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 import json
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
@@ -30,6 +30,22 @@ class AgeCalculator(View):
     - Interactive visualizations
     """
     template_name = 'other_calculators/age_calculator.html'
+
+    def safe_format(self, text, default_text, **kwargs):
+        """
+        Safely format a translated string.
+        If the translated string has invalid placeholders (e.g. translator translated variable names),
+        fall back to the default English text.
+        """
+        try:
+            return text.format(**kwargs)
+        except (KeyError, ValueError, IndexError):
+            # Fallback to default text if translation is broken
+            try:
+                return default_text.format(**kwargs)
+            except Exception:
+                # If even default text fails (shouldn't happen), return unformatted text
+                return text
     
     def get(self, request):
         """Handle GET request"""
@@ -165,9 +181,11 @@ class AgeCalculator(View):
                     'years': age.years,
                     'months': age.months,
                     'days': age.days,
-                    'formatted': str(_('{years} years, {months} months, {days} days').format(
+                    'formatted': self.safe_format(
+                        _('{years} years, {months} months, {days} days'),
+                        '{years} years, {months} months, {days} days',
                         years=age.years, months=age.months, days=age.days
-                    ))
+                    )
                 },
                 'totals': {
                     'years': age.years,
@@ -251,43 +269,61 @@ class AgeCalculator(View):
         steps = []
         
         steps.append(_("Step 1: Identify the Dates"))
-        steps.append(_("  Birth Date: {date}").format(date=birth_date.strftime('%B %d, %Y')))
-        steps.append(_("  Target Date: {date}").format(date=target_date.strftime('%B %d, %Y')))
+        steps.append(self.safe_format(_("  Birth Date: {date}"), "  Birth Date: {date}", date=birth_date.strftime('%B %d, %Y')))
+        steps.append(self.safe_format(_("  Target Date: {date}"), "  Target Date: {date}", date=target_date.strftime('%B %d, %Y')))
         steps.append("")
         
         steps.append(_("Step 2: Calculate the Difference"))
         steps.append(_("  Total Days = Target Date - Birth Date"))
-        steps.append(_("  Total Days = {days:,} days").format(days=total_days))
+        steps.append(self.safe_format(_("  Total Days = {days:,} days"), "  Total Days = {days:,} days", days=total_days))
         steps.append("")
         
         steps.append(_("Step 3: Break Down into Time Units"))
-        steps.append(_("  Years: {years} years").format(years=age.years))
-        steps.append(_("  Months: {months} months (in addition to {years} years)").format(months=age.months, years=age.years))
-        steps.append(_("  Days: {days} days (in addition to {years} years and {months} months)").format(
+        steps.append(self.safe_format(_("  Years: {years} years"), "  Years: {years} years", years=age.years))
+        steps.append(self.safe_format(
+            _("  Months: {months} months (in addition to {years} years)"),
+            "  Months: {months} months (in addition to {years} years)",
+            months=age.months, years=age.years
+        ))
+        steps.append(self.safe_format(
+            _("  Days: {days} days (in addition to {years} years and {months} months)"),
+            "  Days: {days} days (in addition to {years} years and {months} months)",
             days=age.days, years=age.years, months=age.months
         ))
         steps.append("")
         
         steps.append(_("Step 4: Calculate Total Time Units"))
-        steps.append(_("  Total Months = (Years × 12) + Months = ({years} × 12) + {months} = {total:,} months").format(
+        steps.append(self.safe_format(
+            _("  Total Months = (Years × 12) + Months = ({years} × 12) + {months} = {total:,} months"),
+            "  Total Months = (Years × 12) + Months = ({years} × 12) + {months} = {total:,} months",
             years=age.years, months=age.months, total=age.years * 12 + age.months
         ))
-        steps.append(_("  Total Weeks = Total Days ÷ 7 = {days:,} ÷ 7 = {weeks:,} weeks").format(
+        steps.append(self.safe_format(
+            _("  Total Weeks = Total Days ÷ 7 = {days:,} ÷ 7 = {weeks:,} weeks"),
+            "  Total Weeks = Total Days ÷ 7 = {days:,} ÷ 7 = {weeks:,} weeks",
             days=total_days, weeks=total_weeks
         ))
-        steps.append(_("  Total Hours = Total Days × 24 = {days:,} × 24 = {hours:,} hours").format(
+        steps.append(self.safe_format(
+            _("  Total Hours = Total Days × 24 = {days:,} × 24 = {hours:,} hours"),
+            "  Total Hours = Total Days × 24 = {days:,} × 24 = {hours:,} hours",
             days=total_days, hours=total_hours
         ))
-        steps.append(_("  Total Minutes = Total Hours × 60 = {hours:,} × 60 = {minutes:,} minutes").format(
+        steps.append(self.safe_format(
+            _("  Total Minutes = Total Hours × 60 = {hours:,} × 60 = {minutes:,} minutes"),
+            "  Total Minutes = Total Hours × 60 = {hours:,} × 60 = {minutes:,} minutes",
             hours=total_hours, minutes=total_minutes
         ))
-        steps.append(_("  Total Seconds = Total Minutes × 60 = {minutes:,} × 60 = {seconds:,} seconds").format(
+        steps.append(self.safe_format(
+            _("  Total Seconds = Total Minutes × 60 = {minutes:,} × 60 = {seconds:,} seconds"),
+            "  Total Seconds = Total Minutes × 60 = {minutes:,} × 60 = {seconds:,} seconds",
             minutes=total_minutes, seconds=total_seconds
         ))
         steps.append("")
         
         steps.append(_("Step 5: Final Result"))
-        steps.append(_("  Age: {years} years, {months} months, {days} days").format(
+        steps.append(self.safe_format(
+            _("  Age: {years} years, {months} months, {days} days"),
+            "  Age: {years} years, {months} months, {days} days",
             years=age.years, months=age.months, days=age.days
         ))
         

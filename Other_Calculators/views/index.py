@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.views.generic import TemplateView
+from django.utils.translation import gettext as _
 
 
 class OtherIndexView(TemplateView):
@@ -11,77 +12,77 @@ class OtherIndexView(TemplateView):
         # Comprehensive other calculators list organized by categories
         calculators = [
             # Time & Date
-            {'name': 'Time Calculator', 'url': 'time-calculator', 'category': 'Time & Date', 'description': 'Calculate time differences and durations'},
-            {'name': 'Date Calculator', 'url': 'date-calculator', 'category': 'Time & Date', 'description': 'Calculate dates and days between dates'},
-            {'name': 'Day Counter', 'url': 'day-counter', 'category': 'Time & Date', 'description': 'Count days between two dates'},
-            {'name': 'Day of the Week Calculator', 'url': 'day-of-the-week-calculator', 'category': 'Time & Date', 'description': 'Find day of the week for any date'},
-            {'name': 'Day of Week Calculator', 'url': 'day-of-week-calculator', 'category': 'Time & Date', 'description': 'Determine day of week for dates'},
-            {'name': 'Time Duration Calculator', 'url': 'time-duration-calculator', 'category': 'Time & Date', 'description': 'Calculate time duration between events'},
-            {'name': 'Time Card Calculator', 'url': 'time-card-calculator', 'category': 'Time & Date', 'description': 'Calculate work hours and time card totals'},
-            {'name': 'Time Zone Calculator', 'url': 'time-zone-calculator', 'category': 'Time & Date', 'description': 'Convert times between time zones'},
-            {'name': 'Hours Calculator', 'url': 'hours-calculator', 'category': 'Time & Date', 'description': 'Calculate total hours and minutes'},
-            {'name': 'Sleep Calculator', 'url': 'sleep-calculator', 'category': 'Time & Date', 'description': 'Calculate optimal sleep schedules'},
+            {'name': _('Time Calculator'), 'url': 'time-calculator', 'category': _('Time & Date'), 'description': _('Calculate time differences and durations')},
+            {'name': _('Date Calculator'), 'url': 'date-calculator', 'category': _('Time & Date'), 'description': _('Calculate dates and days between dates')},
+            {'name': _('Day Counter'), 'url': 'day-counter', 'category': _('Time & Date'), 'description': _('Count days between two dates')},
+            {'name': _('Day of the Week Calculator'), 'url': 'day-of-the-week-calculator', 'category': _('Time & Date'), 'description': _('Find day of the week for any date')},
+            {'name': _('Day of Week Calculator'), 'url': 'day-of-week-calculator', 'category': _('Time & Date'), 'description': _('Determine day of week for dates')},
+            {'name': _('Time Duration Calculator'), 'url': 'time-duration-calculator', 'category': _('Time & Date'), 'description': _('Calculate time duration between events')},
+            {'name': _('Time Card Calculator'), 'url': 'time-card-calculator', 'category': _('Time & Date'), 'description': _('Calculate work hours and time card totals')},
+            {'name': _('Time Zone Calculator'), 'url': 'time-zone-calculator', 'category': _('Time & Date'), 'description': _('Convert times between time zones')},
+            {'name': _('Hours Calculator'), 'url': 'hours-calculator', 'category': _('Time & Date'), 'description': _('Calculate total hours and minutes')},
+            {'name': _('Sleep Calculator'), 'url': 'sleep-calculator', 'category': _('Time & Date'), 'description': _('Calculate optimal sleep schedules')},
             
             # Personal Information
-            {'name': 'Age Calculator', 'url': 'age-calculator', 'category': 'Personal Information', 'description': 'Calculate age from birth date'},
-            {'name': 'Height Calculator', 'url': 'height-calculator', 'category': 'Personal Information', 'description': 'Convert and calculate height measurements'},
-            {'name': 'Weight Calculator', 'url': 'weight-calculator', 'category': 'Personal Information', 'description': 'Convert weight units and measurements'},
-            {'name': 'GPA Calculator', 'url': 'gpa-calculator', 'category': 'Personal Information', 'description': 'Calculate grade point average'},
-            {'name': 'Grade Calculator', 'url': 'grade-calculator', 'category': 'Personal Information', 'description': 'Calculate final grades and percentages'},
-            {'name': 'Bra Size Calculator', 'url': 'bra-size-calculator', 'category': 'Personal Information', 'description': 'Find your bra size with proper measurements'},
-            {'name': 'Shoe Size Conversion', 'url': 'shoe-size-conversion', 'category': 'Personal Information', 'description': 'Convert shoe sizes between different countries'},
+            {'name': _('Age Calculator'), 'url': 'age-calculator', 'category': _('Personal Information'), 'description': _('Calculate age from birth date')},
+            {'name': _('Height Calculator'), 'url': 'height-calculator', 'category': _('Personal Information'), 'description': _('Convert and calculate height measurements')},
+            {'name': _('Weight Calculator'), 'url': 'weight-calculator', 'category': _('Personal Information'), 'description': _('Convert weight units and measurements')},
+            {'name': _('GPA Calculator'), 'url': 'gpa-calculator', 'category': _('Personal Information'), 'description': _('Calculate grade point average')},
+            {'name': _('Grade Calculator'), 'url': 'grade-calculator', 'category': _('Personal Information'), 'description': _('Calculate final grades and percentages')},
+            {'name': _('Bra Size Calculator'), 'url': 'bra-size-calculator', 'category': _('Personal Information'), 'description': _('Find your bra size with proper measurements')},
+            {'name': _('Shoe Size Conversion'), 'url': 'shoe-size-conversion', 'category': _('Personal Information'), 'description': _('Convert shoe sizes between different countries')},
             
             # Conversions
-            {'name': 'Conversion Calculator', 'url': 'conversion-calculator', 'category': 'Conversions', 'description': 'Convert between various units of measurement'},
-            {'name': 'Roman Numeral Converter', 'url': 'roman-numeral-converter', 'category': 'Conversions', 'description': 'Convert numbers to and from Roman numerals'},
+            {'name': _('Conversion Calculator'), 'url': 'conversion-calculator', 'category': _('Conversions'), 'description': _('Convert between various units of measurement')},
+            {'name': _('Roman Numeral Converter'), 'url': 'roman-numeral-converter', 'category': _('Conversions'), 'description': _('Convert numbers to and from Roman numerals')},
             
             # Energy & Physics
-            {'name': 'Electricity Calculator', 'url': 'electricity-calculator', 'category': 'Energy & Physics', 'description': 'Calculate electrical power and consumption'},
-            {'name': 'Voltage Drop Calculator', 'url': 'voltage-drop-calculator', 'category': 'Energy & Physics', 'description': 'Calculate voltage drop in electrical circuits'},
-            {'name': 'Ohms Law Calculator', 'url': 'ohms-law-calculator', 'category': 'Energy & Physics', 'description': 'Calculate voltage, current, resistance using Ohms Law'},
-            {'name': 'Resistor Calculator', 'url': 'resistor-calculator', 'category': 'Energy & Physics', 'description': 'Calculate resistor values and color codes'},
-            {'name': 'BTU Calculator', 'url': 'btu-calculator', 'category': 'Energy & Physics', 'description': 'Calculate BTU for heating and cooling'},
-            {'name': 'Horsepower Calculator', 'url': 'horsepower-calculator', 'category': 'Energy & Physics', 'description': 'Calculate horsepower from torque and RPM'},
-            {'name': 'Engine Horsepower Calculator', 'url': 'engine-horsepower-calculator', 'category': 'Energy & Physics', 'description': 'Estimate engine horsepower'},
+            {'name': _('Electricity Calculator'), 'url': 'electricity-calculator', 'category': _('Energy & Physics'), 'description': _('Calculate electrical power and consumption')},
+            {'name': _('Voltage Drop Calculator'), 'url': 'voltage-drop-calculator', 'category': _('Energy & Physics'), 'description': _('Calculate voltage drop in electrical circuits')},
+            {'name': _('Ohms Law Calculator'), 'url': 'ohms-law-calculator', 'category': _('Energy & Physics'), 'description': _('Calculate voltage, current, resistance using Ohms Law')},
+            {'name': _('Resistor Calculator'), 'url': 'resistor-calculator', 'category': _('Energy & Physics'), 'description': _('Calculate resistor values and color codes')},
+            {'name': _('BTU Calculator'), 'url': 'btu-calculator', 'category': _('Energy & Physics'), 'description': _('Calculate BTU for heating and cooling')},
+            {'name': _('Horsepower Calculator'), 'url': 'horsepower-calculator', 'category': _('Energy & Physics'), 'description': _('Calculate horsepower from torque and RPM')},
+            {'name': _('Engine Horsepower Calculator'), 'url': 'engine-horsepower-calculator', 'category': _('Energy & Physics'), 'description': _('Estimate engine horsepower')},
             
             # Chemistry
-            {'name': 'Molarity Calculator', 'url': 'molarity-calculator', 'category': 'Chemistry', 'description': 'Calculate molarity of solutions'},
-            {'name': 'Molecular Weight Calculator', 'url': 'molecular-weight-calculator', 'category': 'Chemistry', 'description': 'Calculate molecular weights of compounds'},
-            {'name': 'Density Calculator', 'url': 'density-calculator', 'category': 'Chemistry', 'description': 'Calculate density from mass and volume'},
-            {'name': 'Mass Calculator', 'url': 'mass-calculator', 'category': 'Chemistry', 'description': 'Calculate mass from density and volume'},
+            {'name': _('Molarity Calculator'), 'url': 'molarity-calculator', 'category': _('Chemistry'), 'description': _('Calculate molarity of solutions')},
+            {'name': _('Molecular Weight Calculator'), 'url': 'molecular-weight-calculator', 'category': _('Chemistry'), 'description': _('Calculate molecular weights of compounds')},
+            {'name': _('Density Calculator'), 'url': 'density-calculator', 'category': _('Chemistry'), 'description': _('Calculate density from mass and volume')},
+            {'name': _('Mass Calculator'), 'url': 'mass-calculator', 'category': _('Chemistry'), 'description': _('Calculate mass from density and volume')},
             
             # Weather
-            {'name': 'Heat Index Calculator', 'url': 'heat-index-calculator', 'category': 'Weather', 'description': 'Calculate heat index from temperature and humidity'},
-            {'name': 'Dew Point Calculator', 'url': 'dew-point-calculator', 'category': 'Weather', 'description': 'Calculate dew point temperature'},
-            {'name': 'Wind Chill Calculator', 'url': 'wind-chill-calculator', 'category': 'Weather', 'description': 'Calculate wind chill from temperature and wind speed'},
+            {'name': _('Heat Index Calculator'), 'url': 'heat-index-calculator', 'category': _('Weather'), 'description': _('Calculate heat index from temperature and humidity')},
+            {'name': _('Dew Point Calculator'), 'url': 'dew-point-calculator', 'category': _('Weather'), 'description': _('Calculate dew point temperature')},
+            {'name': _('Wind Chill Calculator'), 'url': 'wind-chill-calculator', 'category': _('Weather'), 'description': _('Calculate wind chill from temperature and wind speed')},
             
             # Automotive
-            {'name': 'Fuel Cost Calculator', 'url': 'fuel-cost-calculator', 'category': 'Automotive', 'description': 'Calculate fuel costs for trips'},
-            {'name': 'Gas Mileage Calculator', 'url': 'gas-mileage-calculator', 'category': 'Automotive', 'description': 'Calculate gas mileage and fuel efficiency'},
-            {'name': 'Mileage Calculator', 'url': 'mileage-calculator', 'category': 'Automotive', 'description': 'Calculate distance traveled and mileage'},
-            {'name': 'Tire Size Conversion', 'url': 'tire-size-calculator', 'category': 'Automotive', 'description': 'Convert tire sizes between formats'},
-            {'name': 'Speed Calculator', 'url': 'speed-calculator', 'category': 'Automotive', 'description': 'Calculate speed, distance, and time'},
+            {'name': _('Fuel Cost Calculator'), 'url': 'fuel-cost-calculator', 'category': _('Automotive'), 'description': _('Calculate fuel costs for trips')},
+            {'name': _('Gas Mileage Calculator'), 'url': 'gas-mileage-calculator', 'category': _('Automotive'), 'description': _('Calculate gas mileage and fuel efficiency')},
+            {'name': _('Mileage Calculator'), 'url': 'mileage-calculator', 'category': _('Automotive'), 'description': _('Calculate distance traveled and mileage')},
+            {'name': _('Tire Size Conversion'), 'url': 'tire-size-calculator', 'category': _('Automotive'), 'description': _('Convert tire sizes between formats')},
+            {'name': _('Speed Calculator'), 'url': 'speed-calculator', 'category': _('Automotive'), 'description': _('Calculate speed, distance, and time')},
             
             # Construction & Materials
-            {'name': 'Concrete Calculator', 'url': 'concrete-calculator', 'category': 'Construction & Materials', 'description': 'Calculate concrete needed for projects'},
-            {'name': 'Gravel Calculator', 'url': 'gravel-calculator', 'category': 'Construction & Materials', 'description': 'Calculate gravel and stone material amounts'},
-            {'name': 'Mulch Calculator', 'url': 'mulch-calculator', 'category': 'Construction & Materials', 'description': 'Calculate mulch needed for landscaping'},
-            {'name': 'Tile Calculator', 'url': 'tile-calculator', 'category': 'Construction & Materials', 'description': 'Calculate tiles needed for projects'},
-            {'name': 'Roofing Calculator', 'url': 'roofing-calculator', 'category': 'Construction & Materials', 'description': 'Calculate roofing materials needed'},
-            {'name': 'Stair Calculator', 'url': 'stair-calculator', 'category': 'Construction & Materials', 'description': 'Calculate stair dimensions and rise/run'},
-            {'name': 'Square Footage Calculator', 'url': 'square-footage-calculator', 'category': 'Construction & Materials', 'description': 'Calculate square footage of areas'},
+            {'name': _('Concrete Calculator'), 'url': 'concrete-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate concrete needed for projects')},
+            {'name': _('Gravel Calculator'), 'url': 'gravel-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate gravel and stone material amounts')},
+            {'name': _('Mulch Calculator'), 'url': 'mulch-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate mulch needed for landscaping')},
+            {'name': _('Tile Calculator'), 'url': 'tile-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate tiles needed for projects')},
+            {'name': _('Roofing Calculator'), 'url': 'roofing-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate roofing materials needed')},
+            {'name': _('Stair Calculator'), 'url': 'stair-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate stair dimensions and rise/run')},
+            {'name': _('Square Footage Calculator'), 'url': 'square-footage-calculator', 'category': _('Construction & Materials'), 'description': _('Calculate square footage of areas')},
             
             # Fun & Utilities
-            {'name': 'Tip Calculator', 'url': 'tip-calculator', 'category': 'Fun & Utilities', 'description': 'Calculate tips and splits for meals'},
-            {'name': 'Love Calculator', 'url': 'love-calculator', 'category': 'Fun & Utilities', 'description': 'Fun compatibility calculator'},
-            {'name': 'Golf Handicap Calculator', 'url': 'golf-handicap-calculator', 'category': 'Fun & Utilities', 'description': 'Calculate golf handicap'},
-            {'name': 'Dice Roller', 'url': 'dice-roller', 'category': 'Fun & Utilities', 'description': 'Roll virtual dice'},
-            {'name': 'Password Generator', 'url': 'password-generator', 'category': 'Fun & Utilities', 'description': 'Generate secure passwords'},
+            {'name': _('Tip Calculator'), 'url': 'tip-calculator', 'category': _('Fun & Utilities'), 'description': _('Calculate tips and splits for meals')},
+            {'name': _('Love Calculator'), 'url': 'love-calculator', 'category': _('Fun & Utilities'), 'description': _('Fun compatibility calculator')},
+            {'name': _('Golf Handicap Calculator'), 'url': 'golf-handicap-calculator', 'category': _('Fun & Utilities'), 'description': _('Calculate golf handicap')},
+            {'name': _('Dice Roller'), 'url': 'dice-roller', 'category': _('Fun & Utilities'), 'description': _('Roll virtual dice')},
+            {'name': _('Password Generator'), 'url': 'password-generator', 'category': _('Fun & Utilities'), 'description': _('Generate secure passwords')},
             
             # Economics & Network
-            {'name': 'GDP Calculator', 'url': 'gdp-calculator', 'category': 'Economics & Network', 'description': 'Calculate GDP and economic indicators'},
-            {'name': 'IP Subnet Calculator', 'url': 'ip-subnet-calculator', 'category': 'Economics & Network', 'description': 'Calculate IP subnet masks and ranges'},
-            {'name': 'Bandwidth Calculator', 'url': 'bandwidth-calculator', 'category': 'Economics & Network', 'description': 'Calculate bandwidth and data transfer'},
+            {'name': _('GDP Calculator'), 'url': 'gdp-calculator', 'category': _('Economics & Network'), 'description': _('Calculate GDP and economic indicators')},
+            {'name': _('IP Subnet Calculator'), 'url': 'ip-subnet-calculator', 'category': _('Economics & Network'), 'description': _('Calculate IP subnet masks and ranges')},
+            {'name': _('Bandwidth Calculator'), 'url': 'bandwidth-calculator', 'category': _('Economics & Network'), 'description': _('Calculate bandwidth and data transfer')},
         ]
         
         context['calculators'] = calculators
