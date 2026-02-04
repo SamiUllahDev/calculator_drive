@@ -19,7 +19,7 @@ languages = [
     ('ca', 'Català'),
     ('nl', 'Nederlands'),
     ('el', 'Ελληνικά'),
-    # ('hi', 'हिन्दी'),
+    ('hi', 'हिन्दी'),
     # ('ms', 'Bahasa Melayu'),
     # ('pl', 'Polski'),
     # ('sv', 'Svenska'),
