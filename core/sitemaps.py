@@ -1,6 +1,6 @@
 """
 Production-ready sitemap classes for SEO optimization.
-Generates comprehensive sitemap.xml with proper URL structure, lastmod dates, and priorities.
+Generates comprehensive sitemap.xml with proper URL structure and priorities.
 """
 from django.contrib.sitemaps import Sitemap
 from django.contrib.sites.shortcuts import get_current_site
@@ -9,7 +9,6 @@ from django.urls import reverse, NoReverseMatch
 from django.conf import settings
 from django.utils import translation
 from blog.models import Post, Category, Tag
-from django.utils import timezone
 import time
 
 
@@ -62,8 +61,7 @@ class StaticViewSitemap(Sitemap):
     Sitemap for static pages with separate entries for each language.
     SEO-optimized with proper priority and changefreq.
     """
-    priority = 1.0
-    changefreq = 'monthly'
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -100,41 +98,13 @@ class StaticViewSitemap(Sitemap):
         except (NoReverseMatch, ValueError, TypeError):
             return '/'
 
-    def lastmod(self, item):
-        """Get last modification date for better SEO indexing."""
-        try:
-            url_name, lang_code = item
-            if url_name == 'blog:post_list':
-                cache_key = 'sitemap_latest_blog_post'
-                if CACHE_AVAILABLE:
-                    latest_post = cache.get(cache_key)
-                    if latest_post is None:
-                        latest_post = Post.objects.filter(
-                            status='published', 
-                            no_index=False
-                        ).order_by('-updated_date').first()
-                        if latest_post:
-                            cache.set(cache_key, latest_post, 60 * 60)
-                else:
-                    latest_post = Post.objects.filter(
-                        status='published', 
-                        no_index=False
-                    ).order_by('-updated_date').first()
-                
-                if latest_post:
-                    return latest_post.updated_date or latest_post.published_date or latest_post.created_date
-        except Exception:
-            pass
-        return timezone.now()
-
 
 class CalculatorIndexSitemap(Sitemap):
     """
     Sitemap for calculator index pages with separate entries for each language.
     High priority for main category pages.
     """
-    priority = 0.9
-    changefreq = 'weekly'
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -177,17 +147,13 @@ class CalculatorIndexSitemap(Sitemap):
         except (NoReverseMatch, ValueError, TypeError, Exception):
             return '/'
 
-    def lastmod(self, item):
-        return timezone.now()
-
 
 class MathCalculatorSitemap(Sitemap):
     """
     Sitemap for all math calculators.
     SEO-optimized with proper URL structure and priorities.
     """
-    priority = 0.8
-    changefreq = 'monthly'
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -209,17 +175,13 @@ class MathCalculatorSitemap(Sitemap):
         except (KeyError, TypeError, AttributeError):
             return '/math/'
 
-    def lastmod(self, item):
-        return timezone.now()
-
 
 class FinanceCalculatorSitemap(Sitemap):
     """
     Sitemap for all financial calculators.
     SEO-optimized with proper URL structure and priorities.
     """
-    priority = 0.8
-    changefreq = 'monthly'
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -241,17 +203,13 @@ class FinanceCalculatorSitemap(Sitemap):
         except (KeyError, TypeError, AttributeError):
             return '/finance/'
 
-    def lastmod(self, item):
-        return timezone.now()
-
 
 class HealthCalculatorSitemap(Sitemap):
     """
     Sitemap for all health & fitness calculators.
     SEO-optimized with proper URL structure and priorities.
     """
-    priority = 0.8
-    changefreq = 'monthly'
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -273,17 +231,13 @@ class HealthCalculatorSitemap(Sitemap):
         except (KeyError, TypeError, AttributeError):
             return '/health/'
 
-    def lastmod(self, item):
-        return timezone.now()
-
 
 class OtherCalculatorSitemap(Sitemap):
     """
     Sitemap for all other calculators.
     SEO-optimized with proper URL structure and priorities.
     """
-    priority = 0.8
-    changefreq = 'monthly'
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -305,17 +259,12 @@ class OtherCalculatorSitemap(Sitemap):
         except (KeyError, TypeError, AttributeError):
             return '/other/'
 
-    def lastmod(self, item):
-        return timezone.now()
-
 
 class BlogPostSitemap(Sitemap):
     """
     Sitemap for published blog posts without language prefixes.
-    SEO-optimized with proper lastmod dates.
     """
-    changefreq = 'weekly'
-    priority = 0.7
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -329,13 +278,6 @@ class BlogPostSitemap(Sitemap):
             ).select_related('author', 'category').order_by('-published_date')
         except Exception:
             return Post.objects.none()
-
-    def lastmod(self, obj):
-        """Return last modification date for SEO."""
-        try:
-            return obj.updated_date or obj.published_date or obj.created_date or timezone.now()
-        except Exception:
-            return timezone.now()
 
     def location(self, obj):
         """Return blog URL without language prefix."""
@@ -359,10 +301,8 @@ class BlogPostSitemap(Sitemap):
 class BlogCategorySitemap(Sitemap):
     """
     Sitemap for blog categories without language prefixes.
-    SEO-optimized with proper lastmod dates.
     """
-    changefreq = 'monthly'
-    priority = 0.6
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -376,36 +316,6 @@ class BlogCategorySitemap(Sitemap):
             ).distinct().prefetch_related('posts')
         except Exception:
             return Category.objects.none()
-
-    def lastmod(self, obj):
-        """Get the latest post update date in this category."""
-        try:
-            latest_post = None
-            try:
-                if hasattr(obj, '_prefetched_objects_cache'):
-                    posts = obj._prefetched_objects_cache.get('posts', None)
-                    if posts:
-                        published_posts = [p for p in posts if p.status == 'published' and not p.no_index]
-                        if published_posts:
-                            latest_post = max(
-                                published_posts,
-                                key=lambda p: p.updated_date or p.published_date or p.created_date,
-                                default=None
-                            )
-            except (AttributeError, TypeError):
-                pass
-            
-            if not latest_post:
-                latest_post = obj.posts.filter(
-                    status='published', 
-                    no_index=False
-                ).order_by('-updated_date').first()
-            
-            if latest_post:
-                return latest_post.updated_date or latest_post.published_date or latest_post.created_date or timezone.now()
-            return timezone.now()
-        except Exception:
-            return timezone.now()
 
     def location(self, obj):
         """Return blog category URL without language prefix."""
@@ -429,10 +339,8 @@ class BlogCategorySitemap(Sitemap):
 class BlogTagSitemap(Sitemap):
     """
     Sitemap for blog tags without language prefixes.
-    SEO-optimized with proper lastmod dates.
     """
-    changefreq = 'monthly'
-    priority = 0.5
+    changefreq = 'daily'
     i18n = False
     alternates = False
     x_default = False
@@ -446,36 +354,6 @@ class BlogTagSitemap(Sitemap):
             ).distinct().prefetch_related('posts')
         except Exception:
             return Tag.objects.none()
-
-    def lastmod(self, obj):
-        """Get the latest post update date with this tag."""
-        try:
-            latest_post = None
-            try:
-                if hasattr(obj, '_prefetched_objects_cache'):
-                    posts = obj._prefetched_objects_cache.get('posts', None)
-                    if posts:
-                        published_posts = [p for p in posts if p.status == 'published' and not p.no_index]
-                        if published_posts:
-                            latest_post = max(
-                                published_posts,
-                                key=lambda p: p.updated_date or p.published_date or p.created_date,
-                                default=None
-                            )
-            except (AttributeError, TypeError):
-                pass
-            
-            if not latest_post:
-                latest_post = obj.posts.filter(
-                    status='published', 
-                    no_index=False
-                ).order_by('-updated_date').first()
-            
-            if latest_post:
-                return latest_post.updated_date or latest_post.published_date or latest_post.created_date or timezone.now()
-            return timezone.now()
-        except Exception:
-            return timezone.now()
 
     def location(self, obj):
         """Return blog tag URL without language prefix."""

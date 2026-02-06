@@ -20,13 +20,13 @@ languages = [
     ('nl', 'Nederlands'),
     ('el', 'Ελληνικά'),
     ('hi', 'हिन्दी'),
-    # ('ms', 'Bahasa Melayu'),
-    # ('pl', 'Polski'),
-    # ('sv', 'Svenska'),
-    # ('th', 'ภาษาไทย'),
-    # ('uk', 'Українська'),
-    # ('ur', 'اردو'),
-    # ('vi', 'Tiếng Việt'),
+    ('ms', 'Bahasa Melayu'),
+    ('pl', 'Polski'),
+    ('sv', 'Svenska'),
+    ('th', 'ภาษาไทย'),
+    ('uk', 'Українська'),
+    ('ur', 'اردو'),
+    ('vi', 'Tiếng Việt'),
 ]
 
 # Translate a single string using deep-translator
