@@ -24,6 +24,7 @@ class MathIndexView(TemplateView):
             {'name': _('Root Calculator'), 'url': 'root-calculator', 'category': _('Algebra & Equations'), 'description': _('Calculate square roots, cube roots, and nth roots')},
             {'name': _('Log Calculator'), 'url': 'log-calculator', 'category': _('Algebra & Equations'), 'description': _('Calculate logarithmic values')},
             {'name': _('Scientific Notation Calculator'), 'url': 'scientific-notation-calculator', 'category': _('Algebra & Equations'), 'description': _('Convert numbers to and from scientific notation')},
+            {'name': _('Matrix Calculator'), 'url': 'matrix-calculator', 'category': _('Algebra & Equations'), 'description': _('Perform matrix operations including addition, subtraction, and multiplication')},
             
             # Number Theory
             {'name': _('Factor Calculator'), 'url': 'factor-calculator', 'category': _('Number Theory'), 'description': _('Find all factors of a number')},

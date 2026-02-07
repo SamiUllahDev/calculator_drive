@@ -1,6 +1,7 @@
 """
 Production-ready sitemap classes for SEO optimization.
 Generates comprehensive sitemap.xml with proper URL structure and priorities.
+ALL calculators are included for ALL languages (26 languages × 198 calculators = 5148 URLs)
 """
 from django.contrib.sitemaps import Sitemap
 from django.contrib.sites.shortcuts import get_current_site
@@ -56,6 +57,11 @@ def get_calculators_list(app_name, cache_key, view_class):
         return []
 
 
+def get_all_languages():
+    """Get all language codes from settings."""
+    return [lang[0] for lang in settings.LANGUAGES]
+
+
 class StaticViewSitemap(Sitemap):
     """
     Sitemap for static pages with separate entries for each language.
@@ -78,7 +84,7 @@ class StaticViewSitemap(Sitemap):
             'core:search',
         ]
         for url_name in url_names:
-            for lang_code, _ in settings.LANGUAGES:
+            for lang_code in get_all_languages():
                 items.append((url_name, lang_code))
         return items
 
@@ -119,7 +125,7 @@ class CalculatorIndexSitemap(Sitemap):
             'other_calculators:index',
         ]
         for url_name in url_names:
-            for lang_code, _ in settings.LANGUAGES:
+            for lang_code in get_all_languages():
                 items.append((url_name, lang_code))
         return items
 
@@ -150,8 +156,8 @@ class CalculatorIndexSitemap(Sitemap):
 
 class MathCalculatorSitemap(Sitemap):
     """
-    Sitemap for all math calculators.
-    SEO-optimized with proper URL structure and priorities.
+    Sitemap for all math calculators with ALL language variants.
+    Generates: 44 calculators × 26 languages = 1,144 URLs
     """
     changefreq = 'daily'
     i18n = False
@@ -159,18 +165,32 @@ class MathCalculatorSitemap(Sitemap):
     x_default = False
 
     def items(self):
+        """Return list of (calculator, lang_code) tuples for ALL languages."""
         from Math_Calculators.views.index import MathIndexView
-        return get_calculators_list('math', 'sitemap_math_calculators', MathIndexView)
+        calculators = get_calculators_list('math', 'sitemap_math_calculators', MathIndexView)
+        
+        items = []
+        for calc in calculators:
+            for lang_code in get_all_languages():
+                items.append((calc, lang_code))
+        return items
 
     def location(self, item):
-        """Generate SEO-friendly calculator URL."""
+        """Generate SEO-friendly calculator URL with language prefix."""
         try:
-            if isinstance(item, dict) and 'url' in item:
-                url = item['url'].strip()
+            calc, lang_code = item
+            if isinstance(calc, dict) and 'url' in calc:
+                url = calc['url'].strip()
                 if url:
                     if url.startswith('/'):
                         url = url.lstrip('/')
-                    return f"/math/{url}/"
+                    base_url = f"/math/{url}/"
+                    
+                    # Add language prefix for non-default languages
+                    if lang_code != settings.LANGUAGE_CODE:
+                        base_url = f"/{lang_code}{base_url}"
+                    
+                    return base_url
             return '/math/'
         except (KeyError, TypeError, AttributeError):
             return '/math/'
@@ -178,8 +198,8 @@ class MathCalculatorSitemap(Sitemap):
 
 class FinanceCalculatorSitemap(Sitemap):
     """
-    Sitemap for all financial calculators.
-    SEO-optimized with proper URL structure and priorities.
+    Sitemap for all financial calculators with ALL language variants.
+    Generates: 70 calculators × 26 languages = 1,820 URLs
     """
     changefreq = 'daily'
     i18n = False
@@ -187,18 +207,32 @@ class FinanceCalculatorSitemap(Sitemap):
     x_default = False
 
     def items(self):
+        """Return list of (calculator, lang_code) tuples for ALL languages."""
         from Financial_Calculators.views.index import FinanceIndexView
-        return get_calculators_list('finance', 'sitemap_finance_calculators', FinanceIndexView)
+        calculators = get_calculators_list('finance', 'sitemap_finance_calculators', FinanceIndexView)
+        
+        items = []
+        for calc in calculators:
+            for lang_code in get_all_languages():
+                items.append((calc, lang_code))
+        return items
 
     def location(self, item):
-        """Generate SEO-friendly calculator URL."""
+        """Generate SEO-friendly calculator URL with language prefix."""
         try:
-            if isinstance(item, dict) and 'url' in item:
-                url = item['url'].strip()
+            calc, lang_code = item
+            if isinstance(calc, dict) and 'url' in calc:
+                url = calc['url'].strip()
                 if url:
                     if url.startswith('/'):
                         url = url.lstrip('/')
-                    return f"/finance/{url}/"
+                    base_url = f"/finance/{url}/"
+                    
+                    # Add language prefix for non-default languages
+                    if lang_code != settings.LANGUAGE_CODE:
+                        base_url = f"/{lang_code}{base_url}"
+                    
+                    return base_url
             return '/finance/'
         except (KeyError, TypeError, AttributeError):
             return '/finance/'
@@ -206,8 +240,8 @@ class FinanceCalculatorSitemap(Sitemap):
 
 class HealthCalculatorSitemap(Sitemap):
     """
-    Sitemap for all health & fitness calculators.
-    SEO-optimized with proper URL structure and priorities.
+    Sitemap for all health & fitness calculators with ALL language variants.
+    Generates: 31 calculators × 26 languages = 806 URLs
     """
     changefreq = 'daily'
     i18n = False
@@ -215,18 +249,32 @@ class HealthCalculatorSitemap(Sitemap):
     x_default = False
 
     def items(self):
+        """Return list of (calculator, lang_code) tuples for ALL languages."""
         from Fitness_and_Health_Calculators.views.index import HealthIndexView
-        return get_calculators_list('health', 'sitemap_health_calculators', HealthIndexView)
+        calculators = get_calculators_list('health', 'sitemap_health_calculators', HealthIndexView)
+        
+        items = []
+        for calc in calculators:
+            for lang_code in get_all_languages():
+                items.append((calc, lang_code))
+        return items
 
     def location(self, item):
-        """Generate SEO-friendly calculator URL."""
+        """Generate SEO-friendly calculator URL with language prefix."""
         try:
-            if isinstance(item, dict) and 'url' in item:
-                url = item['url'].strip()
+            calc, lang_code = item
+            if isinstance(calc, dict) and 'url' in calc:
+                url = calc['url'].strip()
                 if url:
                     if url.startswith('/'):
                         url = url.lstrip('/')
-                    return f"/health/{url}/"
+                    base_url = f"/health/{url}/"
+                    
+                    # Add language prefix for non-default languages
+                    if lang_code != settings.LANGUAGE_CODE:
+                        base_url = f"/{lang_code}{base_url}"
+                    
+                    return base_url
             return '/health/'
         except (KeyError, TypeError, AttributeError):
             return '/health/'
@@ -234,8 +282,8 @@ class HealthCalculatorSitemap(Sitemap):
 
 class OtherCalculatorSitemap(Sitemap):
     """
-    Sitemap for all other calculators.
-    SEO-optimized with proper URL structure and priorities.
+    Sitemap for all other calculators with ALL language variants.
+    Generates: 53 calculators × 26 languages = 1,378 URLs
     """
     changefreq = 'daily'
     i18n = False
@@ -243,18 +291,32 @@ class OtherCalculatorSitemap(Sitemap):
     x_default = False
 
     def items(self):
+        """Return list of (calculator, lang_code) tuples for ALL languages."""
         from Other_Calculators.views.index import OtherIndexView
-        return get_calculators_list('other', 'sitemap_other_calculators', OtherIndexView)
+        calculators = get_calculators_list('other', 'sitemap_other_calculators', OtherIndexView)
+        
+        items = []
+        for calc in calculators:
+            for lang_code in get_all_languages():
+                items.append((calc, lang_code))
+        return items
 
     def location(self, item):
-        """Generate SEO-friendly calculator URL."""
+        """Generate SEO-friendly calculator URL with language prefix."""
         try:
-            if isinstance(item, dict) and 'url' in item:
-                url = item['url'].strip()
+            calc, lang_code = item
+            if isinstance(calc, dict) and 'url' in calc:
+                url = calc['url'].strip()
                 if url:
                     if url.startswith('/'):
                         url = url.lstrip('/')
-                    return f"/other/{url}/"
+                    base_url = f"/other/{url}/"
+                    
+                    # Add language prefix for non-default languages
+                    if lang_code != settings.LANGUAGE_CODE:
+                        base_url = f"/{lang_code}{base_url}"
+                    
+                    return base_url
             return '/other/'
         except (KeyError, TypeError, AttributeError):
             return '/other/'
@@ -262,7 +324,7 @@ class OtherCalculatorSitemap(Sitemap):
 
 class BlogPostSitemap(Sitemap):
     """
-    Sitemap for published blog posts without language prefixes.
+    Sitemap for published blog posts (no language variants - single URL per post).
     """
     changefreq = 'daily'
     i18n = False
@@ -272,20 +334,21 @@ class BlogPostSitemap(Sitemap):
     def items(self):
         """Return blog posts without language variants."""
         try:
-            return Post.objects.filter(
+            return list(Post.objects.filter(
                 status='published', 
                 no_index=False
-            ).select_related('author', 'category').order_by('-published_date')
+            ).select_related('author', 'category').order_by('-published_date'))
         except Exception:
-            return Post.objects.none()
+            return []
 
-    def location(self, obj):
+    def location(self, item):
         """Return blog URL without language prefix."""
         try:
-            base_url = obj.get_absolute_url()
+            base_url = item.get_absolute_url()
             if not base_url:
                 return '/blog/'
             
+            # Remove any existing language prefix
             for lang, _ in settings.LANGUAGES:
                 if base_url.startswith(f'/{lang}/'):
                     base_url = base_url[len(f'/{lang}/'):]
@@ -300,7 +363,7 @@ class BlogPostSitemap(Sitemap):
 
 class BlogCategorySitemap(Sitemap):
     """
-    Sitemap for blog categories without language prefixes.
+    Sitemap for blog categories (no language variants - single URL per category).
     """
     changefreq = 'daily'
     i18n = False
@@ -310,20 +373,21 @@ class BlogCategorySitemap(Sitemap):
     def items(self):
         """Return blog categories without language variants."""
         try:
-            return Category.objects.filter(
+            return list(Category.objects.filter(
                 posts__status='published', 
                 posts__no_index=False
-            ).distinct().prefetch_related('posts')
+            ).distinct().prefetch_related('posts'))
         except Exception:
-            return Category.objects.none()
+            return []
 
-    def location(self, obj):
+    def location(self, item):
         """Return blog category URL without language prefix."""
         try:
-            base_url = obj.get_absolute_url()
+            base_url = item.get_absolute_url()
             if not base_url:
                 return '/blog/'
             
+            # Remove any existing language prefix
             for lang, _ in settings.LANGUAGES:
                 if base_url.startswith(f'/{lang}/'):
                     base_url = base_url[len(f'/{lang}/'):]
@@ -338,7 +402,7 @@ class BlogCategorySitemap(Sitemap):
 
 class BlogTagSitemap(Sitemap):
     """
-    Sitemap for blog tags without language prefixes.
+    Sitemap for blog tags (no language variants - single URL per tag).
     """
     changefreq = 'daily'
     i18n = False
@@ -348,20 +412,21 @@ class BlogTagSitemap(Sitemap):
     def items(self):
         """Return blog tags without language variants."""
         try:
-            return Tag.objects.filter(
+            return list(Tag.objects.filter(
                 posts__status='published', 
                 posts__no_index=False
-            ).distinct().prefetch_related('posts')
+            ).distinct().prefetch_related('posts'))
         except Exception:
-            return Tag.objects.none()
+            return []
 
-    def location(self, obj):
+    def location(self, item):
         """Return blog tag URL without language prefix."""
         try:
-            base_url = obj.get_absolute_url()
+            base_url = item.get_absolute_url()
             if not base_url:
                 return '/blog/'
             
+            # Remove any existing language prefix
             for lang, _ in settings.LANGUAGES:
                 if base_url.startswith(f'/{lang}/'):
                     base_url = base_url[len(f'/{lang}/'):]
