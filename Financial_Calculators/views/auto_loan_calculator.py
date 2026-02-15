@@ -54,13 +54,24 @@ class AutoLoanCalculator(View):
         """Handle GET request"""
         context = {
             'calculator_name': 'Auto Loan Calculator',
+            'page_title': 'Auto Loan Calculator - Car Payment Calculator',
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            data = self._get_data(request)
             
             # Get inputs
             vehicle_price = self._get_float(data, 'vehicle_price', 0)
@@ -71,7 +82,7 @@ class AutoLoanCalculator(View):
             loan_term = self._get_int(data, 'loan_term', 60)
             sales_tax_rate = self._get_float(data, 'sales_tax_rate', 0)
             fees = self._get_float(data, 'fees', 0)
-            include_tax_in_loan = data.get('include_tax_in_loan', 'true') == 'true'
+            include_tax_in_loan = str(data.get('include_tax_in_loan', 'true')).lower() in ('true', '1', 'on', 'yes')
             
             # Validation
             errors = []

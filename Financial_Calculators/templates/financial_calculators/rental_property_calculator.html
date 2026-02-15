@@ -1,46 +1,424 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
-{% block title %}Rental Property Calculator{% endblock %}
-{% block meta_description %}Rental Property Calculator - Fast, accurate, and easy to use. Calculate online for free.{% endblock %}
+{% block title %}{% trans "Rental Property Calculator - Cash Flow & ROI Analysis" %}{% endblock %}
+{% block meta_description %}{% trans "Analyze rental property investments. Calculate cash flow, cap rate, NOI, and key investment metrics." %}{% endblock %}
+{% block meta_keywords %}{% trans "rental property calculator, cap rate, NOI, cash flow, rental income, investment" %}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{% trans 'Rental Property Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate cash flow, cap rate, and NOI for rental properties.' %}">
+<meta property="og:type" content="website">
+<!-- Chart.js CDN -->
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-    <div class="container">
-        <h1>Rental Property Calculator</h1>
-        <form id="calculatorForm">
-                        <div class="form-group">
-                <label for="property_price_">Property Price ($):</label>
-                <input type="number" id="property_price_" name="property_price_" placeholder="Enter Property Price ($)" step="0.01" required>
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
             </div>
-            <div class="form-group">
-                <label for="rental_income_">Rental Income ($):</label>
-                <input type="number" id="rental_income_" name="rental_income_" placeholder="Enter Rental Income ($)" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label for="expenses_">Expenses ($):</label>
-                <input type="number" id="expenses_" name="expenses_" placeholder="Enter Expenses ($)" step="0.01" required>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Rental Property Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Estimate cash flow, cap rate, NOI, and gross yield for your rental property investment." %}
+            </p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+
+                        <div>
+                            <label for="property_price" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Property Price" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="property_price" name="property_price" value="350,000" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base text-right" inputmode="decimal" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="monthly_rent" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Rental Income" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_rent" name="monthly_rent" value="2,500" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base text-right" inputmode="decimal" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="monthly_expenses" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Expenses" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_expenses" name="monthly_expenses" value="800" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base text-right" inputmode="decimal">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Tax, insurance, maintenance, utilities, etc." %}</p>
+                        </div>
+
+                        <div>
+                            <label for="vacancy_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Vacancy Rate %" %}</label>
+                            <input type="text" id="vacancy_rate" name="vacancy_rate" value="5" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" inputmode="decimal">
+                        </div>
+
+                        <div>
+                            <label for="monthly_mortgage" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Monthly Mortgage (optional)" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="monthly_mortgage" name="monthly_mortgage" value="0" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base text-right" inputmode="decimal">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit">Calculate</button>
-        </form>
-        <div class="results" id="results">
-            <div class="result-item">
-                <span class="result-label">Result:</span>
-                <span class="result-value" id="result">$0.00</span>
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter property price, monthly rent, and expenses, then click Calculate to see cap rate, NOI, cash flow, and breakdown chart." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden space-y-6">
+                    <div class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Annual Cash Flow" %}</p>
+                            <p id="annual_cash_flow" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p class="text-sm opacity-90">{% trans "Monthly" %} <span id="monthly_cash_flow">$0</span></p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Cap Rate" %}</p>
+                                <p id="cap_rate" class="text-sm font-bold text-gray-900">0%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Gross Yield" %}</p>
+                                <p id="gross_yield" class="text-sm font-bold text-gray-900">0%</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "NOI" %}</p>
+                                <p id="noi" class="text-sm font-bold text-gray-900">$0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Effective Income" %}</p>
+                                <p id="effective_income" class="text-sm font-bold text-gray-900">$0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Income vs Expenses" %}</h3>
+                        <div class="relative h-[280px] min-h-[280px]">
+                            <canvas id="breakdownChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <!-- What is This Calculator -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is This Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "The Rental Property Calculator estimates key investment metrics for a rental property: Net Operating Income (NOI), cap rate, gross yield, and cash flow after operating expenses and optional mortgage payments. It helps you compare properties, screen deals, and understand how much income a rental can generate before and after financing." %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "All results are based on the numbers you enter. Use realistic rent, expenses, and vacancy so the metrics reflect true potential. Operating expenses typically include property tax, insurance, maintenance, utilities, property management, and repairs—but not the mortgage." %}
+                            </p>
+                        </div>
+
+                        <!-- Key Metrics -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Metrics" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Cap Rate (Capitalization Rate)" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "NOI ÷ Property Price. Measures the property’s return as if you paid cash (no loan). Higher cap rate usually means higher yield but often higher risk or lower appreciation. Use it to compare similar properties in the same market." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "NOI (Net Operating Income)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "Effective rental income minus all operating expenses. It does not include mortgage payments. Lenders and investors use NOI to assess whether the property can support debt and generate income." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-amber-500 pl-4 py-2 bg-amber-50 rounded-r">
+                                    <h4 class="font-semibold text-amber-900 mb-1">{% trans "Gross Yield" %}</h4>
+                                    <p class="text-sm text-amber-800">
+                                        {% trans "Gross annual rent ÷ Property Price. A simple ratio before vacancy and expenses. Useful for a quick first look; cap rate and cash flow are better for real decisions." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Cash Flow" %}</h4>
+                                    <p class="text-sm text-indigo-800">
+                                        {% trans "NOI minus annual mortgage payments. This is the cash you keep each year after paying the loan. Positive cash flow improves sustainability; negative cash flow may be acceptable only if you expect strong appreciation or tax benefits." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the property purchase price or current market value." %}</li>
+                                <li>{% trans "Enter expected monthly rental income (market rent)." %}</li>
+                                <li>{% trans "Enter total monthly operating expenses (tax, insurance, maintenance, utilities, management, etc.)." %}</li>
+                                <li>{% trans "Set a vacancy rate (e.g. 5–10%) to account for empty periods." %}</li>
+                                <li>{% trans "If you have or plan a mortgage, enter the monthly payment to see cash flow after debt." %}</li>
+                                <li>{% trans "Click Calculate to see cap rate, NOI, cash flow, and the Income vs Expenses chart." %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Your Results -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Annual Cash Flow" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "The amount of cash left each year after all income, operating expenses, and mortgage payments. Shown as both annual and monthly. This is what you can use for savings, reinvestment, or living expenses." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Effective Income" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Gross annual rent reduced by your vacancy rate. It represents the income you can realistically expect after accounting for empty months." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Cap Rate & Gross Yield" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Cap rate uses NOI (after expenses); gross yield uses gross rent (before expenses). Cap rate is the standard for comparing rental investments. Gross yield is a quick screening tool." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Understanding the Chart -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Chart" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% trans "The Income vs Expenses bar chart shows four annual amounts: Effective Income (rent after vacancy), Operating Expenses (shown as a negative bar), Mortgage (debt service, also negative if entered), and Net Cash Flow. Positive bars are income or profit; negative bars are costs. Net Cash Flow is what remains after all outflows." %}
+                            </p>
+                        </div>
+
+                        <!-- Formulas -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Formulas" %}</h3>
+                            <div class="space-y-3">
+                                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <p class="font-semibold text-gray-900 mb-1">{% trans "Effective Gross Income" %}</p>
+                                    <p class="font-mono text-sm text-gray-800">{% trans "Gross Annual Rent × (1 − Vacancy Rate ÷ 100)" %}</p>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <p class="font-semibold text-gray-900 mb-1">{% trans "NOI" %}</p>
+                                    <p class="font-mono text-sm text-gray-800">{% trans "Effective Gross Income − Annual Operating Expenses" %}</p>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <p class="font-semibold text-gray-900 mb-1">{% trans "Cap Rate" %}</p>
+                                    <p class="font-mono text-sm text-gray-800">{% trans "NOI ÷ Property Price × 100" %}</p>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <p class="font-semibold text-gray-900 mb-1">{% trans "Annual Cash Flow" %}</p>
+                                    <p class="font-mono text-sm text-gray-800">{% trans "NOI − (Monthly Mortgage × 12)" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "Effective income is reduced by the vacancy rate. Use realistic expense and vacancy assumptions (e.g. 5–10% vacancy, full operating costs)." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "This calculator is for estimation and education only. It does not include taxes, closing costs, or future rent changes. Consult a financial or real estate professional for investment decisions." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "Cap rate and cash flow vary by market and property type. Compare with local comps and speak to local investors or agents for context." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <script>
-        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            document.getElementById('result').textContent = '$0.00';
-            document.getElementById('results').classList.add('show');
-        });
-    </script>
-
-    </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const resultsSection = document.getElementById('resultsSection');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const loadingState = document.getElementById('loadingState');
+    let breakdownChart = null;
+
+    function parseNum(id) {
+        const el = document.getElementById(id);
+        if (!el) return null;
+        const v = (el.value || '').replace(/,/g, '').replace(/\$/g, '').replace(/%/g, '').trim();
+        return v === '' ? null : parseFloat(v);
+    }
+
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+    }
+
+    function showError(msg) {
+        errorMessage.textContent = msg || '{% trans "Please check your inputs." %}';
+        errorState.classList.remove('hidden');
+        initialState.classList.remove('hidden');
+        resultsSection.classList.add('hidden');
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errorState.classList.add('hidden');
+        document.getElementById('calculateBtn').disabled = true;
+        document.getElementById('calculateBtnText').textContent = '{% trans "Calculating..." %}';
+        loadingState.classList.remove('hidden');
+        initialState.classList.add('hidden');
+        resultsSection.classList.add('hidden');
+
+        const payload = {
+            property_price: parseNum('property_price') || 0,
+            monthly_rent: parseNum('monthly_rent') ?? 0,
+            monthly_expenses: parseNum('monthly_expenses') ?? 0,
+            vacancy_rate: parseNum('vacancy_rate') ?? 5,
+            monthly_mortgage: parseNum('monthly_mortgage') ?? 0
+        };
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                showError(data.error || '{% trans "An error occurred. Please try again." %}');
+                return;
+            }
+
+            loadingState.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+
+            document.getElementById('annual_cash_flow').textContent = formatCurrency(data.annual_cash_flow);
+            document.getElementById('monthly_cash_flow').textContent = formatCurrency(data.monthly_cash_flow);
+            document.getElementById('cap_rate').textContent = data.cap_rate + '%';
+            document.getElementById('gross_yield').textContent = data.gross_yield + '%';
+            document.getElementById('noi').textContent = formatCurrency(data.noi);
+            document.getElementById('effective_income').textContent = formatCurrency(data.effective_annual_income);
+
+            if (breakdownChart) breakdownChart.destroy();
+            const chartConfig = data.chart_data && data.chart_data.breakdown_chart ? data.chart_data.breakdown_chart : {
+                type: 'bar',
+                data: {
+                    labels: ['Effective Income', 'Operating Expenses', 'Mortgage', 'Net Cash Flow'],
+                    datasets: [{
+                        label: 'Annual ($)',
+                        data: [
+                            data.effective_annual_income,
+                            -data.annual_expenses,
+                            -(data.monthly_mortgage * 12),
+                            data.annual_cash_flow
+                        ],
+                        backgroundColor: ['rgba(37, 99, 235, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(5, 150, 105, 0.8)'],
+                        borderColor: ['#2563eb', '#ef4444', '#f59e0b', '#059669'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            };
+            breakdownChart = new Chart(document.getElementById('breakdownChart').getContext('2d'), {
+                type: chartConfig.type,
+                data: chartConfig.data,
+                options: Object.assign({ responsive: true, maintainAspectRatio: false }, chartConfig.options || {})
+            });
+
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showError('{% trans "An error occurred. Please try again." %}');
+        } finally {
+            document.getElementById('calculateBtn').disabled = false;
+            document.getElementById('calculateBtnText').textContent = '{% trans "Calculate" %}';
+            loadingState.classList.add('hidden');
+        }
+    });
+});
+</script>
 {% endblock %}

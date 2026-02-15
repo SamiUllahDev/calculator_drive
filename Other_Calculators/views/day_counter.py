@@ -1,13 +1,24 @@
 from django.views import View
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
+import logging
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
-import math
+
+logger = logging.getLogger(__name__)
+
+
+class SafeJSONEncoder(DjangoJSONEncoder):
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError:
+            return str(o) if o is not None else None
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -31,275 +42,234 @@ class DayCounter(View):
     """
     template_name = 'other_calculators/day_counter.html'
     
+    def _get_data(self, request):
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        if request.body:
+            try:
+                return json.loads(request.body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _val(self, data, key, default=None):
+        v = data.get(key, default)
+        return (v[0] if isinstance(v, list) and v else v) if v is not None else default
+
     def get(self, request):
         """Handle GET request"""
-        context = {
-            'calculator_name': 'Day Counter',
-        }
+        context = {'calculator_name': str(_('Day Counter'))}
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'between')
-            
+            data = self._get_data(request)
+            if not data:
+                return HttpResponse(
+                    json.dumps({'success': False, 'error': str(_('Invalid request data.'))}, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            calc_type = self._val(data, 'calc_type', 'between')
             if calc_type == 'between':
-                return self._calculate_days_between(data)
+                result = self._calculate_days_between(data)
             elif calc_type == 'since':
-                return self._calculate_days_since(data)
+                result = self._calculate_days_since(data)
             elif calc_type == 'until':
-                return self._calculate_days_until(data)
+                result = self._calculate_days_until(data)
             elif calc_type == 'countdown':
-                return self._calculate_countdown(data)
+                result = self._calculate_countdown(data)
             else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
+                return HttpResponse(
+                    json.dumps({'success': False, 'error': str(_('Invalid calculation type.'))}, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            if isinstance(result, dict) and not result.get('success'):
+                return HttpResponse(
+                    json.dumps(result, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            return HttpResponse(json.dumps(result, cls=SafeJSONEncoder), content_type='application/json')
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
+            logger.exception("Day counter failed: %s", e)
+            from django.conf import settings
+            err_msg = str(_('An error occurred during calculation.'))
+            if getattr(settings, 'DEBUG', False):
+                err_msg += ' [' + str(e).replace('"', "'") + ']'
+            return HttpResponse(
+                json.dumps({'success': False, 'error': err_msg}, cls=SafeJSONEncoder),
+                content_type='application/json',
+                status=500
+            )
     
     def _calculate_days_between(self, data):
         """Calculate days between two dates"""
+        start_date_str = self._val(data, 'start_date', '')
+        end_date_str = self._val(data, 'end_date', '')
+        if not start_date_str or not end_date_str:
+            return {'success': False, 'error': str(_('Please provide both start and end dates.'))}
         try:
-            start_date_str = data.get('start_date')
-            end_date_str = data.get('end_date')
-            
-            if not start_date_str or not end_date_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Please provide both start and end dates.')
-                }, status=400)
-            
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            
-            if start_date > end_date:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Start date must be before or equal to end date.')
-                }, status=400)
-            
-            # Calculate difference
-            delta = end_date - start_date
-            total_days = delta.days
-            
-            # Use relativedelta for precise calculation
-            rd = relativedelta(end_date, start_date)
-            
-            # Calculate various units
-            total_weeks = total_days // 7
-            remaining_days = total_days % 7
-            total_months = rd.years * 12 + rd.months
-            total_hours = total_days * 24
-            total_minutes = total_hours * 60
-            total_seconds = total_minutes * 60
-            
-            # Business days (excluding weekends)
-            business_days = self._calculate_business_days(start_date, end_date)
-            
-            # Prepare response
-            response_data = {
-                'success': True,
-                'calc_type': 'between',
-                'start_date': str(start_date),
-                'end_date': str(end_date),
-                'total_days': total_days,
-                'formatted': _('{days} days').format(days=total_days),
-                'breakdown': {
-                    'years': rd.years,
-                    'months': rd.months,
-                    'days': rd.days,
-                    'weeks': total_weeks,
-                    'weeks_days': _('{weeks} weeks, {days} days').format(weeks=total_weeks, days=remaining_days),
-                    'hours': total_hours,
-                    'minutes': total_minutes,
-                    'seconds': total_seconds,
-                    'business_days': business_days
-                },
-                'step_by_step': self._prepare_between_steps(start_date, end_date, total_days, business_days, rd),
-                'chart_data': self._prepare_between_chart_data(total_days, total_weeks, total_months, business_days),
-            }
-            
-            return JsonResponse(response_data)
-            
-        except ValueError as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid date format. Please use YYYY-MM-DD format.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating days: {error}').format(error=str(e))
-            }, status=500)
+        except ValueError:
+            return {'success': False, 'error': str(_('Invalid date format. Please use YYYY-MM-DD format.'))}
+        if start_date > end_date:
+            return {'success': False, 'error': str(_('Start date must be before or equal to end date.'))}
+        delta = end_date - start_date
+        total_days = delta.days
+        rd = relativedelta(end_date, start_date)
+        total_weeks = total_days // 7
+        remaining_days = total_days % 7
+        total_months = rd.years * 12 + rd.months
+        total_hours = total_days * 24
+        total_minutes = total_hours * 60
+        total_seconds = total_minutes * 60
+        business_days = self._calculate_business_days(start_date, end_date)
+        return {
+            'success': True,
+            'calc_type': 'between',
+            'start_date': str(start_date),
+            'end_date': str(end_date),
+            'total_days': total_days,
+            'formatted': str(_('{days} days')).format(days=total_days),
+            'breakdown': {
+                'years': rd.years,
+                'months': rd.months,
+                'days': rd.days,
+                'weeks': total_weeks,
+                'weeks_days': str(_('{weeks} weeks, {days} days')).format(weeks=total_weeks, days=remaining_days),
+                'hours': total_hours,
+                'minutes': total_minutes,
+                'seconds': total_seconds,
+                'business_days': int(business_days)
+            },
+            'step_by_step': self._prepare_between_steps(start_date, end_date, total_days, business_days, rd),
+            'chart_data': self._prepare_between_chart_data(total_days, total_weeks, total_months, business_days),
+        }
     
     def _calculate_days_since(self, data):
         """Calculate days since a date"""
+        past_date_str = self._val(data, 'past_date', '')
+        if not past_date_str:
+            return {'success': False, 'error': str(_('Please provide a date.'))}
         try:
-            past_date_str = data.get('past_date')
-            if not past_date_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Please provide a date.')
-                }, status=400)
-            
             past_date = datetime.strptime(past_date_str, '%Y-%m-%d').date()
-            today = date.today()
-            
-            if past_date > today:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Date must be in the past.')
-                }, status=400)
-            
-            delta = today - past_date
-            total_days = delta.days
-            
-            rd = relativedelta(today, past_date)
-            total_weeks = total_days // 7
-            total_months = rd.years * 12 + rd.months
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'since',
-                'past_date': str(past_date),
-                'today': str(today),
-                'total_days': total_days,
-                'formatted': _('{days} days ago').format(days=total_days),
-                'breakdown': {
-                    'years': rd.years,
-                    'months': rd.months,
-                    'days': rd.days,
-                    'weeks': total_weeks
-                },
-                'step_by_step': self._prepare_since_steps(past_date, today, total_days),
-            }
-            
-            return JsonResponse(response_data)
-            
         except ValueError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid date format.')
-            }, status=400)
+            return {'success': False, 'error': str(_('Invalid date format. Please use YYYY-MM-DD format.'))}
+        today = date.today()
+        if past_date > today:
+            return {'success': False, 'error': str(_('Date must be in the past.'))}
+        delta = today - past_date
+        total_days = delta.days
+        rd = relativedelta(today, past_date)
+        total_weeks = total_days // 7
+        total_months = rd.years * 12 + rd.months
+        chart_data = self._prepare_days_breakdown_chart(total_days, total_weeks, total_months, rd.years)
+        return {
+            'success': True,
+            'calc_type': 'since',
+            'past_date': str(past_date),
+            'today': str(today),
+            'total_days': total_days,
+            'formatted': str(_('{days} days ago')).format(days=total_days),
+            'breakdown': {
+                'years': rd.years,
+                'months': rd.months,
+                'days': rd.days,
+                'weeks': total_weeks
+            },
+            'step_by_step': self._prepare_since_steps(past_date, today, total_days),
+            'chart_data': chart_data,
+        }
     
     def _calculate_days_until(self, data):
         """Calculate days until a date"""
+        future_date_str = self._val(data, 'future_date', '')
+        if not future_date_str:
+            return {'success': False, 'error': str(_('Please provide a date.'))}
         try:
-            future_date_str = data.get('future_date')
-            if not future_date_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Please provide a date.')
-                }, status=400)
-            
             future_date = datetime.strptime(future_date_str, '%Y-%m-%d').date()
-            today = date.today()
-            
-            if future_date < today:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Date must be in the future.')
-                }, status=400)
-            
-            delta = future_date - today
-            total_days = delta.days
-            
-            rd = relativedelta(future_date, today)
-            total_weeks = total_days // 7
-            total_months = rd.years * 12 + rd.months
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'until',
-                'future_date': str(future_date),
-                'today': str(today),
-                'total_days': total_days,
-                'formatted': _('{days} days from now').format(days=total_days),
-                'breakdown': {
-                    'years': rd.years,
-                    'months': rd.months,
-                    'days': rd.days,
-                    'weeks': total_weeks
-                },
-                'step_by_step': self._prepare_until_steps(today, future_date, total_days),
-            }
-            
-            return JsonResponse(response_data)
-            
         except ValueError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid date format.')
-            }, status=400)
+            return {'success': False, 'error': str(_('Invalid date format. Please use YYYY-MM-DD format.'))}
+        today = date.today()
+        if future_date < today:
+            return {'success': False, 'error': str(_('Date must be in the future.'))}
+        delta = future_date - today
+        total_days = delta.days
+        rd = relativedelta(future_date, today)
+        total_weeks = total_days // 7
+        total_months = rd.years * 12 + rd.months
+        chart_data = self._prepare_days_breakdown_chart(total_days, total_weeks, total_months, rd.years)
+        return {
+            'success': True,
+            'calc_type': 'until',
+            'future_date': str(future_date),
+            'today': str(today),
+            'total_days': total_days,
+            'formatted': str(_('{days} days from now')).format(days=total_days),
+            'breakdown': {
+                'years': rd.years,
+                'months': rd.months,
+                'days': rd.days,
+                'weeks': total_weeks
+            },
+            'step_by_step': self._prepare_until_steps(today, future_date, total_days),
+            'chart_data': chart_data,
+        }
     
     def _calculate_countdown(self, data):
         """Calculate countdown to an event"""
+        event_date_str = self._val(data, 'event_date', '')
+        event_name = self._val(data, 'event_name', '') or str(_('Event'))
+        if not event_date_str:
+            return {'success': False, 'error': str(_('Please provide an event date.'))}
         try:
-            event_date_str = data.get('event_date')
-            event_name = data.get('event_name', _('Event'))
-            
-            if not event_date_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Please provide an event date.')
-                }, status=400)
-            
             event_date = datetime.strptime(event_date_str, '%Y-%m-%d').date()
-            today = date.today()
-            
-            if event_date < today:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Event date must be in the future.')
-                }, status=400)
-            
-            delta = event_date - today
-            total_days = delta.days
-            
-            rd = relativedelta(event_date, today)
-            total_weeks = total_days // 7
-            total_months = rd.years * 12 + rd.months
-            total_hours = total_days * 24
-            total_minutes = total_hours * 60
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'countdown',
-                'event_date': str(event_date),
-                'event_name': event_name,
-                'today': str(today),
-                'total_days': total_days,
-                'formatted': _('{days} days until {event}').format(days=total_days, event=event_name),
-                'breakdown': {
-                    'years': rd.years,
-                    'months': rd.months,
-                    'days': rd.days,
-                    'weeks': total_weeks,
-                    'hours': total_hours,
-                    'minutes': total_minutes
-                },
-                'step_by_step': self._prepare_countdown_steps(today, event_date, event_name, total_days),
-            }
-            
-            return JsonResponse(response_data)
-            
         except ValueError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid date format.')
-            }, status=400)
+            return {'success': False, 'error': str(_('Invalid date format. Please use YYYY-MM-DD format.'))}
+        today = date.today()
+        if event_date < today:
+            return {'success': False, 'error': str(_('Event date must be in the future.'))}
+        delta = event_date - today
+        total_days = delta.days
+        rd = relativedelta(event_date, today)
+        total_weeks = total_days // 7
+        total_months = rd.years * 12 + rd.months
+        total_hours = total_days * 24
+        total_minutes = total_hours * 60
+        chart_data = self._prepare_days_breakdown_chart(total_days, total_weeks, total_months, rd.years)
+        return {
+            'success': True,
+            'calc_type': 'countdown',
+            'event_date': str(event_date),
+            'event_name': event_name,
+            'today': str(today),
+            'total_days': total_days,
+            'formatted': str(_('{days} days until {event}')).format(days=total_days, event=event_name),
+            'breakdown': {
+                'years': rd.years,
+                'months': rd.months,
+                'days': rd.days,
+                'weeks': total_weeks,
+                'hours': total_hours,
+                'minutes': total_minutes
+            },
+            'step_by_step': self._prepare_countdown_steps(today, event_date, event_name, total_days),
+            'chart_data': chart_data,
+        }
     
     def _calculate_business_days(self, start_date, end_date):
         """Calculate business days manually (excluding weekends)"""
@@ -373,48 +343,49 @@ class DayCounter(View):
         chart_config = {
             'type': 'bar',
             'data': {
-                'labels': [
-                    _('Days'),
-                    _('Weeks'),
-                    _('Months'),
-                    _('Business Days')
-                ],
+                'labels': [str(_('Days')), str(_('Weeks')), str(_('Months')), str(_('Business Days'))],
                 'datasets': [{
-                    'label': _('Time Units'),
+                    'label': str(_('Time Units')),
                     'data': [total_days, total_weeks, total_months, business_days],
-                    'backgroundColor': [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(251, 191, 36, 0.8)',
-                        'rgba(139, 92, 246, 0.8)'
-                    ],
-                    'borderColor': [
-                        '#3b82f6',
-                        '#10b981',
-                        '#fbbf24',
-                        '#8b5cf6'
-                    ],
-                    'borderWidth': 2
+                    'backgroundColor': ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd'],
+                    'borderRadius': 4,
+                    'borderWidth': 0
                 }]
             },
             'options': {
                 'responsive': True,
-                'maintainAspectRatio': True,
-                'plugins': {
-                    'legend': {
-                        'display': False
-                    },
-                    'title': {
-                        'display': True,
-                        'text': _('Days Breakdown')
-                    }
-                },
+                'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}},
                 'scales': {
-                    'y': {
-                        'beginAtZero': True
-                    }
+                    'x': {'grid': {'display': False}},
+                    'y': {'beginAtZero': True, 'ticks': {'precision': 0}}
                 }
             }
         }
-        
+        return {'days_chart': chart_config}
+
+    def _prepare_days_breakdown_chart(self, total_days, total_weeks, total_months, years):
+        """Prepare chart for since/until/countdown (days, weeks, months, years)."""
+        chart_config = {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Days')), str(_('Weeks')), str(_('Months')), str(_('Years'))],
+                'datasets': [{
+                    'label': str(_('Count')),
+                    'data': [total_days, total_weeks, total_months, years],
+                    'backgroundColor': ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd'],
+                    'borderRadius': 4,
+                    'borderWidth': 0
+                }]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}},
+                'scales': {
+                    'x': {'grid': {'display': False}},
+                    'y': {'beginAtZero': True, 'ticks': {'precision': 0}}
+                }
+            }
+        }
         return {'days_chart': chart_config}

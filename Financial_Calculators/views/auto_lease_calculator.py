@@ -1,99 +1,157 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
 import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class AutoLeaseCalculator(View):
     """
-    Class-based view for Auto Lease Calculator
-    Calculates monthly lease payments using money factor and residual value.
+    Class-based view for Auto Lease Calculator.
+    Calculates monthly car lease payments using money factor and residual; uses NumPy; returns Chart.js chart_data (BMI-style).
     """
     template_name = 'financial_calculators/auto_lease_calculator.html'
 
     def get(self, request):
-        """Handle GET request"""
-        context = {
-            'calculator_name': 'Auto Lease Calculator',
-        }
+        context = {'calculator_name': str(_('Auto Lease Calculator'))}
         return render(request, self.template_name, context)
 
-    def post(self, request):
-        """Handle POST request for auto lease calculations"""
+    def _get_data(self, request):
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        return {}
+
+    def _get_float(self, data, key, default=0.0):
         try:
-            data = json.loads(request.body)
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '')))
+        except (ValueError, TypeError):
+            return default
+
+    def post(self, request):
+        try:
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
 
             calc_type = data.get('calc_type', 'calculate_payment')
+            if isinstance(calc_type, list):
+                calc_type = calc_type[0] if calc_type else 'calculate_payment'
 
             if calc_type == 'calculate_payment':
-                # Calculate monthly lease payment
-                msrp = float(str(data.get('msrp', 0)).replace(',', ''))
-                negotiated_price = float(str(data.get('negotiated_price', 0)).replace(',', ''))
-                down_payment = float(str(data.get('down_payment', 0)).replace(',', ''))
-                trade_in_value = float(str(data.get('trade_in_value', 0)).replace(',', ''))
-                trade_in_payoff = float(str(data.get('trade_in_payoff', 0)).replace(',', ''))
-                lease_term = int(data.get('lease_term', 36))  # months
-                residual_percent = float(str(data.get('residual_percent', 0)).replace(',', ''))
-                money_factor = float(str(data.get('money_factor', 0)).replace(',', ''))
-                sales_tax_rate = float(str(data.get('sales_tax_rate', 0)).replace(',', ''))
-                acquisition_fee = float(str(data.get('acquisition_fee', 0)).replace(',', ''))
-                doc_fee = float(str(data.get('doc_fee', 0)).replace(',', ''))
-                rebates = float(str(data.get('rebates', 0)).replace(',', ''))
+                msrp = self._get_float(data, 'msrp', 0)
+                negotiated_price = self._get_float(data, 'negotiated_price', 0)
+                down_payment = self._get_float(data, 'down_payment', 0)
+                trade_in_value = self._get_float(data, 'trade_in_value', 0)
+                trade_in_payoff = self._get_float(data, 'trade_in_payoff', 0)
+                lease_term = self._get_int(data, 'lease_term', 36)
+                residual_percent = self._get_float(data, 'residual_percent', 0)
+                money_factor = self._get_float(data, 'money_factor', 0)
+                sales_tax_rate = self._get_float(data, 'sales_tax_rate', 0)
+                acquisition_fee = self._get_float(data, 'acquisition_fee', 0)
+                doc_fee = self._get_float(data, 'doc_fee', 0)
+                rebates = self._get_float(data, 'rebates', 0)
 
                 if msrp <= 0:
-                    return JsonResponse({'success': False, 'error': 'MSRP must be greater than zero.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('MSRP must be greater than zero.'))}, status=400)
                 if negotiated_price <= 0:
                     negotiated_price = msrp
                 if lease_term <= 0:
-                    return JsonResponse({'success': False, 'error': 'Lease term must be greater than zero.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('Lease term must be greater than zero.'))}, status=400)
                 if residual_percent <= 0 or residual_percent > 100:
-                    return JsonResponse({'success': False, 'error': 'Residual value must be between 0 and 100%.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('Residual value must be between 0 and 100%%.'))}, status=400)
 
-                # Calculate residual value
                 residual_value = msrp * (residual_percent / 100)
+                trade_in_equity = max(0.0, trade_in_value - trade_in_payoff)
+                trade_in_negative = max(0.0, trade_in_payoff - trade_in_value)
 
-                # Calculate trade-in equity
-                trade_in_equity = max(0, trade_in_value - trade_in_payoff)
-                trade_in_negative = max(0, trade_in_payoff - trade_in_value)
-
-                # Calculate capitalized cost
                 gross_cap_cost = negotiated_price + acquisition_fee + doc_fee + trade_in_negative
                 cap_cost_reduction = down_payment + trade_in_equity + rebates
                 adjusted_cap_cost = gross_cap_cost - cap_cost_reduction
 
-                # Depreciation fee (monthly)
                 depreciation = (adjusted_cap_cost - residual_value) / lease_term
-
-                # Finance charge (rent charge) - monthly
                 finance_charge = (adjusted_cap_cost + residual_value) * money_factor
-
-                # Base monthly payment (before tax)
                 base_payment = depreciation + finance_charge
-
-                # Monthly sales tax
                 monthly_tax = base_payment * (sales_tax_rate / 100)
-
-                # Total monthly payment
                 monthly_payment = base_payment + monthly_tax
 
-                # Convert money factor to APR equivalent
                 apr_equivalent = money_factor * 2400
 
-                # Total lease cost
-                total_lease_cost = (monthly_payment * lease_term) + down_payment + acquisition_fee
+                total_payments_arr = np.array([monthly_payment * lease_term])
+                total_lease_cost = float(total_payments_arr[0]) + down_payment + acquisition_fee
                 total_depreciation = adjusted_cap_cost - residual_value
                 total_finance_charges = finance_charge * lease_term
                 total_taxes = monthly_tax * lease_term
 
-                # Cost per mile (assuming 12,000 miles/year)
                 miles_per_year = 12000
-                total_miles = miles_per_year * (lease_term / 12)
-                cost_per_mile = total_lease_cost / total_miles if total_miles > 0 else 0
+                total_miles = miles_per_year * (lease_term / 12.0)
+                cost_per_mile = total_lease_cost / total_miles if total_miles > 0 else 0.0
+
+                due_at_signing = monthly_payment + down_payment + acquisition_fee + doc_fee
+
+                schedule_12 = []
+                for month in range(1, min(13, lease_term + 1)):
+                    schedule_12.append({
+                        'month': month,
+                        'depreciation': round(depreciation, 2),
+                        'finance_charge': round(finance_charge, 2),
+                        'sales_tax': round(monthly_tax, 2),
+                        'total': round(monthly_payment, 2)
+                    })
+
+                summary = {
+                    'monthly_payment': round(monthly_payment, 2),
+                    'total_lease_cost': round(total_lease_cost, 2),
+                    'total_due_at_signing': round(due_at_signing, 2),
+                    'cost_per_mile': round(cost_per_mile, 4),
+                    'lease_term': lease_term,
+                    'down_payment': round(down_payment, 2),
+                    'acquisition_fee': round(acquisition_fee, 2),
+                    'doc_fee': round(doc_fee, 2),
+                    'first_payment': round(monthly_payment, 2),
+                    'gross_cap_cost': round(gross_cap_cost, 2),
+                    'cap_reduction': round(cap_cost_reduction, 2),
+                    'adjusted_cap_cost': round(adjusted_cap_cost, 2),
+                    'residual_value': round(residual_value, 2),
+                    'depreciation': round(depreciation, 2),
+                    'finance_charge': round(finance_charge, 2),
+                    'monthly_tax': round(monthly_tax, 2),
+                    'total_depreciation': round(total_depreciation, 2),
+                    'total_finance_charges': round(total_finance_charges, 2),
+                    'total_taxes': round(total_taxes, 2),
+                    'apr_equivalent': round(apr_equivalent, 2)
+                }
 
                 result = {
                     'success': True,
                     'calc_type': calc_type,
+                    'summary': summary,
                     'input': {
                         'msrp': round(msrp, 2),
                         'negotiated_price': round(negotiated_price, 2),
@@ -131,9 +189,14 @@ class AutoLeaseCalculator(View):
                         'down_payment': round(down_payment, 2),
                         'acquisition_fee': round(acquisition_fee, 2),
                         'doc_fee': round(doc_fee, 2),
-                        'total_due_at_signing': round(monthly_payment + down_payment + acquisition_fee + doc_fee, 2)
-                    }
+                        'total_due_at_signing': round(due_at_signing, 2)
+                    },
+                    'schedule_12': schedule_12
                 }
+                result['chart_data'] = self._prepare_chart_data(
+                    total_depreciation, total_finance_charges, total_taxes, schedule_12
+                )
+                return JsonResponse(result, encoder=DjangoJSONEncoder)
 
             elif calc_type == 'lease_vs_buy':
                 # Compare lease vs buy
@@ -218,9 +281,10 @@ class AutoLeaseCalculator(View):
                 }
 
             elif calc_type == 'money_factor_convert':
-                # Convert between money factor and APR
-                input_value = float(str(data.get('input_value', 0)).replace(',', ''))
-                convert_from = data.get('convert_from', 'money_factor')  # 'money_factor' or 'apr'
+                input_value = self._get_float(data, 'input_value', 0)
+                convert_from = data.get('convert_from', 'money_factor')
+                if isinstance(convert_from, list):
+                    convert_from = convert_from[0] if convert_from else 'money_factor'
 
                 if convert_from == 'money_factor':
                     money_factor = input_value
@@ -238,11 +302,66 @@ class AutoLeaseCalculator(View):
                 }
 
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid calculation type.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Invalid calculation type.'))}, status=400)
 
-            return JsonResponse(result)
+            return JsonResponse(result, encoder=DjangoJSONEncoder)
 
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': str(_('Invalid input. Please check your numbers.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+
+    def _prepare_chart_data(self, total_depreciation, total_finance_charges, total_taxes, schedule_12=None):
+        """Backend-controlled chart data (BMI-style): cost breakdown doughnut + monthly breakdown stacked bar (NumPy)."""
+        total = total_depreciation + total_finance_charges + total_taxes
+        if total <= 0:
+            return {}
+        out = {
+            'breakdown_chart': {
+                'type': 'doughnut',
+                'data': {
+                    'labels': [str(_('Depreciation')), str(_('Finance Charge')), str(_('Tax'))],
+                    'datasets': [{
+                        'data': [
+                            round(total_depreciation, 2),
+                            round(total_finance_charges, 2),
+                            round(total_taxes, 2)
+                        ],
+                        'backgroundColor': ['#7c3aed', '#0d9488', '#f59e0b'],
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'cutout': '60%',
+                    'plugins': {'legend': {'position': 'bottom'}}
+                }
+            }
+        }
+        if schedule_12:
+            months = [str(_('Month')) + ' ' + str(r['month']) for r in schedule_12]
+            dep_vals = [r['depreciation'] for r in schedule_12]
+            fin_vals = [r['finance_charge'] for r in schedule_12]
+            tax_vals = [r['sales_tax'] for r in schedule_12]
+            out['schedule_chart'] = {
+                'type': 'bar',
+                'data': {
+                    'labels': months,
+                    'datasets': [
+                        {'label': str(_('Depreciation')), 'data': dep_vals, 'backgroundColor': '#7c3aed', 'borderRadius': 4, 'borderWidth': 0},
+                        {'label': str(_('Finance Charge')), 'data': fin_vals, 'backgroundColor': '#0d9488', 'borderRadius': 4, 'borderWidth': 0},
+                        {'label': str(_('Tax')), 'data': tax_vals, 'backgroundColor': '#f59e0b', 'borderRadius': 4, 'borderWidth': 0}
+                    ]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'scales': {
+                        'x': {'stacked': True, 'grid': {'display': False}},
+                        'y': {'stacked': True, 'beginAtZero': True}
+                    },
+                    'plugins': {'legend': {'position': 'top'}}
+                }
+            }
+        return out

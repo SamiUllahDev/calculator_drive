@@ -1,199 +1,364 @@
-{% extends 'core/base.html' %}
+{% extends "core/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block title %}Estate Tax Calculator - Federal & State Estate Tax Estimator{% endblock %}
+{% block title %}{% trans "Estate Tax Calculator - Federal & State Estate Tax Estimator" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate federal and state estate taxes with exemptions and deductions. Estimate net to heirs and tax breakdown." %}{% endblock %}
+{% block meta_keywords %}{% trans "estate tax calculator, federal estate tax, state estate tax, estate exemption, net to heirs" %}{% endblock %}
 
-{% block meta_description %}Calculate federal and state estate taxes with exemptions and deductions.{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">🏛️ Estate Tax Calculator</h1>
-            <p class="text-gray-300 text-lg">Estimate federal and state estate taxes</p>
+<div class="min-h-screen bg-gradient-to-br from-violet-50 via-white to-slate-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-violet-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-slate-600">{% trans "Estate Tax Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Estimate federal and state estate taxes, exemptions, and net amount to heirs." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white">💰 Estate Assets</h3>
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Input Form (BMI-style card) -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Total Estate Value</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="estate_value">{% trans "Total Estate Value (Gross)" %}</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="estate_value" id="estate_value" value="15,000,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="estate_value" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="15,000,000" placeholder="15,000,000">
                             </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="debts">{% trans "Debts & Liabilities" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="debts" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="500,000" placeholder="500,000">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="charitable">{% trans "Charitable Bequests" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="charitable" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="1,000,000" placeholder="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="marital_deduction">{% trans "Marital Deduction" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="marital_deduction" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="0" placeholder="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="state">{% trans "State (for reference)" %}</label>
+                            <select id="state" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base bg-white">
+                                <option value="none">{% trans "No State Estate Tax" %}</option>
+                                <option value="washington">Washington</option>
+                                <option value="oregon">Oregon</option>
+                                <option value="massachusetts">Massachusetts</option>
+                                <option value="new_york">New York</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-violet-600 to-slate-600 hover:from-violet-700 hover:to-slate-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Estate Tax" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-violet-50 border-2 border-violet-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4"></div>
+                            <p class="text-violet-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
                     </div>
-
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white">📋 Deductions</h3>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Debts & Liabilities</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="debts" id="debts" value="500,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Charitable Bequests</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="charitable" id="charitable" value="1,000,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Marital Deduction</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="marital_deduction" id="marital_deduction" value="0" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                            </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">State</label>
-                        <select name="state" id="state" class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                            <option value="none" class="bg-gray-800">No State Estate Tax</option>
-                            <option value="washington" class="bg-gray-800">Washington</option>
-                            <option value="oregon" class="bg-gray-800">Oregon</option>
-                            <option value="massachusetts" class="bg-gray-800">Massachusetts</option>
-                            <option value="new_york" class="bg-gray-800">New York</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="w-full py-4 bg-gradient-to-r from-gray-600 to-slate-600 hover:from-gray-700 hover:to-slate-700 text-white font-bold rounded-xl transition-all">
-                        Calculate Estate Tax
-                    </button>
-                </form>
+                </div>
             </div>
 
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-400 border-t-transparent mx-auto"></div>
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter your estate value and deductions, then click Calculate to see estimated federal and state taxes and net to heirs." %}</p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <div class="bg-gradient-to-br from-gray-700 to-slate-700 rounded-2xl p-6 shadow-2xl">
-                        <h3 class="text-gray-300 text-sm mb-1">Estimated Total Estate Tax</h3>
-                        <div class="text-4xl font-bold text-white" id="total_tax">$0</div>
-                        <div class="text-gray-400 text-sm mt-1" id="effective_rate">Effective Rate: 0%</div>
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-violet-600 to-slate-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Total Estate Tax" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90">{% trans "Net to Heirs:" %} <span id="heroNetToHeirs">$0</span></p>
+                        </div>
                     </div>
+                    <div id="chartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Distribution" %}</h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Gross Estate" %}</p>
+                            <p id="detailGrossEstate" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Deductions" %}</p>
+                            <p id="detailTotalDeductions" class="text-lg font-bold text-green-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Federal Exemption (2024)" %}</p>
+                            <p id="detailExemption" class="text-lg font-bold text-blue-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Taxable Estate" %}</p>
+                            <p id="detailTaxable" class="text-lg font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Federal Estate Tax" %}</p>
+                            <p id="detailFederalTax" class="text-lg font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "State Tax (Est.)" %}</p>
+                            <p id="detailStateTax" class="text-lg font-bold text-amber-600">$0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border-2 border-gray-200">
+                        <h3 class="font-semibold text-gray-800 mb-2">{% trans "Net to Heirs" %}</h3>
+                        <p id="detailNetToHeirs" class="text-2xl font-bold text-green-600">$0</p>
+                        <p id="detailEffectiveRate" class="text-sm text-gray-600 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-gray-400 text-sm">Gross Estate</div>
-                            <div class="text-xl font-bold text-white" id="gross_estate">$15,000,000</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-gray-400 text-sm">Total Deductions</div>
-                            <div class="text-xl font-bold text-green-400" id="total_deductions">$1,500,000</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-gray-400 text-sm">Federal Exemption (2024)</div>
-                            <div class="text-xl font-bold text-blue-400" id="federal_exemption">$13,610,000</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-gray-400 text-sm">Taxable Estate</div>
-                            <div class="text-xl font-bold text-red-400" id="taxable_estate">$0</div>
-                        </div>
-                    </div>
+        <!-- Complete User Guide -->
+        <div class="mt-8 bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
 
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">📊 Tax Breakdown</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between py-2 border-b border-white/10">
-                                <span class="text-gray-400">Federal Estate Tax</span>
-                                <span class="text-white" id="federal_tax">$0</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-white/10">
-                                <span class="text-gray-400">State Estate Tax</span>
-                                <span class="text-white" id="state_tax">$0</span>
-                            </div>
-                            <div class="flex justify-between py-2">
-                                <span class="text-white font-medium">Net to Heirs</span>
-                                <span class="text-green-400 font-bold text-xl" id="net_to_heirs">$13,500,000</span>
-                            </div>
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Federal Estate Tax?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% blocktrans %}The federal estate tax is a tax on the transfer of your estate at death. It applies to the portion of your estate that exceeds the annual exemption (about $13.61 million per person in 2024). Your gross estate includes real estate, bank accounts, investments, retirement accounts, life insurance you own, business interests, and other assets. Deductions (debts, expenses, charitable bequests, and marital deduction) reduce the taxable amount. This calculator estimates the federal tax and a rough state estimate; actual results depend on your situation and state rules.{% endblocktrans %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-violet-500 pl-4 py-2 bg-violet-50 rounded-r">
+                            <h4 class="font-semibold text-violet-900 mb-1">{% trans "Gross estate" %}</h4>
+                            <p class="text-sm text-violet-800">{% trans "Total value of all assets before deductions (real estate, accounts, investments, life insurance you own, business interests, etc.)." %}</p>
+                        </div>
+                        <div class="border-l-4 border-slate-500 pl-4 py-2 bg-slate-50 rounded-r">
+                            <h4 class="font-semibold text-slate-900 mb-1">{% trans "Deductions and taxable estate" %}</h4>
+                            <p class="text-sm text-slate-800">{% trans "Debts, funeral and administrative expenses, charitable bequests, and marital deduction reduce the gross estate. Taxable estate = gross minus deductions (combined with prior taxable gifts for the tax calculation)." %}</p>
+                        </div>
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Exemption and net to heirs" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "The exemption (e.g. $13.61 million in 2024) is the amount not subject to tax. Married couples may use portability. Net to heirs is what remains after federal and state estate taxes." %}</p>
                         </div>
                     </div>
+                </div>
 
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Distribution</h3>
-                        <canvas id="distributionChart" height="200"></canvas>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Enter your total estate value (gross assets)." %}</li>
+                        <li>{% trans "Enter debts and liabilities, charitable bequests, and marital deduction if applicable." %}</li>
+                        <li>{% trans "Select state for reference (state tax is an estimate; rules vary)." %}</li>
+                        <li>{% trans "Click Calculate to see total estate tax, net to heirs, and breakdown chart." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Total estate tax and net to heirs" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "The hero shows total estate tax (federal + state estimate) and the amount that goes to heirs after taxes." %}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Detail boxes" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Gross estate, deductions, exemption, taxable amount, and effective rate are shown so you can see how the tax was calculated." %}</p>
+                        </div>
                     </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                    <div>
+                        <h4 class="font-semibold text-gray-900 mb-2">{% trans "Distribution chart" %}</h4>
+                        <p class="text-gray-700 text-sm">{% trans "A doughnut or pie chart splitting the estate into net to heirs, federal tax, state tax, and deductions. This gives you a quick visual of where the estate value goes." %}</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "This calculator is for estimation only. It is not legal or tax advice. Consult an estate attorney or tax professional for your situation." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "The federal exemption is scheduled to change (e.g. decrease around 2026). State exemptions and rates vary significantly." %}</span>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let distributionChart = null;
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-}
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+    var distributionChart = null;
 
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const formData = {
-        estate_value: document.getElementById('estate_value').value,
-        debts: document.getElementById('debts').value,
-        charitable: document.getElementById('charitable').value,
-        marital_deduction: document.getElementById('marital_deduction').value,
-        state: document.getElementById('state').value
-    };
-
-    try {
-        const response = await fetch('{% url "financial_calculators:estate_tax_calculator" %}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-            body: JSON.stringify(formData)
-        });
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
-        if (data.success) updateResults(data);
-        else alert(data.error || 'Error');
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
+    function parseNum(str) {
+        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
     }
-});
+    function formatCurrency(n) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+    }
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Estate Tax" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate Estate Tax" %}';
+    }
+    function renderChart(chartData) {
+        var container = document.getElementById('chartContainer');
+        var canvas = document.getElementById('distributionChart');
+        if (!chartData || !chartData.distribution_chart || !canvas) {
+            if (container) container.classList.add('hidden');
+            return;
+        }
+        if (distributionChart) distributionChart.destroy();
+        var config = chartData.distribution_chart;
+        distributionChart = new Chart(canvas.getContext('2d'), {
+            type: config.type || 'doughnut',
+            data: config.data || {},
+            options: config.options || { responsive: true, maintainAspectRatio: false }
+        });
+        container.classList.remove('hidden');
+    }
 
-function updateResults(data) {
-    document.getElementById('total_tax').textContent = formatCurrency(data.total_tax);
-    document.getElementById('effective_rate').textContent = 'Effective Rate: ' + data.effective_rate.toFixed(1) + '%';
-    document.getElementById('gross_estate').textContent = formatCurrency(data.gross_estate);
-    document.getElementById('total_deductions').textContent = formatCurrency(data.total_deductions);
-    document.getElementById('federal_exemption').textContent = formatCurrency(data.federal_exemption);
-    document.getElementById('taxable_estate').textContent = formatCurrency(data.taxable_estate);
-    document.getElementById('federal_tax').textContent = formatCurrency(data.federal_tax);
-    document.getElementById('state_tax').textContent = formatCurrency(data.state_tax);
-    document.getElementById('net_to_heirs').textContent = formatCurrency(data.net_to_heirs);
-    updateChart(data);
-}
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var payload = {
+            estate_value: document.getElementById('estate_value').value,
+            debts: document.getElementById('debts').value,
+            charitable: document.getElementById('charitable').value,
+            marital_deduction: document.getElementById('marital_deduction').value,
+            state: document.getElementById('state').value
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfEl.value
+                },
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server. Please try again." %}');
+                return;
+            }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            initialState.classList.add('hidden');
+            resultsWrapper.classList.remove('hidden');
 
-function updateChart(data) {
-    const ctx = document.getElementById('distributionChart').getContext('2d');
-    if (distributionChart) distributionChart.destroy();
-    distributionChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Net to Heirs', 'Federal Tax', 'State Tax', 'Deductions'],
-            datasets: [{ data: [data.net_to_heirs, data.federal_tax, data.state_tax, data.total_deductions], backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#6366f1'] }]
-        },
-        options: { responsive: true, plugins: { legend: { labels: { color: '#fff' } } } }
+            document.getElementById('heroLabel').textContent = '{% trans "Total Estate Tax" %}';
+            document.getElementById('heroValue').textContent = formatCurrency(data.total_taxes);
+            document.getElementById('heroNetToHeirs').textContent = formatCurrency(data.net_to_heirs);
+
+            document.getElementById('detailGrossEstate').textContent = formatCurrency(data.gross_estate);
+            document.getElementById('detailTotalDeductions').textContent = formatCurrency(data.total_deductions);
+            document.getElementById('detailExemption').textContent = formatCurrency(data.exemption && data.exemption.total_available ? data.exemption.total_available : 13610000);
+            document.getElementById('detailTaxable').textContent = formatCurrency(data.taxable_amount);
+            document.getElementById('detailFederalTax').textContent = formatCurrency(data.federal_estate_tax);
+            document.getElementById('detailStateTax').textContent = formatCurrency(data.state_tax_estimate);
+            document.getElementById('detailNetToHeirs').textContent = formatCurrency(data.net_to_heirs);
+            document.getElementById('detailEffectiveRate').textContent = '{% trans "Effective rate on net estate:" %} ' + (data.effective_rate || 0).toFixed(1) + '%';
+
+            if (data.chart_data) renderChart(data.chart_data);
+            else document.getElementById('chartContainer').classList.add('hidden');
+
+            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
+        }
     });
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+});
 </script>
 {% endblock %}

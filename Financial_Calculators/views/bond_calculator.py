@@ -1,44 +1,85 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
 import numpy as np
-from datetime import datetime, timedelta
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class BondCalculator(View):
     """
-    Class-based view for Bond Calculator
-    Calculates bond price, yield to maturity, current yield, and other bond metrics.
+    Class-based view for Bond Calculator.
+    Calculates bond price, yield to maturity, current yield, and duration.
+    Returns Chart.js-ready chart_data for price breakdown (BMI-style).
     """
     template_name = 'financial_calculators/bond_calculator.html'
 
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Bond Calculator',
+            'calculator_name': _('Bond Calculator'),
+            'page_title': _('Bond Calculator - Price, Yield & Duration'),
         }
         return render(request, self.template_name, context)
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0.0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
 
     def post(self, request):
         """Handle POST request for bond calculations"""
         try:
-            data = json.loads(request.body)
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
 
             calc_type = data.get('calc_type', 'price')
+            if isinstance(calc_type, list):
+                calc_type = calc_type[0] if calc_type else 'price'
+            payment_frequency = data.get('payment_frequency', 2)
+            try:
+                payment_frequency = int(payment_frequency) if not isinstance(payment_frequency, list) else int(payment_frequency[0] or 2)
+            except (TypeError, ValueError):
+                payment_frequency = 2
 
             if calc_type == 'price':
                 # Calculate bond price from yield
-                face_value = float(str(data.get('face_value', 1000)).replace(',', ''))
-                coupon_rate = float(str(data.get('coupon_rate', 0)).replace(',', ''))
-                yield_to_maturity = float(str(data.get('yield_to_maturity', 0)).replace(',', ''))
-                years_to_maturity = float(str(data.get('years_to_maturity', 0)).replace(',', ''))
-                payment_frequency = int(data.get('payment_frequency', 2))  # 1=annual, 2=semi-annual, 4=quarterly
+                face_value = self._get_float(data, 'face_value', 1000)
+                coupon_rate = self._get_float(data, 'coupon_rate', 0)
+                yield_to_maturity = self._get_float(data, 'yield_to_maturity', 0)
+                years_to_maturity = self._get_float(data, 'years_to_maturity', 0)
 
                 if face_value <= 0:
-                    return JsonResponse({'success': False, 'error': 'Face value must be greater than zero.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('Face value must be greater than zero.'))}, status=400)
                 if years_to_maturity <= 0:
-                    return JsonResponse({'success': False, 'error': 'Years to maturity must be greater than zero.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('Years to maturity must be greater than zero.'))}, status=400)
 
                 # Calculate periodic values
                 coupon_payment = (face_value * coupon_rate / 100) / payment_frequency
@@ -53,7 +94,9 @@ class BondCalculator(View):
                     pv_face = face_value / np.power(1 + periodic_yield, periods)
                     bond_price = pv_coupons + pv_face
                 else:
-                    bond_price = (coupon_payment * periods) + face_value
+                    pv_coupons = coupon_payment * periods
+                    pv_face = face_value
+                    bond_price = pv_coupons + pv_face
 
                 # Current yield
                 annual_coupon = face_value * coupon_rate / 100
@@ -106,6 +149,8 @@ class BondCalculator(View):
                         'payment_frequency': payment_frequency
                     },
                     'bond_price': round(bond_price, 2),
+                    'pv_coupons': round(pv_coupons, 2),
+                    'pv_face': round(pv_face, 2),
                     'current_yield': round(current_yield, 2),
                     'premium_discount': round(premium_discount, 2),
                     'premium_discount_percent': round(premium_discount_percent, 2),
@@ -116,6 +161,7 @@ class BondCalculator(View):
                     'total_income': round(total_income, 2),
                     'cash_flows': cash_flows[:20]  # Limit to 20 periods
                 }
+                result['chart_data'] = self._prepare_chart_data('price', result)
 
             elif calc_type == 'ytm':
                 # Calculate Yield to Maturity from price
@@ -177,13 +223,14 @@ class BondCalculator(View):
                     'premium_discount': round(bond_price - face_value, 2),
                     'bond_status': 'Premium' if bond_price > face_value else ('Discount' if bond_price < face_value else 'Par')
                 }
+                result['chart_data'] = self._prepare_chart_data('ytm', result)
 
             elif calc_type == 'compare':
                 # Compare multiple bonds
                 bonds = data.get('bonds', [])
                 
                 if not bonds or len(bonds) < 2:
-                    return JsonResponse({'success': False, 'error': 'Please provide at least 2 bonds to compare.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('Please provide at least 2 bonds to compare.'))}, status=400)
 
                 comparisons = []
                 for i, bond in enumerate(bonds):
@@ -239,11 +286,38 @@ class BondCalculator(View):
                 }
 
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid calculation type.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Invalid calculation type.'))}, status=400)
 
-            return JsonResponse(result)
+            if 'chart_data' not in result:
+                result['chart_data'] = {}
+            return JsonResponse(result, encoder=DjangoJSONEncoder)
 
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': str(_('Invalid input. Please check your numbers.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+
+    def _prepare_chart_data(self, calc_type, result):
+        """Build Chart.js-ready chart_data: price breakdown (PV coupons vs PV face) or YTM status."""
+        if calc_type == 'price' and 'pv_coupons' in result and 'pv_face' in result:
+            pv_coupons = float(result.get('pv_coupons', 0))
+            pv_face = float(result.get('pv_face', 0))
+            coupons_label = str(_('PV of Coupons'))
+            face_label = str(_('PV of Face Value'))
+            breakdown = {
+                'type': 'doughnut',
+                'data': {
+                    'labels': [coupons_label, face_label],
+                    'datasets': [{
+                        'data': [round(pv_coupons, 2), round(pv_face, 2)],
+                        'backgroundColor': ['#10b981', '#3b82f6'],
+                        'borderWidth': 0,
+                    }],
+                },
+                'options': {'responsive': True, 'maintainAspectRatio': False, 'plugins': {'legend': {'position': 'bottom'}}},
+            }
+            return {'breakdown_chart': breakdown}
+        if calc_type == 'ytm':
+            # Optional: premium/discount as small bar or skip. Return empty so frontend doesn't break.
+            return {}
+        return {}

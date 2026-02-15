@@ -1,164 +1,319 @@
-{% extends 'core/base.html' %}
-{% load static %}
+{% extends "core/base.html" %}
 {% load i18n %}
 
-{% block title %}IRR Calculator - Internal Rate of Return{% endblock %}
+{% block title %}{% trans "IRR Calculator - Internal Rate of Return" %}{% endblock %}
+{% block meta_description %}{% trans "Free IRR calculator. Calculate Internal Rate of Return, NPV, payback period, and profitability index. Get instant results with cash flow analysis and sensitivity chart." %}{% endblock %}
+{% block meta_keywords %}{% trans "IRR calculator, internal rate of return, NPV calculator, payback period, investment analysis" %}{% endblock %}
 
-{% block meta_description %}Calculate Internal Rate of Return (IRR), NPV, and payback period for investment analysis.{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<meta property="og:title" content="{% trans 'IRR Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate IRR, NPV, and investment metrics from cash flows.' %}">
+<meta property="og:type" content="website">
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'IRR Calculator' %}",
+    "description": "{% trans 'Calculate Internal Rate of Return, NPV, and payback period.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/financial-calculators/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'IRR Calculator' %}", "item": "/financial-calculators/irr-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-slate-900 via-amber-900 to-orange-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">📊 IRR Calculator</h1>
-            <p class="text-amber-200 text-lg max-w-2xl mx-auto">Calculate Internal Rate of Return, NPV, and investment metrics</p>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "IRR Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate Internal Rate of Return, NPV, payback period, and profitability index from your initial investment and cash flows." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Calculator Form -->
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <!-- Initial Investment -->
-                    <div>
-                        <label class="block text-sm font-medium text-amber-200 mb-2">Initial Investment</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                            <input type="text" name="initial_investment" id="initial_investment" value="100,000" 
-                                class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-amber-400">
-                        </div>
-                    </div>
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
-                    <!-- Cash Flows -->
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <label class="block text-sm font-medium text-amber-200">Annual Cash Flows</label>
-                            <button type="button" id="add_year" class="px-3 py-1 bg-amber-500/30 text-amber-200 rounded-lg text-sm hover:bg-amber-500/50">
-                                + Add Year
-                            </button>
-                        </div>
-                        
-                        <div id="cash_flows_container" class="space-y-2">
-                            <div class="cash-flow-row flex gap-2 items-center">
-                                <span class="text-amber-300 w-16 text-sm">Year 1</span>
-                                <div class="relative flex-1">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" class="cash-flow w-full pl-8 pr-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="25,000">
-                                </div>
-                                <button type="button" class="remove-year text-red-400 hover:text-red-300 opacity-0">×</button>
-                            </div>
-                            <div class="cash-flow-row flex gap-2 items-center">
-                                <span class="text-amber-300 w-16 text-sm">Year 2</span>
-                                <div class="relative flex-1">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" class="cash-flow w-full pl-8 pr-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="30,000">
-                                </div>
-                                <button type="button" class="remove-year text-red-400 hover:text-red-300">×</button>
-                            </div>
-                            <div class="cash-flow-row flex gap-2 items-center">
-                                <span class="text-amber-300 w-16 text-sm">Year 3</span>
-                                <div class="relative flex-1">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" class="cash-flow w-full pl-8 pr-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="35,000">
-                                </div>
-                                <button type="button" class="remove-year text-red-400 hover:text-red-300">×</button>
-                            </div>
-                            <div class="cash-flow-row flex gap-2 items-center">
-                                <span class="text-amber-300 w-16 text-sm">Year 4</span>
-                                <div class="relative flex-1">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" class="cash-flow w-full pl-8 pr-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="40,000">
-                                </div>
-                                <button type="button" class="remove-year text-red-400 hover:text-red-300">×</button>
-                            </div>
-                            <div class="cash-flow-row flex gap-2 items-center">
-                                <span class="text-amber-300 w-16 text-sm">Year 5</span>
-                                <div class="relative flex-1">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" class="cash-flow w-full pl-8 pr-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="45,000">
-                                </div>
-                                <button type="button" class="remove-year text-red-400 hover:text-red-300">×</button>
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label for="initial_investment" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Initial Investment" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" name="initial_investment" id="initial_investment" value="100,000" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right" placeholder="100,000" inputmode="decimal">
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Discount Rate -->
-                    <div>
-                        <label class="block text-sm font-medium text-amber-200 mb-2">Required Return / Discount Rate (%)</label>
-                        <input type="number" name="discount_rate" id="discount_rate" value="10" step="0.5" 
-                            class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-amber-400">
-                        <p class="text-xs text-amber-300 mt-1">Used for NPV calculation and investment decision</p>
-                    </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-sm font-medium text-gray-700">{% trans "Annual Cash Flows" %}</label>
+                                <button type="button" id="add_year" class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors">{% trans "Add year" %}</button>
+                            </div>
+                            <p class="text-xs text-gray-500">{% trans "Enter expected cash inflow each year (e.g. 25000)." %}</p>
+                            <div id="cash_flows_container" class="space-y-2">
+                                <div class="cash-flow-row flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 1</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="25,000" placeholder="0" aria-label="{% trans 'Cash flow year 1' %}">
+                                    </div>
+                                    <button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none" aria-label="{% trans 'Remove year' %}">×</button>
+                                </div>
+                                <div class="cash-flow-row flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 2</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="30,000" placeholder="0" aria-label="{% trans 'Cash flow year 2' %}">
+                                    </div>
+                                    <button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none">×</button>
+                                </div>
+                                <div class="cash-flow-row flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 3</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="35,000" placeholder="0" aria-label="{% trans 'Cash flow year 3' %}">
+                                    </div>
+                                    <button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none">×</button>
+                                </div>
+                                <div class="cash-flow-row flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 4</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="40,000" placeholder="0" aria-label="{% trans 'Cash flow year 4' %}">
+                                    </div>
+                                    <button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none">×</button>
+                                </div>
+                                <div class="cash-flow-row flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 5</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                        <input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="45,000" placeholder="0" aria-label="{% trans 'Cash flow year 5' %}">
+                                    </div>
+                                    <button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none">×</button>
+                                </div>
+                            </div>
+                        </div>
 
-                    <button type="submit" 
-                        class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
-                        Calculate IRR & NPV
-                    </button>
-                </form>
+                        <div>
+                            <label for="discount_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Required Return / Discount Rate (%)" %}</label>
+                            <div class="relative">
+                                <input type="number" name="discount_rate" id="discount_rate" value="10" step="0.5" min="0" max="100" class="w-full px-4 py-2.5 pr-8 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right" placeholder="10">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Used for NPV and investment decision." %}</p>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate IRR & NPV" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Results Panel -->
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-amber-400 border-t-transparent mx-auto mb-4"></div>
-                    <p class="text-amber-200">Calculating...</p>
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your initial investment, annual cash flows, and discount rate. Click Calculate to see IRR, NPV, payback period, and cash flow analysis." %}
+                    </p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <!-- IRR Result -->
-                    <div id="decision_card" class="bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl">
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden space-y-6">
+
+                    <!-- Main Result Card -->
+                    <div id="decision_card" class="rounded-xl p-6 sm:p-8 shadow-xl text-white">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h3 class="text-green-100 text-sm font-medium mb-1">Internal Rate of Return</h3>
-                                <div class="text-4xl font-bold text-white" id="irr_display">18.45%</div>
+                                <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Internal Rate of Return" %}</p>
+                                <p id="irr_display" class="text-5xl sm:text-6xl font-bold mb-2">0%</p>
+                                <p id="decision_text" class="text-sm opacity-90"></p>
                             </div>
-                            <span id="decision_badge" class="px-3 py-1 bg-white/20 text-white rounded-full text-sm">Accept</span>
+                            <span id="decision_badge" class="px-3 py-1.5 rounded-full text-sm font-semibold border-2 border-white/30"></span>
                         </div>
-                        <div class="mt-3 text-green-100 text-sm" id="decision_text">IRR exceeds required return of 10%</div>
                     </div>
 
-                    <!-- Key Metrics -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-amber-300 text-sm">Net Present Value</div>
-                            <div class="text-xl font-bold text-white" id="npv_display">$32,456</div>
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Net Present Value" %}</p>
+                                <p id="npv_display" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-amber-300 text-sm">Profitability Index</div>
-                            <div class="text-xl font-bold text-white" id="pi_display">1.32</div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Profitability Index" %}</p>
+                                <p id="pi_display" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-amber-300 text-sm">Payback Period</div>
-                            <div class="text-xl font-bold text-white" id="payback_display">3.25 years</div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Payback Period" %}</p>
+                                <p id="payback_display" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-amber-300 text-sm">Total Return</div>
-                            <div class="text-xl font-bold text-white" id="return_display">75%</div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Return" %}</p>
+                                <p id="return_display" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Cash Flow Analysis -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Cash Flow Analysis</h3>
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            {% trans "Cash Flow Analysis" %}
+                        </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead>
-                                    <tr class="text-amber-300 border-b border-white/20">
-                                        <th class="text-left py-2">Year</th>
-                                        <th class="text-right py-2">Cash Flow</th>
-                                        <th class="text-right py-2">Discounted</th>
-                                        <th class="text-right py-2">Cumulative</th>
+                                    <tr class="text-gray-600 border-b border-gray-200">
+                                        <th class="text-left py-2 font-semibold">{% trans "Year" %}</th>
+                                        <th class="text-right py-2 font-semibold">{% trans "Cash Flow" %}</th>
+                                        <th class="text-right py-2 font-semibold">{% trans "Discounted" %}</th>
+                                        <th class="text-right py-2 font-semibold">{% trans "Cumulative" %}</th>
                                     </tr>
                                 </thead>
-                                <tbody id="analysis_table" class="text-white"></tbody>
+                                <tbody id="analysis_table" class="text-gray-800"></tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Chart -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">NPV Sensitivity</h3>
-                        <canvas id="sensitivityChart" height="200"></canvas>
+                    <!-- NPV Sensitivity Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                            {% trans "NPV Sensitivity" %}
+                        </h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="sensitivityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is IRR?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}The Internal Rate of Return (IRR) is the discount rate that makes the Net Present Value (NPV) of all cash flows from a project equal to zero. It represents the expected annual return of the investment. If IRR is greater than your required return (cost of capital), the project is typically considered acceptable.{% endblocktrans %}
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-center font-mono text-sm font-bold text-gray-900">NPV = 0 = CF₀ + CF₁/(1+IRR) + CF₂/(1+IRR)² + …</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What Your Results Mean" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "IRR" %}</h4>
+                                    <p class="text-sm text-green-800">{% trans "The annualized return implied by your cash flows. Compare it to your discount rate to decide: Accept (IRR > rate), Reject (IRR < rate), or Indifferent (IRR = rate)." %}</p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "NPV" %}</h4>
+                                    <p class="text-sm text-blue-800">{% trans "Net Present Value at your chosen discount rate. Positive NPV means the investment adds value; negative means it destroys value." %}</p>
+                                </div>
+                                <div class="border-l-4 border-amber-500 pl-4 py-2 bg-amber-50 rounded-r">
+                                    <h4 class="font-semibold text-amber-900 mb-1">{% trans "Payback & Profitability Index" %}</h4>
+                                    <p class="text-sm text-amber-800">{% trans "Payback is how many years until cumulative cash flows recover the initial investment. Profitability Index is PV of inflows ÷ initial investment; above 1 is good." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your initial investment (outflow, e.g. cost of the project)" %}</li>
+                                <li>{% trans "Enter expected cash inflow for each year; use 'Add year' to add more periods" %}</li>
+                                <li>{% trans "Enter your required return or discount rate (e.g. 10 for 10%%)" %}</li>
+                                <li>{% trans "Click Calculate to see IRR, NPV, payback, and analysis" %}</li>
+                            </ol>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <p class="text-gray-700 text-sm font-mono">NPV = Σ CFₜ / (1 + r)ᵗ</p>
+                            <p class="text-xs text-gray-600 mt-1">{% trans "IRR is the r that makes NPV = 0. Solved numerically (e.g. Newton-Raphson)." %}</p>
+                        </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "IRR can be misleading with non-conventional cash flows (multiple sign changes). Use NPV for decision-making when in doubt." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "For education only. Not financial or investment advice." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "When to Use IRR" %}</h3>
+                            <ul class="space-y-2 text-gray-700 text-sm list-disc list-inside">
+                                <li>{% trans "Evaluating projects, acquisitions, or capital investments" %}</li>
+                                <li>{% trans "Comparing investments with different sizes and timelines" %}</li>
+                                <li>{% trans "Setting hurdle rates and investment decisions" %}</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -166,189 +321,172 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let sensitivityChart = null;
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var resultsSection = document.getElementById('resultsSection');
+    var initialState = document.getElementById('initialState');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var sensitivityChart = null;
+    var yearCount = 5;
 
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-}
-
-// Add year functionality
-let yearCount = 5;
-document.getElementById('add_year').addEventListener('click', function() {
-    yearCount++;
-    const container = document.getElementById('cash_flows_container');
-    const row = document.createElement('div');
-    row.className = 'cash-flow-row flex gap-2 items-center';
-    row.innerHTML = `
-        <span class="text-amber-300 w-16 text-sm">Year ${yearCount}</span>
-        <div class="relative flex-1">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-            <input type="text" class="cash-flow w-full pl-8 pr-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white" value="0">
-        </div>
-        <button type="button" class="remove-year text-red-400 hover:text-red-300">×</button>
-    `;
-    container.appendChild(row);
-});
-
-// Remove year functionality
-document.getElementById('cash_flows_container').addEventListener('click', function(e) {
-    if (e.target.classList.contains('remove-year')) {
-        const rows = document.querySelectorAll('.cash-flow-row');
-        if (rows.length > 1) {
-            e.target.closest('.cash-flow-row').remove();
-            // Renumber years
-            document.querySelectorAll('.cash-flow-row').forEach((row, i) => {
-                row.querySelector('span').textContent = `Year ${i + 1}`;
-            });
-            yearCount = rows.length - 1;
-        }
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
     }
-});
 
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    // Collect cash flows
-    const cashFlows = [];
-    document.querySelectorAll('.cash-flow').forEach(input => {
-        cashFlows.push(input.value.replace(/,/g, ''));
+    document.getElementById('add_year').addEventListener('click', function() {
+        yearCount++;
+        var container = document.getElementById('cash_flows_container');
+        var row = document.createElement('div');
+        row.className = 'cash-flow-row flex items-center gap-3';
+        row.innerHTML = '<span class="text-gray-700 text-sm font-medium w-14 shrink-0">Year ' + yearCount + '</span><div class="relative flex-1 max-w-[8rem]"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span><input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0" placeholder="0" aria-label="Cash flow year ' + yearCount + '"></div><button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none">×</button>';
+        container.appendChild(row);
     });
 
-    const formData = {
-        calc_type: 'irr',
-        initial_investment: document.getElementById('initial_investment').value,
-        cash_flows: cashFlows,
-        discount_rate: document.getElementById('discount_rate').value
-    };
-
-    try {
-        const response = await fetch('{% url "financial_calculators:irr_calculator" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
-
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert(data.error || 'Calculation error');
-        }
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
-    }
-});
-
-function updateResults(data) {
-    // Update IRR and decision
-    document.getElementById('irr_display').textContent = data.irr !== null ? data.irr.toFixed(2) + '%' : 'N/A';
-    
-    const card = document.getElementById('decision_card');
-    const badge = document.getElementById('decision_badge');
-    const text = document.getElementById('decision_text');
-    
-    if (data.decision_class === 'positive') {
-        card.className = 'bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl';
-        badge.textContent = 'Accept';
-    } else if (data.decision_class === 'negative') {
-        card.className = 'bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl p-6 shadow-2xl';
-        badge.textContent = 'Reject';
-    } else {
-        card.className = 'bg-gradient-to-br from-yellow-600 to-amber-600 rounded-2xl p-6 shadow-2xl';
-        badge.textContent = 'Consider';
-    }
-    text.textContent = data.decision;
-
-    document.getElementById('npv_display').textContent = formatCurrency(data.npv);
-    document.getElementById('pi_display').textContent = data.profitability_index.toFixed(2);
-    document.getElementById('payback_display').textContent = data.payback_period ? data.payback_period.toFixed(2) + ' years' : 'N/A';
-    document.getElementById('return_display').textContent = data.total_return_percent.toFixed(1) + '%';
-
-    // Update analysis table
-    const tbody = document.getElementById('analysis_table');
-    tbody.innerHTML = '';
-    
-    // Add initial investment row
-    const initialRow = document.createElement('tr');
-    initialRow.className = 'border-b border-white/10';
-    initialRow.innerHTML = `
-        <td class="py-2">0</td>
-        <td class="text-right text-red-400">(${formatCurrency(data.initial_investment)})</td>
-        <td class="text-right text-red-400">(${formatCurrency(data.initial_investment)})</td>
-        <td class="text-right text-red-400">(${formatCurrency(data.initial_investment)})</td>
-    `;
-    tbody.appendChild(initialRow);
-    
-    data.cash_flow_analysis.forEach(cf => {
-        const row = document.createElement('tr');
-        row.className = 'border-b border-white/10';
-        const cumColor = cf.cumulative_discounted >= 0 ? 'text-green-400' : 'text-red-400';
-        row.innerHTML = `
-            <td class="py-2">${cf.period}</td>
-            <td class="text-right">${formatCurrency(cf.cash_flow)}</td>
-            <td class="text-right">${formatCurrency(cf.discounted_cf)}</td>
-            <td class="text-right ${cumColor}">${formatCurrency(cf.cumulative_discounted)}</td>
-        `;
-        tbody.appendChild(row);
-    });
-
-    // Update chart - NPV Sensitivity
-    updateSensitivityChart(data);
-}
-
-function updateSensitivityChart(data) {
-    const ctx = document.getElementById('sensitivityChart').getContext('2d');
-    if (sensitivityChart) sensitivityChart.destroy();
-
-    // Create sensitivity data
-    const rates = [0, 5, 10, 15, 20, 25, 30];
-    const npvValues = [];
-    const initial = data.initial_investment;
-    const cfs = data.cash_flow_analysis.map(cf => cf.cash_flow);
-    
-    rates.forEach(rate => {
-        let npv = -initial;
-        cfs.forEach((cf, i) => {
-            npv += cf / Math.pow(1 + rate/100, i + 1);
-        });
-        npvValues.push(npv);
-    });
-
-    sensitivityChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: rates.map(r => r + '%'),
-            datasets: [{
-                label: 'NPV',
-                data: npvValues,
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { labels: { color: '#fff' } }
-            },
-            scales: {
-                x: { ticks: { color: '#fcd34d' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                y: { ticks: { color: '#fcd34d' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+    document.getElementById('cash_flows_container').addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-year')) {
+            var rows = document.querySelectorAll('.cash-flow-row');
+            if (rows.length > 1) {
+                e.target.closest('.cash-flow-row').remove();
+                document.querySelectorAll('.cash-flow-row').forEach(function(row, i) {
+                    row.querySelector('span').textContent = 'Year ' + (i + 1);
+                });
+                yearCount = rows.length - 1;
             }
         }
     });
-}
 
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errorState.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = '{% trans "Calculating..." %}';
+
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl) {
+            errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
+            errorState.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
+            return;
+        }
+
+        var cashFlows = [];
+        document.querySelectorAll('.cash-flow').forEach(function(input) {
+            cashFlows.push((input.value || '').replace(/,/g, '').replace(/\$/g, ''));
+        });
+
+        var payload = {
+            calc_type: 'irr',
+            initial_investment: document.getElementById('initial_investment').value.replace(/,/g, '').replace(/\$/g, ''),
+            cash_flows: cashFlows,
+            discount_rate: document.getElementById('discount_rate').value
+        };
+
+        try {
+            var response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
+                body: JSON.stringify(payload)
+            });
+            var data;
+            try {
+                data = await response.json();
+            } catch (parseErr) {
+                loadingState.classList.add('hidden');
+                calculateBtn.disabled = false;
+                calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
+                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
+                errorState.classList.remove('hidden');
+                return;
+            }
+
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
+
+            if (!data.success) {
+                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
+                errorState.classList.remove('hidden');
+                return;
+            }
+
+            initialState.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+
+            document.getElementById('irr_display').textContent = data.irr != null ? data.irr.toFixed(2) + '%' : 'N/A';
+            document.getElementById('decision_text').textContent = data.decision || '';
+            var badge = document.getElementById('decision_badge');
+            if (data.decision_class === 'positive') {
+                document.getElementById('decision_card').className = 'bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+                badge.textContent = '{% trans "Accept" %}';
+            } else if (data.decision_class === 'negative') {
+                document.getElementById('decision_card').className = 'bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+                badge.textContent = '{% trans "Reject" %}';
+            } else {
+                document.getElementById('decision_card').className = 'bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+                badge.textContent = '{% trans "Consider" %}';
+            }
+
+            document.getElementById('npv_display').textContent = formatCurrency(data.npv);
+            document.getElementById('pi_display').textContent = data.profitability_index != null ? data.profitability_index.toFixed(2) : '-';
+            document.getElementById('payback_display').textContent = data.payback_period != null ? data.payback_period.toFixed(2) + ' {% trans "years" %}' : 'N/A';
+            document.getElementById('return_display').textContent = data.total_return_percent != null ? data.total_return_percent.toFixed(1) + '%' : '-';
+
+            var tbody = document.getElementById('analysis_table');
+            tbody.innerHTML = '';
+            var initialRow = document.createElement('tr');
+            initialRow.className = 'border-b border-gray-100';
+            initialRow.innerHTML = '<td class="py-2">0</td><td class="text-right text-red-600">(' + formatCurrency(data.initial_investment) + ')</td><td class="text-right text-red-600">(' + formatCurrency(data.initial_investment) + ')</td><td class="text-right text-red-600">(' + formatCurrency(data.initial_investment) + ')</td>';
+            tbody.appendChild(initialRow);
+            (data.cash_flow_analysis || []).forEach(function(cf) {
+                var row = document.createElement('tr');
+                row.className = 'border-b border-gray-100';
+                var cumCls = cf.cumulative_discounted >= 0 ? 'text-green-600' : 'text-red-600';
+                row.innerHTML = '<td class="py-2">' + cf.period + '</td><td class="text-right">' + formatCurrency(cf.cash_flow) + '</td><td class="text-right">' + formatCurrency(cf.discounted_cf) + '</td><td class="text-right ' + cumCls + '">' + formatCurrency(cf.cumulative_discounted) + '</td>';
+                tbody.appendChild(row);
+            });
+
+            var ctx = document.getElementById('sensitivityChart');
+            if (ctx && typeof Chart !== 'undefined') {
+                if (sensitivityChart) sensitivityChart.destroy();
+                var rates = [0, 5, 10, 15, 20, 25, 30];
+                var npvValues = [];
+                var initial = data.initial_investment;
+                var cfs = (data.cash_flow_analysis || []).map(function(cf) { return cf.cash_flow; });
+                rates.forEach(function(rate) {
+                    var npv = -initial;
+                    cfs.forEach(function(cf, i) {
+                        npv += cf / Math.pow(1 + rate/100, i + 1);
+                    });
+                    npvValues.push(npv);
+                });
+                sensitivityChart = new Chart(ctx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: rates.map(function(r) { return r + '%'; }),
+                        datasets: [{ label: 'NPV', data: npvValues, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { x: {}, y: {} } }
+                });
+            }
+
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            console.error(err);
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
+            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorState.classList.remove('hidden');
+        }
+    });
+});
 </script>
 {% endblock %}

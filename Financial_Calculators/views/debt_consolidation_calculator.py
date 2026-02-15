@@ -1,10 +1,14 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class DebtConsolidationCalculator(View):
     """
     Class-based view for Debt Consolidation Calculator
@@ -12,28 +16,60 @@ class DebtConsolidationCalculator(View):
     """
     template_name = 'financial_calculators/debt_consolidation_calculator.html'
 
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0):
+        """Safely get float from data (works with dict or list values)."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        """Safely get int from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '')))
+        except (ValueError, TypeError):
+            return default
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Debt Consolidation Calculator',
+            'calculator_name': _('Debt Consolidation Calculator'),
+            'page_title': _('Debt Consolidation Calculator - Compare Consolidation Options'),
         }
         return render(request, self.template_name, context)
 
     def post(self, request):
-        """Handle POST request for debt consolidation calculations"""
+        """Handle POST request for debt consolidation calculations (JSON or form)."""
         try:
-            data = json.loads(request.body)
+            data = self._get_data(request)
 
-            # Get existing debts
             debts = data.get('debts', [])
-            
             if not debts or len(debts) == 0:
-                return JsonResponse({'success': False, 'error': 'Please add at least one debt.'}, status=400)
+                return JsonResponse({'success': False, 'error': _('Please add at least one debt.')}, status=400)
 
-            # Consolidation loan details
-            consolidation_rate = float(str(data.get('consolidation_rate', 0)).replace(',', ''))
-            consolidation_term = int(data.get('consolidation_term', 60))  # months
-            consolidation_fees = float(str(data.get('consolidation_fees', 0)).replace(',', ''))
+            consolidation_rate = self._get_float(data, 'consolidation_rate', 0)
+            consolidation_term = self._get_int(data, 'consolidation_term', 60)
+            consolidation_fees = self._get_float(data, 'consolidation_fees', 0)
 
             # Process existing debts
             debt_details = []
@@ -42,10 +78,13 @@ class DebtConsolidationCalculator(View):
             weighted_rate_sum = 0
 
             for debt in debts:
-                balance = float(str(debt.get('balance', 0)).replace(',', ''))
-                rate = float(str(debt.get('rate', 0)).replace(',', ''))
-                payment = float(str(debt.get('payment', 0)).replace(',', ''))
-                name = debt.get('name', f'Debt {len(debt_details) + 1}')
+                balance = self._get_float(debt, 'balance', 0)
+                rate = self._get_float(debt, 'rate', 0)
+                payment = self._get_float(debt, 'payment', 0)
+                name = debt.get('name')
+                if isinstance(name, list):
+                    name = name[0] if name else ''
+                name = (name or '').strip() or _('Debt %(number)s') % {'number': len(debt_details) + 1}
 
                 if balance <= 0:
                     continue
@@ -81,7 +120,7 @@ class DebtConsolidationCalculator(View):
                 })
 
             if total_balance <= 0:
-                return JsonResponse({'success': False, 'error': 'Total debt balance must be greater than zero.'}, status=400)
+                return JsonResponse({'success': False, 'error': _('Total debt balance must be greater than zero.')}, status=400)
 
             # Weighted average interest rate
             weighted_avg_rate = weighted_rate_sum / total_balance if total_balance > 0 else 0
@@ -138,16 +177,16 @@ class DebtConsolidationCalculator(View):
 
             # Recommendation
             if total_interest_savings > 0 and monthly_savings > 0:
-                recommendation = "Consolidation is beneficial - you'll save money and pay off debt faster."
+                recommendation = _("Consolidation is beneficial - you'll save money and pay off debt faster.")
                 recommendation_class = "positive"
             elif total_interest_savings > 0:
-                recommendation = "Consolidation saves interest but increases monthly payment."
+                recommendation = _("Consolidation saves interest but increases monthly payment.")
                 recommendation_class = "neutral"
             elif monthly_savings > 0:
-                recommendation = "Consolidation lowers monthly payment but costs more in total interest."
+                recommendation = _("Consolidation lowers monthly payment but costs more in total interest.")
                 recommendation_class = "neutral"
             else:
-                recommendation = "Consolidation may not be beneficial with these terms."
+                recommendation = _("Consolidation may not be beneficial with these terms.")
                 recommendation_class = "negative"
 
             result = {
@@ -193,6 +232,6 @@ class DebtConsolidationCalculator(View):
             return JsonResponse(result)
 
         except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)

@@ -1,318 +1,371 @@
 {% extends "core/base.html" %}
-{% load static %}
 {% load i18n %}
 
 {% block title %}{% trans "Commission Calculator - Calculate Sales Commission" %}{% endblock %}
-
 {% block meta_description %}{% trans "Calculate sales commissions with simple, tiered, base plus commission, and draw against structures. Find sales needed for target earnings." %}{% endblock %}
+{% block meta_keywords %}{% trans "commission calculator, sales commission, tiered commission, base salary plus commission, sales calculator" %}{% endblock %}
 
 {% block extra_head %}
-<meta name="keywords" content="{% trans 'commission calculator, sales commission, tiered commission, base salary plus commission, sales calculator' %}">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="{{ request.build_absolute_uri }}">
-
 <meta property="og:title" content="{% trans 'Commission Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate sales commissions with various compensation structures.' %}">
 <meta property="og:type" content="website">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans 'Commission Calculator' %}","description":"{% trans 'Calculate sales commissions with various structures.' %}","applicationCategory":"FinanceApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-5xl mx-auto">
-        
-        <!-- Breadcrumb -->
-        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
             <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-indigo-600 transition">{% trans "Home" %}</a></li>
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
                 <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-indigo-600 transition">{% trans "Financial Calculators" %}</a></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
                 <li><span class="mx-2">/</span></li>
                 <li class="text-gray-900 font-medium">{% trans "Commission Calculator" %}</li>
             </ol>
         </nav>
 
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Commission Calculator" %}</h1>
-            <p class="text-gray-600 max-w-2xl mx-auto">{% trans "Calculate sales commissions with simple percentages, tiered structures, base plus commission, or reverse-calculate sales needed for your earnings goal." %}</p>
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-indigo-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{% trans "Commission Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate sales commissions with simple percentages, tiered structures, base plus commission, or find sales needed for your earnings goal." %}
+            </p>
         </div>
 
-        <!-- Main Calculator Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            <!-- Input Form -->
-            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-                <form id="calculatorForm" class="space-y-6">
-                    {% csrf_token %}
-                    
-                    <!-- Calculator Mode -->
-                    <div>
-                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Commission Type" %}</h3>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button type="button" class="calc-mode-btn active p-3 text-sm rounded-lg border-2 border-indigo-500 bg-indigo-50 text-indigo-700 font-medium" data-mode="simple">
-                                <span class="block font-bold">{% trans "Simple" %}</span>
-                                <span class="text-xs opacity-75">{% trans "Flat %" %}</span>
-                            </button>
-                            <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="tiered">
-                                <span class="block font-bold">{% trans "Tiered" %}</span>
-                                <span class="text-xs opacity-75">{% trans "Brackets" %}</span>
-                            </button>
-                            <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="base_plus_commission">
-                                <span class="block font-bold">{% trans "Base + Comm" %}</span>
-                                <span class="text-xs opacity-75">{% trans "Salary + %" %}</span>
-                            </button>
-                            <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600" data-mode="reverse">
-                                <span class="block font-bold">{% trans "Reverse" %}</span>
-                                <span class="text-xs opacity-75">{% trans "Find sales" %}</span>
-                            </button>
-                        </div>
-                        <input type="hidden" id="calc_type" value="simple">
-                    </div>
-
-                    <!-- Simple Commission Fields -->
-                    <div id="simpleFields" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="sales_amount">{% trans "Sales Amount" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
-                                <input type="text" id="sales_amount" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" value="10,000">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="commission_rate">{% trans "Commission Rate" %}</label>
-                            <div class="relative">
-                                <input type="number" id="commission_rate" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" value="10" step="0.1" min="0" max="100">
-                                <span class="absolute right-3 top-3 text-gray-500">%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tiered Commission Fields -->
-                    <div id="tieredFields" class="hidden space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="sales_amount_tiered">{% trans "Sales Amount" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
-                                <input type="text" id="sales_amount_tiered" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg" value="35,000">
-                            </div>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg text-sm">
-                            <p class="font-medium text-gray-700 mb-2">{% trans "Default Tiers:" %}</p>
-                            <ul class="text-gray-600 space-y-1">
-                                <li>$0 - $10,000: <span class="font-medium">5%</span></li>
-                                <li>$10,000 - $25,000: <span class="font-medium">7%</span></li>
-                                <li>$25,000 - $50,000: <span class="font-medium">10%</span></li>
-                                <li>$50,000+: <span class="font-medium">12%</span></li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- Base + Commission Fields -->
-                    <div id="baseFields" class="hidden space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="base_salary">{% trans "Base Salary (Monthly)" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
-                                <input type="text" id="base_salary" class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg" value="3,000">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="sales_amount_base">{% trans "Monthly Sales" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
-                                <input type="text" id="sales_amount_base" class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg" value="25,000">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="commission_rate_base">{% trans "Commission Rate" %}</label>
-                            <div class="relative">
-                                <input type="number" id="commission_rate_base" class="w-full px-3 py-3 pr-8 border border-gray-300 rounded-lg" value="8" step="0.1">
-                                <span class="absolute right-3 top-3 text-gray-500">%</span>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="quota">{% trans "Sales Quota (Optional)" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
-                                <input type="text" id="quota" class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg" value="20,000" placeholder="Monthly quota">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Reverse Calculation Fields -->
-                    <div id="reverseFields" class="hidden space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="desired_commission">{% trans "Desired Commission" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
-                                <input type="text" id="desired_commission" class="w-full pl-8 pr-3 py-3 text-lg border border-gray-300 rounded-lg" value="5,000">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1" for="commission_rate_reverse">{% trans "Commission Rate" %}</label>
-                            <div class="relative">
-                                <input type="number" id="commission_rate_reverse" class="w-full px-3 py-3 pr-8 text-lg border border-gray-300 rounded-lg" value="10" step="0.1">
-                                <span class="absolute right-3 top-3 text-gray-500">%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Calculate Button -->
-                    <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-4 rounded-lg font-semibold text-lg hover:from-indigo-700 hover:to-purple-700 transition shadow-lg">
-                        {% trans "Calculate Commission" %}
-                    </button>
-                </form>
-            </div>
-
-            <!-- Results Section -->
-            <div class="space-y-6">
-                <!-- Initial State -->
-                <div id="initialState" class="bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
-                    <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span class="text-3xl">💰</span>
-                    </div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{% trans "Ready to Calculate" %}</h3>
-                    <p class="text-gray-600">{% trans "Enter your sales and commission rate to see your earnings." %}</p>
-                </div>
-
-                <!-- Loading State -->
-                <div id="loadingState" class="hidden bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
-                    <div class="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p class="text-gray-600">{% trans "Calculating..." %}</p>
-                </div>
-
-                <!-- Error State -->
-                <div id="errorState" class="hidden bg-white border border-red-200 rounded-xl shadow-sm p-6">
-                    <div class="flex items-center text-red-600 mb-2">
-                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span class="font-semibold">{% trans "Error" %}</span>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <input type="hidden" id="calc_type" name="calc_type" value="simple">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Commission Type" %}</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-indigo-500 bg-indigo-50 text-indigo-700 font-medium" data-mode="simple">
+                                    <span class="block font-bold">{% trans "Simple" %}</span>
+                                    <span class="text-xs opacity-75">{% trans "Flat %" %}</span>
+                                </button>
+                                <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50" data-mode="tiered">
+                                    <span class="block font-bold">{% trans "Tiered" %}</span>
+                                    <span class="text-xs opacity-75">{% trans "Brackets" %}</span>
+                                </button>
+                                <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50" data-mode="base_plus_commission">
+                                    <span class="block font-bold">{% trans "Base + Comm" %}</span>
+                                    <span class="text-xs opacity-75">{% trans "Salary + %" %}</span>
+                                </button>
+                                <button type="button" class="calc-mode-btn p-3 text-sm rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50" data-mode="reverse">
+                                    <span class="block font-bold">{% trans "Reverse" %}</span>
+                                    <span class="text-xs opacity-75">{% trans "Find sales" %}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="simpleFields" class="space-y-4">
+                            <div>
+                                <label for="sales_amount" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sales Amount" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="sales_amount" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-right text-base" value="10,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="commission_rate" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Commission Rate (%)" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="commission_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base pr-10" value="10">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tieredFields" class="hidden space-y-4">
+                            <div>
+                                <label for="sales_amount_tiered" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sales Amount" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="sales_amount_tiered" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base" value="35,000">
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">{% trans "Default tiers: $0–10k 5%%, $10k–25k 7%%, $25k–50k 10%%, $50k+ 12%%." %}</p>
+                        </div>
+
+                        <div id="baseFields" class="hidden space-y-4">
+                            <div>
+                                <label for="base_salary" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Base Salary (e.g. Monthly)" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="base_salary" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base" value="3,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="sales_amount_base" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sales Amount" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="sales_amount_base" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base" value="25,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="commission_rate_base" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Commission Rate (%)" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="commission_rate_base" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base pr-10" value="8">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="quota" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sales Quota (optional)" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="quota" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base" value="20,000" placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="reverseFields" class="hidden space-y-4">
+                            <div>
+                                <label for="desired_commission" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Desired Commission" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="desired_commission" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base" value="5,000">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="commission_rate_reverse" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Commission Rate (%)" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="commission_rate_reverse" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-base pr-10" value="10">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Commission" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                            <p class="text-indigo-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
                     </div>
-                    <p id="errorMessage" class="text-gray-700"></p>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <p class="text-gray-600 text-base">{% trans "Choose a commission type, enter your numbers, and click Calculate to see your commission or sales needed." %}</p>
                 </div>
 
-                <!-- Results -->
-                <div id="resultsState" class="hidden space-y-4">
-                    <!-- Main Result -->
-                    <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-xl p-6 text-center">
-                        <p class="text-indigo-100 text-sm mb-2" id="resultLabel">{% trans "Your Commission" %}</p>
-                        <p class="text-4xl font-bold" id="mainResult">$0</p>
+                <div id="resultsState" class="hidden space-y-6">
+                    <div id="heroResultCard" class="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white text-center">
+                        <p class="text-sm sm:text-base opacity-90 mb-2" id="resultLabel">{% trans "Your Commission" %}</p>
+                        <p class="text-4xl sm:text-5xl font-bold" id="mainResult">$0</p>
                     </div>
 
-                    <!-- Details -->
-                    <div class="bg-white border border-gray-200 rounded-xl p-6">
+                    <div id="chartWrapper" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hidden">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Breakdown" %}</h3>
+                        <div class="relative h-48">
+                            <canvas id="breakdownChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                         <h3 class="font-semibold text-gray-900 mb-4">{% trans "Breakdown" %}</h3>
-                        <div id="breakdownContent" class="space-y-3">
-                        </div>
+                        <div id="breakdownContent" class="space-y-3 text-sm"></div>
                     </div>
 
-                    <!-- Formula -->
-                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                        <p class="text-sm text-gray-600 font-mono" id="formulaDisplay"></p>
+                    <div id="formulaWrapper" class="bg-gray-50 border border-gray-200 rounded-xl p-4 hidden">
+                        <p class="text-sm text-gray-700 font-mono" id="formulaDisplay"></p>
                     </div>
 
-                    <!-- Tiered Breakdown (hidden by default) -->
-                    <div id="tieredBreakdown" class="hidden bg-white border border-gray-200 rounded-xl p-6">
+                    <div id="tieredBreakdown" class="hidden bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                         <h3 class="font-semibold text-gray-900 mb-4">{% trans "Tier Breakdown" %}</h3>
-                        <div id="tieredTable" class="overflow-x-auto">
-                        </div>
+                        <div id="tieredTable" class="overflow-x-auto"></div>
                     </div>
                 </div>
             </div>
-            </div>
+        </div>
 
-        <!-- Common Commission Rates -->
-        <div class="mt-12 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Common Commission Rates by Industry" %}</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="p-4 bg-gray-50 rounded-lg text-center">
-                    <span class="block font-medium text-gray-700">{% trans "Real Estate" %}</span>
-                    <span class="text-2xl font-bold text-indigo-600">5-6%</span>
+        <!-- Complete User Guide (BMI-style) -->
+        <div class="mt-12 sm:mt-16 bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is a Commission Calculator?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                        {% blocktrans %}A commission calculator helps you figure out how much you or your sales team earn from sales, based on different pay structures. Sales commissions can be a flat percentage of sales, tiered (higher rates at higher sales levels), or combined with a base salary. This tool supports simple percentage commission, tiered brackets, base salary plus commission, and reverse calculation (sales needed to hit a target commission).{% endblocktrans %}
+                    </p>
                 </div>
-                <div class="p-4 bg-gray-50 rounded-lg text-center">
-                    <span class="block font-medium text-gray-700">{% trans "Insurance" %}</span>
-                    <span class="text-2xl font-bold text-indigo-600">5-15%</span>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Commission Types" %}</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                            <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Simple" %}</h4>
+                            <p class="text-sm text-indigo-800">{% trans "One flat commission rate applied to the full sales amount. Commission = Sales × Rate%." %}</p>
+                        </div>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Tiered" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Different rates for different sales brackets (e.g. 5%% on first $10k, 7%% on next $15k). Total commission is the sum of commission in each tier." %}</p>
+                        </div>
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Base + Commission" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Fixed base salary plus a percentage of sales. Optionally track quota achievement and a bonus for sales above quota." %}</p>
+                        </div>
+                        <div class="border-l-4 border-amber-500 pl-4 py-2 bg-amber-50 rounded-r">
+                            <h4 class="font-semibold text-amber-900 mb-1">{% trans "Reverse" %}</h4>
+                            <p class="text-sm text-amber-800">{% trans "Enter your target commission and rate to find how much sales you need: Sales Needed = Desired Commission ÷ Rate%." %}</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-4 bg-gray-50 rounded-lg text-center">
-                    <span class="block font-medium text-gray-700">{% trans "SaaS Sales" %}</span>
-                    <span class="text-2xl font-bold text-indigo-600">8-12%</span>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select the commission type (Simple, Tiered, Base + Comm, or Reverse)." %}</li>
+                        <li>{% trans "Enter the requested amounts: sales, rate(s), and for Base + Comm: base salary and optional quota." %}</li>
+                        <li>{% trans "For Tiered, use the default tiers or leave as is; sales amount is the only input." %}</li>
+                        <li>{% trans "Click Calculate Commission to see the main result, breakdown, and any chart." %}</li>
+                    </ol>
                 </div>
-                <div class="p-4 bg-gray-50 rounded-lg text-center">
-                    <span class="block font-medium text-gray-700">{% trans "Retail" %}</span>
-                    <span class="text-2xl font-bold text-indigo-600">3-10%</span>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "This calculator is for estimation only. Actual compensation depends on your employer's plan and rules." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "Rates are entered as whole numbers (e.g. 10 for 10%%). All currency amounts are in dollars." %}</span>
+                        </li>
+                    </ul>
                 </div>
-            </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="p-4 bg-gray-50 rounded-lg text-center">
+                        <span class="block text-sm font-medium text-gray-700">{% trans "Real Estate" %}</span>
+                        <span class="text-xl font-bold text-indigo-600">5–6%</span>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg text-center">
+                        <span class="block text-sm font-medium text-gray-700">{% trans "Insurance" %}</span>
+                        <span class="text-xl font-bold text-indigo-600">5–15%</span>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg text-center">
+                        <span class="block text-sm font-medium text-gray-700">{% trans "SaaS Sales" %}</span>
+                        <span class="text-xl font-bold text-indigo-600">8–12%</span>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg text-center">
+                        <span class="block text-sm font-medium text-gray-700">{% trans "Retail" %}</span>
+                        <span class="text-xl font-bold text-indigo-600">3–10%</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const modeBtns = document.querySelectorAll('.calc-mode-btn');
-    
-    // Mode switching
-    modeBtns.forEach(btn => {
+    var form = document.getElementById('calculatorForm');
+    var modeBtns = document.querySelectorAll('.calc-mode-btn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var breakdownChartInstance = null;
+
+    function parseNumber(str) {
+        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
+    }
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(num);
+    }
+
+    modeBtns.forEach(function(btn) {
         btn.addEventListener('click', function() {
-            modeBtns.forEach(b => {
-                b.classList.remove('active', 'border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
+            modeBtns.forEach(function(b) {
+                b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
                 b.classList.add('border-gray-200', 'text-gray-600');
             });
-            this.classList.add('active', 'border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
+            this.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
             this.classList.remove('border-gray-200', 'text-gray-600');
-            
-            const mode = this.dataset.mode;
+            var mode = this.getAttribute('data-mode');
             document.getElementById('calc_type').value = mode;
-            
             document.getElementById('simpleFields').classList.toggle('hidden', mode !== 'simple');
             document.getElementById('tieredFields').classList.toggle('hidden', mode !== 'tiered');
             document.getElementById('baseFields').classList.toggle('hidden', mode !== 'base_plus_commission');
             document.getElementById('reverseFields').classList.toggle('hidden', mode !== 'reverse');
         });
     });
-    
-    // Format currency inputs
-    const currencyInputs = ['sales_amount', 'sales_amount_tiered', 'base_salary', 'sales_amount_base', 'quota', 'desired_commission'];
-    currencyInputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('blur', function() {
-                const value = parseFloat(this.value.replace(/[^0-9.-]/g, ''));
-                if (!isNaN(value)) {
-                    this.value = value.toLocaleString('en-US', { maximumFractionDigits: 0 });
-                }
-            });
-        }
+
+    ['sales_amount', 'sales_amount_tiered', 'base_salary', 'sales_amount_base', 'quota', 'desired_commission'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('blur', function() {
+            var v = parseNumber(this.value);
+            if (!isNaN(v)) this.value = v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        });
     });
-    
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(num);
+
+    function showLoading(show) {
+        form.style.display = show ? 'none' : 'block';
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Commission" %}';
     }
-    
-    function parseNumber(str) {
-        return parseFloat(str.toString().replace(/[^0-9.-]/g, '')) || 0;
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        form.style.display = 'block';
+        errorState.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate Commission" %}';
     }
-    
-    function showState(state) {
-        document.getElementById('initialState').classList.add('hidden');
-        document.getElementById('loadingState').classList.add('hidden');
-        document.getElementById('errorState').classList.add('hidden');
-        document.getElementById('resultsState').classList.add('hidden');
-        
-        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
-        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
-        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
-        else if (state === 'results') document.getElementById('resultsState').classList.remove('hidden');
+
+    function buildChart(canvasId, chartSpec) {
+        if (!chartSpec || !window.Chart) return;
+        var ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+        if (breakdownChartInstance) breakdownChartInstance.destroy();
+        breakdownChartInstance = new Chart(ctx.getContext('2d'), {
+            type: chartSpec.type || 'doughnut',
+            data: chartSpec.data || {},
+            options: chartSpec.options || {}
+        });
     }
-    
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        showState('loading');
-        
-        const calcType = document.getElementById('calc_type').value;
-        let data = { calc_type: calcType };
-        
+        var btn = document.getElementById('calculateBtn');
+        if (btn) btn.disabled = true;
+        showLoading(true);
+
+        var calcType = document.getElementById('calc_type').value;
+        var data = { calc_type: calcType };
         if (calcType === 'simple') {
             data.sales_amount = parseNumber(document.getElementById('sales_amount').value);
             data.commission_rate = parseFloat(document.getElementById('commission_rate').value) || 0;
@@ -327,87 +380,77 @@ document.addEventListener('DOMContentLoaded', function() {
             data.desired_commission = parseNumber(document.getElementById('desired_commission').value);
             data.commission_rate = parseFloat(document.getElementById('commission_rate_reverse').value) || 0;
         }
-        
+
         try {
-            const response = await fetch(window.location.href, {
+            var response = await fetch(window.location.href, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
                 body: JSON.stringify(data)
             });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                displayResults(result);
-                showState('results');
-            } else {
-                document.getElementById('errorMessage').textContent = result.error || 'An error occurred';
-                showState('error');
+            var result = await response.json();
+
+            if (!result.success) {
+                showError(result.error || '{% trans "An error occurred." %}');
+                if (btn) btn.disabled = false;
+                return;
             }
-        } catch (error) {
-            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
-            showState('error');
+            showLoading(false);
+            if (btn) btn.disabled = false;
+
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsState').classList.remove('hidden');
+
+            var breakdown = document.getElementById('breakdownContent');
+            var tieredDiv = document.getElementById('tieredBreakdown');
+            var formulaWrapper = document.getElementById('formulaWrapper');
+            var chartWrapper = document.getElementById('chartWrapper');
+            tieredDiv.classList.add('hidden');
+            formulaWrapper.classList.add('hidden');
+
+            if (result.calc_type === 'simple') {
+                document.getElementById('resultLabel').textContent = '{% trans "Your Commission" %}';
+                document.getElementById('mainResult').textContent = formatCurrency(result.commission);
+                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Sales Amount" %}:</span><span class="font-medium">' + formatCurrency(result.sales_amount) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Commission Rate" %}:</span><span class="font-medium">' + result.commission_rate + '%</span></div><div class="flex justify-between border-t pt-2"><span class="text-gray-600">{% trans "Net to Company" %}:</span><span class="font-medium">' + formatCurrency(result.net_to_company) + '</span></div>';
+                document.getElementById('formulaDisplay').textContent = result.formula || '';
+                formulaWrapper.classList.remove('hidden');
+            } else if (result.calc_type === 'tiered') {
+                document.getElementById('resultLabel').textContent = '{% trans "Total Commission" %}';
+                document.getElementById('mainResult').textContent = formatCurrency(result.total_commission);
+                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Sales Amount" %}:</span><span class="font-medium">' + formatCurrency(result.sales_amount) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Effective Rate" %}:</span><span class="font-medium">' + result.effective_rate + '%</span></div>';
+                tieredDiv.classList.remove('hidden');
+                var table = document.getElementById('tieredTable');
+                var html = '<table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left">{% trans "Tier" %}</th><th class="px-3 py-2 text-right">{% trans "Amount" %}</th><th class="px-3 py-2 text-right">{% trans "Rate" %}</th><th class="px-3 py-2 text-right">{% trans "Commission" %}</th></tr></thead><tbody>';
+                (result.breakdown || []).forEach(function(tier) {
+                    html += '<tr class="border-t"><td class="px-3 py-2">' + tier.range + '</td><td class="px-3 py-2 text-right">' + formatCurrency(tier.amount) + '</td><td class="px-3 py-2 text-right">' + tier.rate + '%</td><td class="px-3 py-2 text-right font-medium">' + formatCurrency(tier.commission) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                table.innerHTML = html;
+            } else if (result.calc_type === 'base_plus_commission') {
+                document.getElementById('resultLabel').textContent = '{% trans "Total Earnings" %}';
+                document.getElementById('mainResult').textContent = formatCurrency(result.total_earnings);
+                var bonusLine = result.bonus > 0 ? '<div class="flex justify-between"><span class="text-gray-600">{% trans "Bonus" %}:</span><span class="font-medium text-green-600">' + formatCurrency(result.bonus) + '</span></div>' : '';
+                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Base Salary" %}:</span><span class="font-medium">' + formatCurrency(result.base_salary) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Commission" %} (' + result.commission_rate + '%):</span><span class="font-medium">' + formatCurrency(result.commission) + '</span></div>' + bonusLine + '<div class="flex justify-between border-t pt-2"><span class="text-gray-600">{% trans "Quota Achievement" %}:</span><span class="font-medium ' + (result.quota_achievement >= 100 ? 'text-green-600' : 'text-yellow-600') + '">' + result.quota_achievement + '%</span></div>';
+            } else if (result.calc_type === 'reverse') {
+                document.getElementById('resultLabel').textContent = '{% trans "Sales Needed" %}';
+                document.getElementById('mainResult').textContent = formatCurrency(result.sales_needed);
+                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Desired Commission" %}:</span><span class="font-medium">' + formatCurrency(result.desired_commission) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Commission Rate" %}:</span><span class="font-medium">' + result.commission_rate + '%</span></div>';
+                document.getElementById('formulaDisplay').textContent = result.formula || '';
+                formulaWrapper.classList.remove('hidden');
+            }
+
+            if (result.chart_data && result.chart_data.breakdown_chart) {
+                chartWrapper.classList.remove('hidden');
+                buildChart('breakdownChart', result.chart_data.breakdown_chart);
+            } else {
+                chartWrapper.classList.add('hidden');
+            }
+
+            document.getElementById('resultsState').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showError('{% trans "An error occurred. Please try again." %}');
+            if (btn) btn.disabled = false;
         }
     });
-    
-    function displayResults(result) {
-        const breakdown = document.getElementById('breakdownContent');
-        const tieredDiv = document.getElementById('tieredBreakdown');
-        tieredDiv.classList.add('hidden');
-        
-        if (result.calc_type === 'simple') {
-            document.getElementById('resultLabel').textContent = 'Your Commission';
-            document.getElementById('mainResult').textContent = formatCurrency(result.commission);
-            breakdown.innerHTML = `
-                <div class="flex justify-between"><span class="text-gray-600">Sales Amount:</span><span class="font-medium">${formatCurrency(result.sales_amount)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-600">Commission Rate:</span><span class="font-medium">${result.commission_rate}%</span></div>
-                <div class="flex justify-between border-t pt-2"><span class="text-gray-600">Net to Company:</span><span class="font-medium">${formatCurrency(result.net_to_company)}</span></div>
-            `;
-            document.getElementById('formulaDisplay').textContent = result.formula;
-            
-        } else if (result.calc_type === 'tiered') {
-            document.getElementById('resultLabel').textContent = 'Total Commission';
-            document.getElementById('mainResult').textContent = formatCurrency(result.total_commission);
-            breakdown.innerHTML = `
-                <div class="flex justify-between"><span class="text-gray-600">Sales Amount:</span><span class="font-medium">${formatCurrency(result.sales_amount)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-600">Effective Rate:</span><span class="font-medium">${result.effective_rate}%</span></div>
-            `;
-            document.getElementById('formulaDisplay').textContent = '';
-            
-            // Show tiered breakdown
-            tieredDiv.classList.remove('hidden');
-            const table = document.getElementById('tieredTable');
-            let html = '<table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left">Tier</th><th class="px-3 py-2 text-right">Amount</th><th class="px-3 py-2 text-right">Rate</th><th class="px-3 py-2 text-right">Commission</th></tr></thead><tbody>';
-            result.breakdown.forEach(tier => {
-                html += `<tr class="border-t"><td class="px-3 py-2">${tier.range}</td><td class="px-3 py-2 text-right">${formatCurrency(tier.amount)}</td><td class="px-3 py-2 text-right">${tier.rate}%</td><td class="px-3 py-2 text-right font-medium">${formatCurrency(tier.commission)}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            table.innerHTML = html;
-            
-        } else if (result.calc_type === 'base_plus_commission') {
-            document.getElementById('resultLabel').textContent = 'Total Earnings';
-            document.getElementById('mainResult').textContent = formatCurrency(result.total_earnings);
-            breakdown.innerHTML = `
-                <div class="flex justify-between"><span class="text-gray-600">Base Salary:</span><span class="font-medium">${formatCurrency(result.base_salary)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-600">Commission (${result.commission_rate}%):</span><span class="font-medium">${formatCurrency(result.commission)}</span></div>
-                ${result.bonus > 0 ? `<div class="flex justify-between"><span class="text-gray-600">Bonus:</span><span class="font-medium text-green-600">${formatCurrency(result.bonus)}</span></div>` : ''}
-                <div class="flex justify-between border-t pt-2"><span class="text-gray-600">Quota Achievement:</span><span class="font-medium ${result.quota_achievement >= 100 ? 'text-green-600' : 'text-yellow-600'}">${result.quota_achievement}%</span></div>
-            `;
-            document.getElementById('formulaDisplay').textContent = '';
-            
-        } else if (result.calc_type === 'reverse') {
-            document.getElementById('resultLabel').textContent = 'Sales Needed';
-            document.getElementById('mainResult').textContent = formatCurrency(result.sales_needed);
-            breakdown.innerHTML = `
-                <div class="flex justify-between"><span class="text-gray-600">Desired Commission:</span><span class="font-medium">${formatCurrency(result.desired_commission)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-600">Commission Rate:</span><span class="font-medium">${result.commission_rate}%</span></div>
-            `;
-            document.getElementById('formulaDisplay').textContent = result.formula;
-        }
-    }
-        });
-    </script>
+});
+</script>
 {% endblock %}

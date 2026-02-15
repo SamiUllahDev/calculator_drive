@@ -1,228 +1,268 @@
-{% extends 'core/base.html' %}
-{% load static %}
+{% extends "core/base.html" %}
 {% load i18n %}
 
-{% block title %}Auto Lease Calculator - Calculate Car Lease Payments{% endblock %}
+{% block title %}{% trans "Auto Lease Calculator - Car Lease Payments" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate car lease payments using money factor and residual value. See monthly payment, due at signing, and cost breakdown." %}{% endblock %}
+{% block meta_keywords %}{% trans "auto lease calculator, car lease, money factor, residual value, lease payment" %}{% endblock %}
 
-{% block meta_description %}Calculate car lease payments using money factor and residual value. Compare lease vs buy.{% endblock %}
+{% block extra_head %}
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-900 via-violet-900 to-purple-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">🚗 Auto Lease Calculator</h1>
-            <p class="text-violet-200 text-lg max-w-2xl mx-auto">Calculate your car lease payment with money factor and residual value</p>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-violet-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-purple-600">{% trans "Auto Lease Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your car lease payment with money factor and residual value. See monthly payment, due at signing, and cost breakdown." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Calculator Form -->
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <!-- Calculation Type -->
-                    <div>
-                        <label class="block text-sm font-medium text-violet-200 mb-3">Calculate</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <label class="relative cursor-pointer">
-                                <input type="radio" name="calc_type" value="calculate_payment" checked class="peer sr-only">
-                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-violet-400 peer-checked:bg-violet-500/20 transition-all text-center">
-                                    <div class="text-xl">💵</div>
-                                    <div class="text-xs text-white mt-1">Payment</div>
-                                </div>
-                            </label>
-                            <label class="relative cursor-pointer">
-                                <input type="radio" name="calc_type" value="lease_vs_buy" class="peer sr-only">
-                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-violet-400 peer-checked:bg-violet-500/20 transition-all text-center">
-                                    <div class="text-xl">⚖️</div>
-                                    <div class="text-xs text-white mt-1">Lease vs Buy</div>
-                                </div>
-                            </label>
-                            <label class="relative cursor-pointer">
-                                <input type="radio" name="calc_type" value="money_factor_convert" class="peer sr-only">
-                                <div class="p-3 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-violet-400 peer-checked:bg-violet-500/20 transition-all text-center">
-                                    <div class="text-xl">🔄</div>
-                                    <div class="text-xs text-white mt-1">MF to APR</div>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Vehicle Details -->
-                    <div id="payment_fields" class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white">🚙 Vehicle Details</h3>
-                        
-                        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Left: Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Vehicle & Lease Terms" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">MSRP</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="msrp">{% trans "MSRP ($)" %}</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="msrp" id="msrp" value="45,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="msrp" name="msrp" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="45,000" placeholder="45,000">
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Negotiated Price</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="negotiated_price">{% trans "Negotiated ($)" %}</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="negotiated_price" id="negotiated_price" value="43,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="negotiated_price" name="negotiated_price" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="43,000" placeholder="43,000">
                                 </div>
                             </div>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Down Payment</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="down_payment">{% trans "Down Payment ($)" %}</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="down_payment" id="down_payment" value="2,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="down_payment" name="down_payment" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="2,000" placeholder="0">
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Lease Term</label>
-                                <select name="lease_term" id="lease_term" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
-                                    <option value="24">24 months</option>
-                                    <option value="36" selected>36 months</option>
-                                    <option value="39">39 months</option>
-                                    <option value="48">48 months</option>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="lease_term">{% trans "Term (months)" %}</label>
+                                <select id="lease_term" name="lease_term" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base bg-white">
+                                    <option value="24">24</option>
+                                    <option value="36" selected>36</option>
+                                    <option value="39">39</option>
+                                    <option value="48">48</option>
                                 </select>
                             </div>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Residual Value (%)</label>
-                                <input type="number" name="residual_percent" id="residual_percent" value="55" step="1" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
-                                <p class="text-xs text-violet-300 mt-1">% of MSRP at lease end</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="residual_percent">{% trans "Residual (%)" %}</label>
+                                <input type="number" id="residual_percent" name="residual_percent" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="55" step="1" min="1" max="99">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "% of MSRP" %}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Money Factor</label>
-                                <input type="text" name="money_factor" id="money_factor" value="0.00125" step="0.00001" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
-                                <p class="text-xs text-violet-300 mt-1" id="apr_equiv">≈ 3.00% APR</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="money_factor">{% trans "Money Factor" %}</label>
+                                <input type="text" id="money_factor" name="money_factor" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="0.00125" placeholder="0.00125">
+                                <p class="text-xs text-gray-500 mt-1" id="apr_equiv">≈ 3.00% APR</p>
                             </div>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Sales Tax (%)</label>
-                                <input type="number" name="sales_tax_rate" id="sales_tax_rate" value="8" step="0.1" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="sales_tax_rate">{% trans "Sales Tax (%)" %}</label>
+                                <input type="number" id="sales_tax_rate" name="sales_tax_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="8" step="0.1" min="0" max="20">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-violet-200 mb-2">Acquisition Fee</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="acquisition_fee">{% trans "Acquisition Fee ($)" %}</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="acquisition_fee" id="acquisition_fee" value="650" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-violet-400">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="acquisition_fee" name="acquisition_fee" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-base" value="650" placeholder="0">
                                 </div>
                             </div>
                         </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Lease" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-violet-50 border-2 border-violet-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4"></div>
+                            <p class="text-violet-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
                     </div>
-
-                    <button type="submit" 
-                        class="w-full py-4 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
-                        Calculate Lease
-                    </button>
-                </form>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Results Panel -->
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-violet-400 border-t-transparent mx-auto mb-4"></div>
-                    <p class="text-violet-200">Calculating...</p>
+            <!-- Right: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter MSRP, negotiated price, term, residual %, and money factor to see your monthly lease payment and breakdown." %}</p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <!-- Monthly Payment -->
-                    <div class="bg-gradient-to-br from-violet-600 to-purple-600 rounded-2xl p-6 shadow-2xl">
-                        <h3 class="text-violet-100 text-sm font-medium mb-1">Monthly Lease Payment</h3>
-                        <div class="text-4xl font-bold text-white" id="monthly_payment">$489</div>
-                        <div class="text-violet-200 text-sm mt-1" id="payment_note">Including tax</div>
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-violet-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Monthly Lease Payment" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90">{% trans "Due at signing:" %} <span id="heroDueAtSigning">$0</span> &nbsp;•&nbsp; {% trans "Cost/mile:" %} <span id="heroCostPerMile">$0</span></p>
+                        </div>
                     </div>
-
-                    <!-- Payment Breakdown -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Payment Breakdown</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Depreciation</span>
-                                <span class="text-white font-medium" id="depreciation">$333</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Lease Cost" %}</p>
+                            <p id="detailTotalCost" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Due at Signing" %}</p>
+                            <p id="detailDueAtSigning" class="text-sm font-bold text-violet-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Depreciation" %}</p>
+                            <p id="detailDepreciation" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Finance + Tax" %}</p>
+                            <p id="detailFinanceTax" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Total Cost Breakdown" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="breakdownChart"></canvas>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Finance Charge (Rent)</span>
-                                <span class="text-white font-medium" id="finance_charge">$120</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Sales Tax</span>
-                                <span class="text-white font-medium" id="sales_tax">$36</span>
-                            </div>
-                            <div class="flex justify-between pt-3 border-t border-white/20">
-                                <span class="text-violet-200 font-medium">Total Monthly</span>
-                                <span class="text-white font-bold" id="total_monthly">$489</span>
+                        </div>
+                        <div id="scheduleChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Monthly Breakdown (First 12 Months)" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="scheduleChart"></canvas>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Capitalized Cost -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Capitalized Cost</h3>
-                        <div class="space-y-3 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Gross Cap Cost</span>
-                                <span class="text-white" id="gross_cap">$43,650</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                            <h3 class="font-semibold text-gray-800 mb-3">{% trans "Due at Signing" %}</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "First Payment" %}</span><span id="firstPayment" class="font-medium">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Down Payment" %}</span><span id="downPaymentDisp" class="font-medium">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Acquisition Fee" %}</span><span id="acqFeeDisp" class="font-medium">$0</span></div>
+                                <div class="flex justify-between pt-2 border-t border-gray-200"><span class="font-medium">{% trans "Total Due" %}</span><span id="dueAtSigning" class="font-bold">$0</span></div>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Cap Reduction</span>
-                                <span class="text-white" id="cap_reduction">-$2,000</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Adjusted Cap Cost</span>
-                                <span class="text-white font-medium" id="adjusted_cap">$41,650</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Residual Value</span>
-                                <span class="text-white" id="residual_value">$24,750</span>
+                        </div>
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                            <h3 class="font-semibold text-gray-800 mb-3">{% trans "Capitalized Cost" %}</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Adjusted Cap Cost" %}</span><span id="adjustedCap" class="font-medium">$0</span></div>
+                                <div class="flex justify-between"><span class="text-gray-600">{% trans "Residual Value" %}</span><span id="residualVal" class="font-medium">$0</span></div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Due at Signing -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Due at Signing</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">First Payment</span>
-                                <span class="text-white" id="first_payment">$489</span>
+                <!-- Complete User Guide (BMI-style: inside right column) -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Auto Lease Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}This calculator estimates your monthly car lease payment using the standard lease formula: depreciation plus finance charge (rent charge), plus sales tax. You enter MSRP, negotiated price, lease term, residual percentage (of MSRP), and money factor. The money factor is the lease equivalent of interest rate; multiply by 2400 to get approximate APR.{% endblocktrans %}
+                            </p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Auto Lease Payment Formula" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">{% trans "Monthly payment has three parts: depreciation, finance charge, and tax:" %}</p>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-3">
+                                <p class="font-mono text-sm font-bold text-gray-900">Depreciation = (Adjusted Cap Cost − Residual) / Term</p>
+                                <p class="font-mono text-sm font-bold text-gray-900 mt-2">Finance charge = (Adjusted Cap Cost + Residual) × Money Factor</p>
+                                <p class="font-mono text-sm font-bold text-gray-900 mt-2">Monthly = Depreciation + Finance charge + (base × tax rate)</p>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Down Payment</span>
-                                <span class="text-white" id="down_payment_display">$2,000</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-violet-300">Acquisition Fee</span>
-                                <span class="text-white" id="acq_fee_display">$650</span>
-                            </div>
-                            <div class="flex justify-between pt-3 border-t border-white/20">
-                                <span class="text-violet-200 font-medium">Total Due</span>
-                                <span class="text-white font-bold" id="due_at_signing">$3,139</span>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p class="font-semibold text-gray-900 mb-1">{% trans "APR equivalent:" %}</p>
+                                <p class="text-sm text-gray-700">{% trans "APR ≈ Money Factor × 2400. Example: 0.00125 × 2400 = 3% APR." %}</p>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Total Lease Cost -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-violet-300 text-sm">Total Lease Cost</div>
-                            <div class="text-xl font-bold text-white" id="total_cost">$19,604</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-violet-500 pl-4 py-2 bg-violet-50 rounded-r">
+                                    <h4 class="font-semibold text-violet-900 mb-1">{% trans "Money factor" %}</h4>
+                                    <p class="text-sm text-violet-800">{% trans "The lease equivalent of interest rate. APR ≈ Money Factor × 2400. Lower is better." %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Residual value" %}</h4>
+                                    <p class="text-sm text-purple-800">{% trans "Estimated value of the car at lease end, usually as a percentage of MSRP. Higher residual means lower monthly payment." %}</p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Capitalized cost" %}</h4>
+                                    <p class="text-sm text-indigo-800">{% trans "The amount being financed: negotiated price plus fees, minus down payment and rebates. Lower cap cost means lower payment." %}</p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-violet-300 text-sm">Cost Per Mile</div>
-                            <div class="text-xl font-bold text-white" id="cost_per_mile">$0.54</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the car's MSRP and your negotiated price." %}</li>
+                                <li>{% trans "Enter down payment, lease term in months, residual %, and money factor (from the dealer)." %}</li>
+                                <li>{% trans "Add sales tax rate and acquisition fee if known." %}</li>
+                                <li>{% trans "Click Calculate Lease to see monthly payment, due at signing, and charts." %}</li>
+                                <li>{% trans "Use the charts to see how much of your cost is depreciation vs finance charge vs tax." %}</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Monthly payment" %}</h4><p class="text-gray-700 text-sm">{% trans "The amount you pay each month. It includes depreciation, finance charge, and sales tax." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Due at signing" %}</h4><p class="text-gray-700 text-sm">{% trans "First payment, down payment, acquisition fee, and doc fee—typically required when you sign the lease." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Total lease cost" %}</h4><p class="text-gray-700 text-sm">{% trans "Sum of all monthly payments plus down payment and acquisition fee. Cost per mile assumes 12,000 miles per year." %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Total Cost Breakdown" %}</h4><p class="text-gray-700 text-sm">{% trans "A doughnut chart showing total depreciation, total finance charges, and total tax over the lease." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Monthly Breakdown (First 12 Months)" %}</h4><p class="text-gray-700 text-sm">{% trans "Stacked bar chart showing depreciation, finance charge, and tax in each of the first 12 payments." %}</p></div>
+                            </div>
+                        </div>
+                        <div class="bg-violet-50 border-l-4 border-violet-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-violet-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-violet-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Results are estimates. Actual terms depend on the lessor and your credit." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Due at signing typically includes first payment, down payment, acquisition fee, and doc fee." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Mileage limits, wear-and-tear, and end-of-lease fees are not included. Check the lease contract." %}</span></li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -232,86 +272,150 @@
 </div>
 
 <script>
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+var breakdownChart = null;
+var scheduleChart = null;
+
+function checkChartJS() {
+    if (typeof Chart === 'undefined') { console.error('Chart.js is not loaded.'); return false; }
+    return true;
 }
 
-// Update APR equivalent when money factor changes
-document.getElementById('money_factor').addEventListener('input', function() {
-    const mf = parseFloat(this.value) || 0;
-    const apr = mf * 2400;
-    document.getElementById('apr_equiv').textContent = `≈ ${apr.toFixed(2)}% APR`;
-});
+function formatCurrency(n) {
+    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+}
 
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const formData = {
-        calc_type: document.querySelector('input[name="calc_type"]:checked').value,
-        msrp: document.getElementById('msrp').value,
-        negotiated_price: document.getElementById('negotiated_price').value,
-        down_payment: document.getElementById('down_payment').value,
-        lease_term: document.getElementById('lease_term').value,
-        residual_percent: document.getElementById('residual_percent').value,
-        money_factor: document.getElementById('money_factor').value,
-        sales_tax_rate: document.getElementById('sales_tax_rate').value,
-        acquisition_fee: document.getElementById('acquisition_fee').value
-    };
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
 
-    try {
-        const response = await fetch('{% url "financial_calculators:auto_lease_calculator" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
+    document.getElementById('money_factor').addEventListener('input', function() {
+        var mf = parseFloat(this.value) || 0;
+        document.getElementById('apr_equiv').textContent = '≈ ' + (mf * 2400).toFixed(2) + '% APR';
+    });
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Lease" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate Lease" %}';
+    }
+
+    function createBreakdownChart(chartData) {
+        var canvas = document.getElementById('breakdownChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (breakdownChart) breakdownChart.destroy();
+        breakdownChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'doughnut',
+            data: chartData.data || {},
+            options: chartData.options || { responsive: true, maintainAspectRatio: false }
         });
+    }
 
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
-
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert(data.error || 'Calculation error');
+    function createScheduleChart(chartData) {
+        var container = document.getElementById('scheduleChartContainer');
+        var canvas = document.getElementById('scheduleChart');
+        if (!canvas || !chartData || !checkChartJS()) {
+            if (container) container.classList.add('hidden');
+            return;
         }
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
+        if (scheduleChart) scheduleChart.destroy();
+        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
+        opts.plugins = opts.plugins || {};
+        opts.plugins.tooltip = opts.plugins.tooltip || {};
+        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
+        opts.plugins.tooltip.callbacks.label = function(c) { return (c.dataset.label || '') + ': $' + (c.raw != null ? Number(c.raw).toLocaleString('en-US', { minimumFractionDigits: 2 }) : ''); };
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
+        scheduleChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'bar',
+            data: chartData.data || {},
+            options: opts
+        });
+        if (container) container.classList.remove('hidden');
     }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var payload = {
+            calc_type: 'calculate_payment',
+            msrp: (document.getElementById('msrp').value || '').replace(/,/g, ''),
+            negotiated_price: (document.getElementById('negotiated_price').value || '').replace(/,/g, ''),
+            down_payment: (document.getElementById('down_payment').value || '').replace(/,/g, ''),
+            lease_term: document.getElementById('lease_term').value,
+            residual_percent: document.getElementById('residual_percent').value,
+            money_factor: document.getElementById('money_factor').value,
+            sales_tax_rate: document.getElementById('sales_tax_rate').value,
+            acquisition_fee: (document.getElementById('acquisition_fee').value || '').replace(/,/g, '')
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server." %}');
+                return;
+            }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            var s = data.summary || {};
+            document.getElementById('heroValue').textContent = formatCurrency(s.monthly_payment);
+            document.getElementById('heroDueAtSigning').textContent = formatCurrency(s.total_due_at_signing);
+            document.getElementById('heroCostPerMile').textContent = (s.cost_per_mile != null ? '$' + Number(s.cost_per_mile).toFixed(4) : '$0');
+            document.getElementById('detailTotalCost').textContent = formatCurrency(s.total_lease_cost);
+            document.getElementById('detailDueAtSigning').textContent = formatCurrency(s.total_due_at_signing);
+            document.getElementById('detailDepreciation').textContent = formatCurrency(s.total_depreciation);
+            document.getElementById('detailFinanceTax').textContent = formatCurrency((s.total_finance_charges || 0) + (s.total_taxes || 0));
+            document.getElementById('firstPayment').textContent = formatCurrency(s.first_payment);
+            document.getElementById('downPaymentDisp').textContent = formatCurrency(s.down_payment);
+            document.getElementById('acqFeeDisp').textContent = formatCurrency(s.acquisition_fee);
+            document.getElementById('dueAtSigning').textContent = formatCurrency(s.total_due_at_signing);
+            document.getElementById('adjustedCap').textContent = formatCurrency(s.adjusted_cap_cost);
+            document.getElementById('residualVal').textContent = formatCurrency(s.residual_value);
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
+                if (data.chart_data.schedule_chart) createScheduleChart(data.chart_data.schedule_chart);
+            }
+            resultsWrapper.classList.remove('hidden');
+            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
+        }
+    });
 });
-
-function updateResults(data) {
-    if (data.monthly_breakdown) {
-        document.getElementById('monthly_payment').textContent = formatCurrency(data.monthly_breakdown.total_payment);
-        document.getElementById('depreciation').textContent = formatCurrency(data.monthly_breakdown.depreciation);
-        document.getElementById('finance_charge').textContent = formatCurrency(data.monthly_breakdown.finance_charge);
-        document.getElementById('sales_tax').textContent = formatCurrency(data.monthly_breakdown.sales_tax);
-        document.getElementById('total_monthly').textContent = formatCurrency(data.monthly_breakdown.total_payment);
-    }
-    
-    if (data.capitalized_cost) {
-        document.getElementById('gross_cap').textContent = formatCurrency(data.capitalized_cost.gross_cap_cost);
-        document.getElementById('cap_reduction').textContent = '-' + formatCurrency(data.capitalized_cost.cap_reduction);
-        document.getElementById('adjusted_cap').textContent = formatCurrency(data.capitalized_cost.adjusted_cap_cost);
-        document.getElementById('residual_value').textContent = formatCurrency(data.capitalized_cost.residual_value);
-    }
-    
-    if (data.drive_off) {
-        document.getElementById('first_payment').textContent = formatCurrency(data.drive_off.first_payment);
-        document.getElementById('down_payment_display').textContent = formatCurrency(data.drive_off.down_payment);
-        document.getElementById('acq_fee_display').textContent = formatCurrency(data.drive_off.acquisition_fee);
-        document.getElementById('due_at_signing').textContent = formatCurrency(data.drive_off.total_due_at_signing);
-    }
-    
-    if (data.totals) {
-        document.getElementById('total_cost').textContent = formatCurrency(data.totals.total_lease_cost);
-        document.getElementById('cost_per_mile').textContent = '$' + data.totals.cost_per_mile.toFixed(4);
-    }
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
 </script>
 {% endblock %}

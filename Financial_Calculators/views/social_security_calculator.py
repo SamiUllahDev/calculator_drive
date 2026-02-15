@@ -1,63 +1,92 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 from datetime import datetime
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class SocialSecurityCalculator(View):
     """
-    Class-based view for Social Security Calculator
+    Class-based view for Social Security Calculator.
     Estimates Social Security benefits based on earnings history and retirement age.
+    Returns backend-controlled chart_data (BMI/RMD-style).
     """
     template_name = 'financial_calculators/social_security_calculator.html'
-    
-    # 2024 Social Security parameters
+
     FULL_RETIREMENT_AGES = {
         1943: (66, 0), 1944: (66, 0), 1945: (66, 0), 1946: (66, 0), 1947: (66, 0),
         1948: (66, 0), 1949: (66, 0), 1950: (66, 0), 1951: (66, 0), 1952: (66, 0),
         1953: (66, 0), 1954: (66, 0), 1955: (66, 2), 1956: (66, 4), 1957: (66, 6),
         1958: (66, 8), 1959: (66, 10), 1960: (67, 0)
     }
-    
-    # 2024 bend points for PIA calculation
     BEND_POINT_1 = 1174
     BEND_POINT_2 = 7078
-    
-    # Maximum taxable earnings 2024
     MAX_TAXABLE_EARNINGS = 168600
-    
+
     def get(self, request):
         """Handle GET request"""
         current_year = datetime.now().year
         birth_years = list(range(current_year - 70, current_year - 20))
         context = {
-            'calculator_name': 'Social Security Calculator',
+            'calculator_name': _('Social Security Calculator'),
+            'page_title': _('Social Security Calculator - Estimate Your Benefits'),
             'birth_years': birth_years,
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0.0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
     def post(self, request):
         """Handle POST request for Social Security calculations"""
         try:
-            data = json.loads(request.body)
-            
-            birth_year = int(data.get('birth_year', 1960))
-            birth_month = int(data.get('birth_month', 1))
-            current_annual_earnings = float(str(data.get('current_annual_earnings', 50000)).replace(',', ''))
-            years_worked = int(data.get('years_worked', 20))
-            planned_retirement_age = int(data.get('planned_retirement_age', 67))
-            
-            # Validation
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': _('Invalid request data.')}, status=400)
+
+            birth_year = int(self._get_float(data, 'birth_year', 1960))
+            birth_month = int(self._get_float(data, 'birth_month', 1))
+            current_annual_earnings = self._get_float(data, 'current_annual_earnings', 50000)
+            years_worked = int(self._get_float(data, 'years_worked', 20))
+            planned_retirement_age = int(self._get_float(data, 'planned_retirement_age', 67))
+
             current_year = datetime.now().year
             current_age = current_year - birth_year
-            
+
             if current_age < 22 or current_age > 80:
-                return JsonResponse({'success': False, 'error': 'Please enter a valid birth year.'}, status=400)
+                return JsonResponse({'success': False, 'error': _('Please enter a valid birth year.')}, status=400)
             if current_annual_earnings < 0:
-                return JsonResponse({'success': False, 'error': 'Earnings cannot be negative.'}, status=400)
+                return JsonResponse({'success': False, 'error': _('Earnings cannot be negative.')}, status=400)
             if planned_retirement_age < 62 or planned_retirement_age > 70:
-                return JsonResponse({'success': False, 'error': 'Retirement age must be between 62 and 70.'}, status=400)
+                return JsonResponse({'success': False, 'error': _('Retirement age must be between 62 and 70.')}, status=400)
             
             # Calculate Full Retirement Age
             fra_years, fra_months = self._get_full_retirement_age(birth_year)
@@ -115,6 +144,8 @@ class SocialSecurityCalculator(View):
             else:
                 breakeven_age = None
             
+            chart_data = self._prepare_chart_data(benefits, planned_retirement_age, fra_years)
+
             result = {
                 'success': True,
                 'birth_year': birth_year,
@@ -137,20 +168,50 @@ class SocialSecurityCalculator(View):
                 'breakeven_age': round(breakeven_age, 1) if breakeven_age else None,
                 'max_benefit_age': 70,
                 'earliest_benefit_age': 62,
+                'chart_data': chart_data,
                 'notes': [
-                    'Benefits are estimates based on current earnings.',
-                    'Actual benefits depend on your complete earnings history.',
-                    f'Maximum taxable earnings in 2024: ${self.MAX_TAXABLE_EARNINGS:,}',
-                    'Benefits are adjusted annually for inflation (COLA).'
+                    _('Benefits are estimates based on current earnings.'),
+                    _('Actual benefits depend on your complete earnings history.'),
+                    _('Maximum taxable earnings in 2024: %(max)s') % {'max': f'${self.MAX_TAXABLE_EARNINGS:,}'},
+                    _('Benefits are adjusted annually for inflation (COLA).')
                 ]
             }
-            
+
             return JsonResponse(result)
-            
+
         except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': _('Invalid request data.')}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)
+
+    def _prepare_chart_data(self, benefits_by_age, planned_age, fra_years):
+        """Build Chart.js-ready config for benefits by claiming age (backend-controlled)."""
+        labels = [str(age) for age in range(62, 71)]
+        monthly_data = [round(benefits_by_age[age]['monthly'], 2) for age in range(62, 71)]
+        colors = []
+        for age in range(62, 71):
+            if age == planned_age:
+                colors.append('#2563eb')  # blue - planned
+            elif age == fra_years:
+                colors.append('#059669')  # green - FRA
+            else:
+                colors.append('#94a3b8')  # gray
+        return {
+            'benefits_chart': {
+                'type': 'bar',
+                'data': {
+                    'labels': labels,
+                    'datasets': [{
+                        'label': _('Monthly Benefit'),
+                        'data': monthly_data,
+                        'backgroundColor': colors,
+                        'borderRadius': 8
+                    }]
+                }
+            }
+        }
     
     def _get_full_retirement_age(self, birth_year):
         """Get full retirement age based on birth year"""

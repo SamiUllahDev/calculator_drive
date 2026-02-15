@@ -54,14 +54,25 @@ class StudentLoanCalculator(View):
         """Handle GET request"""
         context = {
             'calculator_name': 'Student Loan Calculator',
+            'page_title': 'Student Loan Calculator - Repayment Calculator',
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
+            data = self._get_data(request)
+
             # Get inputs
             loan_amount = self._get_float(data, 'loan_amount', 0)
             interest_rate = self._get_float(data, 'interest_rate', 0)
@@ -115,16 +126,20 @@ class StudentLoanCalculator(View):
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
-    
+
     def _get_int(self, data, key, default=0):
         """Safely get int value"""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return int(float(str(value).replace(',', '')))
         except (ValueError, TypeError):
             return default

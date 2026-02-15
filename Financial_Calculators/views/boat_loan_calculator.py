@@ -1,10 +1,13 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 import json
 import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class BoatLoanCalculator(View):
     """
     Class-based view for Boat Loan Calculator
@@ -12,39 +15,72 @@ class BoatLoanCalculator(View):
     """
     template_name = 'financial_calculators/boat_loan_calculator.html'
 
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0):
+        """Safely get float from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        """Safely get int from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '')))
+        except (ValueError, TypeError):
+            return default
+
     def get(self, request):
         """Handle GET request"""
         context = {
             'calculator_name': 'Boat Loan Calculator',
+            'page_title': 'Boat Loan Calculator - Calculate Marine Financing Payments',
         }
         return render(request, self.template_name, context)
 
     def post(self, request):
-        """Handle POST request for boat loan calculations"""
+        """Handle POST request for boat loan calculations (JSON or form)."""
         try:
-            data = json.loads(request.body)
+            data = self._get_data(request)
 
-            # Core loan inputs
-            boat_price = float(str(data.get('boat_price', 0)).replace(',', ''))
-            down_payment = float(str(data.get('down_payment', 0)).replace(',', ''))
-            down_payment_type = data.get('down_payment_type', 'amount')  # 'amount' or 'percent'
-            interest_rate = float(str(data.get('interest_rate', 0)).replace(',', ''))
-            loan_term = int(data.get('loan_term', 60))  # months
-            
-            # Additional costs
-            sales_tax_rate = float(str(data.get('sales_tax_rate', 0)).replace(',', ''))
-            registration_fees = float(str(data.get('registration_fees', 0)).replace(',', ''))
-            documentation_fees = float(str(data.get('documentation_fees', 0)).replace(',', ''))
-            
-            # Trade-in
-            trade_in_value = float(str(data.get('trade_in_value', 0)).replace(',', ''))
-            trade_in_payoff = float(str(data.get('trade_in_payoff', 0)).replace(',', ''))
-            
-            # Ownership costs (annual)
-            annual_insurance = float(str(data.get('annual_insurance', 0)).replace(',', ''))
-            annual_maintenance = float(str(data.get('annual_maintenance', 0)).replace(',', ''))
-            annual_storage = float(str(data.get('annual_storage', 0)).replace(',', ''))
-            annual_fuel = float(str(data.get('annual_fuel', 0)).replace(',', ''))
+            boat_price = self._get_float(data, 'boat_price', 0)
+            down_payment = self._get_float(data, 'down_payment', 0)
+            down_payment_type = data.get('down_payment_type', 'amount')
+            if isinstance(down_payment_type, list):
+                down_payment_type = down_payment_type[0] if down_payment_type else 'amount'
+            interest_rate = self._get_float(data, 'interest_rate', 0)
+            loan_term = self._get_int(data, 'loan_term', 60)
+
+            sales_tax_rate = self._get_float(data, 'sales_tax_rate', 0)
+            registration_fees = self._get_float(data, 'registration_fees', 0)
+            documentation_fees = self._get_float(data, 'documentation_fees', 0)
+
+            trade_in_value = self._get_float(data, 'trade_in_value', 0)
+            trade_in_payoff = self._get_float(data, 'trade_in_payoff', 0)
+
+            annual_insurance = self._get_float(data, 'annual_insurance', 0)
+            annual_maintenance = self._get_float(data, 'annual_maintenance', 0)
+            annual_storage = self._get_float(data, 'annual_storage', 0)
+            annual_fuel = self._get_float(data, 'annual_fuel', 0)
 
             # Validation
             if boat_price <= 0:

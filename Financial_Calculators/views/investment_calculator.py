@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 from datetime import datetime
@@ -50,17 +51,28 @@ class InvestmentCalculator(View):
     MIN_YEARS = 1
     MAX_YEARS = 50
     
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Investment Calculator',
+            'calculator_name': _('Investment Calculator'),
+            'page_title': _('Investment Calculator - ROI & Portfolio Growth Calculator'),
         }
         return render(request, self.template_name, context)
     
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            data = self._get_data(request)
             
             # Get inputs
             initial_investment = self._get_float(data, 'initial_investment', 0)
@@ -74,35 +86,35 @@ class InvestmentCalculator(View):
             errors = []
             
             if initial_investment < self.MIN_AMOUNT:
-                errors.append('Initial investment cannot be negative.')
+                errors.append(_('Initial investment cannot be negative.'))
             elif initial_investment > self.MAX_AMOUNT:
-                errors.append(f'Initial investment cannot exceed ${self.MAX_AMOUNT:,}.')
+                errors.append(_('Initial investment cannot exceed %(max)s.') % {'max': f'${self.MAX_AMOUNT:,}'})
             
             if monthly_contribution < self.MIN_AMOUNT:
-                errors.append('Monthly contribution cannot be negative.')
+                errors.append(_('Monthly contribution cannot be negative.'))
             elif monthly_contribution > self.MAX_AMOUNT / 12:
-                errors.append('Monthly contribution is too large.')
+                errors.append(_('Monthly contribution is too large.'))
             
             if annual_return < self.MIN_RATE:
-                errors.append(f'Annual return cannot be less than {self.MIN_RATE}%.')
+                errors.append(_('Annual return cannot be less than %(min)s%%.') % {'min': self.MIN_RATE})
             elif annual_return > self.MAX_RATE:
-                errors.append(f'Annual return cannot exceed {self.MAX_RATE}%.')
+                errors.append(_('Annual return cannot exceed %(max)s%%.') % {'max': self.MAX_RATE})
             
             if years < self.MIN_YEARS:
-                errors.append(f'Investment period must be at least {self.MIN_YEARS} year.')
+                errors.append(_('Investment period must be at least %(min)s year.') % {'min': self.MIN_YEARS})
             elif years > self.MAX_YEARS:
-                errors.append(f'Investment period cannot exceed {self.MAX_YEARS} years.')
+                errors.append(_('Investment period cannot exceed %(max)s years.') % {'max': self.MAX_YEARS})
             
             if inflation_rate < 0:
-                errors.append('Inflation rate cannot be negative.')
+                errors.append(_('Inflation rate cannot be negative.'))
             elif inflation_rate > 30:
-                errors.append('Inflation rate cannot exceed 30%.')
+                errors.append(_('Inflation rate cannot exceed 30%%.'))
             
             if tax_rate < 0 or tax_rate > 100:
-                errors.append('Tax rate must be between 0% and 100%.')
+                errors.append(_('Tax rate must be between 0%% and 100%%.'))
             
             if initial_investment == 0 and monthly_contribution == 0:
-                errors.append('Please enter either an initial investment or monthly contribution.')
+                errors.append(_('Please enter either an initial investment or monthly contribution.'))
             
             if errors:
                 return JsonResponse({'success': False, 'error': errors[0]}, status=400)
@@ -122,28 +134,31 @@ class InvestmentCalculator(View):
                 **result
             })
             
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': 'Calculation error. Please check your inputs and try again.'
-            }, status=400)
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)
     
     def _get_float(self, data, key, default=0):
-        """Safely get float value"""
+        """Safely get float value (handles list from form POST)."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
     
     def _get_int(self, data, key, default=0):
-        """Safely get int value"""
+        """Safely get int value (handles list from form POST)."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return int(float(str(value).replace(',', '')))
         except (ValueError, TypeError):
             return default

@@ -54,13 +54,24 @@ class LoanCalculator(View):
         """Handle GET request"""
         context = {
             'calculator_name': 'Loan Calculator',
+            'page_title': 'Loan Calculator - Free Monthly Payment Calculator',
         }
         return render(request, self.template_name, context)
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
     
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            data = self._get_data(request)
             
             # Get and validate inputs
             loan_amount = self._get_float(data, 'loan_amount', 0)

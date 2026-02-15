@@ -3,294 +3,377 @@
 {% load i18n %}
 
 {% block title %}{% trans "Currency Calculator - Convert Money Between Currencies" %}{% endblock %}
-
-{% block meta_description %}{% trans "Convert between 30+ world currencies. Get live exchange rates and see conversion tables for USD, EUR, GBP, JPY, and more." %}{% endblock %}
+{% block meta_description %}{% trans "Convert between 30+ world currencies. Get exchange rates and conversion tables for USD, EUR, GBP, JPY, and more." %}{% endblock %}
+{% block meta_keywords %}{% trans "currency converter, exchange rate calculator, USD EUR converter, money converter, forex calculator" %}{% endblock %}
 
 {% block extra_head %}
-<meta name="keywords" content="{% trans 'currency converter, exchange rate calculator, USD EUR converter, money converter, forex calculator' %}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="{{ request.build_absolute_uri }}">
-
-<meta property="og:title" content="{% trans 'Currency Calculator' %}">
-<meta property="og:description" content="{% trans 'Convert money between 30+ world currencies with live exchange rates.' %}">
-<meta property="og:type" content="website">
-
-<script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "{% trans 'Currency Calculator' %}",
-    "description": "{% trans 'Convert between world currencies' %}",
-    "url": "{{ request.build_absolute_uri }}",
-    "applicationCategory": "FinanceApplication",
-    "operatingSystem": "All",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-}
-</script>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-5xl mx-auto">
-        
-        <!-- Breadcrumb -->
-        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-blue-200">
-                <li><a href="/" class="hover:text-white transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-white transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-white font-medium">{% trans "Currency Calculator" %}</li>
-            </ol>
-        </nav>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2">{% trans "Currency Calculator" %}</h1>
-            <p class="text-blue-200 max-w-2xl mx-auto">{% trans "Convert between 30+ world currencies with real-time exchange rates." %}</p>
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Currency Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Convert between 30+ world currencies with exchange rates and conversion tables." %}
+            </p>
         </div>
 
-        <!-- Main Calculator -->
-        <div class="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 mb-6">
-            <form id="calculatorForm" class="space-y-6">
-                {% csrf_token %}
-                
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                    <!-- Amount -->
-                    <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-white mb-2" for="amount">{% trans "Amount" %}</label>
-                        <input type="number" id="amount" class="w-full px-4 py-3 text-lg bg-white/10 border border-white/30 text-white placeholder-white/50 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent" value="1000" step="0.01" min="0">
-                    </div>
-                    
-                    <!-- From Currency -->
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-white mb-2" for="from_currency">{% trans "From" %}</label>
-                        <select id="from_currency" class="w-full px-4 py-3 text-lg bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-400">
-                            {% for currency in currencies %}
-                            <option value="{{ currency.code }}" {% if currency.code == 'USD' %}selected{% endif %}>{{ currency.code }} - {{ currency.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <!-- Swap Button -->
-                    <div class="md:col-span-1 flex justify-center">
-                        <button type="button" id="swapBtn" class="p-3 bg-white/20 hover:bg-white/30 rounded-full transition transform hover:rotate-180 duration-300">
-                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                            </svg>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                        </svg>
+                        {% trans "Convert" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="amount">{% trans "Amount" %}</label>
+                            <input type="text" id="amount" name="amount" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="1,000" placeholder="1000" inputmode="decimal">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="from_currency">{% trans "From" %}</label>
+                            <select id="from_currency" name="from_currency" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white">
+                                {% for currency in currencies %}
+                                <option value="{{ currency.code }}" {% if currency.code == 'USD' %}selected{% endif %}>{{ currency.code }} – {{ currency.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex justify-center">
+                            <button type="button" id="swapBtn" class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition" aria-label="{% trans 'Swap currencies' %}">
+                                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="to_currency">{% trans "To" %}</label>
+                            <select id="to_currency" name="to_currency" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white">
+                                {% for currency in currencies %}
+                                <option value="{{ currency.code }}" {% if currency.code == 'EUR' %}selected{% endif %}>{{ currency.code }} – {{ currency.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+                            <span id="calculateBtnText">{% trans "Convert" %}</span>
                         </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Converting..." %}</p>
+                        </div>
                     </div>
-                    
-                    <!-- To Currency -->
-                    <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-white mb-2" for="to_currency">{% trans "To" %}</label>
-                        <select id="to_currency" class="w-full px-4 py-3 text-lg bg-white border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-400">
-                            {% for currency in currencies %}
-                            <option value="{{ currency.code }}" {% if currency.code == 'EUR' %}selected{% endif %}>{{ currency.code }} - {{ currency.name }}</option>
-                            {% endfor %}
-                        </select>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
                     </div>
                 </div>
-                
-                <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-4 px-4 rounded-lg font-semibold text-lg hover:from-blue-600 hover:to-indigo-600 transition shadow-lg">
-                    {% trans "Convert" %}
-                </button>
-            </form>
-        </div>
-
-        <!-- Results -->
-        <div id="resultsSection" class="hidden space-y-6">
-            
-            <!-- Main Result -->
-            <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
-                <p class="text-gray-500 text-sm mb-2" id="fromAmountDisplay">1,000 USD</p>
-                <p class="text-4xl font-bold text-gray-900 mb-2" id="toAmountDisplay">920.00 EUR</p>
-                <p class="text-gray-600" id="exchangeRateDisplay">1 USD = 0.9200 EUR</p>
-                <p class="text-gray-500 text-sm mt-2" id="inverseRateDisplay">1 EUR = 1.0870 USD</p>
             </div>
 
-            <!-- Conversion Table -->
-            <div class="bg-white rounded-2xl shadow-xl p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">{% trans "Common Amounts" %}</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="conversionTable">
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter an amount and choose from and to currencies, then click Convert." %}</p>
+                </div>
+
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Converted amount" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">—</p>
+                            <p id="heroSub" class="text-sm opacity-90"><span id="heroFrom"></span> → <span id="heroRate"></span></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Amount" %}</p>
+                            <p id="detailAmount" class="text-sm font-bold text-gray-900">—</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Exchange rate" %}</p>
+                            <p id="detailRate" class="text-sm font-bold text-gray-900">—</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Inverse rate" %}</p>
+                            <p id="detailInverse" class="text-sm font-bold text-gray-900">—</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Result" %}</p>
+                            <p id="detailResult" class="text-sm font-bold text-green-600">—</p>
+                        </div>
+                    </div>
+
+                    <div id="crossChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            {% trans "Same Amount in Major Currencies" %}
+                        </h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="crossChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                            <h3 class="font-semibold text-gray-800 mb-3">{% trans "Common Amounts" %}</h3>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="conversionTable"></div>
+                        </div>
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                            <h3 class="font-semibold text-gray-800 mb-3">{% trans "Cross Rates" %}</h3>
+                            <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium">{% trans "Currency" %}</th>
+                                            <th class="px-3 py-2 text-right font-medium">{% trans "Rate" %}</th>
+                                            <th class="px-3 py-2 text-right font-medium">{% trans "Converted" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="crossRatesBody" class="divide-y divide-gray-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Currency Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}This calculator converts an amount from one currency to another using exchange rates. You enter the amount and select the source and target currencies. The result shows the converted amount, the exchange rate (how many units of the target currency you get for one unit of the source), and the inverse rate. A table of common amounts and cross rates for major currencies helps you quickly see equivalent values.{% endblocktrans %}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Exchange rate" %}</h4>
+                                    <p class="text-sm text-blue-800">{% trans "The rate at which one currency is exchanged for another. For example, 1 USD = 0.92 EUR means one US dollar buys 0.92 euros." %}</p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Base currency" %}</h4>
+                                    <p class="text-sm text-indigo-800">{% trans "Rates here are quoted relative to USD. Conversion is done by first converting to USD, then to the target currency." %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Cross rates" %}</h4>
+                                    <p class="text-sm text-purple-800">{% trans "The same amount converted into several major currencies (USD, EUR, GBP, JPY, CAD, AUD, CHF) so you can compare equivalents at a glance." %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the amount you want to convert (e.g. 1000)." %}</li>
+                                <li>{% trans "Select the source currency (From) and the target currency (To). Use the swap button to reverse them." %}</li>
+                                <li>{% trans "Click Convert to see the result, exchange rate, common amounts table, and cross rates." %}</li>
+                                <li>{% trans "Use the chart to compare your amount in major currencies." %}</li>
+                                <li>{% trans "Rates are indicative; actual rates may vary at banks or exchange services." %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Converted amount" %}</h4><p class="text-gray-700 text-sm">{% trans "The equivalent amount in the target currency at the given exchange rate." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Exchange rate & inverse" %}</h4><p class="text-gray-700 text-sm">{% trans "Rate: 1 From = X To. Inverse: 1 To = Y From. Useful for quick mental conversion in both directions." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Common amounts & cross rates" %}</h4><p class="text-gray-700 text-sm">{% trans "Common amounts shows 1, 5, 10, 25, 50, 100, 500, 1000 in the from currency and their equivalents. Cross rates show your amount in USD, EUR, GBP, JPY, CAD, AUD, CHF (excluding the from currency)." %}</p></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Chart" %}</h3>
+                            <p class="text-gray-700 text-sm">{% trans "The bar chart shows your entered amount converted into each of the other major currencies (USD, EUR, GBP, JPY, CAD, AUD, CHF). This lets you compare purchasing power across currencies at a glance." %}</p>
+                        </div>
+
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Exchange rates are indicative and may differ from actual market or bank rates." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Banks and exchange services typically add a margin to the mid-market rate. Compare providers for large transfers." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Rates fluctuate with market conditions. For live rates, use a dedicated forex or banking source." %}</span></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <!-- Cross Rates -->
-            <div class="bg-white rounded-2xl shadow-xl p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">{% trans "Cross Rates" %}</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left font-medium text-gray-700">{% trans "Currency" %}</th>
-                                <th class="px-4 py-2 text-right font-medium text-gray-700">{% trans "Rate" %}</th>
-                                <th class="px-4 py-2 text-right font-medium text-gray-700">{% trans "Converted" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody id="crossRatesBody" class="divide-y divide-gray-200">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
-
-        <!-- Error State -->
-        <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <p class="text-red-600" id="errorMessage"></p>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loadingState" class="hidden bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-8 text-center">
-            <div class="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p class="text-white">{% trans "Converting..." %}</p>
-        </div>
-
-        <!-- Currency Info -->
-        <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h2 class="text-xl font-bold text-white mb-4">{% trans "Major World Currencies" %}</h2>
-                <div class="space-y-2 text-sm text-blue-100">
-                    <p><span class="text-white font-medium">USD</span> - {% trans "US Dollar, world's primary reserve currency" %}</p>
-                    <p><span class="text-white font-medium">EUR</span> - {% trans "Euro, used by 20 European Union countries" %}</p>
-                    <p><span class="text-white font-medium">GBP</span> - {% trans "British Pound, world's oldest currency still in use" %}</p>
-                    <p><span class="text-white font-medium">JPY</span> - {% trans "Japanese Yen, major Asian currency" %}</p>
-                    <p><span class="text-white font-medium">CHF</span> - {% trans "Swiss Franc, known for stability" %}</p>
-                </div>
-            </div>
-            <div class="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h2 class="text-xl font-bold text-white mb-4">{% trans "Exchange Rate Tips" %}</h2>
-                <ul class="space-y-2 text-sm text-blue-100">
-                    <li class="flex items-start">
-                        <svg class="w-4 h-4 text-blue-300 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>{% trans "Exchange rates fluctuate constantly based on market conditions" %}</span>
-                    </li>
-                    <li class="flex items-start">
-                        <svg class="w-4 h-4 text-blue-300 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>{% trans "Banks and exchange services typically add a margin to the mid-market rate" %}</span>
-                    </li>
-                    <li class="flex items-start">
-                        <svg class="w-4 h-4 text-blue-300 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>{% trans "Compare rates from multiple providers before exchanging large amounts" %}</span>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <p class="text-center text-blue-200 text-xs mt-8">{% trans "Note: Exchange rates are indicative and may differ from actual market rates." %}</p>
     </div>
 </div>
 
 <script>
+var crossChart = null;
+
+function checkChartJS() { return typeof Chart !== 'undefined'; }
+
+function formatNum(n, decimals) {
+    var d = decimals != null ? decimals : 2;
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const swapBtn = document.getElementById('swapBtn');
-    
-    // Swap currencies
+    var form = document.getElementById('calculatorForm');
+    var swapBtn = document.getElementById('swapBtn');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+
     swapBtn.addEventListener('click', function() {
-        const fromSelect = document.getElementById('from_currency');
-        const toSelect = document.getElementById('to_currency');
-        const temp = fromSelect.value;
+        var fromSelect = document.getElementById('from_currency');
+        var toSelect = document.getElementById('to_currency');
+        var temp = fromSelect.value;
         fromSelect.value = toSelect.value;
         toSelect.value = temp;
     });
-    
-    function formatCurrency(num, decimals = 2) {
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }).format(num);
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Converting..." %}' : '{% trans "Convert" %}';
     }
-    
-    function showState(state) {
-        document.getElementById('resultsSection').classList.add('hidden');
-        document.getElementById('errorState').classList.add('hidden');
-        document.getElementById('loadingState').classList.add('hidden');
-        
-        if (state === 'results') document.getElementById('resultsSection').classList.remove('hidden');
-        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
-        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Convert" %}';
     }
-    
+
+    function createCrossChart(chartData) {
+        var canvas = document.getElementById('crossChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (crossChart) crossChart.destroy();
+        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return typeof v === 'number' && v >= 1000 ? (v/1000).toFixed(1) + 'k' : v; };
+        crossChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'bar',
+            data: chartData.data || {},
+            options: opts
+        });
+    }
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        showState('loading');
-        
-        const data = {
-            amount: parseFloat(document.getElementById('amount').value) || 0,
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var amountVal = (document.getElementById('amount').value || '').replace(/,/g, '');
+        var payload = {
+            amount: amountVal,
             from_currency: document.getElementById('from_currency').value,
             to_currency: document.getElementById('to_currency').value
         };
-        
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
         try {
-            const response = await fetch(window.location.href, {
+            var resp = await fetch(window.location.href, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfEl.value
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(payload)
             });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                displayResults(result);
-                showState('results');
-            } else {
-                document.getElementById('errorMessage').textContent = result.error || 'An error occurred';
-                showState('error');
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server. Please try again." %}');
+                return;
             }
-        } catch (error) {
-            document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
-            showState('error');
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            var s = data.summary || {};
+            var fmt = data.formatted || {};
+            document.getElementById('heroValue').textContent = (s.to_symbol || '') + formatNum(s.converted_amount);
+            document.getElementById('heroFrom').textContent = fmt.from || (s.from_symbol + formatNum(s.amount) + ' ' + s.from_currency);
+            document.getElementById('heroRate').textContent = fmt.rate || ('1 ' + s.from_currency + ' = ' + formatNum(s.exchange_rate, 4) + ' ' + s.to_currency);
+
+            document.getElementById('detailAmount').textContent = (s.from_symbol || '') + formatNum(s.amount);
+            document.getElementById('detailRate').textContent = '1 ' + s.from_currency + ' = ' + formatNum(s.exchange_rate, 4) + ' ' + s.to_currency;
+            document.getElementById('detailInverse').textContent = '1 ' + s.to_currency + ' = ' + formatNum(s.inverse_rate, 4) + ' ' + s.from_currency;
+            document.getElementById('detailResult').textContent = (s.to_symbol || '') + formatNum(s.converted_amount);
+
+            var tableDiv = document.getElementById('conversionTable');
+            tableDiv.innerHTML = '';
+            if (data.conversion_table && data.conversion_table.length) {
+                data.conversion_table.forEach(function(row) {
+                    var div = document.createElement('div');
+                    div.className = 'p-3 bg-gray-50 rounded-lg text-center';
+                    div.innerHTML = '<p class="text-xs text-gray-500">' + row.from_formatted + '</p><p class="text-sm font-bold text-gray-900">' + row.to_formatted + '</p>';
+                    tableDiv.appendChild(div);
+                });
+            }
+
+            var tbody = document.getElementById('crossRatesBody');
+            tbody.innerHTML = '';
+            if (data.cross_rates) {
+                data.cross_rates.forEach(function(r) {
+                    var tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    tr.innerHTML = '<td class="px-3 py-2"><span class="font-medium text-gray-900">' + r.currency + '</span> <span class="text-gray-500 ml-1">' + (r.name || '') + '</span></td><td class="px-3 py-2 text-right text-gray-700">' + formatNum(r.rate, 4) + '</td><td class="px-3 py-2 text-right font-medium text-gray-900">' + (r.symbol || '') + formatNum(r.converted) + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+
+            if (data.chart_data && data.chart_data.cross_chart && checkChartJS()) {
+                createCrossChart(data.chart_data.cross_chart);
+            }
+
+            initialState.classList.add('hidden');
+            resultsWrapper.classList.remove('hidden');
+            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
         }
     });
-    
-    function displayResults(result) {
-        document.getElementById('fromAmountDisplay').textContent = result.formatted.from;
-        document.getElementById('toAmountDisplay').textContent = result.formatted.to;
-        document.getElementById('exchangeRateDisplay').textContent = result.formatted.rate;
-        document.getElementById('inverseRateDisplay').textContent = result.formatted.inverse;
-        
-        // Conversion table
-        const tableDiv = document.getElementById('conversionTable');
-        tableDiv.innerHTML = '';
-        result.conversion_table.forEach(row => {
-            const div = document.createElement('div');
-            div.className = 'p-3 bg-gray-50 rounded-lg text-center';
-            div.innerHTML = `
-                <p class="text-sm text-gray-500">${row.from_formatted}</p>
-                <p class="text-lg font-bold text-gray-900">${row.to_formatted}</p>
-            `;
-            tableDiv.appendChild(div);
-        });
-        
-        // Cross rates
-        const tbody = document.getElementById('crossRatesBody');
-        tbody.innerHTML = '';
-        result.cross_rates.forEach(rate => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="px-4 py-2">
-                    <span class="font-medium text-gray-900">${rate.currency}</span>
-                    <span class="text-gray-500 ml-2">${rate.name}</span>
-                </td>
-                <td class="px-4 py-2 text-right text-gray-700">${rate.rate.toFixed(4)}</td>
-                <td class="px-4 py-2 text-right font-medium text-gray-900">${rate.symbol}${formatCurrency(rate.converted)}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-    
-    // Auto-submit on load
-    form.dispatchEvent(new Event('submit'));
 });
 </script>
 {% endblock %}

@@ -1,44 +1,60 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class IraCalculator(View):
     """
     Class-based view for Traditional IRA Calculator
     Calculates projected IRA balance with tax benefits and retirement projections.
     """
     template_name = 'financial_calculators/ira_calculator.html'
-    
-    # 2024 IRS Contribution Limits
+
     CONTRIBUTION_LIMIT_2024 = 7000
-    CATCH_UP_LIMIT_2024 = 1000  # For age 50+
-    
-    # Income limits for tax deduction (2024) - Single filers with workplace plan
+    CATCH_UP_LIMIT_2024 = 1000
+
     SINGLE_FULL_DEDUCTION_LIMIT = 77000
     SINGLE_PARTIAL_DEDUCTION_LIMIT = 87000
-    
-    # Income limits for tax deduction (2024) - Married filing jointly with workplace plan
     MARRIED_FULL_DEDUCTION_LIMIT = 123000
     MARRIED_PARTIAL_DEDUCTION_LIMIT = 143000
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
-        """Handle GET request - render the calculator form"""
+        """Handle GET request"""
         context = {
-            'calculator_name': 'Traditional IRA Calculator',
+            'calculator_name': _('Traditional IRA Calculator'),
+            'page_title': _('Traditional IRA Calculator - Retirement Tax Savings'),
             'contribution_limit': self.CONTRIBUTION_LIMIT_2024,
             'catch_up_limit': self.CATCH_UP_LIMIT_2024,
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            
-            # Get input values
+            data = self._get_data(request)
+
             current_age = self._get_int(data, 'current_age', 30)
             retirement_age = self._get_int(data, 'retirement_age', 65)
             current_balance = self._get_float(data, 'current_balance', 0)
@@ -46,19 +62,29 @@ class IraCalculator(View):
             annual_return = self._get_float(data, 'annual_return', 7) / 100
             current_tax_rate = self._get_float(data, 'current_tax_rate', 22) / 100
             retirement_tax_rate = self._get_float(data, 'retirement_tax_rate', 15) / 100
-            include_catch_up = data.get('include_catch_up', True)
-            has_workplace_plan = data.get('has_workplace_plan', False)
             annual_income = self._get_float(data, 'annual_income', 60000)
             filing_status = data.get('filing_status', 'single')
-            
-            # Validate inputs
+            if isinstance(filing_status, list):
+                filing_status = filing_status[0] if filing_status else 'single'
+
+            include_catch_up = data.get('include_catch_up')
+            if isinstance(include_catch_up, str):
+                include_catch_up = include_catch_up.lower() in ('true', '1', 'yes')
+            elif include_catch_up is None:
+                include_catch_up = True
+
+            has_workplace_plan = data.get('has_workplace_plan')
+            if isinstance(has_workplace_plan, str):
+                has_workplace_plan = has_workplace_plan.lower() in ('true', '1', 'yes')
+            elif has_workplace_plan is None:
+                has_workplace_plan = False
+
             errors = self._validate_inputs(
                 current_age, retirement_age, annual_contribution, annual_return
             )
             if errors:
-                return JsonResponse({'success': False, 'errors': errors}, status=400)
-            
-            # Calculate projections
+                return JsonResponse({'success': False, 'error': str(errors[0])}, status=400)
+
             result = self._calculate_ira_projection(
                 current_age=current_age,
                 retirement_age=retirement_age,
@@ -72,51 +98,55 @@ class IraCalculator(View):
                 annual_income=annual_income,
                 filing_status=filing_status
             )
-            
+
             return JsonResponse({'success': True, **result})
-            
+
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': str(_('Invalid input: %(detail)s') % {'detail': str(e)})}, status=400)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'errors': ['Invalid JSON data']
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'errors': [str(e)]
-            }, status=500)
-    
+            return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+
     def _get_float(self, data, key, default=0.0):
-        """Safely extract float value from data"""
+        """Safely get float (handles list, strips % and commas)."""
         try:
             value = data.get(key, default)
-            return float(value) if value not in [None, ''] else default
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
-    
+
     def _get_int(self, data, key, default=0):
-        """Safely extract integer value from data"""
+        """Safely get int value."""
         try:
             value = data.get(key, default)
-            return int(float(value)) if value not in [None, ''] else default
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '').replace('$', '')))
         except (ValueError, TypeError):
             return default
-    
+
     def _validate_inputs(self, current_age, retirement_age, annual_contribution, annual_return):
         """Validate calculator inputs"""
         errors = []
-        
+
         if current_age < 18 or current_age > 100:
-            errors.append('Current age must be between 18 and 100')
+            errors.append(str(_('Current age must be between 18 and 100.')))
         if retirement_age < current_age:
-            errors.append('Retirement age must be greater than current age')
+            errors.append(str(_('Retirement age must be greater than current age.')))
         if retirement_age > 100:
-            errors.append('Retirement age must be 100 or less')
+            errors.append(str(_('Retirement age must be 100 or less.')))
         if annual_contribution < 0:
-            errors.append('Annual contribution must be 0 or greater')
+            errors.append(str(_('Annual contribution must be 0 or greater.')))
         if annual_return < -0.5 or annual_return > 0.5:
-            errors.append('Annual return must be between -50% and 50%')
-        
+            errors.append(str(_('Annual return must be between -50%% and 50%%.')))
+
         return errors
     
     def _calculate_deduction_percentage(self, annual_income, filing_status, has_workplace_plan):

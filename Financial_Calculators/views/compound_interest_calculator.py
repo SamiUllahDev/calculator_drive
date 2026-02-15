@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 
@@ -38,53 +39,68 @@ class CompoundInterestCalculator(View):
         'daily': 365,
     }
     
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Compound Interest Calculator',
+            'calculator_name': _('Compound Interest Calculator'),
+            'page_title': _('Compound Interest Calculator - Free Investment Growth Calculator'),
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
-            # Get and validate inputs
+            data = self._get_data(request)
+
             principal = self._get_float(data, 'principal', 0)
             annual_rate = self._get_float(data, 'interest_rate', 0)
             time_years = self._get_float(data, 'time_years', 0)
             compound_frequency = data.get('compound_frequency', 'monthly')
+            if isinstance(compound_frequency, list):
+                compound_frequency = compound_frequency[0] if compound_frequency else 'monthly'
             contribution_amount = self._get_float(data, 'contribution_amount', 0)
             contribution_frequency = data.get('contribution_frequency', 'monthly')
-            contribution_timing = data.get('contribution_timing', 'end')  # 'end' or 'beginning'
-            
-            # Validation
+            if isinstance(contribution_frequency, list):
+                contribution_frequency = contribution_frequency[0] if contribution_frequency else 'monthly'
+            contribution_timing = data.get('contribution_timing', 'end')
+            if isinstance(contribution_timing, list):
+                contribution_timing = contribution_timing[0] if contribution_timing else 'end'
+
             errors = []
-            
+
             if principal < self.MIN_PRINCIPAL:
-                errors.append('Principal cannot be negative.')
+                errors.append(_('Principal cannot be negative.'))
             elif principal > self.MAX_PRINCIPAL:
-                errors.append(f'Principal cannot exceed ${self.MAX_PRINCIPAL:,}.')
-            
+                errors.append(_('Principal cannot exceed %(max)s.') % {'max': f'${self.MAX_PRINCIPAL:,}'})
+
             if annual_rate < self.MIN_RATE:
-                errors.append('Interest rate cannot be negative.')
+                errors.append(_('Interest rate cannot be negative.'))
             elif annual_rate > self.MAX_RATE:
-                errors.append(f'Interest rate cannot exceed {self.MAX_RATE}%.')
-            
+                errors.append(_('Interest rate cannot exceed %(max)s%%.') % {'max': self.MAX_RATE})
+
             if time_years < self.MIN_TIME:
-                errors.append(f'Time period must be at least {self.MIN_TIME} year.')
+                errors.append(_('Time period must be at least %(min)s year.') % {'min': self.MIN_TIME})
             elif time_years > self.MAX_TIME:
-                errors.append(f'Time period cannot exceed {self.MAX_TIME} years.')
-            
+                errors.append(_('Time period cannot exceed %(max)s years.') % {'max': self.MAX_TIME})
+
             if contribution_amount < 0:
-                errors.append('Contribution amount cannot be negative.')
+                errors.append(_('Contribution amount cannot be negative.'))
             elif contribution_amount > self.MAX_CONTRIBUTION:
-                errors.append(f'Contribution amount cannot exceed ${self.MAX_CONTRIBUTION:,}.')
-            
+                errors.append(_('Contribution amount cannot exceed %(max)s.') % {'max': f'${self.MAX_CONTRIBUTION:,}'})
+
             if compound_frequency not in self.COMPOUND_FREQUENCIES:
-                errors.append('Invalid compound frequency.')
-            
+                errors.append(_('Invalid compound frequency.'))
+
             if errors:
                 return JsonResponse({'success': False, 'error': errors[0]}, status=400)
             
@@ -232,18 +248,19 @@ class CompoundInterestCalculator(View):
             
             return JsonResponse(response_data)
             
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': 'Calculation error. Please check your inputs and try again.'
-            }, status=400)
-    
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)
+
     def _get_float(self, data, key, default=0):
-        """Safely get float value"""
+        """Safely get float value from data (handles list from form POST)."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
-            return float(str(value).replace(',', '').replace('$', ''))
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default

@@ -3,9 +3,9 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
-from datetime import datetime
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -29,18 +29,35 @@ class RetirementCalculator(View):
     MAX_SAVINGS = 100000000
     MAX_RATE = 30
     
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Retirement Calculator',
+            'calculator_name': _('Retirement Calculator'),
+            'page_title': _('Retirement Calculator - Plan Your Retirement Savings'),
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
+            data = self._get_data(request)
+
             # Get inputs
             current_age = self._get_int(data, 'current_age', 0)
             retirement_age = self._get_int(data, 'retirement_age', 0)
@@ -61,31 +78,31 @@ class RetirementCalculator(View):
             
             # Validation
             errors = []
-            
+
             if current_age < self.MIN_AGE or current_age > self.MAX_AGE:
-                errors.append(f'Current age must be between {self.MIN_AGE} and {self.MAX_AGE}.')
-            
+                errors.append(str(_('Current age must be between %(min)s and %(max)s.') % {'min': self.MIN_AGE, 'max': self.MAX_AGE}))
+
             if retirement_age <= current_age:
-                errors.append('Retirement age must be greater than current age.')
+                errors.append(str(_('Retirement age must be greater than current age.')))
             elif retirement_age > self.MAX_AGE:
-                errors.append(f'Retirement age cannot exceed {self.MAX_AGE}.')
-            
+                errors.append(str(_('Retirement age cannot exceed %(max)s.') % {'max': self.MAX_AGE}))
+
             if life_expectancy <= retirement_age:
-                errors.append('Life expectancy must be greater than retirement age.')
+                errors.append(str(_('Life expectancy must be greater than retirement age.')))
             elif life_expectancy > 120:
-                errors.append('Life expectancy cannot exceed 120.')
-            
+                errors.append(str(_('Life expectancy cannot exceed 120.')))
+
             if current_savings < 0:
-                errors.append('Current savings cannot be negative.')
+                errors.append(str(_('Current savings cannot be negative.')))
             elif current_savings > self.MAX_SAVINGS:
-                errors.append(f'Current savings cannot exceed ${self.MAX_SAVINGS:,}.')
-            
+                errors.append(str(_('Current savings cannot exceed $%(max)s.') % {'max': f'{self.MAX_SAVINGS:,}'}))
+
             if monthly_contribution < 0:
-                errors.append('Monthly contribution cannot be negative.')
-            
+                errors.append(str(_('Monthly contribution cannot be negative.')))
+
             if pre_retirement_return < -20 or pre_retirement_return > self.MAX_RATE:
-                errors.append(f'Pre-retirement return must be between -20% and {self.MAX_RATE}%.')
-            
+                errors.append(str(_('Pre-retirement return must be between -20%% and %(max)s%%.') % {'max': self.MAX_RATE}))
+
             if errors:
                 return JsonResponse({'success': False, 'error': errors[0]}, status=400)
             
@@ -102,29 +119,34 @@ class RetirementCalculator(View):
                 **result
             })
             
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': 'Calculation error. Please check your inputs and try again.'
-            }, status=400)
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': str(_('Invalid input: %(detail)s') % {'detail': str(e)})}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
     
     def _get_float(self, data, key, default=0):
-        """Safely get float value"""
+        """Safely get float (handles list, strips % and commas)."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
     
     def _get_int(self, data, key, default=0):
-        """Safely get int value"""
+        """Safely get int value."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
-            return int(float(str(value).replace(',', '')))
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '').replace('$', '')))
         except (ValueError, TypeError):
             return default
     
@@ -296,7 +318,7 @@ class RetirementCalculator(View):
                 'readiness_score': round(readiness_score, 1),
                 'years_funds_last': years_funds_last,
                 'status': status,
-                'status_message': status_message,
+                'status_message': str(status_message),
                 'surplus_shortfall': round(surplus_shortfall, 2),
             },
             'accumulation_breakdown': accumulation_breakdown,

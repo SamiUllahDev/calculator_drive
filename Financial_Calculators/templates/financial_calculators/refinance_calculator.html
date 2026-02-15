@@ -1,199 +1,311 @@
-{% extends 'core/base.html' %}
+{% extends "core/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block title %}Mortgage Refinance Calculator - Calculate Savings{% endblock %}
+{% block title %}{% trans "Refinance Calculator - Calculate Savings" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate mortgage refinance savings, break-even point, and compare your current loan vs new loan terms." %}{% endblock %}
+{% block meta_keywords %}{% trans "refinance calculator, mortgage refinance, break-even, refinance savings" %}{% endblock %}
 
-{% block meta_description %}Calculate mortgage refinance savings, break-even point, and compare your current loan vs new loan terms.{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">🏠 Refinance Calculator</h1>
-            <p class="text-purple-200 text-lg max-w-2xl mx-auto">See how much you could save by refinancing your mortgage</p>
+<div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-indigo-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{% trans "Refinance Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "See how much you could save by refinancing your mortgage. Compare current vs new loan and break-even." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Calculator Form -->
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <!-- Current Loan -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                            <span>📋</span> Current Loan
-                        </h3>
-                        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Form (left column) -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-gray-700">{% trans "Current Loan" %}</h3>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="current_balance">{% trans "Current Balance" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="current_balance" name="current_balance" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base" value="250,000" placeholder="250,000" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="current_rate">{% trans "Rate (%)" %}</label>
+                                    <input type="number" id="current_rate" name="current_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="6.5" step="0.125" min="0" max="30">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="current_payment">{% trans "Payment" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="text" id="current_payment" name="current_payment" class="w-full pl-7 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="1,896" placeholder="1,896">
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="months_remaining">{% trans "Months Remaining" %}</label>
+                                <input type="number" id="months_remaining" name="months_remaining" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="300" min="1">
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-gray-700">{% trans "New Loan Terms" %}</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="new_rate">{% trans "New Rate (%)" %}</label>
+                                    <input type="number" id="new_rate" name="new_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="5.5" step="0.125" min="0" max="30">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="new_term">{% trans "New Term" %}</label>
+                                    <select id="new_term" name="new_term" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base bg-white">
+                                        <option value="180">15 {% trans "Years" %}</option>
+                                        <option value="240">20 {% trans "Years" %}</option>
+                                        <option value="300">25 {% trans "Years" %}</option>
+                                        <option value="360" selected>30 {% trans "Years" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-gray-700">{% trans "Closing Costs" %}</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="closing_costs">{% trans "Closing Costs" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="text" id="closing_costs" name="closing_costs" class="w-full pl-7 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="5,000" placeholder="5,000">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="points">{% trans "Points" %}</label>
+                                    <input type="number" id="points" name="points" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="0" step="0.125" min="0">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox" id="roll_costs" name="roll_costs_into_loan" class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <label for="roll_costs" class="text-sm text-gray-700">{% trans "Roll closing costs into loan" %}</label>
+                            </div>
+                        </div>
                         <div>
-                            <label class="block text-sm font-medium text-purple-200 mb-2">Current Balance</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="cash_out">{% trans "Cash Out (optional)" %}</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="current_balance" id="current_balance" value="250,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="cash_out" name="cash_out" class="w-full pl-7 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" value="0" placeholder="0">
                             </div>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-purple-200 mb-2">Current Rate (%)</label>
-                                <input type="number" name="current_rate" id="current_rate" value="6.5" step="0.125" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-purple-200 mb-2">Current Payment</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="current_payment" id="current_payment" value="1,896" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-purple-200 mb-2">Months Remaining</label>
-                            <input type="number" name="months_remaining" id="months_remaining" value="300" 
-                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Refinance Savings" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                            <p class="text-indigo-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
                     </div>
-
-                    <!-- New Loan -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                            <span>✨</span> New Loan Terms
-                        </h3>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-purple-200 mb-2">New Rate (%)</label>
-                                <input type="number" name="new_rate" id="new_rate" value="5.5" step="0.125" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-purple-200 mb-2">New Term</label>
-                                <select name="new_term" id="new_term" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                                    <option value="180">15 Years</option>
-                                    <option value="240">20 Years</option>
-                                    <option value="300">25 Years</option>
-                                    <option value="360" selected>30 Years</option>
-                                </select>
-                            </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
                         </div>
                     </div>
-
-                    <!-- Closing Costs -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                            <span>💰</span> Closing Costs
-                        </h3>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-purple-200 mb-2">Closing Costs</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="closing_costs" id="closing_costs" value="5,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-purple-200 mb-2">Points</label>
-                                <input type="number" name="points" id="points" value="0" step="0.125" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" name="roll_costs" id="roll_costs" 
-                                class="w-5 h-5 rounded bg-white/10 border-white/30 text-purple-500 focus:ring-purple-400">
-                            <label for="roll_costs" class="text-purple-200">Roll closing costs into loan</label>
-                        </div>
-                    </div>
-
-                    <!-- Cash Out -->
-                    <div>
-                        <label class="block text-sm font-medium text-purple-200 mb-2">Cash Out (optional)</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                            <input type="text" name="cash_out" id="cash_out" value="0" 
-                                class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-purple-400">
-                        </div>
-                    </div>
-
-                    <button type="submit" 
-                        class="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
-                        Calculate Refinance Savings
-                    </button>
-                </form>
+                </div>
             </div>
 
-            <!-- Results Panel -->
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-purple-400 border-t-transparent mx-auto mb-4"></div>
-                    <p class="text-purple-200">Calculating...</p>
+            <!-- Right column: results + guide -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter your current loan and new loan terms to see savings, break-even, and comparison." %}</p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <!-- Recommendation Card -->
-                    <div id="recommendation_card" class="bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl">
-                        <h3 class="text-green-100 text-sm font-medium mb-1">Recommendation</h3>
-                        <div class="text-xl font-bold text-white" id="recommendation_text">Refinancing is recommended</div>
-                    </div>
-
-                    <!-- Savings Summary -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-purple-300 text-sm">Monthly Savings</div>
-                            <div class="text-2xl font-bold text-white" id="monthly_savings">$0</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-purple-300 text-sm">Break-Even</div>
-                            <div class="text-2xl font-bold text-white" id="break_even">0 months</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-purple-300 text-sm">Lifetime Savings</div>
-                            <div class="text-2xl font-bold text-white" id="lifetime_savings">$0</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-purple-300 text-sm">Interest Savings</div>
-                            <div class="text-2xl font-bold text-white" id="interest_savings">$0</div>
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Recommendation" %}</p>
+                            <p id="heroValue" class="text-xl sm:text-2xl font-bold mb-2">—</p>
+                            <p id="heroSub" class="text-sm opacity-90">{% trans "Monthly savings:" %} <span id="heroMonthlySavings">$0</span></p>
                         </div>
                     </div>
-
-                    <!-- Comparison -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Current vs New Loan</h3>
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                                <span class="text-purple-200">Monthly Payment</span>
-                                <div class="text-right">
-                                    <span class="text-gray-400 line-through mr-2" id="current_pmt">$1,896</span>
-                                    <span class="text-white font-bold" id="new_pmt">$1,419</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                                <span class="text-purple-200">Interest Rate</span>
-                                <div class="text-right">
-                                    <span class="text-gray-400 line-through mr-2" id="current_rate_display">6.5%</span>
-                                    <span class="text-white font-bold" id="new_rate_display">5.5%</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                                <span class="text-purple-200">Total Interest</span>
-                                <div class="text-right">
-                                    <span class="text-gray-400 line-through mr-2" id="current_int">$268,800</span>
-                                    <span class="text-white font-bold" id="new_int">$260,840</span>
-                                </div>
-                            </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Monthly Savings" %}</p>
+                            <p id="detailMonthlySavings" class="text-sm font-bold text-green-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Break-Even" %}</p>
+                            <p id="detailBreakEven" class="text-sm font-bold text-gray-900">—</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Lifetime Savings" %}</p>
+                            <p id="detailLifetimeSavings" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Interest Savings" %}</p>
+                            <p id="detailInterestSavings" class="text-sm font-bold text-gray-900">$0</p>
                         </div>
                     </div>
 
-                    <!-- Chart -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Savings Over Time</h3>
-                        <canvas id="savingsChart" height="200"></canvas>
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">{% trans "Current vs New Loan" %}</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <span class="text-gray-700">{% trans "Monthly Payment" %}</span>
+                                <div class="text-right">
+                                    <span class="text-gray-500 line-through mr-2" id="current_pmt">$0</span>
+                                    <span class="font-bold text-gray-900" id="new_pmt">$0</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <span class="text-gray-700">{% trans "Interest Rate" %}</span>
+                                <div class="text-right">
+                                    <span class="text-gray-500 line-through mr-2" id="current_rate_display">0%</span>
+                                    <span class="font-bold text-gray-900" id="new_rate_display">0%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <span class="text-gray-700">{% trans "Total Interest" %}</span>
+                                <div class="text-right">
+                                    <span class="text-gray-500 line-through mr-2" id="current_int">$0</span>
+                                    <span class="font-bold text-gray-900" id="new_int">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
+                                {% trans "New Loan Cost Breakdown" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                                {% trans "Balance Over Time" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="balanceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete User Guide (BMI-style) -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Refinance Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}This calculator helps you decide whether refinancing your mortgage makes sense. You enter your current loan balance, rate, payment, and months remaining, then the new loan rate and term. It computes your new monthly payment, break-even (how many months until closing costs are recovered by savings), and lifetime savings compared to staying with your current loan.{% endblocktrans %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% blocktrans %}You can add closing costs and points, choose to roll costs into the new loan, and optionally include cash-out. The recommendation considers both break-even time and total cost over the life of the loans.{% endblocktrans %}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Formulas" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">{% trans "New monthly payment uses the standard amortization formula. Break-even and savings:" %}</p>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-3">
+                                <p class="font-mono text-sm font-bold text-gray-900">{% trans "New payment" %}: PMT = P × [r(1+r)^n] ÷ [(1+r)^n − 1]</p>
+                                <p class="text-xs text-gray-600 mt-2">P = new loan amount, r = monthly rate, n = new term in months</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p class="font-mono text-sm font-bold text-gray-900">Break-even (months) = Closing costs ÷ Monthly savings</p>
+                                <p class="text-xs text-gray-600 mt-2">{% trans "Lifetime savings = Current remaining total − (New total payments + closing costs if not rolled)." %}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Break-even" %}</h4>
+                                    <p class="text-sm text-indigo-800">{% trans "The number of months until your monthly savings have paid back the closing costs. If you sell or refinance again before break-even, you may not recover the costs." %}</p>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                                    <h4 class="font-semibold text-purple-900 mb-1">{% trans "Closing costs" %}</h4>
+                                    <p class="text-sm text-purple-800">{% trans "Fees and points paid at closing. Rolling them into the loan avoids upfront cash but increases the new loan amount and total interest." %}</p>
+                                </div>
+                                <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                                    <h4 class="font-semibold text-pink-900 mb-1">{% trans "Lifetime savings" %}</h4>
+                                    <p class="text-sm text-pink-800">{% trans "Total remaining cost of the current loan minus the total cost of the new loan (including closing costs if paid upfront). Positive means refinancing saves money overall." %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your current mortgage balance, rate, monthly payment, and months remaining (from your statement or lender)." %}</li>
+                                <li>{% trans "Enter the new rate and term you are considering." %}</li>
+                                <li>{% trans "Add estimated closing costs and points; check 'Roll closing costs into loan' if you will finance them." %}</li>
+                                <li>{% trans "Optionally add cash-out amount. Click Calculate to see recommendation, savings, and charts." %}</li>
+                                <li>{% trans "Use the Balance Over Time chart to compare how quickly each loan pays down." %}</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Monthly savings" %}</h4><p class="text-gray-700 text-sm">{% trans "Current payment minus new payment. Positive means a lower payment after refinancing." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Break-even" %}</h4><p class="text-gray-700 text-sm">{% trans "Months until savings equal closing costs. Shorter break-even is better if you might move or refinance again." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Lifetime savings" %}</h4><p class="text-gray-700 text-sm">{% trans "Total cost difference over the life of the loans. Positive means the new loan costs less in total." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Recommendation" %}</h4><p class="text-gray-700 text-sm">{% trans "Based on break-even and lifetime savings. Consider your plans (how long you will stay) before deciding." %}</p></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "New Loan Cost Breakdown" %}</h4><p class="text-gray-700 text-sm">{% trans "A doughnut chart showing the new loan amount (principal), total interest over the new term, and closing costs (if paid upfront)." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Balance Over Time" %}</h4><p class="text-gray-700 text-sm">{% trans "Line chart comparing remaining balance on the current loan vs the new loan by year. Shows how quickly each loan pays down." %}</p></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-indigo-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-indigo-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Results are estimates. Actual rates, fees, and terms depend on your credit and lender." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "If you plan to move or refinance again soon, a long break-even may mean refinancing is not worth it." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Refinance if you can get a rate at least 1% lower than your current rate; compare multiple lenders." %}</span></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -201,140 +313,152 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let savingsChart = null;
+var breakdownChart = null;
+var balanceChart = null;
 
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+function checkChartJS() {
+    return typeof Chart !== 'undefined';
 }
 
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const formData = {
-        current_balance: document.getElementById('current_balance').value,
-        current_rate: document.getElementById('current_rate').value,
-        current_payment: document.getElementById('current_payment').value,
-        months_remaining: document.getElementById('months_remaining').value,
-        new_rate: document.getElementById('new_rate').value,
-        new_term: document.getElementById('new_term').value,
-        closing_costs: document.getElementById('closing_costs').value,
-        points: document.getElementById('points').value,
-        roll_costs_into_loan: document.getElementById('roll_costs').checked,
-        cash_out: document.getElementById('cash_out').value
-    };
+function formatCurrency(n) {
+    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+}
 
-    try {
-        const response = await fetch('{% url "financial_calculators:refinance_calculator" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Refinance Savings" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate Refinance Savings" %}';
+    }
+
+    function createBreakdownChart(chartData) {
+        var canvas = document.getElementById('breakdownChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (breakdownChart) breakdownChart.destroy();
+        breakdownChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'doughnut',
+            data: chartData.data || {},
+            options: chartData.options || { responsive: true, maintainAspectRatio: false }
         });
+    }
 
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
+    function createBalanceChart(chartData) {
+        var canvas = document.getElementById('balanceChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (balanceChart) balanceChart.destroy();
+        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : Number(v).toLocaleString()); };
+        balanceChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'line',
+            data: chartData.data || {},
+            options: opts
+        });
+    }
 
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert(data.error || 'Calculation error');
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var payload = {
+            current_balance: (document.getElementById('current_balance').value || '').replace(/,/g, ''),
+            current_rate: document.getElementById('current_rate').value,
+            current_payment: (document.getElementById('current_payment').value || '').replace(/,/g, ''),
+            months_remaining: document.getElementById('months_remaining').value,
+            new_rate: document.getElementById('new_rate').value,
+            new_term: document.getElementById('new_term').value,
+            closing_costs: (document.getElementById('closing_costs').value || '').replace(/,/g, ''),
+            points: document.getElementById('points').value,
+            roll_costs_into_loan: document.getElementById('roll_costs').checked,
+            cash_out: (document.getElementById('cash_out').value || '').replace(/,/g, '')
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
         }
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
-    }
-});
-
-function updateResults(data) {
-    // Update recommendation
-    const recCard = document.getElementById('recommendation_card');
-    document.getElementById('recommendation_text').textContent = data.recommendation;
-    
-    if (data.savings.lifetime_savings > 0) {
-        recCard.className = 'bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl';
-    } else {
-        recCard.className = 'bg-gradient-to-br from-orange-600 to-red-600 rounded-2xl p-6 shadow-2xl';
-    }
-
-    // Update savings
-    document.getElementById('monthly_savings').textContent = formatCurrency(data.savings.monthly_savings);
-    document.getElementById('break_even').textContent = data.savings.break_even_months > 0 ? `${data.savings.break_even_months} months` : 'N/A';
-    document.getElementById('lifetime_savings').textContent = formatCurrency(data.savings.lifetime_savings);
-    document.getElementById('interest_savings').textContent = formatCurrency(data.savings.interest_savings);
-
-    // Update comparison
-    document.getElementById('current_pmt').textContent = formatCurrency(data.current_loan.payment);
-    document.getElementById('new_pmt').textContent = formatCurrency(data.new_loan.payment);
-    document.getElementById('current_rate_display').textContent = data.current_loan.rate + '%';
-    document.getElementById('new_rate_display').textContent = data.new_loan.rate + '%';
-    document.getElementById('current_int').textContent = formatCurrency(data.current_loan.remaining_interest);
-    document.getElementById('new_int').textContent = formatCurrency(data.new_loan.total_interest);
-
-    // Update chart
-    updateChart(data);
-}
-
-function updateChart(data) {
-    const ctx = document.getElementById('savingsChart').getContext('2d');
-    
-    if (savingsChart) savingsChart.destroy();
-
-    const labels = [];
-    const currentData = [];
-    const newData = [];
-    
-    let currentBalance = parseFloat(data.current_loan.balance);
-    let newBalance = parseFloat(data.new_loan.amount);
-    
-    for (let year = 0; year <= Math.min(30, data.new_loan.term_years); year++) {
-        labels.push(`Year ${year}`);
-        currentData.push(Math.max(0, currentBalance));
-        newData.push(Math.max(0, newBalance));
-        currentBalance -= currentBalance * 0.04;
-        newBalance -= newBalance * 0.04;
-    }
-
-    savingsChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Current Loan Balance',
-                    data: currentData,
-                    borderColor: '#f87171',
-                    backgroundColor: 'rgba(248, 113, 113, 0.1)',
-                    fill: true
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfEl.value
                 },
-                {
-                    label: 'New Loan Balance',
-                    data: newData,
-                    borderColor: '#4ade80',
-                    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-                    fill: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    labels: { color: '#fff' }
-                }
-            },
-            scales: {
-                x: { ticks: { color: '#a78bfa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                y: { ticks: { color: '#a78bfa' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server. Please try again." %}');
+                return;
             }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            var hero = document.getElementById('resultHero');
+            var savings = data.savings || {};
+            var rec = data.recommendation || '';
+            document.getElementById('heroValue').textContent = rec;
+            document.getElementById('heroMonthlySavings').textContent = formatCurrency(savings.monthly_savings);
+            document.getElementById('detailMonthlySavings').textContent = formatCurrency(savings.monthly_savings);
+            document.getElementById('detailBreakEven').textContent = savings.break_even_months > 0 ? savings.break_even_months + ' {% trans "months" %}' : (savings.break_even_months === 0 ? '—' : 'N/A');
+            document.getElementById('detailLifetimeSavings').textContent = formatCurrency(savings.lifetime_savings);
+            document.getElementById('detailInterestSavings').textContent = formatCurrency(savings.interest_savings);
+            if (savings.lifetime_savings > 0 && savings.break_even_months >= 0) {
+                hero.className = 'bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+            } else {
+                hero.className = 'bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+            }
+            var cur = data.current_loan || {};
+            var newL = data.new_loan || {};
+            document.getElementById('current_pmt').textContent = formatCurrency(cur.payment);
+            document.getElementById('new_pmt').textContent = formatCurrency(newL.payment);
+            document.getElementById('current_rate_display').textContent = (cur.rate != null ? cur.rate : 0) + '%';
+            document.getElementById('new_rate_display').textContent = (newL.rate != null ? newL.rate : 0) + '%';
+            document.getElementById('current_int').textContent = formatCurrency(cur.remaining_interest);
+            document.getElementById('new_int').textContent = formatCurrency(newL.total_interest);
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
+                if (data.chart_data.balance_chart) createBalanceChart(data.chart_data.balance_chart);
+            }
+            initialState.classList.add('hidden');
+            resultsWrapper.classList.remove('hidden');
+            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
         }
     });
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+});
 </script>
 {% endblock %}

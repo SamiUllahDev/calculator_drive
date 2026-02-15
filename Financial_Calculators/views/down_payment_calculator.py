@@ -50,14 +50,25 @@ class DownPaymentCalculator(View):
         """Handle GET request"""
         context = {
             'calculator_name': 'Down Payment Calculator',
+            'page_title': 'Down Payment Calculator - Home Purchase Calculator',
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type == 'application/json':
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
+            data = self._get_data(request)
+
             # Get inputs
             home_price = self._get_float(data, 'home_price', 0)
             down_payment_percent = self._get_float(data, 'down_payment_percent', 20)
@@ -84,7 +95,10 @@ class DownPaymentCalculator(View):
             
             if monthly_savings < 0:
                 errors.append('Monthly savings cannot be negative.')
-            
+
+            if loan_term < 1 or loan_term > 40:
+                errors.append('Loan term must be between 1 and 40 years.')
+
             if errors:
                 return JsonResponse({'success': False, 'error': errors[0]}, status=400)
             
@@ -186,7 +200,12 @@ class DownPaymentCalculator(View):
         
         # Compare different down payment scenarios
         scenarios = self._compare_scenarios(home_price, interest_rate, loan_term, closing_pct)
-        
+
+        # Backend-prepared Chart.js-ready data
+        chart_data = self._prepare_chart_data(
+            down_payment, closing_costs, savings_projection
+        )
+
         return {
             'home_price': round(home_price, 2),
             'down_payment': {
@@ -211,6 +230,7 @@ class DownPaymentCalculator(View):
             },
             'savings_projection': savings_projection,
             'scenarios': scenarios,
+            'chart_data': chart_data,
         }
     
     def _calculate_pmi_duration(self, loan_amount, rate, term, home_price):
@@ -330,5 +350,69 @@ class DownPaymentCalculator(View):
                 'pmi': round(pmi, 2),
                 'total_monthly': round(total_monthly, 2),
             })
-        
+
         return scenarios
+
+    def _prepare_chart_data(self, down_payment, closing_costs, savings_projection):
+        """Build Chart.js-ready configs for breakdown doughnut and savings line chart."""
+        # Doughnut: Down Payment vs Closing Costs
+        breakdown_chart = {
+            'type': 'doughnut',
+            'data': {
+                'labels': ['Down Payment', 'Closing Costs'],
+                'datasets': [{
+                    'data': [round(down_payment, 2), round(closing_costs, 2)],
+                    'backgroundColor': ['#2563eb', '#f59e0b'],
+                    'borderWidth': 0,
+                    'hoverOffset': 4,
+                }]
+            },
+            'options': {
+                'cutout': '70%',
+                'plugins': {'legend': {'position': 'bottom', 'labels': {'boxWidth': 12}}}
+            }
+        }
+
+        # Line: Savings progress vs goal
+        sp = savings_projection.get('chart_data', {})
+        labels = sp.get('labels', ['Now'])
+        balance = sp.get('balance', [0])
+        target = sp.get('target', 0)
+        target_line = [target] * len(labels) if labels else []
+
+        savings_projection_chart = {
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Savings',
+                        'data': balance,
+                        'borderColor': '#2563eb',
+                        'backgroundColor': 'rgba(37, 99, 235, 0.1)',
+                        'fill': True,
+                        'tension': 0.4,
+                    },
+                    {
+                        'label': 'Goal',
+                        'data': target_line,
+                        'borderColor': '#22c55e',
+                        'borderDash': [5, 5],
+                        'fill': False,
+                    }
+                ]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {'legend': {'position': 'bottom'}},
+                'scales': {
+                    'y': {'beginAtZero': True}
+                }
+            }
+        }
+
+        return {
+            'breakdown_chart': breakdown_chart,
+            'savings_projection_chart': savings_projection_chart,
+        }

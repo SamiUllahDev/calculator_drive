@@ -1,46 +1,410 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
-{% block title %}Repayment Calculator{% endblock %}
-{% block meta_description %}Repayment Calculator - Fast, accurate, and easy to use. Calculate online for free.{% endblock %}
+{% block title %}{% trans "Repayment Calculator - Loan Repayment Schedule" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate your loan repayment schedule. See monthly payment, total interest, principal vs interest breakdown, and compare terms." %}{% endblock %}
+{% block meta_keywords %}{% trans "repayment calculator, loan repayment, repayment schedule, amortization, loan calculator" %}{% endblock %}
+
+{% block extra_head %}
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-    <div class="container">
-        <h1>Repayment Calculator</h1>
-        <form id="calculatorForm">
-                        <div class="form-group">
-                <label for="loan_amount_">Loan Amount ($):</label>
-                <input type="number" id="loan_amount_" name="loan_amount_" placeholder="Enter Loan Amount ($)" step="0.01" required>
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
             </div>
-            <div class="form-group">
-                <label for="interest_rate_">Interest Rate (%):</label>
-                <input type="number" id="interest_rate_" name="interest_rate_" placeholder="Enter Interest Rate (%)" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label for="repayment_period_years">Repayment Period (years):</label>
-                <input type="number" id="repayment_period_years" name="repayment_period_years" placeholder="Enter Repayment Period (years)" step="0.01" required>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Repayment Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your loan repayment schedule: monthly payment, total interest, and a breakdown of principal vs interest over time." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Left: Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="loan_amount_">{% trans "Loan Amount ($)" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="loan_amount_" name="loan_amount_" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="25,000" placeholder="25,000" inputmode="decimal">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="interest_rate_">{% trans "Interest Rate (%)" %}</label>
+                            <input type="number" id="interest_rate_" name="interest_rate_" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="7.5" step="0.1" min="0" max="50" placeholder="7.5">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="repayment_period_years">{% trans "Repayment Period (years)" %}</label>
+                            <input type="number" id="repayment_period_years" name="repayment_period_years" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="5" min="1" max="40" placeholder="5">
+                        </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Repayment" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit">Calculate</button>
-        </form>
-        <div class="results" id="results">
-            <div class="result-item">
-                <span class="result-label">Result:</span>
-                <span class="result-value" id="result">$0.00</span>
+            <!-- Right: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter loan amount, interest rate, and repayment period in years to see your monthly payment and schedule." %}</p>
+                </div>
+
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Your Monthly Payment" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90">{% trans "Biweekly:" %} <span id="heroBiweekly">$0</span> &nbsp;•&nbsp; {% trans "Weekly:" %} <span id="heroWeekly">$0</span></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Number of Payments" %}</p>
+                            <p id="detailNumPayments" class="text-sm font-bold text-gray-900">0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Interest" %}</p>
+                            <p id="detailTotalInterest" class="text-sm font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Cost" %}</p>
+                            <p id="detailTotalPayment" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Interest %" %}</p>
+                            <p id="detailInterestPct" class="text-sm font-bold text-gray-900">0%</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Payment Breakdown" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                        <div id="scheduleChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Principal vs Interest (First 12 Months)" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="scheduleChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                            <h3 class="font-semibold text-gray-800 mb-3">{% trans "Compare Terms" %}</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-700">
+                                        <tr>
+                                            <th class="px-2 py-2 text-left font-medium">{% trans "Term" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Monthly" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Interest" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scenariosBody" class="divide-y divide-gray-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                            <h3 class="font-semibold text-gray-800 mb-3">{% trans "Payment Schedule (First 12 Months)" %}</h3>
+                            <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="px-2 py-2 text-left font-medium">{% trans "Month" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Payment" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Principal" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Interest" %}</th>
+                                            <th class="px-2 py-2 text-right font-medium">{% trans "Balance" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scheduleBody" class="divide-y divide-gray-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete User Guide (BMI-style: inside right column) -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Repayment Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}This calculator computes your fixed monthly loan repayment using the standard amortization formula. Enter the loan amount, annual interest rate, and repayment period in years. You get the monthly payment, total interest over the life of the loan, a principal vs interest breakdown, and the first 12 months of the schedule. You can also compare different term lengths.{% endblocktrans %}
+                            </p>
+                            <p class="text-gray-700 text-sm leading-relaxed">{% trans "The repayment amount is the same every month; only the split between principal and interest changes. Early in the loan, most of each payment goes to interest; toward the end, most goes to principal." %}</p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Repayment Formula" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">{% trans "The standard formula for a fixed monthly repayment (amortizing loan):" %}</p>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p class="text-center font-mono text-sm font-bold text-gray-900">M = P × [r(1+r)^n] ÷ [(1+r)^n − 1]</p>
+                                <p class="text-center text-xs text-gray-600 mt-2">{% trans "M = monthly payment, P = principal, r = monthly rate (annual ÷ 12), n = number of payments" %}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Principal" %}</h4>
+                                    <p class="text-sm text-blue-800">{% trans "The amount you borrow. Each payment pays down principal and interest; early on, most of the payment is interest." %}</p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Repayment period" %}</h4>
+                                    <p class="text-sm text-indigo-800">{% trans "Shorter terms mean higher monthly payments but less total interest; longer terms mean lower payments but more interest paid over time." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Amortization" %}</h4>
+                                    <p class="text-sm text-green-800">{% trans "Paying off the loan with equal monthly payments. The schedule shows how each payment is split between principal and interest each month." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the loan amount (total you plan to borrow)." %}</li>
+                                <li>{% trans "Enter the annual interest rate and repayment period in years." %}</li>
+                                <li>{% trans "Click Calculate Repayment to see monthly payment, total interest, breakdown chart, term comparison, and first 12 months schedule." %}</li>
+                                <li>{% trans "Review the charts and term comparison to see how different terms affect payment and total cost." %}</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Monthly payment" %}</h4><p class="text-gray-700 text-sm">{% trans "The fixed amount you pay each month. The split between principal and interest changes over time." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Total interest" %}</h4><p class="text-gray-700 text-sm">{% trans "The sum of all interest over the life of the loan. Shorter repayment periods reduce this." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Interest %" %}</h4><p class="text-gray-700 text-sm">{% trans "The percentage of total payments that goes to interest. A lower percentage means less cost of borrowing." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Term comparison and schedule" %}</h4><p class="text-gray-700 text-sm">{% trans "Compare different term lengths. The schedule shows the first 12 months: payment, principal, interest, and remaining balance." %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Payment Breakdown" %}</h4><p class="text-gray-700 text-sm">{% trans "A doughnut chart showing total principal vs total interest over the full term." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Principal vs Interest (First 12 Months)" %}</h4><p class="text-gray-700 text-sm">{% trans "A stacked bar chart showing how each monthly payment is split between principal and interest in the first year." %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Typical Payment Split Over Time" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">{% trans "In an amortizing loan, the share of each payment that goes to interest vs principal changes:" %}</p>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg text-sm">
+                                    <thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left font-semibold text-gray-700 uppercase">{% trans "Period" %}</th><th class="px-4 py-3 text-left font-semibold text-gray-700 uppercase">{% trans "Interest share" %}</th><th class="px-4 py-3 text-left font-semibold text-gray-700 uppercase">{% trans "Principal share" %}</th></tr></thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-gray-700">{% trans "Early months" %}</td><td class="px-4 py-3">{% trans "Higher" %}</td><td class="px-4 py-3">{% trans "Lower" %}</td></tr>
+                                        <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-gray-700">{% trans "Final months" %}</td><td class="px-4 py-3">{% trans "Lower" %}</td><td class="px-4 py-3">{% trans "Higher" %}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "This is for estimation only. Actual payments may vary with fees, insurance, or lender rounding." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Biweekly and weekly figures are approximate." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Compare offers from multiple lenders. APR and fees can vary significantly." %}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <script>
-        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            document.getElementById('result').textContent = '$0.00';
-            document.getElementById('results').classList.add('show');
-        });
-    </script>
-
-    </div>
 </div>
+
+<script>
+var breakdownChart = null;
+var scheduleChart = null;
+
+function checkChartJS() {
+    if (typeof Chart === 'undefined') { console.error('Chart.js is not loaded.'); return false; }
+    return true;
+}
+
+function formatCurrency(n) {
+    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Repayment" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate Repayment" %}';
+    }
+
+    function createBreakdownChart(chartData) {
+        var canvas = document.getElementById('breakdownChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (breakdownChart) breakdownChart.destroy();
+        breakdownChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'doughnut',
+            data: chartData.data || {},
+            options: chartData.options || { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    function createScheduleChart(chartData) {
+        var container = document.getElementById('scheduleChartContainer');
+        var canvas = document.getElementById('scheduleChart');
+        if (!canvas || !chartData || !checkChartJS()) {
+            if (container) container.classList.add('hidden');
+            return;
+        }
+        if (scheduleChart) scheduleChart.destroy();
+        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
+        opts.plugins = opts.plugins || {};
+        opts.plugins.tooltip = opts.plugins.tooltip || {};
+        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
+        opts.plugins.tooltip.callbacks.label = function(c) { return (c.dataset.label || '') + ': $' + (c.raw != null ? Number(c.raw).toLocaleString('en-US', { minimumFractionDigits: 2 }) : ''); };
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
+        scheduleChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'bar',
+            data: chartData.data || {},
+            options: opts
+        });
+        if (container) container.classList.remove('hidden');
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var loanAmountVal = (document.getElementById('loan_amount_').value || '').replace(/,/g, '');
+        var payload = {
+            loan_amount_: loanAmountVal,
+            interest_rate_: document.getElementById('interest_rate_').value,
+            repayment_period_years: document.getElementById('repayment_period_years').value
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server." %}');
+                return;
+            }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            var s = data.summary || {};
+            var heroVal = document.getElementById('heroValue');
+            var heroBiweekly = document.getElementById('heroBiweekly');
+            var heroWeekly = document.getElementById('heroWeekly');
+            if (heroVal) heroVal.textContent = formatCurrency(s.monthly_payment);
+            if (heroBiweekly) heroBiweekly.textContent = formatCurrency(s.biweekly_payment);
+            if (heroWeekly) heroWeekly.textContent = formatCurrency(s.weekly_payment);
+            var el = function(id) { return document.getElementById(id); };
+            if (el('detailNumPayments')) el('detailNumPayments').textContent = s.num_payments || 0;
+            if (el('detailTotalInterest')) el('detailTotalInterest').textContent = formatCurrency(s.total_interest);
+            if (el('detailTotalPayment')) el('detailTotalPayment').textContent = formatCurrency(s.total_payment);
+            if (el('detailInterestPct')) el('detailInterestPct').textContent = (s.interest_pct != null ? s.interest_pct : 0) + '%';
+            var scenariosBody = document.getElementById('scenariosBody');
+            if (scenariosBody && data.scenarios) {
+                scenariosBody.innerHTML = '';
+                data.scenarios.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    tr.innerHTML = '<td class="px-2 py-2">' + row.term_months + ' {% trans "mo" %}</td><td class="px-2 py-2 text-right font-medium">' + formatCurrency(row.monthly_payment) + '</td><td class="px-2 py-2 text-right text-red-600">' + formatCurrency(row.total_interest) + '</td>';
+                    scenariosBody.appendChild(tr);
+                });
+            }
+            var scheduleBody = document.getElementById('scheduleBody');
+            if (scheduleBody && data.schedule) {
+                scheduleBody.innerHTML = '';
+                data.schedule.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    tr.innerHTML = '<td class="px-2 py-2">' + row.month + '</td><td class="px-2 py-2 text-right">' + formatCurrency(row.payment) + '</td><td class="px-2 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-2 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-2 py-2 text-right">' + formatCurrency(row.balance) + '</td>';
+                    scheduleBody.appendChild(tr);
+                });
+            }
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
+                if (data.chart_data.schedule_chart) createScheduleChart(data.chart_data.schedule_chart);
+            }
+            resultsWrapper.classList.remove('hidden');
+            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
+        }
+    });
+});
+</script>
 {% endblock %}

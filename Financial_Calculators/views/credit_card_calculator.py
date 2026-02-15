@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 from datetime import datetime
@@ -48,55 +49,63 @@ class CreditCardCalculator(View):
     MIN_RATE = 0.01
     MAX_RATE = 40
     
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Credit Card Calculator',
+            'calculator_name': _('Credit Card Calculator'),
+            'page_title': _('Credit Card Payoff Calculator - Debt Free Calculator'),
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
-            # Get inputs
+            data = self._get_data(request)
+
             balance = self._get_float(data, 'balance', 0)
             interest_rate = self._get_float(data, 'interest_rate', 0)
             calc_mode = data.get('calc_mode', 'fixed_payment')
-            
-            # Mode-specific inputs
+            if isinstance(calc_mode, list):
+                calc_mode = calc_mode[0] if calc_mode else 'fixed_payment'
+
             monthly_payment = self._get_float(data, 'monthly_payment', 0)
             payoff_months = self._get_int(data, 'payoff_months', 0)
             minimum_payment_pct = self._get_float(data, 'minimum_payment_pct', 2)
             minimum_payment_floor = self._get_float(data, 'minimum_payment_floor', 25)
-            
-            # Validation
+
             errors = []
-            
+
             if balance < self.MIN_BALANCE:
-                errors.append(f'Balance must be at least ${self.MIN_BALANCE}.')
+                errors.append(_('Balance must be at least $%(min)s.') % {'min': self.MIN_BALANCE})
             elif balance > self.MAX_BALANCE:
-                errors.append(f'Balance cannot exceed ${self.MAX_BALANCE:,}.')
-            
+                errors.append(_('Balance cannot exceed $%(max)s.') % {'max': f'{self.MAX_BALANCE:,.0f}'})
             if interest_rate < self.MIN_RATE:
-                errors.append('Interest rate must be positive.')
+                errors.append(_('Interest rate must be positive.'))
             elif interest_rate > self.MAX_RATE:
-                errors.append(f'Interest rate cannot exceed {self.MAX_RATE}%.')
-            
+                errors.append(_('Interest rate cannot exceed %(max)s%%.') % {'max': self.MAX_RATE})
             if calc_mode == 'fixed_payment':
                 monthly_rate = interest_rate / 100 / 12
                 min_payment_for_interest = balance * monthly_rate
                 if monthly_payment <= min_payment_for_interest:
-                    errors.append(f'Payment (${monthly_payment:,.2f}) must exceed monthly interest (${min_payment_for_interest:,.2f}).')
-            
+                    errors.append(_('Payment (%(payment)s) must exceed monthly interest (%(interest)s).') % {
+                        'payment': f'${monthly_payment:,.2f}',
+                        'interest': f'${min_payment_for_interest:,.2f}',
+                    })
             if calc_mode == 'target_date' and payoff_months < 1:
-                errors.append('Please enter a valid number of months.')
-            
+                errors.append(_('Please enter a valid number of months.'))
             if errors:
                 return JsonResponse({'success': False, 'error': errors[0]}, status=400)
-            
-            # Calculate based on mode
+
             if calc_mode == 'fixed_payment':
                 result = self._calculate_fixed_payment(balance, interest_rate, monthly_payment)
             elif calc_mode == 'target_date':
@@ -104,7 +113,7 @@ class CreditCardCalculator(View):
             elif calc_mode == 'minimum_payment':
                 result = self._calculate_minimum_payment(balance, interest_rate, minimum_payment_pct, minimum_payment_floor)
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid calculation mode.'}, status=400)
+                return JsonResponse({'success': False, 'error': _('Invalid calculation mode.')}, status=400)
             
             # Add comparison data
             result['comparison'] = self._compare_strategies(balance, interest_rate, result.get('monthly_payment', monthly_payment))
@@ -117,25 +126,29 @@ class CreditCardCalculator(View):
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': 'Calculation error. Please check your inputs and try again.'
+                'error': _('Calculation error. Please check your inputs and try again.')
             }, status=400)
-    
+
     def _get_float(self, data, key, default=0):
-        """Safely get float value"""
+        """Safely get float value (handles list from form POST)."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
-    
+
     def _get_int(self, data, key, default=0):
-        """Safely get int value"""
+        """Safely get int value (handles list from form POST)."""
         try:
             value = data.get(key, default)
             if value is None or value == '' or value == 'null':
                 return default
+            if isinstance(value, list):
+                value = value[0] if value else default
             return int(float(str(value).replace(',', '')))
         except (ValueError, TypeError):
             return default
@@ -283,48 +296,39 @@ class CreditCardCalculator(View):
         """Compare different payment strategies"""
         strategies = []
         
-        # Minimum payment
         min_result = self._calculate_minimum_payment(balance, rate, 2, 25)
         strategies.append({
-            'name': 'Minimum Payment',
+            'name': _('Minimum Payment'),
             'payment': min_result.get('initial_minimum', 0),
             'months': min_result['months_to_payoff'],
             'total_interest': min_result['total_interest'],
         })
-        
-        # Current/fixed payment (if different from minimum)
         if current_payment and current_payment > min_result.get('initial_minimum', 0) * 1.1:
             fixed_result = self._calculate_fixed_payment(balance, rate, current_payment)
             strategies.append({
-                'name': 'Fixed Payment',
+                'name': _('Fixed Payment'),
                 'payment': current_payment,
                 'months': fixed_result['months_to_payoff'],
                 'total_interest': fixed_result['total_interest'],
             })
-        
-        # Double minimum
         double_payment = min_result.get('initial_minimum', 50) * 2
         double_result = self._calculate_fixed_payment(balance, rate, double_payment)
         strategies.append({
-            'name': 'Double Minimum',
+            'name': _('Double Minimum'),
             'payment': round(double_payment, 2),
             'months': double_result['months_to_payoff'],
             'total_interest': double_result['total_interest'],
         })
-        
-        # Pay off in 12 months
         twelve_result = self._calculate_target_date(balance, rate, 12)
         strategies.append({
-            'name': '12-Month Payoff',
+            'name': _('12-Month Payoff'),
             'payment': twelve_result['monthly_payment'],
             'months': 12,
             'total_interest': twelve_result['total_interest'],
         })
-        
-        # Pay off in 24 months
         twentyfour_result = self._calculate_target_date(balance, rate, 24)
         strategies.append({
-            'name': '24-Month Payoff',
+            'name': _('24-Month Payoff'),
             'payment': twentyfour_result['monthly_payment'],
             'months': 24,
             'total_interest': twentyfour_result['total_interest'],

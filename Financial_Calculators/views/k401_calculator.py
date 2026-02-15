@@ -1,10 +1,14 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class K401Calculator(View):
     """
     Class-based view for 401(k) Retirement Calculator
@@ -12,27 +16,42 @@ class K401Calculator(View):
     catch-up contributions, and salary growth projections.
     """
     template_name = 'financial_calculators/401k_calculator.html'
-    
-    # 2024 IRS Contribution Limits
+
     CONTRIBUTION_LIMIT_2024 = 23000
-    CATCH_UP_LIMIT_2024 = 7500  # For age 50+
-    CATCH_UP_LIMIT_60_63 = 11250  # New higher limit for ages 60-63 (starting 2025)
-    
+    CATCH_UP_LIMIT_2024 = 7500
+    CATCH_UP_LIMIT_60_63 = 11250
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
-        """Handle GET request - render the calculator form"""
+        """Handle GET request"""
         context = {
-            'calculator_name': '401(k) Calculator',
+            'calculator_name': _('401(k) Calculator'),
+            'page_title': _('401(k) Calculator - Plan Your Retirement Savings'),
             'contribution_limit': self.CONTRIBUTION_LIMIT_2024,
             'catch_up_limit': self.CATCH_UP_LIMIT_2024,
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            
-            # Get input values
+            data = self._get_data(request)
+
             current_age = self._get_int(data, 'current_age', 30)
             retirement_age = self._get_int(data, 'retirement_age', 65)
             current_salary = self._get_float(data, 'current_salary', 60000)
@@ -42,17 +61,19 @@ class K401Calculator(View):
             employer_match_percent = self._get_float(data, 'employer_match_percent', 50) / 100
             employer_match_limit = self._get_float(data, 'employer_match_limit', 6) / 100
             annual_return = self._get_float(data, 'annual_return', 7) / 100
-            include_catch_up = data.get('include_catch_up', True)
-            
-            # Validate inputs
+            include_catch_up = data.get('include_catch_up')
+            if isinstance(include_catch_up, str):
+                include_catch_up = include_catch_up.lower() in ('true', '1', 'yes')
+            elif include_catch_up is None:
+                include_catch_up = True
+
             errors = self._validate_inputs(
                 current_age, retirement_age, current_salary,
                 contribution_percent, annual_return
             )
             if errors:
-                return JsonResponse({'success': False, 'errors': errors}, status=400)
-            
-            # Calculate projections
+                return JsonResponse({'success': False, 'error': str(errors[0])}, status=400)
+
             result = self._calculate_401k_projection(
                 current_age=current_age,
                 retirement_age=retirement_age,
@@ -65,54 +86,58 @@ class K401Calculator(View):
                 annual_return=annual_return,
                 include_catch_up=include_catch_up
             )
-            
+
             return JsonResponse({'success': True, **result})
-            
+
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': str(_('Invalid input: %(detail)s') % {'detail': str(e)})}, status=400)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'errors': ['Invalid JSON data']
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'errors': [str(e)]
-            }, status=500)
-    
+            return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+
     def _get_float(self, data, key, default=0.0):
-        """Safely extract float value from data"""
+        """Safely get float (handles list, strips % and commas)."""
         try:
             value = data.get(key, default)
-            return float(value) if value not in [None, ''] else default
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
-    
+
     def _get_int(self, data, key, default=0):
-        """Safely extract integer value from data"""
+        """Safely get int value."""
         try:
             value = data.get(key, default)
-            return int(float(value)) if value not in [None, ''] else default
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '').replace('$', '')))
         except (ValueError, TypeError):
             return default
-    
+
     def _validate_inputs(self, current_age, retirement_age, current_salary,
                          contribution_percent, annual_return):
         """Validate calculator inputs"""
         errors = []
-        
+
         if current_age < 18 or current_age > 100:
-            errors.append('Current age must be between 18 and 100')
+            errors.append(str(_('Current age must be between 18 and 100.')))
         if retirement_age < current_age:
-            errors.append('Retirement age must be greater than current age')
+            errors.append(str(_('Retirement age must be greater than current age.')))
         if retirement_age > 100:
-            errors.append('Retirement age must be 100 or less')
+            errors.append(str(_('Retirement age must be 100 or less.')))
         if current_salary <= 0:
-            errors.append('Salary must be greater than 0')
+            errors.append(str(_('Salary must be greater than 0.')))
         if contribution_percent < 0 or contribution_percent > 1:
-            errors.append('Contribution percentage must be between 0% and 100%')
+            errors.append(str(_('Contribution percentage must be between 0%% and 100%%.')))
         if annual_return < -0.5 or annual_return > 0.5:
-            errors.append('Annual return must be between -50% and 50%')
-        
+            errors.append(str(_('Annual return must be between -50%% and 50%%.')))
+
         return errors
     
     def _calculate_401k_projection(self, current_age, retirement_age, current_salary,

@@ -1,108 +1,154 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
-import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class SalesTaxCalculator(View):
     """
-    Class-based view for Sales Tax Calculator
-    Calculates sales tax amounts and totals using NumPy.
+    Class-based view for Sales Tax Calculator.
+    Add tax to price, extract tax from total, or find tax rate.
+    Returns Chart.js-ready chart_data (BMI-style).
     """
     template_name = 'financial_calculators/sales_tax_calculator.html'
-    
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Sales Tax Calculator',
+            'calculator_name': str(_('Sales Tax Calculator')),
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        # Fallback: try body as JSON (e.g. if Content-Type was not set correctly)
+        if request.body:
+            try:
+                return json.loads(request.body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0.0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+
             calc_type = data.get('calc_type', 'add_tax')
-            price = float(data.get('price', 0))
-            tax_rate = float(data.get('tax_rate', 0))
-            
-            # Validation
+            if isinstance(calc_type, list):
+                calc_type = calc_type[0] if calc_type else 'add_tax'
+
+            price = self._get_float(data, 'price', 0)
+            tax_rate = self._get_float(data, 'tax_rate', 0)
+
             if price < 0:
-                return JsonResponse({'success': False, 'error': 'Price cannot be negative.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Price cannot be negative.'))}, status=400)
             if tax_rate < 0 or tax_rate > 100:
-                return JsonResponse({'success': False, 'error': 'Tax rate must be between 0 and 100.'}, status=400)
-            
-            # Use NumPy for calculations
+                return JsonResponse({'success': False, 'error': str(_('Tax rate must be between 0 and 100.'))}, status=400)
+
             if calc_type == 'add_tax':
-                # Calculate tax to add to price
-                tax_amount = np.multiply(price, np.divide(tax_rate, 100))
-                total = np.add(price, tax_amount)
-                
+                tax_amount = round(price * (tax_rate / 100), 2)
+                total = round(price + tax_amount, 2)
                 result = {
                     'success': True,
                     'calc_type': 'add_tax',
-                    'before_tax': round(float(price), 2),
+                    'before_tax': round(price, 2),
                     'tax_rate': tax_rate,
-                    'tax_amount': round(float(tax_amount), 2),
-                    'total': round(float(total), 2)
+                    'tax_amount': tax_amount,
+                    'total': total
                 }
-                
             elif calc_type == 'extract_tax':
-                # Extract tax from total (price is total including tax)
-                # total = before_tax * (1 + rate)
-                # before_tax = total / (1 + rate)
                 divisor = 1 + (tax_rate / 100)
-                before_tax = np.divide(price, divisor)
-                tax_amount = np.subtract(price, before_tax)
-                
+                before_tax = round(price / divisor, 2)
+                tax_amount = round(price - before_tax, 2)
                 result = {
                     'success': True,
                     'calc_type': 'extract_tax',
-                    'total': round(float(price), 2),
+                    'total': round(price, 2),
                     'tax_rate': tax_rate,
-                    'tax_amount': round(float(tax_amount), 2),
-                    'before_tax': round(float(before_tax), 2)
+                    'tax_amount': tax_amount,
+                    'before_tax': before_tax
                 }
-                
             elif calc_type == 'find_rate':
-                # Find tax rate given before and after prices
-                before_tax = float(data.get('before_tax', 100))
-                total = float(data.get('total', 110))
-                
+                before_tax = self._get_float(data, 'before_tax', 100)
+                total = self._get_float(data, 'total', 110)
                 if before_tax <= 0:
-                    return JsonResponse({'success': False, 'error': 'Before-tax price must be greater than zero.'}, status=400)
-                
-                tax_amount = total - before_tax
-                calculated_rate = (tax_amount / before_tax) * 100
-                
+                    return JsonResponse({'success': False, 'error': str(_('Before-tax price must be greater than zero.'))}, status=400)
+                tax_amount = round(total - before_tax, 2)
+                calculated_rate = round((tax_amount / before_tax) * 100, 4)
                 result = {
                     'success': True,
                     'calc_type': 'find_rate',
                     'before_tax': round(before_tax, 2),
                     'total': round(total, 2),
-                    'tax_amount': round(tax_amount, 2),
-                    'tax_rate': round(calculated_rate, 4)
+                    'tax_amount': tax_amount,
+                    'tax_rate': calculated_rate
                 }
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid calculation type.'}, status=400)
-            
-            # Add common US state tax rates for reference
-            result['us_state_rates'] = [
-                {'state': 'California', 'rate': 7.25},
-                {'state': 'Texas', 'rate': 6.25},
-                {'state': 'New York', 'rate': 4.0},
-                {'state': 'Florida', 'rate': 6.0},
-                {'state': 'Washington', 'rate': 6.5},
-                {'state': 'Oregon', 'rate': 0.0},
-                {'state': 'Montana', 'rate': 0.0},
-                {'state': 'Delaware', 'rate': 0.0}
-            ]
-            
-            return JsonResponse(result)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred.'}, status=500)
+                return JsonResponse({'success': False, 'error': str(_('Invalid calculation type.'))}, status=400)
+
+            result['chart_data'] = self._prepare_chart_data(result)
+            return JsonResponse(result, encoder=DjangoJSONEncoder)
+
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': str(_('Invalid input. Please check your numbers.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+
+    def _prepare_chart_data(self, result):
+        """Build Chart.js doughnut: Before tax + Sales tax."""
+        calc_type = result.get('calc_type', 'add_tax')
+        before = result.get('before_tax', 0)
+        tax = result.get('tax_amount', 0)
+        if before <= 0 and tax <= 0:
+            return {}
+        labels = [str(_('Before Tax')), str(_('Sales Tax'))]
+        values = [round(before, 2), round(tax, 2)]
+        return {
+            'breakdown_chart': {
+                'type': 'doughnut',
+                'data': {
+                    'labels': labels,
+                    'datasets': [{
+                        'data': values,
+                        'backgroundColor': ['#3b82f6', '#ef4444'],
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'position': 'bottom'}}
+                }
+            }
+        }

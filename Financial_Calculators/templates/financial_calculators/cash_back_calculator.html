@@ -1,42 +1,345 @@
 {% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
 
-{% block title %}Cash Back Calculator{% endblock %}
-{% block meta_description %}Cash Back Calculator - Fast, accurate, and easy to use. Calculate online for free.{% endblock %}
+{% block title %}{% trans "Cash Back Calculator - Calculate Rewards" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate how much cash back you earn on purchases. Enter amount and cash back rate to see your reward and net cost." %}{% endblock %}
+{% block meta_keywords %}{% trans "cash back calculator, rewards calculator, credit card cash back, rebate calculator" %}{% endblock %}
+
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
+<div class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-    <div class="container">
-        <h1>Cash Back Calculator</h1>
-        <form id="calculatorForm">
-                        <div class="form-group">
-                <label for="purchase_amount_">Purchase Amount ($):</label>
-                <input type="number" id="purchase_amount_" name="purchase_amount_" placeholder="Enter Purchase Amount ($)" step="0.01" required>
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-emerald-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
             </div>
-            <div class="form-group">
-                <label for="cash_back_rate_">Cash Back Rate (%):</label>
-                <input type="number" id="cash_back_rate_" name="cash_back_rate_" placeholder="Enter Cash Back Rate (%)" step="0.01" required>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-600">{% trans "Cash Back Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate how much cash back you earn on your purchases and your effective net cost." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        {% trans "Enter Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="purchase_amount">{% trans "Purchase Amount" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="purchase_amount" name="purchase_amount" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-right" value="500" placeholder="500" inputmode="decimal">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="cash_back_rate">{% trans "Cash Back Rate" %}</label>
+                            <div class="relative">
+                                <input type="text" id="cash_back_rate" name="cash_back_rate" class="w-full px-4 py-2.5 pr-8 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-right" value="2" placeholder="2" inputmode="decimal">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Many cards offer 1–5%; some categories up to 5% or more." %}</p>
+                        </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                            <p class="text-emerald-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit">Calculate</button>
-        </form>
-        <div class="results" id="results">
-            <div class="result-item">
-                <span class="result-label">Result:</span>
-                <span class="result-value" id="result">$0.00</span>
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter your purchase amount and cash back rate to see how much you earn back and your net cost." %}</p>
+                </div>
+
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-emerald-600 to-green-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Cash Back" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90"><span id="heroDetail"></span></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Purchase" %}</p>
+                            <p id="detailPurchase" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Rate" %}</p>
+                            <p id="detailRate" class="text-sm font-bold text-gray-900">0%</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Cash back" %}</p>
+                            <p id="detailCashBack" class="text-sm font-bold text-emerald-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Net cost" %}</p>
+                            <p id="detailNetCost" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
+                                {% trans "Net Spend vs Cash Back" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                                <svg class="w-5 h-5 inline mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                                {% trans "Cash Back at Different Rates" %}
+                            </h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="comparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Compare rates" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-medium">{% trans "Rate" %}</th>
+                                        <th class="px-3 py-2 text-right font-medium">{% trans "Cash back" %}</th>
+                                        <th class="px-3 py-2 text-right font-medium">{% trans "Net cost" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparisonBody" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Cash Back Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% blocktrans %}This calculator shows how much cash back you earn on a purchase based on the amount and the cash back rate (e.g. from a credit card or rewards program). It gives you the cash back amount and your net cost (what you effectively pay after the reward). You can compare different rates to see how much more you’d earn with a higher-rate card.{% endblocktrans %}
+                            </p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50 rounded-r">
+                                    <h4 class="font-semibold text-emerald-900 mb-1">{% trans "Cash back rate" %}</h4>
+                                    <p class="text-sm text-emerald-800">{% trans "The percentage of your purchase that you get back as a reward. For example, 2% on $500 means $10 cash back." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Net cost" %}</h4>
+                                    <p class="text-sm text-green-800">{% trans "Effective amount you pay: purchase amount minus cash back. It’s the real cost after the reward is applied." %}</p>
+                                </div>
+                                <div class="border-l-4 border-gray-500 pl-4 py-2 bg-gray-50 rounded-r">
+                                    <h4 class="font-semibold text-gray-900 mb-1">{% trans "Rates by category" %}</h4>
+                                    <p class="text-sm text-gray-700">{% trans "Many cards offer higher rates (e.g. 5%) on specific categories (groceries, gas). Use this calculator with the rate that applies to your purchase." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the purchase amount (before tax if you prefer, or total—your choice)." %}</li>
+                                <li>{% trans "Enter the cash back rate your card or program pays for that purchase (e.g. 1.5, 2, 5)." %}</li>
+                                <li>{% trans "Click Calculate to see cash back, net cost, and the comparison table and charts." %}</li>
+                                <li>{% trans "Use the comparison to see how much you’d earn at 1%%, 2%%, 3%%, 5%%, and 10%% on the same purchase." %}</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-2 text-sm text-gray-700">
+                                <p><strong>{% trans "Net Spend vs Cash Back:" %}</strong> {% trans "Doughnut chart showing how your purchase splits into net cost (what you effectively pay) and cash back (what you get back)." %}</p>
+                                <p><strong>{% trans "Cash Back at Different Rates:" %}</strong> {% trans "Bar chart showing the cash back you’d earn at 1%%, 2%%, 3%%, 5%%, and 10%% on the same purchase amount." %}</p>
+                            </div>
+                        </div>
+                        <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-emerald-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-emerald-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Cash back is usually credited later (statement credit or payout). This calculator shows the amount you’ll earn, not instant discount." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "To maximize rewards, use the card that pays the highest rate for each category (e.g. 5%% on groceries, 2%% on everything else)." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Pay your balance in full to avoid interest; otherwise interest can outweigh cash back benefits." %}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <script>
-        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            document.getElementById('result').textContent = '$0.00';
-            document.getElementById('results').classList.add('show');
-        });
-    </script>
-
-    </div>
 </div>
+
+<script>
+var breakdownChart = null;
+var comparisonChart = null;
+
+function checkChartJS() { return typeof Chart !== 'undefined'; }
+
+function formatCurrency(n) {
+    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+}
+
+function getVal(id) {
+    var el = document.getElementById(id);
+    return (el && el.value ? el.value.replace(/,/g, '').trim() : '') || '0';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate" %}';
+    }
+
+    function createBreakdownChart(chartData) {
+        var canvas = document.getElementById('breakdownChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (breakdownChart) breakdownChart.destroy();
+        breakdownChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'doughnut',
+            data: chartData.data || {},
+            options: chartData.options || { responsive: true, maintainAspectRatio: false }
+        });
+    }
+    function createComparisonChart(chartData) {
+        var canvas = document.getElementById('comparisonChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (comparisonChart) comparisonChart.destroy();
+        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v); };
+        comparisonChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'bar',
+            data: chartData.data || {},
+            options: opts
+        });
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var payload = {
+            purchase_amount: getVal('purchase_amount'),
+            cash_back_rate: getVal('cash_back_rate')
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try { data = text ? JSON.parse(text) : {}; } catch (err) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server. Please try again." %}');
+                return;
+            }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            var s = data.summary || {};
+            document.getElementById('heroLabel').textContent = '{% trans "Cash Back" %}';
+            document.getElementById('heroValue').textContent = formatCurrency(s.cash_back);
+            document.getElementById('heroDetail').textContent = (s.cash_back_rate != null ? s.cash_back_rate : 0) + '% {% trans "on" %} ' + formatCurrency(s.purchase_amount);
+
+            document.getElementById('detailPurchase').textContent = formatCurrency(s.purchase_amount);
+            document.getElementById('detailRate').textContent = (s.cash_back_rate != null ? s.cash_back_rate : 0) + '%';
+            document.getElementById('detailCashBack').textContent = formatCurrency(s.cash_back);
+            document.getElementById('detailNetCost').textContent = formatCurrency(s.net_cost);
+
+            var tbody = document.getElementById('comparisonBody');
+            tbody.innerHTML = '';
+            if (data.comparison) {
+                data.comparison.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    tr.className = row.rate === s.cash_back_rate ? 'bg-emerald-50' : 'hover:bg-gray-50';
+                    tr.innerHTML = '<td class="px-3 py-2 font-medium">' + row.rate + '%</td><td class="px-3 py-2 text-right text-emerald-600">' + formatCurrency(row.cash_back) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.net_cost) + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
+                if (data.chart_data.comparison_chart) createComparisonChart(data.chart_data.comparison_chart);
+            }
+
+            resultsWrapper.classList.remove('hidden');
+            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
+        }
+    });
+});
+</script>
 {% endblock %}

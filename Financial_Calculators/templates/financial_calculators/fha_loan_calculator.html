@@ -2,202 +2,381 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}FHA Loan Calculator - Calculate FHA Mortgage Payments{% endblock %}
+{% block title %}FHA Loan Calculator - {% trans "Calculate Payments & MIP" %}{% endblock %}
 
-{% block meta_description %}Calculate FHA loan payments including upfront MIP, annual MIP, and get a full amortization schedule for your FHA mortgage.{% endblock %}
+{% block meta_description %}Calculate FHA loan payments including Upfront MIP, Annual MIP, and taxes. See if you qualify with our FHA mortgage calculator.{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-violet-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">🏛️ FHA Loan Calculator</h1>
-            <p class="text-indigo-200 text-lg max-w-2xl mx-auto">Calculate your FHA mortgage payment with MIP (Mortgage Insurance Premium)</p>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "FHA Loan Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Estimate your monthly FHA mortgage payments, including Upfront and Annual Mortgage Insurance Premiums (MIP)." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Calculator Form -->
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <!-- Property Details -->
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                            <span>🏠</span> Property & Loan Details
-                        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        {% trans "Loan Details" %}
+                    </h2>
+
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
                         
+                        <!-- Home Price -->
                         <div>
-                            <label class="block text-sm font-medium text-indigo-200 mb-2">Home Price</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Home Price" %}</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 font-medium">$</span>
+                                </div>
                                 <input type="text" name="home_price" id="home_price" value="350,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
+                                    class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-8 pr-3 py-2.5 border-2 border-gray-300 rounded-lg text-base">
                             </div>
                         </div>
 
+                        <!-- Down Payment -->
                         <div>
-                            <label class="block text-sm font-medium text-indigo-200 mb-2">Down Payment (minimum 3.5%)</label>
-                            <div class="flex gap-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Down Payment" %}</label>
+                            <div class="flex gap-3">
                                 <div class="relative flex-1">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="down_payment" id="down_payment" value="12,250" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
+                                    <input type="text" name="down_payment" id="down_payment" value="3.5" 
+                                        class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-base">
                                 </div>
                                 <select name="down_payment_type" id="down_payment_type" 
-                                    class="px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
-                                    <option value="amount">$</option>
+                                    class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-24 px-2 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-base">
                                     <option value="percent" selected>%</option>
+                                    <option value="amount">$</option>
                                 </select>
                             </div>
-                            <input type="range" id="down_payment_slider" min="3.5" max="20" step="0.5" value="3.5" 
-                                class="w-full mt-2 accent-indigo-500">
+                            <div class="mt-2">
+                                <input type="range" id="down_payment_slider" min="3.5" max="20" step="0.5" value="3.5" 
+                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">{% trans "Min 3.5% (Credit 580+) or 10% (Credit 500-579)" %}</p>
                         </div>
 
+                        <!-- Interest Rate & Term -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-indigo-200 mb-2">Interest Rate (%)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Rate (%)" %}</label>
                                 <input type="number" name="interest_rate" id="interest_rate" value="6.5" step="0.125" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
+                                    class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-base">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-indigo-200 mb-2">Loan Term</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Term" %}</label>
                                 <select name="loan_term" id="loan_term" 
-                                    class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
-                                    <option value="180">15 Years</option>
-                                    <option value="360" selected>30 Years</option>
+                                    class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-base">
+                                    <option value="360" selected>30 {% trans "Years" %}</option>
+                                    <option value="180">15 {% trans "Years" %}</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <!-- Additional Costs Toggle -->
+                        <div class="pt-2 border-t border-gray-100">
+                            <button type="button" id="toggleCosts" class="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium focus:outline-none group">
+                                <svg id="costsArrow" class="w-4 h-4 mr-1 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                {% trans "Add Taxes & Insurance" %}
+                            </button>
+                            <div id="costsSection" class="hidden mt-4 space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "Property Tax / Year" %}</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span class="text-gray-500">$</span></div>
+                                        <input type="text" name="property_tax" id="property_tax" value="4,200" 
+                                            class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-base">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "Home Insurance / Year" %}</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span class="text-gray-500">$</span></div>
+                                        <input type="text" name="home_insurance" id="home_insurance" value="1,800" 
+                                            class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-base">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">{% trans "HOA Fees / Month" %}</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span class="text-gray-500">$</span></div>
+                                        <input type="text" name="hoa" id="hoa" value="0" 
+                                            class="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-base">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate FHA Loan" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
                     </div>
 
-                    <!-- Additional Costs -->
-                    <details class="group">
-                        <summary class="text-lg font-semibold text-white flex items-center gap-2 cursor-pointer list-none">
-                            <span>📋</span> Taxes & Insurance
-                            <svg class="w-5 h-5 transition-transform group-open:rotate-180 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </summary>
-                        <div class="mt-4 space-y-4 pl-6">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-indigo-200 mb-2">Property Tax (Annual)</label>
-                                    <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                        <input type="text" name="property_tax" id="property_tax" value="4,200" 
-                                            class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-indigo-200 mb-2">Home Insurance (Annual)</label>
-                                    <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                        <input type="text" name="home_insurance" id="home_insurance" value="1,800" 
-                                            class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-indigo-200 mb-2">HOA (Monthly)</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="hoa" id="hoa" value="0" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-indigo-400">
-                                </div>
-                            </div>
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
                         </div>
-                    </details>
-
-                    <button type="submit" 
-                        class="w-full py-4 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
-                        Calculate FHA Loan
-                    </button>
-                </form>
-
-                <!-- FHA Info Box -->
-                <div class="mt-6 p-4 bg-indigo-500/20 rounded-xl border border-indigo-400/30">
-                    <h4 class="font-semibold text-indigo-200 mb-2">📌 FHA Loan Requirements</h4>
-                    <ul class="text-sm text-indigo-300 space-y-1">
-                        <li>• Minimum 3.5% down payment (580+ credit score)</li>
-                        <li>• 10% down payment (500-579 credit score)</li>
-                        <li>• Upfront MIP: 1.75% of loan amount</li>
-                        <li>• Annual MIP: 0.15%-0.55% (based on LTV and term)</li>
-                    </ul>
+                    </div>
                 </div>
             </div>
 
-            <!-- Results Panel -->
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-400 border-t-transparent mx-auto mb-4"></div>
-                    <p class="text-indigo-200">Calculating...</p>
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-8">
+                
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your home price and down payment to see your estimated FHA mortgage payments, including Upfront and Annual MIP." %}
+                    </p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <!-- Monthly Payment -->
-                    <div class="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl p-6 shadow-2xl">
-                        <h3 class="text-indigo-100 text-sm font-medium mb-1">Total Monthly Payment</h3>
-                        <div class="text-4xl font-bold text-white" id="monthly_payment_display">$2,635</div>
-                        <div class="text-indigo-200 text-sm mt-1">Principal, Interest, MIP, Taxes & Insurance</div>
-                    </div>
-
-                    <!-- Payment Breakdown -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Monthly Payment Breakdown</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between">
-                                <span class="text-indigo-300">Principal & Interest</span>
-                                <span class="text-white font-medium" id="pi_display">$2,133</span>
+                <!-- Results Section -->
+                <div id="results" class="hidden space-y-6">
+                    <!-- Main Payment Card -->
+                    <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 sm:p-8 text-white shadow-xl">
+                        <div class="grid md:grid-cols-2 gap-8 items-center">
+                            <div>
+                                <p class="text-blue-100 font-medium mb-1">{% trans "Total Monthly Payment" %}</p>
+                                <div class="text-4xl sm:text-5xl font-bold mb-2"><span id="monthly_payment_display">$0</span></div>
+                                <p class="text-blue-200 text-sm">{% trans "Includes P&I, MIP, Taxes & Insurance" %}</p>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="text-indigo-300">Monthly MIP</span>
-                                <span class="text-white font-medium" id="mip_display">$152</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-indigo-300">Property Tax</span>
-                                <span class="text-white font-medium" id="tax_display">$350</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-indigo-300">Home Insurance</span>
-                                <span class="text-white font-medium" id="insurance_display">$150</span>
-                            </div>
-                            <div class="flex justify-between pt-3 border-t border-white/20">
-                                <span class="text-indigo-200 font-medium">Total</span>
-                                <span class="text-white font-bold" id="total_payment_display">$2,635</span>
+                            <div class="bg-white/10 rounded-lg p-4 border border-white/10 backdrop-blur-sm space-y-2">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-blue-100">{% trans "Loan Amount" %}</span>
+                                    <span id="total_loan" class="font-bold text-white">$0</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-blue-100">{% trans "Upfront MIP" %}</span>
+                                    <span id="upfront_mip" class="font-bold text-yellow-300">$0</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-blue-100">{% trans "Annual MIP Rate" %}</span>
+                                    <span id="annual_mip_rate" class="font-bold text-green-300">0.55%</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- MIP Details -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">FHA MIP Details</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-3 bg-white/5 rounded-lg">
-                                <div class="text-indigo-300 text-sm">Upfront MIP</div>
-                                <div class="text-xl font-bold text-white" id="upfront_mip">$5,906</div>
-                                <div class="text-xs text-indigo-400" id="upfront_rate">1.75%</div>
+                    <!-- Totals Summary (BMI-style stats row) -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Interest" %}</p>
+                            <p id="total_interest_display" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total MIP" %}</p>
+                            <p id="total_mip_display" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Cost" %}</p>
+                            <p id="total_cost_display" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Down Payment" %}</p>
+                            <p id="down_payment_display" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Monthly Payment Breakdown" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="paymentBreakdownChart"></canvas>
                             </div>
-                            <div class="p-3 bg-white/5 rounded-lg">
-                                <div class="text-indigo-300 text-sm">Annual MIP Rate</div>
-                                <div class="text-xl font-bold text-white" id="annual_mip_rate">0.55%</div>
-                                <div class="text-xs text-indigo-400" id="mip_duration">For life of loan</div>
-                            </div>
-                            <div class="p-3 bg-white/5 rounded-lg">
-                                <div class="text-indigo-300 text-sm">Total Loan Amount</div>
-                                <div class="text-xl font-bold text-white" id="total_loan">$343,656</div>
-                                <div class="text-xs text-indigo-400">Including UFMIP</div>
-                            </div>
-                            <div class="p-3 bg-white/5 rounded-lg">
-                                <div class="text-indigo-300 text-sm">Total MIP Cost</div>
-                                <div class="text-xl font-bold text-white" id="total_mip_cost">$60,750</div>
-                                <div class="text-xs text-indigo-400">Over loan life</div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Total Cost Over Loan Life" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="totalCostChart"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Cost Chart -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Total Cost Breakdown</h3>
-                        <canvas id="costChart" height="200"></canvas>
+                    <!-- Monthly Costs List -->
+                    <div class="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">{% trans "Monthly Costs" %}</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                <span class="text-gray-600 text-sm">{% trans "Principal & Interest" %}</span>
+                                <span id="pi_display" class="font-bold text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                                <span class="text-gray-600 text-sm">{% trans "Monthly MIP" %}</span>
+                                <span id="mip_display" class="font-bold text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
+                                <span class="text-gray-600 text-sm">{% trans "Property Tax" %}</span>
+                                <span id="tax_display" class="font-bold text-gray-900">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                                <span class="text-gray-600 text-sm">{% trans "Home Insurance" %}</span>
+                                <span id="insurance_display" class="font-bold text-gray-900">$0</span>
+                            </div>
+                            <div id="hoa_row" class="hidden flex justify-between items-center p-3 bg-amber-50 rounded-lg border-l-4 border-amber-500">
+                                <span class="text-gray-600 text-sm">{% trans "HOA" %}</span>
+                                <span id="hoa_display" class="font-bold text-gray-900">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MIP Note -->
+                    <div class="bg-indigo-50 border-2 border-indigo-100 rounded-xl p-4 flex items-start">
+                        <svg class="w-6 h-6 text-indigo-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <div>
+                            <h4 class="font-bold text-indigo-900 text-sm">{% trans "MIP Duration" %}</h4>
+                            <p id="mip_duration" class="text-indigo-800 text-sm">{% trans "For the life of the loan" %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete FHA Guide -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 sm:p-10">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-8 flex items-center border-b pb-6">
+                        <span class="bg-blue-100 p-2 rounded-lg mr-4">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        </span>
+                        {% trans "Complete FHA Loan Guide" %}
+                    </h2>
+
+                    <div class="space-y-12">
+                        <!-- What is FHA -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">{% trans "What is an FHA Loan?" %}</h3>
+                            <p class="text-gray-700 leading-relaxed">
+                                {% trans "An FHA loan is a government-backed mortgage insured by the Federal Housing Administration. It makes efficient homeownership possible for borrowers with lower credit scores or smaller down payments." %}
+                            </p>
+                        </div>
+
+                        <!-- 1. Technical MIP Rates Table -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">{% trans "Annual MIP Rates (2024)" %}</h3>
+                            <p class="text-sm text-gray-600 mb-4">{% trans "Your annual mortgage insurance premium depends on your loan term and loan-to-value (LTV) ratio." %}</p>
+                            
+                            <div class="overflow-hidden border border-gray-200 rounded-lg shadow-sm">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Term > 15 Years</th>
+                                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">LTV Ratio</th>
+                                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Annual Rate</th>
+                                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr>
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">Most Common</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">&gt; 95% (e.g. 3.5% down)</td>
+                                            <td class="px-6 py-4 text-sm font-bold text-blue-600 text-right">0.55%</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500 text-right">Life of Loan</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">High Down Payment</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">&le; 90% (e.g. 10% down)</td>
+                                            <td class="px-6 py-4 text-sm font-bold text-green-600 text-right">0.50%</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500 text-right">11 Years</td>
+                                        </tr>
+                                         <tr>
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">15-Year Fixed</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">&lt; 90%</td>
+                                            <td class="px-6 py-4 text-sm font-bold text-green-600 text-right">0.15%</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500 text-right">11 Years</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 2. The Formula -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">{% trans "FHA Calculation Formulas" %}</h3>
+                            <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
+                                <div class="grid md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h4 class="font-bold text-indigo-900 text-sm mb-2">{% trans "Upfront MIP Formula" %}</h4>
+                                        <div class="bg-white p-3 rounded border border-indigo-200 font-mono text-sm shadow-sm text-indigo-700">
+                                            UFMIP = Loan Amount × 1.75%
+                                        </div>
+                                        <p class="text-xs text-indigo-600 mt-2">{% trans "Example: $350,000 × 0.0175 = $6,125" %}</p>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-indigo-900 text-sm mb-2">{% trans "Monthly MIP Formula" %}</h4>
+                                        <div class="bg-white p-3 rounded border border-indigo-200 font-mono text-sm shadow-sm text-indigo-700">
+                                            Monthly MIP = (Loan × Annual Rate) ÷ 12
+                                        </div>
+                                        <p class="text-xs text-indigo-600 mt-2">{% trans "Example: ($356,125 × 0.55%) ÷ 12 = $163" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Requirements Grid -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">{% trans "FHA Borrower Requirements" %}</h3>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div class="border rounded-xl p-4 hover:border-blue-300 transition-colors bg-white">
+                                    <div class="text-blue-600 font-bold text-lg mb-1">{% trans "Credit Score 580+" %}</div>
+                                    <div class="text-sm text-gray-600">{% trans "Qualifies for the 3.5% down payment." %}</div>
+                                </div>
+                                <div class="border rounded-xl p-4 hover:border-blue-300 transition-colors bg-white">
+                                    <div class="text-blue-600 font-bold text-lg mb-1">{% trans "Credit Score 500-579" %}</div>
+                                    <div class="text-sm text-gray-600">{% trans "Requires a 10% down payment." %}</div>
+                                </div>
+                                <div class="border rounded-xl p-4 hover:border-blue-300 transition-colors bg-white">
+                                    <div class="text-blue-600 font-bold text-lg mb-1">{% trans "Debt-to-Income < 43%" %}</div>
+                                    <div class="text-sm text-gray-600">{% trans "Ideally, but up to 57% is allowed in some cases." %}</div>
+                                </div>
+                                <div class="border rounded-xl p-4 hover:border-blue-300 transition-colors bg-white">
+                                    <div class="text-blue-600 font-bold text-lg mb-1">{% trans "Primary Residence" %}</div>
+                                    <div class="text-sm text-gray-600">{% trans "You must live in the home. No investment properties." %}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. Closing Costs -->
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">{% trans "Typical FHA Closing Costs" %}</h3>
+                            <p class="text-gray-700 mb-4 text-sm">{% trans "Expect to pay between 2% and 5% of the loan amount in closing costs. Common fees include:" %}</p>
+                            <ul class="grid sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
+                                <li class="flex items-center"><svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>{% trans "FHA Appraisal Fee ($400-$700)" %}</li>
+                                <li class="flex items-center"><svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>{% trans "Lender Origination Fee (0.5-1%)" %}</li>
+                                <li class="flex items-center"><svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>{% trans "Title Insurance & Search" %}</li>
+                                <li class="flex items-center"><svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>{% trans "Prepaid Property Taxes" %}</li>
+                            </ul>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -205,107 +384,158 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let costChart = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const form = document.getElementById('calculatorForm');
+        const initialState = document.getElementById('initialState');
+        const loadingState = document.getElementById('loadingState');
+        const results = document.getElementById('results');
+        const costsToggle = document.getElementById('toggleCosts');
+        const costsSection = document.getElementById('costsSection');
+        const slider = document.getElementById('down_payment_slider');
+        const downInput = document.getElementById('down_payment');
+        const typeSelect = document.getElementById('down_payment_type');
 
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-}
+        // Toggle Costs
+        if (costsToggle) {
+            costsToggle.addEventListener('click', function() {
+                costsSection.classList.toggle('hidden');
+                document.getElementById('costsArrow').classList.toggle('rotate-180');
+            });
+        }
 
-// Down payment slider sync
-document.getElementById('down_payment_slider').addEventListener('input', function() {
-    const homePrice = parseFloat(document.getElementById('home_price').value.replace(/,/g, ''));
-    const percent = this.value;
-    document.getElementById('down_payment').value = percent;
-    document.getElementById('down_payment_type').value = 'percent';
-});
+        // Slider Sync
+        if (slider) {
+            slider.addEventListener('input', function() {
+                downInput.value = this.value;
+                typeSelect.value = 'percent';
+            });
+            downInput.addEventListener('input', function() {
+                if(typeSelect.value === 'percent') slider.value = this.value;
+            });
+        }
 
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const formData = {
-        home_price: document.getElementById('home_price').value,
-        down_payment: document.getElementById('down_payment').value,
-        down_payment_type: document.getElementById('down_payment_type').value,
-        interest_rate: document.getElementById('interest_rate').value,
-        loan_term: document.getElementById('loan_term').value,
-        property_tax: document.getElementById('property_tax').value,
-        home_insurance: document.getElementById('home_insurance').value,
-        hoa: document.getElementById('hoa').value
-    };
+        let paymentBreakdownChart = null;
+        let totalCostChart = null;
+        function formatMoney(val) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+        }
 
-    try {
-        const response = await fetch('{% url "financial_calculators:fha_loan_calculator" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            initialState.classList.add('hidden');
+            results.classList.add('hidden');
+            const errorState = document.getElementById('errorState');
+            if (errorState) errorState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            const submitBtnText = document.getElementById('calculateBtnText');
+            if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculating...' %}";
+
+            const payload = {
+                home_price: parseFloat(String(document.getElementById('home_price').value).replace(/[,$\s]/g, '')) || 0,
+                down_payment: parseFloat(String(downInput.value).replace(/[,$\s]/g, '')) || 0,
+                down_payment_type: typeSelect ? typeSelect.value : 'percent',
+                interest_rate: parseFloat(document.getElementById('interest_rate').value) || 0,
+                loan_term: parseInt(document.getElementById('loan_term').value, 10) || 360,
+                property_tax: parseFloat(String(document.getElementById('property_tax').value).replace(/[,$\s]/g, '')) || 0,
+                home_insurance: parseFloat(String(document.getElementById('home_insurance').value).replace(/[,$\s]/g, '')) || 0,
+                hoa: parseFloat(String(document.getElementById('hoa').value).replace(/[,$\s]/g, '')) || 0
+            };
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                loadingState.classList.add('hidden');
+                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate FHA Loan' %}";
+
+                if (!data.success) {
+                    document.getElementById('errorMessage').textContent = data.error || "{% trans 'An error occurred. Please try again.' %}";
+                    if (errorState) errorState.classList.remove('hidden');
+                    initialState.classList.remove('hidden');
+                    return;
+                }
+
+                updateUI(data);
+                results.classList.remove('hidden');
+                setTimeout(function() { results.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+            } catch (err) {
+                loadingState.classList.add('hidden');
+                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate FHA Loan' %}";
+                if (errorState) {
+                    document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}";
+                    errorState.classList.remove('hidden');
+                }
+                initialState.classList.remove('hidden');
+                console.error(err);
+            }
         });
 
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
+        function updateUI(data) {
+            const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert(data.error || 'Calculation error');
-        }
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
-    }
-});
+            setText('monthly_payment_display', formatMoney(data.monthly_payment.total));
+            setText('total_loan', formatMoney(data.loan_details.total_loan_amount));
+            setText('upfront_mip', formatMoney(data.mip_details.upfront_mip));
+            setText('annual_mip_rate', data.mip_details.annual_mip_rate + '%');
+            setText('mip_duration', data.mip_details.mip_duration_note);
 
-function updateResults(data) {
-    document.getElementById('monthly_payment_display').textContent = formatCurrency(data.monthly_payment.total);
-    document.getElementById('pi_display').textContent = formatCurrency(data.monthly_payment.principal_interest);
-    document.getElementById('mip_display').textContent = formatCurrency(data.monthly_payment.mip);
-    document.getElementById('tax_display').textContent = formatCurrency(data.monthly_payment.property_tax);
-    document.getElementById('insurance_display').textContent = formatCurrency(data.monthly_payment.home_insurance);
-    document.getElementById('total_payment_display').textContent = formatCurrency(data.monthly_payment.total);
-    
-    document.getElementById('upfront_mip').textContent = formatCurrency(data.mip_details.upfront_mip);
-    document.getElementById('upfront_rate').textContent = data.mip_details.upfront_mip_rate + '%';
-    document.getElementById('annual_mip_rate').textContent = data.mip_details.annual_mip_rate + '%';
-    document.getElementById('mip_duration').textContent = data.mip_details.mip_duration_note;
-    document.getElementById('total_loan').textContent = formatCurrency(data.loan_details.total_loan_amount);
-    document.getElementById('total_mip_cost').textContent = formatCurrency(data.mip_details.total_mip);
+            setText('pi_display', formatMoney(data.monthly_payment.principal_interest));
+            setText('mip_display', formatMoney(data.monthly_payment.mip));
+            setText('tax_display', formatMoney(data.monthly_payment.property_tax));
+            setText('insurance_display', formatMoney(data.monthly_payment.home_insurance));
 
-    // Update chart
-    const ctx = document.getElementById('costChart').getContext('2d');
-    if (costChart) costChart.destroy();
-    
-    costChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Principal', 'Interest', 'MIP', 'Taxes & Insurance'],
-            datasets: [{
-                data: [
-                    data.chart_data.principal,
-                    data.chart_data.interest,
-                    data.chart_data.mip,
-                    data.chart_data.taxes_insurance
-                ],
-                backgroundColor: ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#fff' }
+            setText('total_interest_display', formatMoney(data.totals.total_interest));
+            setText('total_mip_display', formatMoney(data.totals.total_mip));
+            setText('total_cost_display', formatMoney(data.totals.total_cost));
+            setText('down_payment_display', formatMoney(data.property.down_payment));
+
+            var hoaRow = document.getElementById('hoa_row');
+            var hoaDisplay = document.getElementById('hoa_display');
+            if (data.monthly_payment.hoa && parseFloat(data.monthly_payment.hoa) > 0) {
+                if (hoaRow) { hoaRow.classList.remove('hidden'); hoaRow.classList.add('flex'); }
+                if (hoaDisplay) hoaDisplay.textContent = formatMoney(data.monthly_payment.hoa);
+            } else {
+                if (hoaRow) hoaRow.classList.add('hidden');
+            }
+
+            if (data.chart_data && typeof Chart !== 'undefined') {
+                if (data.chart_data.payment_breakdown_chart) {
+                    if (paymentBreakdownChart) paymentBreakdownChart.destroy();
+                    var ctx1 = document.getElementById('paymentBreakdownChart');
+                    if (ctx1) {
+                        var cfg = data.chart_data.payment_breakdown_chart;
+                        paymentBreakdownChart = new Chart(ctx1, {
+                            type: cfg.type,
+                            data: cfg.data,
+                            options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg.options || {})
+                        });
+                    }
+                }
+                if (data.chart_data.total_cost_chart) {
+                    if (totalCostChart) totalCostChart.destroy();
+                    var ctx2 = document.getElementById('totalCostChart');
+                    if (ctx2) {
+                        var cfg2 = data.chart_data.total_cost_chart;
+                        totalCostChart = new Chart(ctx2, {
+                            type: cfg2.type,
+                            data: cfg2.data,
+                            options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg2.options || {})
+                        });
+                    }
                 }
             }
         }
     });
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
 </script>
 {% endblock %}

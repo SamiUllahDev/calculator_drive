@@ -13,6 +13,7 @@
 {% block twitter_description %}{% trans "Convert time between different time zones and calculate time differences. Free online calculator." %}{% endblock %}
 
 {% block extra_head %}
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="{{ request.build_absolute_uri }}">
 {% endblock %}
 
@@ -33,289 +34,349 @@
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-4">{% trans "Time Zone Calculator" %}</h1>
-            <p class="text-lg text-gray-600">{% trans "Convert time between different time zones and calculate time differences" %}</p>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Time Zone Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Convert time between time zones, see time difference, and view current time in multiple zones with step-by-step solutions." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Main Calculator -->
-            <div class="lg:col-span-2">
-                <!-- Calculation Type Selector -->
-                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
-                    <select id="calcType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="convert">{% trans "Convert Time Zone" %}</option>
-                        <option value="difference">{% trans "Time Zone Difference" %}</option>
-                        <option value="current">{% trans "Current Time" %}</option>
-                    </select>
-                </div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
-                <!-- Convert Calculator -->
-                <div id="convertCalc" class="calc-mode bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Convert Time Zone" %}</h2>
-                    <form id="convertForm" class="space-y-6">
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Input" %}
+                    </h2>
+
+                    <form id="timeZoneForm" class="space-y-4" novalidate>
+                        {% csrf_token %}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Time" %}</label>
-                            <input type="text" id="time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="HH:MM or HH:MM:SS" pattern="[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?">
-                            <span class="error-message text-red-500 text-sm hidden"></span>
-                            <p class="text-xs text-gray-500 mt-2">{% trans "Format: HH:MM or HH:MM:SS (e.g., 14:30 or 14:30:45)" %}</p>
+                            <label for="calcType" class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                            <select id="calcType" name="calc_type" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="convert">{% trans "Convert Time Zone" %}</option>
+                                <option value="difference">{% trans "Time Zone Difference" %}</option>
+                                <option value="current">{% trans "Current Time" %}</option>
+                            </select>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <!-- Convert -->
+                        <div id="convertCalc" class="calc-mode space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "From Timezone" %}</label>
-                                <select id="fromTimezone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="UTC">UTC</option>
-                                    <option value="EST">EST (UTC-5)</option>
-                                    <option value="EDT">EDT (UTC-4)</option>
-                                    <option value="CST">CST (UTC-6)</option>
-                                    <option value="CDT">CDT (UTC-5)</option>
-                                    <option value="MST">MST (UTC-7)</option>
-                                    <option value="MDT">MDT (UTC-6)</option>
-                                    <option value="PST">PST (UTC-8)</option>
-                                    <option value="PDT">PDT (UTC-7)</option>
-                                    <option value="GMT">GMT (UTC+0)</option>
-                                    <option value="CET">CET (UTC+1)</option>
-                                    <option value="CEST">CEST (UTC+2)</option>
-                                    <option value="EET">EET (UTC+2)</option>
-                                    <option value="EEST">EEST (UTC+3)</option>
-                                    <option value="JST">JST (UTC+9)</option>
-                                    <option value="IST">IST (UTC+5:30)</option>
-                                    <option value="AEST">AEST (UTC+10)</option>
-                                    <option value="AEDT">AEDT (UTC+11)</option>
-                                    <option value="NZST">NZST (UTC+12)</option>
-                                    <option value="NZDT">NZDT (UTC+13)</option>
-                                </select>
+                                <label for="time" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Time" %} <span class="text-red-500">*</span></label>
+                                <input type="text" id="time" name="time" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="HH:MM or HH:MM:SS">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Format: HH:MM or HH:MM:SS (e.g., 14:30 or 14:30:45)" %}</p>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "To Timezone" %}</label>
-                                <select id="toTimezone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="UTC">UTC</option>
-                                    <option value="EST">EST (UTC-5)</option>
-                                    <option value="EDT">EDT (UTC-4)</option>
-                                    <option value="CST">CST (UTC-6)</option>
-                                    <option value="CDT">CDT (UTC-5)</option>
-                                    <option value="MST">MST (UTC-7)</option>
-                                    <option value="MDT">MDT (UTC-6)</option>
-                                    <option value="PST">PST (UTC-8)</option>
-                                    <option value="PDT">PDT (UTC-7)</option>
-                                    <option value="GMT">GMT (UTC+0)</option>
-                                    <option value="CET">CET (UTC+1)</option>
-                                    <option value="CEST">CEST (UTC+2)</option>
-                                    <option value="EET">EET (UTC+2)</option>
-                                    <option value="EEST">EEST (UTC+3)</option>
-                                    <option value="JST">JST (UTC+9)</option>
-                                    <option value="IST">IST (UTC+5:30)</option>
-                                    <option value="AEST">AEST (UTC+10)</option>
-                                    <option value="AEDT">AEDT (UTC+11)</option>
-                                    <option value="NZST">NZST (UTC+12)</option>
-                                    <option value="NZDT">NZDT (UTC+13)</option>
-                                </select>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="fromTimezone" class="block text-sm font-medium text-gray-700 mb-1">{% trans "From Timezone" %}</label>
+                                    <select id="fromTimezone" name="from_timezone" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                        <option value="UTC">UTC</option>
+                                        <option value="EST">EST (UTC-5)</option>
+                                        <option value="EDT">EDT (UTC-4)</option>
+                                        <option value="CST">CST (UTC-6)</option>
+                                        <option value="CDT">CDT (UTC-5)</option>
+                                        <option value="MST">MST (UTC-7)</option>
+                                        <option value="MDT">MDT (UTC-6)</option>
+                                        <option value="PST">PST (UTC-8)</option>
+                                        <option value="PDT">PDT (UTC-7)</option>
+                                        <option value="GMT">GMT (UTC+0)</option>
+                                        <option value="CET">CET (UTC+1)</option>
+                                        <option value="CEST">CEST (UTC+2)</option>
+                                        <option value="EET">EET (UTC+2)</option>
+                                        <option value="EEST">EEST (UTC+3)</option>
+                                        <option value="JST">JST (UTC+9)</option>
+                                        <option value="IST">IST (UTC+5:30)</option>
+                                        <option value="AEST">AEST (UTC+10)</option>
+                                        <option value="AEDT">AEDT (UTC+11)</option>
+                                        <option value="NZST">NZST (UTC+12)</option>
+                                        <option value="NZDT">NZDT (UTC+13)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="toTimezone" class="block text-sm font-medium text-gray-700 mb-1">{% trans "To Timezone" %}</label>
+                                    <select id="toTimezone" name="to_timezone" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                        <option value="UTC">UTC</option>
+                                        <option value="EST">EST (UTC-5)</option>
+                                        <option value="EDT">EDT (UTC-4)</option>
+                                        <option value="CST">CST (UTC-6)</option>
+                                        <option value="CDT">CDT (UTC-5)</option>
+                                        <option value="MST">MST (UTC-7)</option>
+                                        <option value="MDT">MDT (UTC-6)</option>
+                                        <option value="PST">PST (UTC-8)</option>
+                                        <option value="PDT">PDT (UTC-7)</option>
+                                        <option value="GMT">GMT (UTC+0)</option>
+                                        <option value="CET">CET (UTC+1)</option>
+                                        <option value="CEST">CEST (UTC+2)</option>
+                                        <option value="EET">EET (UTC+2)</option>
+                                        <option value="EEST">EEST (UTC+3)</option>
+                                        <option value="JST">JST (UTC+9)</option>
+                                        <option value="IST">IST (UTC+5:30)</option>
+                                        <option value="AEST">AEST (UTC+10)</option>
+                                        <option value="AEDT">AEDT (UTC+11)</option>
+                                        <option value="NZST">NZST (UTC+12)</option>
+                                        <option value="NZDT">NZDT (UTC+13)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                            {% trans "Convert" %}
-                        </button>
+                        <!-- Difference -->
+                        <div id="differenceCalc" class="calc-mode hidden space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="timezone1" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Timezone 1" %}</label>
+                                    <select id="timezone1" name="timezone1" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                        <option value="UTC">UTC</option>
+                                        <option value="EST">EST (UTC-5)</option>
+                                        <option value="EDT">EDT (UTC-4)</option>
+                                        <option value="CST">CST (UTC-6)</option>
+                                        <option value="CDT">CDT (UTC-5)</option>
+                                        <option value="MST">MST (UTC-7)</option>
+                                        <option value="MDT">MDT (UTC-6)</option>
+                                        <option value="PST">PST (UTC-8)</option>
+                                        <option value="PDT">PDT (UTC-7)</option>
+                                        <option value="GMT">GMT (UTC+0)</option>
+                                        <option value="CET">CET (UTC+1)</option>
+                                        <option value="CEST">CEST (UTC+2)</option>
+                                        <option value="EET">EET (UTC+2)</option>
+                                        <option value="EEST">EEST (UTC+3)</option>
+                                        <option value="JST">JST (UTC+9)</option>
+                                        <option value="IST">IST (UTC+5:30)</option>
+                                        <option value="AEST">AEST (UTC+10)</option>
+                                        <option value="AEDT">AEDT (UTC+11)</option>
+                                        <option value="NZST">NZST (UTC+12)</option>
+                                        <option value="NZDT">NZDT (UTC+13)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="timezone2" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Timezone 2" %}</label>
+                                    <select id="timezone2" name="timezone2" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                        <option value="UTC">UTC</option>
+                                        <option value="EST">EST (UTC-5)</option>
+                                        <option value="EDT">EDT (UTC-4)</option>
+                                        <option value="CST">CST (UTC-6)</option>
+                                        <option value="CDT">CDT (UTC-5)</option>
+                                        <option value="MST">MST (UTC-7)</option>
+                                        <option value="MDT">MDT (UTC-6)</option>
+                                        <option value="PST">PST (UTC-8)</option>
+                                        <option value="PDT">PDT (UTC-7)</option>
+                                        <option value="GMT">GMT (UTC+0)</option>
+                                        <option value="CET">CET (UTC+1)</option>
+                                        <option value="CEST">CEST (UTC+2)</option>
+                                        <option value="EET">EET (UTC+2)</option>
+                                        <option value="EEST">EEST (UTC+3)</option>
+                                        <option value="JST">JST (UTC+9)</option>
+                                        <option value="IST">IST (UTC+5:30)</option>
+                                        <option value="AEST">AEST (UTC+10)</option>
+                                        <option value="AEDT">AEDT (UTC+11)</option>
+                                        <option value="NZST">NZST (UTC+12)</option>
+                                        <option value="NZDT">NZDT (UTC+13)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current -->
+                        <div id="currentCalc" class="calc-mode hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Select Timezones" %}</label>
+                                <div id="timezoneCheckboxes" class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto border-2 border-gray-200 rounded-lg p-4">
+                                    <label class="flex items-center"><input type="checkbox" value="UTC" checked class="mr-2 rounded focus:ring-blue-500"> UTC</label>
+                                    <label class="flex items-center"><input type="checkbox" value="EST" class="mr-2 rounded focus:ring-blue-500"> EST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="EDT" class="mr-2 rounded focus:ring-blue-500"> EDT</label>
+                                    <label class="flex items-center"><input type="checkbox" value="CST" class="mr-2 rounded focus:ring-blue-500"> CST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="CDT" class="mr-2 rounded focus:ring-blue-500"> CDT</label>
+                                    <label class="flex items-center"><input type="checkbox" value="MST" class="mr-2 rounded focus:ring-blue-500"> MST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="MDT" class="mr-2 rounded focus:ring-blue-500"> MDT</label>
+                                    <label class="flex items-center"><input type="checkbox" value="PST" class="mr-2 rounded focus:ring-blue-500"> PST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="PDT" class="mr-2 rounded focus:ring-blue-500"> PDT</label>
+                                    <label class="flex items-center"><input type="checkbox" value="GMT" class="mr-2 rounded focus:ring-blue-500"> GMT</label>
+                                    <label class="flex items-center"><input type="checkbox" value="CET" class="mr-2 rounded focus:ring-blue-500"> CET</label>
+                                    <label class="flex items-center"><input type="checkbox" value="CEST" class="mr-2 rounded focus:ring-blue-500"> CEST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="EET" class="mr-2 rounded focus:ring-blue-500"> EET</label>
+                                    <label class="flex items-center"><input type="checkbox" value="EEST" class="mr-2 rounded focus:ring-blue-500"> EEST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="JST" class="mr-2 rounded focus:ring-blue-500"> JST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="IST" class="mr-2 rounded focus:ring-blue-500"> IST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="AEST" class="mr-2 rounded focus:ring-blue-500"> AEST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="AEDT" class="mr-2 rounded focus:ring-blue-500"> AEDT</label>
+                                    <label class="flex items-center"><input type="checkbox" value="NZST" class="mr-2 rounded focus:ring-blue-500"> NZST</label>
+                                    <label class="flex items-center"><input type="checkbox" value="NZDT" class="mr-2 rounded focus:ring-blue-500"> NZDT</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button type="submit" id="calculateBtn" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50">
+                                <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <svg id="calculateIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                            </button>
+                            <button type="button" id="resetBtn" class="px-4 py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors" title="{% trans 'Reset to defaults' %}">{% trans "Reset" %}</button>
+                        </div>
                     </form>
-                </div>
 
-                <!-- Difference Calculator -->
-                <div id="differenceCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Time Zone Difference" %}</h2>
-                    <form id="differenceForm" class="space-y-6">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Timezone 1" %}</label>
-                                <select id="timezone1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="UTC">UTC</option>
-                                    <option value="EST">EST (UTC-5)</option>
-                                    <option value="EDT">EDT (UTC-4)</option>
-                                    <option value="CST">CST (UTC-6)</option>
-                                    <option value="CDT">CDT (UTC-5)</option>
-                                    <option value="MST">MST (UTC-7)</option>
-                                    <option value="MDT">MDT (UTC-6)</option>
-                                    <option value="PST">PST (UTC-8)</option>
-                                    <option value="PDT">PDT (UTC-7)</option>
-                                    <option value="GMT">GMT (UTC+0)</option>
-                                    <option value="CET">CET (UTC+1)</option>
-                                    <option value="CEST">CEST (UTC+2)</option>
-                                    <option value="EET">EET (UTC+2)</option>
-                                    <option value="EEST">EEST (UTC+3)</option>
-                                    <option value="JST">JST (UTC+9)</option>
-                                    <option value="IST">IST (UTC+5:30)</option>
-                                    <option value="AEST">AEST (UTC+10)</option>
-                                    <option value="AEDT">AEDT (UTC+11)</option>
-                                    <option value="NZST">NZST (UTC+12)</option>
-                                    <option value="NZDT">NZDT (UTC+13)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Timezone 2" %}</label>
-                                <select id="timezone2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="UTC">UTC</option>
-                                    <option value="EST">EST (UTC-5)</option>
-                                    <option value="EDT">EDT (UTC-4)</option>
-                                    <option value="CST">CST (UTC-6)</option>
-                                    <option value="CDT">CDT (UTC-5)</option>
-                                    <option value="MST">MST (UTC-7)</option>
-                                    <option value="MDT">MDT (UTC-6)</option>
-                                    <option value="PST">PST (UTC-8)</option>
-                                    <option value="PDT">PDT (UTC-7)</option>
-                                    <option value="GMT">GMT (UTC+0)</option>
-                                    <option value="CET">CET (UTC+1)</option>
-                                    <option value="CEST">CEST (UTC+2)</option>
-                                    <option value="EET">EET (UTC+2)</option>
-                                    <option value="EEST">EEST (UTC+3)</option>
-                                    <option value="JST">JST (UTC+9)</option>
-                                    <option value="IST">IST (UTC+5:30)</option>
-                                    <option value="AEST">AEST (UTC+10)</option>
-                                    <option value="AEDT">AEDT (UTC+11)</option>
-                                    <option value="NZST">NZST (UTC+12)</option>
-                                    <option value="NZDT">NZDT (UTC+13)</option>
-                                </select>
-                            </div>
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
+                    </div>
 
-                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                            {% trans "Calculate Difference" %}
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Current Time Calculator -->
-                <div id="currentCalc" class="calc-mode hidden bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Current Time" %}</h2>
-                    <form id="currentForm" class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Select Timezones" %}</label>
-                            <div id="timezoneCheckboxes" class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                                <label class="flex items-center"><input type="checkbox" value="UTC" checked class="mr-2"> UTC</label>
-                                <label class="flex items-center"><input type="checkbox" value="EST" class="mr-2"> EST</label>
-                                <label class="flex items-center"><input type="checkbox" value="EDT" class="mr-2"> EDT</label>
-                                <label class="flex items-center"><input type="checkbox" value="CST" class="mr-2"> CST</label>
-                                <label class="flex items-center"><input type="checkbox" value="CDT" class="mr-2"> CDT</label>
-                                <label class="flex items-center"><input type="checkbox" value="MST" class="mr-2"> MST</label>
-                                <label class="flex items-center"><input type="checkbox" value="MDT" class="mr-2"> MDT</label>
-                                <label class="flex items-center"><input type="checkbox" value="PST" class="mr-2"> PST</label>
-                                <label class="flex items-center"><input type="checkbox" value="PDT" class="mr-2"> PDT</label>
-                                <label class="flex items-center"><input type="checkbox" value="GMT" class="mr-2"> GMT</label>
-                                <label class="flex items-center"><input type="checkbox" value="CET" class="mr-2"> CET</label>
-                                <label class="flex items-center"><input type="checkbox" value="CEST" class="mr-2"> CEST</label>
-                                <label class="flex items-center"><input type="checkbox" value="EET" class="mr-2"> EET</label>
-                                <label class="flex items-center"><input type="checkbox" value="EEST" class="mr-2"> EEST</label>
-                                <label class="flex items-center"><input type="checkbox" value="JST" class="mr-2"> JST</label>
-                                <label class="flex items-center"><input type="checkbox" value="IST" class="mr-2"> IST</label>
-                                <label class="flex items-center"><input type="checkbox" value="AEST" class="mr-2"> AEST</label>
-                                <label class="flex items-center"><input type="checkbox" value="AEDT" class="mr-2"> AEDT</label>
-                                <label class="flex items-center"><input type="checkbox" value="NZST" class="mr-2"> NZST</label>
-                                <label class="flex items-center"><input type="checkbox" value="NZDT" class="mr-2"> NZDT</label>
-                            </div>
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
                         </div>
-
-                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                            {% trans "Get Current Time" %}
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Results Section -->
-                <div id="results" class="bg-white rounded-lg shadow-lg p-6 hidden">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Results" %}</h2>
-                    <div id="resultContent"></div>
-                    <div id="stepByStep" class="mt-6"></div>
-                </div>
-
-                <!-- Chart Section -->
-                <div id="chartSection" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Visualization" %}</h2>
-                    <div class="relative" style="height: 400px;">
-                        <canvas id="resultChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- User Guide Sidebar -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "User Guide" %}</h2>
-                    
-                    <div class="space-y-6 text-sm text-gray-700">
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select a calculation type, enter time and timezones (or pick zones for difference/current), then click Calculate to see results with step-by-step solution." %}
+                    </p>
+                </div>
+
+                <!-- Results Section -->
+                <section id="resultsSection" class="hidden space-y-6">
+                    <!-- Main Result Card -->
+                    <div class="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-xl">
+                        <div class="flex items-center justify-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-blue-100 text-sm font-medium">{% trans "Result" %}</p>
+                        </div>
+                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">-</div>
+                        <div class="text-blue-100 text-lg" id="resultDetails"></div>
+                    </div>
+
+                    <!-- Detailed Stats Cards -->
+                    <div id="resultContent" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+
+                    <!-- Chart -->
+                    <div id="chartSection" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Visualization" %}
+                        </h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="resultChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Solution -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    </div>
+                </section>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
                         <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is a Time Zone?" %}</h3>
-                            <p>{% trans "A time zone is a region that observes a uniform standard time for legal, commercial, and social purposes." %}</p>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is a Time Zone?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% trans "A time zone is a region that observes a uniform standard time for legal, commercial, and social purposes. This calculator converts time between zones, shows the difference between two zones, and displays current time in selected zones (UTC-based)." %}
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                <p class="text-center font-mono text-sm font-bold text-gray-900">{% trans "Time format: HH:MM or HH:MM:SS (24-hour). UTC = reference." %}</p>
+                            </div>
                         </div>
 
                         <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "How to Use" %}</h3>
-                            <ol class="list-decimal list-inside space-y-1">
-                                <li>{% trans "Select calculation type" %}</li>
-                                <li>{% trans "Enter time and select timezones" %}</li>
-                                <li>{% trans "Click calculate" %}</li>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Calculation Types" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Convert Time Zone" %}</h4>
+                                    <p class="text-sm text-blue-800">{% trans "Enter a time and convert from one timezone to another (e.g. 14:00 UTC to EST)." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Time Zone Difference" %}</h4>
+                                    <p class="text-sm text-green-800">{% trans "Get the hour/minute/second difference between two timezones." %}</p>
+                                </div>
+                                <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                                    <h4 class="font-semibold text-orange-900 mb-1">{% trans "Current Time" %}</h4>
+                                    <p class="text-sm text-orange-800">{% trans "Show current time (UTC-based) in selected timezones." %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select calculation type: Convert Time Zone, Time Zone Difference, or Current Time." %}</li>
+                                <li>{% trans "Enter time (HH:MM or HH:MM:SS) and select source/target timezones, or select timezones for difference/current." %}</li>
+                                <li>{% trans "Click Calculate to see results, chart (when available), and step-by-step solution." %}</li>
+                                <li>{% trans "Click Reset to clear inputs and results." %}</li>
                             </ol>
                         </div>
 
                         <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Time Format" %}</h3>
-                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
-                                <p><strong>{% trans "HH:MM" %}:</strong> {% trans "Hours:Minutes (e.g., 14:30)" %}</p>
-                                <p><strong>{% trans "HH:MM:SS" %}:</strong> {% trans "Hours:Minutes:Seconds (e.g., 14:30:45)" %}</p>
-                                <p><strong>{% trans "24-hour format" %}:</strong> {% trans "0-23 hours" %}</p>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Time Zones" %}</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-700">
+                                <p><strong>UTC/GMT:</strong> {% trans "Reference (0). EST/EDT, CST/CDT, MST/MDT, PST/PDT (US). CET/CEST, EET/EEST (Europe). JST, IST, AEST/AEDT, NZST/NZDT." %}</p>
                             </div>
                         </div>
 
-                        <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Time Zones" %}</h3>
-                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
-                                <p><strong>UTC:</strong> {% trans "Coordinated Universal Time" %}</p>
-                                <p><strong>EST/EDT:</strong> {% trans "Eastern Time (US)" %}</p>
-                                <p><strong>CST/CDT:</strong> {% trans "Central Time (US)" %}</p>
-                                <p><strong>MST/MDT:</strong> {% trans "Mountain Time (US)" %}</p>
-                                <p><strong>PST/PDT:</strong> {% trans "Pacific Time (US)" %}</p>
-                                <p><strong>GMT:</strong> {% trans "Greenwich Mean Time" %}</p>
-                                <p><strong>CET/CEST:</strong> {% trans "Central European Time" %}</p>
-                                <p><strong>JST:</strong> {% trans "Japan Standard Time" %}</p>
-                                <p><strong>IST:</strong> {% trans "India Standard Time" %}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Daylight Saving Time" %}</h3>
-                            <p class="text-xs">{% trans "Some time zones observe Daylight Saving Time (DST), which shifts clocks forward by one hour during summer months. Examples: EDT, CDT, MDT, PDT, CEST, EEST, AEDT, NZDT." %}</p>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "UTC Offsets" %}</h3>
-                            <div class="bg-gray-50 p-3 rounded space-y-1 text-xs">
-                                <p>{% trans "UTC offsets are expressed as hours ahead (+) or behind (-) UTC" %}</p>
-                                <p>{% trans "Example: EST is UTC-5, meaning 5 hours behind UTC" %}</p>
-                                <p>{% trans "Example: JST is UTC+9, meaning 9 hours ahead of UTC" %}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Important Notes" %}</h3>
-                            <ul class="list-disc list-inside space-y-1 text-xs">
-                                <li>{% trans "Use 24-hour format for times" %}</li>
-                                <li>{% trans "DST dates vary by location and year" %}</li>
-                                <li>{% trans "Some regions don't observe DST" %}</li>
-                                <li>{% trans "UTC is the standard reference" %}</li>
-                                <li>{% trans "Time differences account for day changes" %}</li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Common Applications" %}</h3>
-                            <ul class="list-disc list-inside space-y-1 text-xs">
-                                <li>{% trans "International meetings" %}</li>
-                                <li>{% trans "Travel planning" %}</li>
-                                <li>{% trans "Remote work coordination" %}</li>
-                                <li>{% trans "Event scheduling" %}</li>
-                                <li>{% trans "Business communications" %}</li>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "Use 24-hour format. UTC is the standard reference. Offsets are hours ahead (+) or behind (-) UTC." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "Daylight Saving Time (DST) shifts some zones (e.g. EDT, CDT, PDT, CEST); dates vary by location and year." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>{% trans "Conversion accounts for day overflow/underflow when crossing midnight." %}</span>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -325,48 +386,23 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 let resultChart = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    const calcTypeSelect = document.getElementById('calcType');
-    
-    // Switch calculation modes
-    calcTypeSelect.addEventListener('change', function() {
+    document.getElementById('calcType').addEventListener('change', function() {
         switchCalcMode(this.value);
     });
-    
-    // Form submissions
-    document.getElementById('convertForm').addEventListener('submit', function(e) {
+    document.getElementById('timeZoneForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        calculateConvert();
+        submitCalculation();
     });
-    
-    document.getElementById('differenceForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        calculateDifference();
-    });
-    
-    document.getElementById('currentForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        calculateCurrent();
-    });
-    
-    // Real-time validation
-    setupValidation();
-    
-    // Initialize
+    document.getElementById('resetBtn').addEventListener('click', resetTimeZone);
     switchCalcMode('convert');
 });
 
 function switchCalcMode(mode) {
-    // Hide all calculation modes
-    document.querySelectorAll('.calc-mode').forEach(el => {
-        el.classList.add('hidden');
-    });
-    
-    // Show relevant mode
+    document.querySelectorAll('.calc-mode').forEach(el => el.classList.add('hidden'));
     if (mode === 'convert') {
         document.getElementById('convertCalc').classList.remove('hidden');
     } else if (mode === 'difference') {
@@ -374,228 +410,199 @@ function switchCalcMode(mode) {
     } else if (mode === 'current') {
         document.getElementById('currentCalc').classList.remove('hidden');
     }
-    
-    // Clear results
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('chartSection').classList.add('hidden');
+    document.getElementById('resultsSection')?.classList.add('hidden');
+    document.getElementById('initialState')?.classList.remove('hidden');
+    document.getElementById('errorState')?.classList.add('hidden');
     if (resultChart) {
         resultChart.destroy();
         resultChart = null;
     }
 }
 
-function setupValidation() {
-    // Time format validation
-    const timeInputs = document.querySelectorAll('input[type="text"][pattern]');
-    timeInputs.forEach(input => {
-        input.addEventListener('blur', function() {
-            validateTimeFormat(this);
-        });
-    });
-}
-
-function validateTimeFormat(input) {
-    const value = input.value.trim();
-    const errorSpan = input.parentElement.querySelector('.error-message');
-    
-    input.classList.remove('border-red-500');
-    if (errorSpan) {
-        errorSpan.classList.add('hidden');
-        errorSpan.textContent = '';
-    }
-    
-    if (value === '') {
-        return true;
-    }
-    
-    const timePattern = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
-    if (!timePattern.test(value)) {
-        showError(input, '{% trans "Invalid time format. Use HH:MM or HH:MM:SS" %}');
-        return false;
-    }
-    
-    return true;
-}
-
-function showError(input, message) {
-    input.classList.add('border-red-500');
-    const errorSpan = input.parentElement.querySelector('.error-message');
-    if (errorSpan) {
-        errorSpan.textContent = message;
-        errorSpan.classList.remove('hidden');
-    }
-}
-
-function calculateConvert() {
-    const formData = {
-        calc_type: 'convert',
-        time: document.getElementById('time').value.trim(),
-        from_timezone: document.getElementById('fromTimezone').value,
-        to_timezone: document.getElementById('toTimezone').value,
-    };
-    
-    if (!formData.time) {
-        alert('{% trans "Please enter a time" %}');
-        return;
-    }
-    
-    sendRequest(formData);
-}
-
-function calculateDifference() {
-    const formData = {
-        calc_type: 'difference',
-        timezone1: document.getElementById('timezone1').value,
-        timezone2: document.getElementById('timezone2').value,
-    };
-    
-    sendRequest(formData);
-}
-
-function calculateCurrent() {
-    const checkboxes = document.querySelectorAll('#timezoneCheckboxes input[type="checkbox"]:checked');
-    const timezones = Array.from(checkboxes).map(cb => cb.value);
-    
-    if (timezones.length === 0) {
-        alert('{% trans "Please select at least one timezone" %}');
-        return;
-    }
-    
-    const formData = {
-        calc_type: 'current',
-        timezones: timezones,
-    };
-    
-    sendRequest(formData);
-}
-
-function sendRequest(formData) {
-    fetch('{% url "other_calculators:time_zone_calculator" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
-        body: JSON.stringify(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            displayResults(data);
-        } else {
-            alert('{% trans "Error" %}: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('{% trans "An error occurred. Please try again." %}');
-    });
-}
-
-function displayResults(data) {
-    const resultsDiv = document.getElementById('results');
-    const resultContent = document.getElementById('resultContent');
-    const stepByStepDiv = document.getElementById('stepByStep');
-    
-    let html = '<div class="space-y-4">';
-    
-    if (data.calc_type === 'convert') {
-        html += `<div class="bg-blue-50 p-6 rounded-lg text-center">
-            <p class="text-sm text-gray-600 mb-2">${data.time} ${data.from_timezone}</p>
-            <p class="text-sm text-gray-500 mb-2">{% trans "converts to" %}</p>
-            <p class="text-4xl font-bold text-blue-600">${data.result_time}</p>
-            <p class="text-sm text-gray-500 mt-2">${data.to_timezone}</p>
-            <p class="text-sm text-gray-600 mt-4">{% trans "Time Difference" %}: ${data.time_diff_hours > 0 ? '+' : ''}${data.time_diff_hours} {% trans "hours" %}</p>
-        </div>`;
-    } else if (data.calc_type === 'difference') {
-        html += `<div class="bg-green-50 p-6 rounded-lg text-center">
-            <p class="text-sm text-gray-600 mb-2">${data.timezone1} {% trans "to" %} ${data.timezone2}</p>
-            <p class="text-4xl font-bold text-green-600">${data.difference_hours > 0 ? '+' : ''}${data.difference_hours} {% trans "hours" %}</p>
-            <div class="grid grid-cols-2 gap-2 mt-4 text-sm">
-                <div>
-                    <p class="text-gray-600">{% trans "Minutes" %}</p>
-                    <p class="font-semibold">${data.difference_minutes}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">{% trans "Seconds" %}</p>
-                    <p class="font-semibold">${data.difference_seconds}</p>
-                </div>
-            </div>
-        </div>`;
-    } else if (data.calc_type === 'current') {
-        html += '<div class="space-y-3">';
-        data.current_times.forEach(tzInfo => {
-            html += `<div class="bg-gray-50 p-4 rounded-lg">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="font-semibold text-gray-900">${tzInfo.timezone}</p>
-                        <p class="text-xs text-gray-500">UTC${tzInfo.offset > 0 ? '+' : ''}${tzInfo.offset}</p>
-                    </div>
-                    <p class="text-2xl font-bold text-blue-600">${tzInfo.time}</p>
-                </div>
-            </div>`;
-        });
-        html += '</div>';
-    }
-    
-    html += '</div>';
-    resultContent.innerHTML = html;
-    
-    // Display step-by-step solution
-    if (data.step_by_step && data.step_by_step.length > 0) {
-        let stepsHtml = '<div class="mt-6"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3><div class="bg-gray-50 p-4 rounded-lg space-y-2">';
-        data.step_by_step.forEach(step => {
-            if (step === '') {
-                stepsHtml += '<div class="my-2"></div>';
-            } else {
-                stepsHtml += `<p class="text-sm text-gray-700">${step}</p>`;
-            }
-        });
-        stepsHtml += '</div></div>';
-        stepByStepDiv.innerHTML = stepsHtml;
-    }
-    
-    resultsDiv.classList.remove('hidden');
-    
-    // Display chart if available
-    if (data.chart_data) {
-        displayChart(data.chart_data);
-    }
-}
-
-function displayChart(chartData) {
-    const chartSection = document.getElementById('chartSection');
-    const canvas = document.getElementById('resultChart');
-    const ctx = canvas.getContext('2d');
-    
-    // Destroy existing chart
+function resetTimeZone() {
+    document.getElementById('time').value = '';
+    switchCalcMode('convert');
+    document.getElementById('resultsSection').classList.add('hidden');
+    document.getElementById('initialState').classList.remove('hidden');
+    document.getElementById('errorState').classList.add('hidden');
     if (resultChart) {
         resultChart.destroy();
-    }
-    
-    // Find the first chart config
-    const chartKey = Object.keys(chartData)[0];
-    const config = chartData[chartKey];
-    
-    if (config) {
-        resultChart = new Chart(ctx, config);
-        chartSection.classList.remove('hidden');
+        resultChart = null;
     }
 }
 
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function buildRequestData() {
+    const mode = document.getElementById('calcType').value;
+    const data = { calc_type: mode };
+    if (mode === 'convert') {
+        data.time = document.getElementById('time').value.trim();
+        data.from_timezone = document.getElementById('fromTimezone').value;
+        data.to_timezone = document.getElementById('toTimezone').value;
+    } else if (mode === 'difference') {
+        data.timezone1 = document.getElementById('timezone1').value;
+        data.timezone2 = document.getElementById('timezone2').value;
+    } else if (mode === 'current') {
+        const checkboxes = document.querySelectorAll('#timezoneCheckboxes input[type="checkbox"]:checked');
+        data.timezones = Array.from(checkboxes).map(cb => cb.value);
+    }
+    return data;
+}
+
+async function submitCalculation() {
+    const mode = document.getElementById('calcType').value;
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    if (!errorState || !errorMessage) return;
+    errorState.classList.add('hidden');
+
+    if (mode === 'convert') {
+        const d = buildRequestData();
+        if (!d.time) {
+            errorMessage.textContent = '{% trans "Please enter a time" %}';
+            errorState.classList.remove('hidden');
+            return;
+        }
+    } else if (mode === 'current') {
+        const d = buildRequestData();
+        if (!d.timezones || d.timezones.length === 0) {
+            errorMessage.textContent = '{% trans "Please select at least one timezone" %}';
+            errorState.classList.remove('hidden');
+            return;
         }
     }
-    return cookieValue;
+
+    const btn = document.getElementById('calculateBtn');
+    const btnText = document.getElementById('calculateBtnText');
+    const spinner = document.getElementById('loadingSpinner');
+    const icon = document.getElementById('calculateIcon');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+
+    if (!csrfToken) {
+        errorMessage.textContent = '{% trans "CSRF token not found. Please refresh." %}';
+        errorState.classList.remove('hidden');
+        return;
+    }
+
+    const requestData = buildRequestData();
+    btn.disabled = true;
+    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
+    if (spinner) spinner.classList.remove('hidden');
+    if (icon) icon.classList.add('hidden');
+
+    try {
+        const response = await fetch('{% url "other_calculators:time_zone_calculator" %}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : {}; } catch (err) { /* ignore */ }
+
+        if (!data || !data.success) {
+            errorMessage.textContent = (data && data.error) ? data.error : '{% trans "An error occurred. Please try again." %}';
+            errorState.classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('initialState')?.classList.add('hidden');
+        document.getElementById('resultsSection')?.classList.remove('hidden');
+        document.getElementById('resultsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        if (data.calc_type === 'convert') {
+            document.getElementById('resultValue').textContent = data.result_time;
+            document.getElementById('resultDetails').textContent = data.time + ' ' + data.from_timezone + ' → ' + data.to_timezone;
+            document.getElementById('resultContent').innerHTML = `
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center"><p class="text-sm text-gray-600 mb-1">{% trans "Time Difference" %}</p><p class="text-lg font-bold text-blue-600">${data.time_diff_hours > 0 ? '+' : ''}${data.time_diff_hours} {% trans "hours" %}</p></div>
+            `;
+        } else if (data.calc_type === 'difference') {
+            document.getElementById('resultValue').textContent = (data.difference_hours > 0 ? '+' : '') + data.difference_hours + ' {% trans "hours" %}';
+            document.getElementById('resultDetails').textContent = data.timezone1 + ' → ' + data.timezone2;
+            document.getElementById('resultContent').innerHTML = `
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center"><p class="text-sm text-gray-600 mb-1">{% trans "Minutes" %}</p><p class="text-lg font-bold text-blue-600">${data.difference_minutes}</p></div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center"><p class="text-sm text-gray-600 mb-1">{% trans "Seconds" %}</p><p class="text-lg font-bold text-blue-600">${data.difference_seconds}</p></div>
+            `;
+        } else if (data.calc_type === 'current') {
+            document.getElementById('resultValue').textContent = data.current_times.length ? data.current_times[0].time : '-';
+            document.getElementById('resultDetails').textContent = data.current_times.length ? data.current_times[0].timezone + ' (UTC' + (data.current_times[0].offset >= 0 ? '+' : '') + data.current_times[0].offset + ')' : '';
+            let html = '';
+            data.current_times.forEach(tzInfo => {
+                html += `<div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm flex justify-between items-center">
+                    <div><p class="font-semibold text-gray-900">${tzInfo.timezone}</p><p class="text-xs text-gray-500">UTC${tzInfo.offset > 0 ? '+' : ''}${tzInfo.offset}</p></div>
+                    <p class="text-xl font-bold text-blue-600">${tzInfo.time}</p>
+                </div>`;
+            });
+            document.getElementById('resultContent').innerHTML = html || '<div class="col-span-full text-gray-500">{% trans "Current time" %}</div>';
+        }
+
+        if (data.chart_data) {
+            const chartKey = Object.keys(data.chart_data)[0];
+            const config = data.chart_data[chartKey];
+            if (config) {
+                const chartEl = document.getElementById('resultChart');
+                if (chartEl && typeof Chart !== 'undefined') {
+                    if (resultChart) resultChart.destroy();
+                    resultChart = new Chart(chartEl.getContext('2d'), config);
+                }
+                document.getElementById('chartSection').classList.remove('hidden');
+            } else {
+                document.getElementById('chartSection').classList.add('hidden');
+            }
+        } else {
+            document.getElementById('chartSection').classList.add('hidden');
+        }
+
+        const stepEl = document.getElementById('stepByStep');
+        if (stepEl && data.step_by_step && data.step_by_step.length > 0) {
+            let stepNum = 0;
+            stepEl.innerHTML = data.step_by_step.map(step => {
+                if (!step || !String(step).trim()) return '<div class="my-3"></div>';
+                const text = escapeHtml(step);
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note)/i.test(text);
+                const isFormula = /[=×÷+\-*\/]/.test(text) && text.length < 100;
+                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
+                const isNote = /^(Note|Important|Remember)/i.test(text);
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                    </div>`;
+                } else if (isFormula) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
+                } else if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg"><div class="flex items-center gap-2 mb-2"><svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="font-semibold text-green-800">{% trans "Result" %}</span></div><p class="text-gray-800 font-medium">${text}</p></div>`;
+                } else if (isNote) {
+                    return `<div class="mb-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg"><div class="flex items-start gap-2"><svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><p class="text-yellow-800 text-sm">${text}</p></div></div>`;
+                } else {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
+                }
+            }).join('');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        if (errorState && errorMessage) {
+            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorState.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
+        if (spinner) spinner.classList.add('hidden');
+        if (icon) icon.classList.remove('hidden');
+    }
 }
 </script>
 {% endblock %}

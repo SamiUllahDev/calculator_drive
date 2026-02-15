@@ -1,849 +1,581 @@
 from django.views import View
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
 import math
-import numpy as np
+import logging
 from datetime import datetime, timedelta
-from sympy import symbols, Eq, simplify, latex
+
+logger = logging.getLogger(__name__)
+
+
+class SafeJSONEncoder(DjangoJSONEncoder):
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError:
+            return str(o) if o is not None else None
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class HoursCalculator(View):
     """
-    Professional Hours Calculator with Comprehensive Features
-    
-    This calculator provides hours calculations with:
-    - Calculate hours between two times
-    - Add/subtract hours from a time
-    - Convert between hours, minutes, seconds, days
-    - Calculate total hours from multiple time periods
-    - Calculate hours worked (time tracking)
-    
-    Features:
-    - Supports multiple calculation modes
-    - Handles various time formats
-    - Provides step-by-step solutions
-    - Interactive visualizations
+    Hours Calculator: time difference, add/subtract hours, convert units,
+    total hours from periods, hours worked. BMI-style upgrade.
     """
     template_name = 'other_calculators/hours_calculator.html'
-    
-    # Conversion factors
+
     HOURS_TO_MINUTES = 60.0
     MINUTES_TO_HOURS = 1.0 / 60.0
     HOURS_TO_SECONDS = 3600.0
     SECONDS_TO_HOURS = 1.0 / 3600.0
     HOURS_TO_DAYS = 1.0 / 24.0
     DAYS_TO_HOURS = 24.0
-    
-    def _format_unit(self, unit):
-        """Format unit name for display"""
-        return unit
-    
+
+    def _get_data(self, request):
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        if request.body:
+            try:
+                return json.loads(request.body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _val(self, data, key, default=None):
+        v = data.get(key, default)
+        return (v[0] if isinstance(v, list) and v else v) if v is not None else default
+
     def get(self, request):
-        """Handle GET request"""
-        context = {
-            'calculator_name': _('Hours Calculator'),
-        }
+        context = {'calculator_name': str(_('Hours Calculator'))}
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'time_difference')
-            
+            data = self._get_data(request)
+            if not data:
+                return HttpResponse(
+                    json.dumps({'success': False, 'error': str(_('Invalid request data.'))}, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            calc_type = self._val(data, 'calc_type', 'time_difference')
             if calc_type == 'time_difference':
-                return self._calculate_time_difference(data)
+                result = self._calculate_time_difference(data)
             elif calc_type == 'add_subtract':
-                return self._add_subtract_hours(data)
+                result = self._add_subtract_hours(data)
             elif calc_type == 'convert':
-                return self._convert_time_units(data)
+                result = self._convert_time_units(data)
             elif calc_type == 'total_hours':
-                return self._calculate_total_hours(data)
+                result = self._calculate_total_hours(data)
             elif calc_type == 'hours_worked':
-                return self._calculate_hours_worked(data)
+                result = self._calculate_hours_worked(data)
             else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
+                return HttpResponse(
+                    json.dumps({'success': False, 'error': str(_('Invalid calculation type.'))}, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            if isinstance(result, dict) and not result.get('success'):
+                return HttpResponse(
+                    json.dumps(result, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            return HttpResponse(json.dumps(result, cls=SafeJSONEncoder), content_type='application/json')
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _parse_time(self, time_str):
-        """Parse time string in HH:MM or HH:MM:SS format"""
-        try:
-            parts = time_str.split(':')
-            if len(parts) == 2:
-                hours = int(parts[0])
-                minutes = int(parts[1])
-                seconds = 0
-            elif len(parts) == 3:
-                hours = int(parts[0])
-                minutes = int(parts[1])
-                seconds = int(parts[2])
-            else:
-                raise ValueError('Invalid time format')
-            
-            if hours < 0 or hours >= 24 or minutes < 0 or minutes >= 60 or seconds < 0 or seconds >= 60:
-                raise ValueError('Invalid time values')
-            
-            return hours, minutes, seconds
-        except (ValueError, IndexError) as e:
-            raise ValueError(f'Invalid time format: {time_str}')
-    
-    def _time_to_hours(self, hours, minutes, seconds):
-        """Convert time to decimal hours"""
-        return float(np.add(
-            float(hours),
-            np.add(
-                np.multiply(minutes, self.MINUTES_TO_HOURS),
-                np.multiply(seconds, self.SECONDS_TO_HOURS)
+            logger.exception("Hours calculator failed: %s", e)
+            from django.conf import settings
+            err_msg = str(_('An error occurred during calculation.'))
+            if getattr(settings, 'DEBUG', False):
+                err_msg += ' [' + str(e).replace('"', "'") + ']'
+            return HttpResponse(
+                json.dumps({'success': False, 'error': err_msg}, cls=SafeJSONEncoder),
+                content_type='application/json',
+                status=500
             )
-        ))
-    
+
+    def _parse_time(self, time_str):
+        try:
+            parts = str(time_str).split(':')
+            if len(parts) == 2:
+                hours, minutes, seconds = int(parts[0]), int(parts[1]), 0
+            elif len(parts) == 3:
+                hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+            else:
+                raise ValueError(str(_('Invalid time format')))
+            if hours < 0 or hours >= 24 or minutes < 0 or minutes >= 60 or seconds < 0 or seconds >= 60:
+                raise ValueError(str(_('Invalid time values')))
+            return hours, minutes, seconds
+        except (ValueError, IndexError, TypeError):
+            raise ValueError(str(_('Invalid time format: {time}')).format(time=time_str))
+
+    def _time_to_hours(self, hours, minutes, seconds):
+        return float(hours) + minutes * self.MINUTES_TO_HOURS + seconds * self.SECONDS_TO_HOURS
+
     def _hours_to_time(self, decimal_hours):
-        """Convert decimal hours to hours, minutes, seconds"""
-        hours = int(np.floor(decimal_hours))
-        remaining = float(np.subtract(decimal_hours, hours))
-        minutes_decimal = float(np.multiply(remaining, self.HOURS_TO_MINUTES))
-        minutes = int(np.floor(minutes_decimal))
-        seconds_decimal = float(np.subtract(minutes_decimal, minutes))
-        seconds = int(np.round(np.multiply(seconds_decimal, self.HOURS_TO_MINUTES)))
-        
+        hours = int(decimal_hours)
+        remaining = decimal_hours - hours
+        minutes_decimal = remaining * self.HOURS_TO_MINUTES
+        minutes = int(minutes_decimal)
+        seconds_decimal = minutes_decimal - minutes
+        seconds = int(round(seconds_decimal * self.HOURS_TO_MINUTES))
         if seconds >= 60:
             seconds = 0
             minutes += 1
         if minutes >= 60:
             minutes = 0
             hours += 1
-        
         return hours, minutes, seconds
-    
+
     def _calculate_time_difference(self, data):
-        """Calculate hours between two times"""
+        start_time_str = self._val(data, 'start_time', '').strip() or ''
+        end_time_str = self._val(data, 'end_time', '').strip() or ''
+        if not start_time_str:
+            return {'success': False, 'error': str(_('Start time is required.'))}
+        if not end_time_str:
+            return {'success': False, 'error': str(_('End time is required.'))}
         try:
-            if 'start_time' not in data or not data.get('start_time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Start time is required.')
-                }, status=400)
-            
-            if 'end_time' not in data or not data.get('end_time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('End time is required.')
-                }, status=400)
-            
-            start_time_str = data.get('start_time', '').strip()
-            end_time_str = data.get('end_time', '').strip()
-            next_day = data.get('next_day', False)
-            
-            try:
-                start_h, start_m, start_s = self._parse_time(start_time_str)
-                end_h, end_m, end_s = self._parse_time(end_time_str)
-            except ValueError as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=400)
-            
-            # Convert to decimal hours
-            start_hours = self._time_to_hours(start_h, start_m, start_s)
-            end_hours = self._time_to_hours(end_h, end_m, end_s)
-            
-            # If end time is before start time, assume next day
-            if end_hours < start_hours and not next_day:
-                next_day = True
-            
-            if next_day:
-                end_hours = float(np.add(end_hours, 24.0))
-            
-            # Calculate difference
-            difference_hours = float(np.subtract(end_hours, start_hours))
-            
-            # Validate result
-            if difference_hours < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('End time must be after start time.')
-                }, status=400)
-            
-            if difference_hours > 48:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time difference exceeds 48 hours. Please check your inputs.')
-                }, status=400)
-            
-            # Convert to other units
-            difference_minutes = float(np.multiply(difference_hours, self.HOURS_TO_MINUTES))
-            difference_seconds = float(np.multiply(difference_hours, self.HOURS_TO_HOURS))
-            difference_days = float(np.multiply(difference_hours, self.HOURS_TO_DAYS))
-            
-            # Convert to time format
-            diff_h, diff_m, diff_s = self._hours_to_time(difference_hours)
-            
-            steps = self._prepare_time_difference_steps(start_time_str, end_time_str, next_day, start_hours, end_hours, difference_hours, diff_h, diff_m, diff_s, difference_minutes, difference_seconds, difference_days)
-            
-            chart_data = self._prepare_time_difference_chart_data(start_hours, end_hours, difference_hours)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'time_difference',
-                'start_time': start_time_str,
-                'end_time': end_time_str,
-                'next_day': next_day,
-                'difference_hours': round(difference_hours, 2),
-                'difference_minutes': round(difference_minutes, 1),
-                'difference_seconds': round(difference_seconds, 0),
-                'difference_days': round(difference_days, 4),
-                'difference_time': f'{diff_h:02d}:{diff_m:02d}:{diff_s:02d}',
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating time difference: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _add_subtract_hours(self, data):
-        """Add or subtract hours from a time"""
-        try:
-            if 'time' not in data or not data.get('time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time is required.')
-                }, status=400)
-            
-            if 'hours' not in data or data.get('hours') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Hours to add/subtract is required.')
-                }, status=400)
-            
-            time_str = data.get('time', '').strip()
-            operation = data.get('operation', 'add')
-            
-            try:
-                hours_to_add = float(data.get('hours', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid hours value. Please enter a numeric value.')
-                }, status=400)
-            
-            try:
-                time_h, time_m, time_s = self._parse_time(time_str)
-            except ValueError as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=400)
-            
-            # Convert to decimal hours
-            time_hours = self._time_to_hours(time_h, time_m, time_s)
-            
-            # Add or subtract
-            if operation == 'add':
-                result_hours = float(np.add(time_hours, hours_to_add))
-            else:
-                result_hours = float(np.subtract(time_hours, hours_to_add))
-            
-            # Handle day overflow/underflow
-            days = 0
-            while result_hours >= 24:
-                result_hours = float(np.subtract(result_hours, 24.0))
-                days += 1
-            while result_hours < 0:
-                result_hours = float(np.add(result_hours, 24.0))
-                days -= 1
-            
-            # Convert to time format
-            result_h, result_m, result_s = self._hours_to_time(result_hours)
-            
-            steps = self._prepare_add_subtract_steps(time_str, hours_to_add, operation, time_hours, result_hours, result_h, result_m, result_s, days)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'add_subtract',
-                'time': time_str,
-                'hours': hours_to_add,
-                'operation': operation,
-                'result_time': f'{result_h:02d}:{result_m:02d}:{result_s:02d}',
-                'result_hours': round(result_hours, 2),
-                'days': days,
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error adding/subtracting hours: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _convert_time_units(self, data):
-        """Convert between time units"""
-        try:
-            if 'value' not in data or data.get('value') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time value is required.')
-                }, status=400)
-            
-            try:
-                value = float(data.get('value', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter a numeric value.')
-                }, status=400)
-            
-            from_unit = data.get('from_unit', 'hours')
-            to_unit = data.get('to_unit', 'minutes')
-            
-            # Validate units
-            if from_unit not in ['hours', 'minutes', 'seconds', 'days'] or to_unit not in ['hours', 'minutes', 'seconds', 'days']:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid unit.')
-                }, status=400)
-            
-            if value < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time must be non-negative.')
-                }, status=400)
-            
-            # Convert to hours first
-            if from_unit == 'hours':
-                hours_value = value
-            elif from_unit == 'minutes':
-                hours_value = float(np.multiply(value, self.MINUTES_TO_HOURS))
-            elif from_unit == 'seconds':
-                hours_value = float(np.multiply(value, self.SECONDS_TO_HOURS))
-            elif from_unit == 'days':
-                hours_value = float(np.multiply(value, self.DAYS_TO_HOURS))
-            
-            # Convert to target unit
-            if to_unit == 'hours':
-                result = hours_value
-            elif to_unit == 'minutes':
-                result = float(np.multiply(hours_value, self.HOURS_TO_MINUTES))
-            elif to_unit == 'seconds':
-                result = float(np.multiply(hours_value, self.HOURS_TO_SECONDS))
-            elif to_unit == 'days':
-                result = float(np.multiply(hours_value, self.HOURS_TO_DAYS))
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid conversion result.')
-                }, status=400)
-            
-            steps = self._prepare_convert_steps(value, from_unit, to_unit, result, hours_value)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'convert',
-                'value': value,
-                'from_unit': from_unit,
-                'to_unit': to_unit,
-                'result': round(result, 2),
-                'step_by_step': steps,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-    
-    def _calculate_total_hours(self, data):
-        """Calculate total hours from multiple time periods"""
-        try:
-            if 'time_periods' not in data or not isinstance(data.get('time_periods'), list):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time periods are required as a list.')
-                }, status=400)
-            
-            time_periods = data.get('time_periods', [])
-            
-            if len(time_periods) == 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('At least one time period is required.')
-                }, status=400)
-            
-            if len(time_periods) > 50:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Maximum 50 time periods allowed.')
-                }, status=400)
-            
-            total_hours = 0.0
-            processed_periods = []
-            
-            for i, period in enumerate(time_periods):
-                if not isinstance(period, dict):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid time period data format.')
-                    }, status=400)
-                
-                start_time = period.get('start_time', '').strip()
-                end_time = period.get('end_time', '').strip()
-                next_day = period.get('next_day', False)
-                
-                if not start_time or not end_time:
-                    continue
-                
-                try:
-                    start_h, start_m, start_s = self._parse_time(start_time)
-                    end_h, end_m, end_s = self._parse_time(end_time)
-                except ValueError as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid time format in period {num}: {error}').format(num=i+1, error=str(e))
-                    }, status=400)
-                
-                start_hours = self._time_to_hours(start_h, start_m, start_s)
-                end_hours = self._time_to_hours(end_h, end_m, end_s)
-                
-                if end_hours < start_hours and not next_day:
-                    next_day = True
-                
-                if next_day:
-                    end_hours = float(np.add(end_hours, 24.0))
-                
-                period_hours = float(np.subtract(end_hours, start_hours))
-                
-                if period_hours < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid time period {num}: end time must be after start time.').format(num=i+1)
-                    }, status=400)
-                
-                processed_periods.append({
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'hours': round(period_hours, 2)
-                })
-                
-                total_hours = float(np.add(total_hours, period_hours))
-            
-            # Convert to other units
-            total_minutes = float(np.multiply(total_hours, self.HOURS_TO_MINUTES))
-            total_seconds = float(np.multiply(total_hours, self.HOURS_TO_SECONDS))
-            total_days = float(np.multiply(total_hours, self.HOURS_TO_DAYS))
-            
-            # Convert to time format
-            total_h, total_m, total_s = self._hours_to_time(total_hours)
-            
-            steps = self._prepare_total_hours_steps(processed_periods, total_hours, total_h, total_m, total_s, total_minutes, total_seconds, total_days)
-            
-            chart_data = self._prepare_total_hours_chart_data(processed_periods, total_hours)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'total_hours',
-                'time_periods': processed_periods,
-                'total_hours': round(total_hours, 2),
-                'total_minutes': round(total_minutes, 1),
-                'total_seconds': round(total_seconds, 0),
-                'total_days': round(total_days, 4),
-                'total_time': f'{total_h:02d}:{total_m:02d}:{total_s:02d}',
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating total hours: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_hours_worked(self, data):
-        """Calculate hours worked (time tracking)"""
-        try:
-            if 'start_time' not in data or not data.get('start_time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Start time is required.')
-                }, status=400)
-            
-            if 'end_time' not in data or not data.get('end_time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('End time is required.')
-                }, status=400)
-            
-            start_time_str = data.get('start_time', '').strip()
-            end_time_str = data.get('end_time', '').strip()
-            break_minutes = float(data.get('break_minutes', 0) or 0)
-            next_day = data.get('next_day', False)
-            
-            try:
-                start_h, start_m, start_s = self._parse_time(start_time_str)
-                end_h, end_m, end_s = self._parse_time(end_time_str)
-            except ValueError as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=400)
-            
-            if break_minutes < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Break time must be non-negative.')
-                }, status=400)
-            
-            # Convert to decimal hours
-            start_hours = self._time_to_hours(start_h, start_m, start_s)
-            end_hours = self._time_to_hours(end_h, end_m, end_s)
-            
-            if end_hours < start_hours and not next_day:
-                next_day = True
-            
-            if next_day:
-                end_hours = float(np.add(end_hours, 24.0))
-            
-            # Calculate total time
-            total_hours = float(np.subtract(end_hours, start_hours))
-            
-            # Subtract break time
-            break_hours = float(np.multiply(break_minutes, self.MINUTES_TO_HOURS))
-            hours_worked = float(np.subtract(total_hours, break_hours))
-            
-            if hours_worked < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Break time cannot exceed total time.')
-                }, status=400)
-            
-            # Convert to other units
-            hours_worked_minutes = float(np.multiply(hours_worked, self.HOURS_TO_MINUTES))
-            
-            # Convert to time format
-            worked_h, worked_m, worked_s = self._hours_to_time(hours_worked)
-            
-            steps = self._prepare_hours_worked_steps(start_time_str, end_time_str, next_day, break_minutes, start_hours, end_hours, total_hours, break_hours, hours_worked, worked_h, worked_m, worked_s)
-            
-            chart_data = self._prepare_hours_worked_chart_data(total_hours, break_hours, hours_worked)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'hours_worked',
-                'start_time': start_time_str,
-                'end_time': end_time_str,
-                'break_minutes': break_minutes,
-                'next_day': next_day,
-                'total_hours': round(total_hours, 2),
-                'break_hours': round(break_hours, 2),
-                'hours_worked': round(hours_worked, 2),
-                'hours_worked_minutes': round(hours_worked_minutes, 1),
-                'hours_worked_time': f'{worked_h:02d}:{worked_m:02d}:{worked_s:02d}',
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating hours worked: {error}').format(error=str(e))
-            }, status=500)
-    
-    # Step-by-step solution preparation methods
-    def _prepare_time_difference_steps(self, start_time, end_time, next_day, start_hours, end_hours, difference_hours, diff_h, diff_m, diff_s, diff_minutes, diff_seconds, diff_days):
-        """Prepare step-by-step solution for time difference calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given times'))
-        steps.append(_('Start Time: {time}').format(time=start_time))
-        steps.append(_('End Time: {time}').format(time=end_time))
+            start_h, start_m, start_s = self._parse_time(start_time_str)
+            end_h, end_m, end_s = self._parse_time(end_time_str)
+        except ValueError as e:
+            return {'success': False, 'error': str(e)}
+        next_day = data.get('next_day') in (True, 'true', 'True', 1, '1')
+        start_hours = self._time_to_hours(start_h, start_m, start_s)
+        end_hours = self._time_to_hours(end_h, end_m, end_s)
+        if end_hours < start_hours and not next_day:
+            next_day = True
         if next_day:
-            steps.append(_('Note: End time is on the next day'))
-        steps.append('')
-        steps.append(_('Step 2: Convert to decimal hours'))
-        steps.append(_('Start Time: {hours} hours').format(hours=start_hours))
-        steps.append(_('End Time: {hours} hours').format(hours=end_hours))
-        steps.append('')
-        steps.append(_('Step 3: Calculate difference'))
-        steps.append(_('Difference = End Time - Start Time'))
-        steps.append(_('Difference = {end} - {start} = {diff} hours').format(end=end_hours, start=start_hours, diff=difference_hours))
-        steps.append('')
-        steps.append(_('Step 4: Convert to other units'))
-        steps.append(_('Time Format: {h:02d}:{m:02d}:{s:02d}').format(h=diff_h, m=diff_m, s=diff_s))
-        steps.append(_('Minutes: {min} minutes').format(min=diff_minutes))
-        steps.append(_('Seconds: {sec} seconds').format(sec=diff_seconds))
-        steps.append(_('Days: {days} days').format(days=diff_days))
-        return steps
-    
-    def _prepare_add_subtract_steps(self, time_str, hours_to_add, operation, time_hours, result_hours, result_h, result_m, result_s, days):
-        """Prepare step-by-step solution for add/subtract hours calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Time: {time}').format(time=time_str))
-        steps.append(_('Hours to {op}: {hours}').format(op=_('add') if operation == 'add' else _('subtract'), hours=hours_to_add))
-        steps.append('')
-        steps.append(_('Step 2: Convert time to decimal hours'))
-        steps.append(_('Time = {hours} hours').format(hours=time_hours))
-        steps.append('')
-        steps.append(_('Step 3: {op} hours').format(op=_('Add') if operation == 'add' else _('Subtract')))
+            end_hours += 24.0
+        difference_hours = end_hours - start_hours
+        if difference_hours < 0:
+            return {'success': False, 'error': str(_('End time must be after start time.'))}
+        if difference_hours > 48:
+            return {'success': False, 'error': str(_('Time difference exceeds 48 hours. Please check your inputs.'))}
+        difference_minutes = difference_hours * self.HOURS_TO_MINUTES
+        difference_seconds = difference_hours * self.HOURS_TO_SECONDS
+        difference_days = difference_hours * self.HOURS_TO_DAYS
+        diff_h, diff_m, diff_s = self._hours_to_time(difference_hours)
+        steps = self._prepare_time_difference_steps(
+            start_time_str, end_time_str, next_day, start_hours, end_hours, difference_hours,
+            diff_h, diff_m, diff_s, difference_minutes, difference_seconds, difference_days
+        )
+        chart_data = self._prepare_time_difference_chart_data(start_hours, end_hours, difference_hours)
+        return {
+            'success': True,
+            'calc_type': 'time_difference',
+            'start_time': start_time_str,
+            'end_time': end_time_str,
+            'next_day': next_day,
+            'difference_hours': round(difference_hours, 2),
+            'difference_minutes': round(difference_minutes, 1),
+            'difference_seconds': round(difference_seconds, 0),
+            'difference_days': round(difference_days, 4),
+            'difference_time': f'{diff_h:02d}:{diff_m:02d}:{diff_s:02d}',
+            'step_by_step': steps,
+            'chart_data': chart_data,
+        }
+
+    def _add_subtract_hours(self, data):
+        time_str = self._val(data, 'time', '').strip() or ''
+        if not time_str:
+            return {'success': False, 'error': str(_('Time is required.'))}
+        hours_raw = self._val(data, 'hours')
+        if hours_raw is None or hours_raw == '':
+            return {'success': False, 'error': str(_('Hours to add/subtract is required.'))}
+        try:
+            hours_to_add = float(hours_raw)
+        except (ValueError, TypeError):
+            return {'success': False, 'error': str(_('Invalid hours value. Please enter a numeric value.'))}
+        operation = self._val(data, 'operation', 'add')
+        try:
+            time_h, time_m, time_s = self._parse_time(time_str)
+        except ValueError as e:
+            return {'success': False, 'error': str(e)}
+        time_hours = self._time_to_hours(time_h, time_m, time_s)
         if operation == 'add':
-            steps.append(_('Result = {time} + {hours} = {result} hours').format(time=time_hours, hours=hours_to_add, result=result_hours))
+            result_hours = time_hours + hours_to_add
         else:
-            steps.append(_('Result = {time} - {hours} = {result} hours').format(time=time_hours, hours=hours_to_add, result=result_hours))
-        steps.append('')
-        steps.append(_('Step 4: Convert to time format'))
-        if days != 0:
-            steps.append(_('Result: {h:02d}:{m:02d}:{s:02d} ({days} day(s) {op})').format(h=result_h, m=result_m, s=result_s, days=abs(days), op=_('later') if days > 0 else _('earlier')))
+            result_hours = time_hours - hours_to_add
+        days = 0
+        while result_hours >= 24:
+            result_hours -= 24.0
+            days += 1
+        while result_hours < 0:
+            result_hours += 24.0
+            days -= 1
+        result_h, result_m, result_s = self._hours_to_time(result_hours)
+        steps = self._prepare_add_subtract_steps(
+            time_str, hours_to_add, operation, time_hours, result_hours,
+            result_h, result_m, result_s, days
+        )
+        return {
+            'success': True,
+            'calc_type': 'add_subtract',
+            'time': time_str,
+            'hours': hours_to_add,
+            'operation': operation,
+            'result_time': f'{result_h:02d}:{result_m:02d}:{result_s:02d}',
+            'result_hours': round(result_hours, 2),
+            'days': days,
+            'step_by_step': steps,
+        }
+
+    def _convert_time_units(self, data):
+        value_raw = self._val(data, 'value')
+        if value_raw is None or value_raw == '':
+            return {'success': False, 'error': str(_('Time value is required.'))}
+        try:
+            value = float(value_raw)
+        except (ValueError, TypeError):
+            return {'success': False, 'error': str(_('Invalid input type. Please enter a numeric value.'))}
+        from_unit = self._val(data, 'from_unit', 'hours') or 'hours'
+        to_unit = self._val(data, 'to_unit', 'minutes') or 'minutes'
+        if from_unit not in ('hours', 'minutes', 'seconds', 'days') or to_unit not in ('hours', 'minutes', 'seconds', 'days'):
+            return {'success': False, 'error': str(_('Invalid unit.'))}
+        if value < 0:
+            return {'success': False, 'error': str(_('Time must be non-negative.'))}
+        if from_unit == 'hours':
+            hours_value = value
+        elif from_unit == 'minutes':
+            hours_value = value * self.MINUTES_TO_HOURS
+        elif from_unit == 'seconds':
+            hours_value = value * self.SECONDS_TO_HOURS
         else:
-            steps.append(_('Result: {h:02d}:{m:02d}:{s:02d}').format(h=result_h, m=result_m, s=result_s))
-        return steps
-    
-    def _prepare_convert_steps(self, value, from_unit, to_unit, result, hours_value):
-        """Prepare step-by-step solution for time unit conversion"""
+            hours_value = value * self.DAYS_TO_HOURS
+        if to_unit == 'hours':
+            result = hours_value
+        elif to_unit == 'minutes':
+            result = hours_value * self.HOURS_TO_MINUTES
+        elif to_unit == 'seconds':
+            result = hours_value * self.HOURS_TO_SECONDS
+        else:
+            result = hours_value * self.HOURS_TO_DAYS
+        if math.isinf(result) or math.isnan(result):
+            return {'success': False, 'error': str(_('Invalid conversion result.'))}
+        steps = self._prepare_convert_steps(value, from_unit, to_unit, result, hours_value)
+        return {
+            'success': True,
+            'calc_type': 'convert',
+            'value': value,
+            'from_unit': from_unit,
+            'to_unit': to_unit,
+            'result': round(result, 2),
+            'step_by_step': steps,
+        }
+
+    def _calculate_total_hours(self, data):
+        time_periods_raw = data.get('time_periods')
+        if not isinstance(time_periods_raw, list):
+            return {'success': False, 'error': str(_('Time periods are required as a list.'))}
+        time_periods = time_periods_raw
+        if len(time_periods) == 0:
+            return {'success': False, 'error': str(_('At least one time period is required.'))}
+        if len(time_periods) > 50:
+            return {'success': False, 'error': str(_('Maximum 50 time periods allowed.'))}
+        total_hours = 0.0
+        processed_periods = []
+        for i, period in enumerate(time_periods):
+            if not isinstance(period, dict):
+                return {'success': False, 'error': str(_('Invalid time period data format.'))}
+            start_time = (period.get('start_time') or '').strip()
+            end_time = (period.get('end_time') or '').strip()
+            next_day = period.get('next_day') in (True, 'true', 'True', 1, '1')
+            if not start_time or not end_time:
+                continue
+            try:
+                start_h, start_m, start_s = self._parse_time(start_time)
+                end_h, end_m, end_s = self._parse_time(end_time)
+            except ValueError as e:
+                return {'success': False, 'error': str(_('Invalid time format in period {num}: {error}')).format(num=i + 1, error=str(e))}
+            start_hours = self._time_to_hours(start_h, start_m, start_s)
+            end_hours = self._time_to_hours(end_h, end_m, end_s)
+            if end_hours < start_hours and not next_day:
+                next_day = True
+            if next_day:
+                end_hours += 24.0
+            period_hours = end_hours - start_hours
+            if period_hours < 0:
+                return {'success': False, 'error': str(_('Invalid time period {num}: end time must be after start time.')).format(num=i + 1)}
+            processed_periods.append({'start_time': start_time, 'end_time': end_time, 'hours': round(period_hours, 2)})
+            total_hours += period_hours
+        total_minutes = total_hours * self.HOURS_TO_MINUTES
+        total_seconds = total_hours * self.HOURS_TO_SECONDS
+        total_days = total_hours * self.HOURS_TO_DAYS
+        total_h, total_m, total_s = self._hours_to_time(total_hours)
+        steps = self._prepare_total_hours_steps(
+            processed_periods, total_hours, total_h, total_m, total_s,
+            total_minutes, total_seconds, total_days
+        )
+        chart_data = self._prepare_total_hours_chart_data(processed_periods, total_hours)
+        return {
+            'success': True,
+            'calc_type': 'total_hours',
+            'time_periods': processed_periods,
+            'total_hours': round(total_hours, 2),
+            'total_minutes': round(total_minutes, 1),
+            'total_seconds': round(total_seconds, 0),
+            'total_days': round(total_days, 4),
+            'total_time': f'{total_h:02d}:{total_m:02d}:{total_s:02d}',
+            'step_by_step': steps,
+            'chart_data': chart_data,
+        }
+
+    def _calculate_hours_worked(self, data):
+        start_time_str = self._val(data, 'start_time', '').strip() or ''
+        end_time_str = self._val(data, 'end_time', '').strip() or ''
+        if not start_time_str:
+            return {'success': False, 'error': str(_('Start time is required.'))}
+        if not end_time_str:
+            return {'success': False, 'error': str(_('End time is required.'))}
+        try:
+            break_minutes = float(self._val(data, 'break_minutes') or 0)
+        except (ValueError, TypeError):
+            break_minutes = 0.0
+        next_day = data.get('next_day') in (True, 'true', 'True', 1, '1')
+        try:
+            start_h, start_m, start_s = self._parse_time(start_time_str)
+            end_h, end_m, end_s = self._parse_time(end_time_str)
+        except ValueError as e:
+            return {'success': False, 'error': str(e)}
+        if break_minutes < 0:
+            return {'success': False, 'error': str(_('Break time must be non-negative.'))}
+        start_hours = self._time_to_hours(start_h, start_m, start_s)
+        end_hours = self._time_to_hours(end_h, end_m, end_s)
+        if end_hours < start_hours and not next_day:
+            next_day = True
+        if next_day:
+            end_hours += 24.0
+        total_hours = end_hours - start_hours
+        break_hours = break_minutes * self.MINUTES_TO_HOURS
+        hours_worked = total_hours - break_hours
+        if hours_worked < 0:
+            return {'success': False, 'error': str(_('Break time cannot exceed total time.'))}
+        hours_worked_minutes = hours_worked * self.HOURS_TO_MINUTES
+        worked_h, worked_m, worked_s = self._hours_to_time(hours_worked)
+        steps = self._prepare_hours_worked_steps(
+            start_time_str, end_time_str, next_day, break_minutes,
+            start_hours, end_hours, total_hours, break_hours, hours_worked,
+            worked_h, worked_m, worked_s
+        )
+        chart_data = self._prepare_hours_worked_chart_data(total_hours, break_hours, hours_worked)
+        return {
+            'success': True,
+            'calc_type': 'hours_worked',
+            'start_time': start_time_str,
+            'end_time': end_time_str,
+            'break_minutes': break_minutes,
+            'next_day': next_day,
+            'total_hours': round(total_hours, 2),
+            'break_hours': round(break_hours, 2),
+            'hours_worked': round(hours_worked, 2),
+            'hours_worked_minutes': round(hours_worked_minutes, 1),
+            'hours_worked_time': f'{worked_h:02d}:{worked_m:02d}:{worked_s:02d}',
+            'step_by_step': steps,
+            'chart_data': chart_data,
+        }
+
+    def _prepare_time_difference_steps(self, start_time, end_time, next_day, start_hours, end_hours, difference_hours, diff_h, diff_m, diff_s, diff_minutes, diff_seconds, diff_days):
         steps = []
-        steps.append(_('Step 1: Identify the given value'))
-        unit_names = {'hours': _('hours'), 'minutes': _('minutes'), 'seconds': _('seconds'), 'days': _('days')}
-        steps.append(_('Time: {value} {unit}').format(value=value, unit=unit_names[from_unit]))
+        steps.append(str(_('Step 1: Identify the given times')))
+        steps.append(str(_('Start Time: {time}')).format(time=start_time))
+        steps.append(str(_('End Time: {time}')).format(time=end_time))
+        if next_day:
+            steps.append(str(_('Note: End time is on the next day')))
+        steps.append('')
+        steps.append(str(_('Step 2: Convert to decimal hours')))
+        steps.append(str(_('Start Time: {hours} hours')).format(hours=start_hours))
+        steps.append(str(_('End Time: {hours} hours')).format(hours=end_hours))
+        steps.append('')
+        steps.append(str(_('Step 3: Calculate difference')))
+        steps.append(str(_('Difference = End Time - Start Time')))
+        steps.append(str(_('Difference = {end} - {start} = {diff} hours')).format(end=end_hours, start=start_hours, diff=difference_hours))
+        steps.append('')
+        steps.append(str(_('Step 4: Convert to other units')))
+        steps.append(str(_('Time Format: {h:02d}:{m:02d}:{s:02d}')).format(h=diff_h, m=diff_m, s=diff_s))
+        steps.append(str(_('Minutes: {min} minutes')).format(min=diff_minutes))
+        steps.append(str(_('Seconds: {sec} seconds')).format(sec=diff_seconds))
+        steps.append(str(_('Days: {days} days')).format(days=diff_days))
+        return steps
+
+    def _prepare_add_subtract_steps(self, time_str, hours_to_add, operation, time_hours, result_hours, result_h, result_m, result_s, days):
+        steps = []
+        steps.append(str(_('Step 1: Identify the given values')))
+        steps.append(str(_('Time: {time}')).format(time=time_str))
+        steps.append(str(_('Hours to {op}: {hours}')).format(op=str(_('add')) if operation == 'add' else str(_('subtract')), hours=hours_to_add))
+        steps.append('')
+        steps.append(str(_('Step 2: Convert time to decimal hours')))
+        steps.append(str(_('Time = {hours} hours')).format(hours=time_hours))
+        steps.append('')
+        steps.append(str(_('Step 3: {op} hours')).format(op=str(_('Add')) if operation == 'add' else str(_('Subtract'))))
+        if operation == 'add':
+            steps.append(str(_('Result = {time} + {hours} = {result} hours')).format(time=time_hours, hours=hours_to_add, result=result_hours))
+        else:
+            steps.append(str(_('Result = {time} - {hours} = {result} hours')).format(time=time_hours, hours=hours_to_add, result=result_hours))
+        steps.append('')
+        steps.append(str(_('Step 4: Convert to time format')))
+        if days != 0:
+            steps.append(str(_('Result: {h:02d}:{m:02d}:{s:02d} ({days} day(s) {op})')).format(h=result_h, m=result_m, s=result_s, days=abs(days), op=str(_('later')) if days > 0 else str(_('earlier'))))
+        else:
+            steps.append(str(_('Result: {h:02d}:{m:02d}:{s:02d}')).format(h=result_h, m=result_m, s=result_s))
+        return steps
+
+    def _prepare_convert_steps(self, value, from_unit, to_unit, result, hours_value):
+        steps = []
+        unit_names = {'hours': str(_('hours')), 'minutes': str(_('minutes')), 'seconds': str(_('seconds')), 'days': str(_('days'))}
+        steps.append(str(_('Step 1: Identify the given value')))
+        steps.append(str(_('Time: {value} {unit}')).format(value=value, unit=unit_names.get(from_unit, from_unit)))
         steps.append('')
         if from_unit != 'hours':
-            steps.append(_('Step 2: Convert to hours'))
+            steps.append(str(_('Step 2: Convert to hours')))
             if from_unit == 'minutes':
-                steps.append(_('Hours = Minutes / 60'))
-                steps.append(_('Hours = {min} / 60 = {hours} hours').format(min=value, hours=hours_value))
+                steps.append(str(_('Hours = Minutes / 60')))
+                steps.append(str(_('Hours = {min} / 60 = {hours} hours')).format(min=value, hours=hours_value))
             elif from_unit == 'seconds':
-                steps.append(_('Hours = Seconds / 3600'))
-                steps.append(_('Hours = {sec} / 3600 = {hours} hours').format(sec=value, hours=hours_value))
+                steps.append(str(_('Hours = Seconds / 3600')))
+                steps.append(str(_('Hours = {sec} / 3600 = {hours} hours')).format(sec=value, hours=hours_value))
             elif from_unit == 'days':
-                steps.append(_('Hours = Days × 24'))
-                steps.append(_('Hours = {days} × 24 = {hours} hours').format(days=value, hours=hours_value))
+                steps.append(str(_('Hours = Days × 24')))
+                steps.append(str(_('Hours = {days} × 24 = {hours} hours')).format(days=value, hours=hours_value))
             steps.append('')
         if to_unit != 'hours':
-            steps.append(_('Step 3: Convert from hours to {unit}').format(unit=unit_names[to_unit]))
+            steps.append(str(_('Step 3: Convert from hours to {unit}')).format(unit=unit_names.get(to_unit, to_unit)))
             if to_unit == 'minutes':
-                steps.append(_('Minutes = Hours × 60'))
-                steps.append(_('Minutes = {hours} × 60 = {result} minutes').format(hours=hours_value, result=result))
+                steps.append(str(_('Minutes = Hours × 60')))
+                steps.append(str(_('Minutes = {hours} × 60 = {result} minutes')).format(hours=hours_value, result=result))
             elif to_unit == 'seconds':
-                steps.append(_('Seconds = Hours × 3600'))
-                steps.append(_('Seconds = {hours} × 3600 = {result} seconds').format(hours=hours_value, result=result))
+                steps.append(str(_('Seconds = Hours × 3600')))
+                steps.append(str(_('Seconds = {hours} × 3600 = {result} seconds')).format(hours=hours_value, result=result))
             elif to_unit == 'days':
-                steps.append(_('Days = Hours / 24'))
-                steps.append(_('Days = {hours} / 24 = {result} days').format(hours=hours_value, result=result))
+                steps.append(str(_('Days = Hours / 24')))
+                steps.append(str(_('Days = {hours} / 24 = {result} days')).format(hours=hours_value, result=result))
         else:
-            steps.append(_('Step 2: Result'))
-            steps.append(_('Time = {result} hours').format(result=result))
+            steps.append(str(_('Step 2: Result')))
+            steps.append(str(_('Time = {result} hours')).format(result=result))
         return steps
-    
+
     def _prepare_total_hours_steps(self, processed_periods, total_hours, total_h, total_m, total_s, total_minutes, total_seconds, total_days):
-        """Prepare step-by-step solution for total hours calculation"""
         steps = []
-        steps.append(_('Step 1: Identify all time periods'))
+        steps.append(str(_('Step 1: Identify all time periods')))
         for i, period in enumerate(processed_periods, 1):
-            steps.append(_('Period {num}: {start} to {end} = {hours} hours').format(
+            steps.append(str(_('Period {num}: {start} to {end} = {hours} hours')).format(
                 num=i, start=period['start_time'], end=period['end_time'], hours=period['hours']
             ))
         steps.append('')
-        steps.append(_('Step 2: Calculate total hours'))
+        steps.append(str(_('Step 2: Calculate total hours')))
         hours_list = [str(p['hours']) for p in processed_periods]
-        steps.append(_('Total = {hours}').format(hours=' + '.join(hours_list)))
-        steps.append(_('Total = {total} hours').format(total=total_hours))
+        steps.append(str(_('Total = {hours}')).format(hours=' + '.join(hours_list)))
+        steps.append(str(_('Total = {total} hours')).format(total=total_hours))
         steps.append('')
-        steps.append(_('Step 3: Convert to other units'))
-        steps.append(_('Time Format: {h:02d}:{m:02d}:{s:02d}').format(h=total_h, m=total_m, s=total_s))
-        steps.append(_('Minutes: {min} minutes').format(min=total_minutes))
-        steps.append(_('Seconds: {sec} seconds').format(sec=total_seconds))
-        steps.append(_('Days: {days} days').format(days=total_days))
+        steps.append(str(_('Step 3: Convert to other units')))
+        steps.append(str(_('Time Format: {h:02d}:{m:02d}:{s:02d}')).format(h=total_h, m=total_m, s=total_s))
+        steps.append(str(_('Minutes: {min} minutes')).format(min=total_minutes))
+        steps.append(str(_('Seconds: {sec} seconds')).format(sec=total_seconds))
+        steps.append(str(_('Days: {days} days')).format(days=total_days))
         return steps
-    
+
     def _prepare_hours_worked_steps(self, start_time, end_time, next_day, break_minutes, start_hours, end_hours, total_hours, break_hours, hours_worked, worked_h, worked_m, worked_s):
-        """Prepare step-by-step solution for hours worked calculation"""
         steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Start Time: {time}').format(time=start_time))
-        steps.append(_('End Time: {time}').format(time=end_time))
+        steps.append(str(_('Step 1: Identify the given values')))
+        steps.append(str(_('Start Time: {time}')).format(time=start_time))
+        steps.append(str(_('End Time: {time}')).format(time=end_time))
         if next_day:
-            steps.append(_('Note: End time is on the next day'))
-        steps.append(_('Break Time: {min} minutes').format(min=break_minutes))
+            steps.append(str(_('Note: End time is on the next day')))
+        steps.append(str(_('Break Time: {min} minutes')).format(min=break_minutes))
         steps.append('')
-        steps.append(_('Step 2: Calculate total time'))
-        steps.append(_('Total Time = End Time - Start Time'))
-        steps.append(_('Total Time = {end} - {start} = {total} hours').format(end=end_hours, start=start_hours, total=total_hours))
+        steps.append(str(_('Step 2: Calculate total time')))
+        steps.append(str(_('Total Time = End Time - Start Time')))
+        steps.append(str(_('Total Time = {end} - {start} = {total} hours')).format(end=end_hours, start=start_hours, total=total_hours))
         steps.append('')
-        steps.append(_('Step 3: Convert break time to hours'))
-        steps.append(_('Break Time = {min} minutes / 60 = {hours} hours').format(min=break_minutes, hours=break_hours))
+        steps.append(str(_('Step 3: Convert break time to hours')))
+        steps.append(str(_('Break Time = {min} minutes / 60 = {hours} hours')).format(min=break_minutes, hours=break_hours))
         steps.append('')
-        steps.append(_('Step 4: Calculate hours worked'))
-        steps.append(_('Hours Worked = Total Time - Break Time'))
-        steps.append(_('Hours Worked = {total} - {break_time} = {worked} hours').format(total=total_hours, break_time=break_hours, worked=hours_worked))
+        steps.append(str(_('Step 4: Calculate hours worked')))
+        steps.append(str(_('Hours Worked = Total Time - Break Time')))
+        steps.append(str(_('Hours Worked = {total} - {break_time} = {worked} hours')).format(total=total_hours, break_time=break_hours, worked=hours_worked))
         steps.append('')
-        steps.append(_('Step 5: Convert to time format'))
-        steps.append(_('Hours Worked: {h:02d}:{m:02d}:{s:02d}').format(h=worked_h, m=worked_m, s=worked_s))
+        steps.append(str(_('Step 5: Convert to time format')))
+        steps.append(str(_('Hours Worked: {h:02d}:{m:02d}:{s:02d}')).format(h=worked_h, m=worked_m, s=worked_s))
         return steps
-    
-    # Chart data preparation methods
+
     def _prepare_time_difference_chart_data(self, start_hours, end_hours, difference_hours):
-        """Prepare chart data for time difference calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Start Time'), _('End Time'), _('Difference')],
-                    'datasets': [{
-                        'label': _('Hours'),
-                        'data': [start_hours, end_hours, difference_hours],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Time Difference Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Hours')
-                            }
-                        }
-                    }
-                }
+        chart_config = {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Start Time')), str(_('End Time')), str(_('Difference'))],
+                'datasets': [{
+                    'label': str(_('Hours')),
+                    'data': [start_hours, end_hours, difference_hours],
+                    'backgroundColor': ['#6366f1', '#8b5cf6', '#e5e7eb'],
+                    'borderColor': ['#4f46e5', '#7c3aed', '#d1d5db'],
+                    'borderWidth': 2
+                }]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': str(_('Time Difference Calculation'))}},
+                'scales': {'y': {'beginAtZero': True, 'title': {'display': True, 'text': str(_('Hours'))}}}
             }
-            return {'time_difference_chart': chart_config}
-        except Exception as e:
-            return None
-    
+        }
+        return {'time_difference_chart': chart_config}
+
     def _prepare_total_hours_chart_data(self, processed_periods, total_hours):
-        """Prepare chart data for total hours calculation"""
-        try:
-            labels = [f"Period {i+1}" for i in range(len(processed_periods))] + [_('Total')]
-            data_values = [p['hours'] for p in processed_periods] + [total_hours]
-            
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': labels,
-                    'datasets': [{
-                        'label': _('Hours'),
-                        'data': data_values,
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)' for _ in processed_periods
-                        ] + ['rgba(16, 185, 129, 0.8)'],
-                        'borderColor': [
-                            '#3b82f6' for _ in processed_periods
-                        ] + ['#10b981'],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Total Hours Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Hours')
-                            }
-                        }
-                    }
-                }
+        labels = [str(_('Period {n}')).format(n=i + 1) for i in range(len(processed_periods))] + [str(_('Total'))]
+        data_values = [p['hours'] for p in processed_periods] + [total_hours]
+        chart_config = {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Hours')),
+                    'data': data_values,
+                    'backgroundColor': ['#6366f1'] * len(processed_periods) + ['#8b5cf6'],
+                    'borderColor': ['#4f46e5'] * len(processed_periods) + ['#7c3aed'],
+                    'borderWidth': 2
+                }]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': str(_('Total Hours Calculation'))}},
+                'scales': {'y': {'beginAtZero': True, 'title': {'display': True, 'text': str(_('Hours'))}}}
             }
-            return {'total_hours_chart': chart_config}
-        except Exception as e:
-            return None
-    
+        }
+        return {'total_hours_chart': chart_config}
+
     def _prepare_hours_worked_chart_data(self, total_hours, break_hours, hours_worked):
-        """Prepare chart data for hours worked calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Total Time'), _('Break Time'), _('Hours Worked')],
-                    'datasets': [{
-                        'label': _('Hours'),
-                        'data': [total_hours, break_hours, hours_worked],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(251, 191, 36, 0.8)',
-                            'rgba(16, 185, 129, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#fbbf24',
-                            '#10b981'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Hours Worked Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Hours')
-                            }
-                        }
-                    }
-                }
+        chart_config = {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Total Time')), str(_('Break Time')), str(_('Hours Worked'))],
+                'datasets': [{
+                    'label': str(_('Hours')),
+                    'data': [total_hours, break_hours, hours_worked],
+                    'backgroundColor': ['#6366f1', '#8b5cf6', '#e5e7eb'],
+                    'borderColor': ['#4f46e5', '#7c3aed', '#d1d5db'],
+                    'borderWidth': 2
+                }]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': str(_('Hours Worked Calculation'))}},
+                'scales': {'y': {'beginAtZero': True, 'title': {'display': True, 'text': str(_('Hours'))}}}
             }
-            return {'hours_worked_chart': chart_config}
-        except Exception as e:
-            return None
+        }
+        return {'hours_worked_chart': chart_config}

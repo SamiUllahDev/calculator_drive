@@ -25,14 +25,25 @@ class HouseAffordabilityCalculator(View):
         """Handle GET request"""
         context = {
             'calculator_name': 'House Affordability Calculator',
+            'page_title': 'House Affordability Calculator - How Much House Can I Afford?',
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type == 'application/json':
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def post(self, request):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations (JSON or form)."""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
+            data = self._get_data(request)
+
             # Get inputs
             annual_income = self._get_float(data, 'annual_income', 0)
             monthly_debts = self._get_float(data, 'monthly_debts', 0)
@@ -61,7 +72,10 @@ class HouseAffordabilityCalculator(View):
                 errors.append('Interest rate must be greater than 0.')
             elif interest_rate > 20:
                 errors.append('Interest rate cannot exceed 20%.')
-            
+
+            if loan_term < 1 or loan_term > 40:
+                errors.append('Loan term must be between 1 and 40 years.')
+
             if errors:
                 return JsonResponse({'success': False, 'error': errors[0]}, status=400)
             
@@ -172,18 +186,11 @@ class HouseAffordabilityCalculator(View):
             loan_term, property_tax_rate, insurance_rate, hoa_fees
         )
         
-        # Budget breakdown chart data
-        budget_data = {
-            'labels': ['P&I', 'Taxes', 'Insurance', 'PMI', 'HOA'],
-            'values': [
-                round(pi_payment, 2),
-                round(monthly_tax, 2),
-                round(monthly_insurance, 2),
-                round(monthly_pmi, 2),
-                round(hoa_fees, 2),
-            ]
-        }
-        
+        # Backend-prepared chart data (Chart.js-ready)
+        chart_data = self._prepare_chart_data(
+            pi_payment, monthly_tax, monthly_insurance, monthly_pmi, hoa_fees
+        )
+
         return {
             'affordability': {
                 'max_home_price': round(home_price, 2),
@@ -211,7 +218,7 @@ class HouseAffordabilityCalculator(View):
                 'monthly_debts': round(monthly_debts, 2),
             },
             'scenarios': scenarios,
-            'budget_data': budget_data,
+            'chart_data': chart_data,
         }
     
     def _calculate_max_price(self, max_payment, down_payment, rate, term,
@@ -298,5 +305,35 @@ class HouseAffordabilityCalculator(View):
             'home_price': round(price, 2),
             'monthly': round(max_housing, 2),
         })
-        
+
         return scenarios
+
+    def _prepare_chart_data(self, pi_payment, monthly_tax, monthly_insurance, monthly_pmi, hoa_fees):
+        """Build Chart.js-ready payment breakdown doughnut."""
+        labels = ['P&I', 'Taxes', 'Insurance', 'PMI', 'HOA']
+        values = [
+            round(pi_payment, 2),
+            round(monthly_tax, 2),
+            round(monthly_insurance, 2),
+            round(monthly_pmi, 2),
+            round(hoa_fees, 2),
+        ]
+        colors = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']
+        return {
+            'payment_breakdown_chart': {
+                'type': 'doughnut',
+                'data': {
+                    'labels': labels,
+                    'datasets': [{
+                        'data': values,
+                        'backgroundColor': colors,
+                        'borderWidth': 0,
+                        'hoverOffset': 4,
+                    }]
+                },
+                'options': {
+                    'cutout': '70%',
+                    'plugins': {'legend': {'position': 'bottom', 'labels': {'boxWidth': 12}}}
+                }
+            }
+        }

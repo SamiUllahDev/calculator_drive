@@ -1,46 +1,381 @@
 {% extends "core/base.html" %}
+{% load i18n %}
 
-{% block title %}Finance Calculator{% endblock %}
-{% block meta_description %}Finance Calculator - Fast, accurate, and easy to use. Calculate online for free.{% endblock %}
+{% block title %}{% trans "Finance Calculator - Compound Interest & Future Value" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate compound interest and future value. Enter principal, rate, and time to see growth over time with charts and scenarios." %}{% endblock %}
+
+{% block extra_head %}
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-    <div class="container">
-        <h1>Finance Calculator</h1>
-        <form id="calculatorForm">
-                        <div class="form-group">
-                <label for="amount_">Amount ($):</label>
-                <input type="number" id="amount_" name="amount_" placeholder="Enter Amount ($)" step="0.01" required>
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
             </div>
-            <div class="form-group">
-                <label for="rate_">Rate (%):</label>
-                <input type="number" id="rate_" name="rate_" placeholder="Enter Rate (%)" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label for="time_years">Time (years):</label>
-                <input type="number" id="time_years" name="time_years" placeholder="Enter Time (years)" step="0.01" required>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Finance Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate compound interest and future value. See how your money grows over time with principal, annual rate, and years." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Left: Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="amount_">{% trans "Amount ($)" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="amount_" name="amount_" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="10,000" placeholder="10,000" inputmode="decimal">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="rate_">{% trans "Annual Rate (%)" %}</label>
+                            <input type="number" id="rate_" name="rate_" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="5" step="0.1" min="0" max="100" placeholder="5">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="time_years">{% trans "Time (years)" %}</label>
+                            <input type="number" id="time_years" name="time_years" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="10" step="0.5" min="0.5" max="100" placeholder="10">
+                        </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit">Calculate</button>
-        </form>
-        <div class="results" id="results">
-            <div class="result-item">
-                <span class="result-label">Result:</span>
-                <span class="result-value" id="result">$0.00</span>
+            <!-- Right: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter amount, annual rate, and time in years to see future value and growth chart." %}</p>
+                </div>
+
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Future Value" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90">{% trans "Principal:" %} <span id="heroPrincipal">$0</span> &nbsp;•&nbsp; {% trans "Total Interest:" %} <span id="heroInterest">$0</span></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Principal" %}</p>
+                            <p id="detailPrincipal" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Future Value" %}</p>
+                            <p id="detailFutureValue" class="text-sm font-bold text-green-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Interest" %}</p>
+                            <p id="detailTotalInterest" class="text-sm font-bold text-blue-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Interest %" %}</p>
+                            <p id="detailInterestPct" class="text-sm font-bold text-gray-900">0%</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Principal vs Interest" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="breakdownChart"></canvas>
+                            </div>
+                        </div>
+                        <div id="growthChartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Growth Over Time" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]">
+                                <canvas id="growthChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl border-2 border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-800 mb-3">{% trans "Compare Time Horizons" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th class="px-2 py-2 text-left font-medium">{% trans "Years" %}</th>
+                                        <th class="px-2 py-2 text-right font-medium">{% trans "Future Value" %}</th>
+                                        <th class="px-2 py-2 text-right font-medium">{% trans "Interest" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scenariosBody" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete User Guide (BMI-style: inside right column) -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Finance Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}This calculator computes compound interest: how much an initial amount (principal) grows when invested at a fixed annual rate over a number of years. You see future value, total interest earned, and how balance grows year by year. Interest is reinvested each period, so you earn interest on interest.{% endblocktrans %}
+                            </p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Compound Interest Formula" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">{% trans "The formula for future value with annual compounding:" %}</p>
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200">
+                                <p class="text-center font-mono text-sm font-bold text-gray-900">FV = P × (1 + r)^t</p>
+                                <p class="text-center text-xs text-gray-600 mt-2">{% trans "FV = future value, P = principal, r = annual rate (as decimal, e.g. 0.05 for 5%), t = time in years" %}</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p class="font-semibold text-gray-900 mb-1">{% trans "Example:" %}</p>
+                                <p class="text-sm text-gray-700">{% trans "$10,000 at 5% for 10 years: FV = 10000 × (1.05)^10 ≈ $16,289. Total interest ≈ $6,289." %}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Principal" %}</h4>
+                                    <p class="text-sm text-blue-800">{% trans "The initial amount you invest or deposit. Interest is earned on this amount and on previously earned interest (compound interest)." %}</p>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "Compound interest" %}</h4>
+                                    <p class="text-sm text-green-800">{% trans "Interest is added to the balance each period, so you earn interest on interest. Over long periods this growth becomes substantial." %}</p>
+                                </div>
+                                <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                                    <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Interest %" %}</h4>
+                                    <p class="text-sm text-indigo-800">{% trans "The percentage of your future value that came from interest (vs principal). Higher rate or longer time increases this share." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter the principal amount (e.g. 10000)." %}</li>
+                                <li>{% trans "Enter the annual interest rate as a percentage (e.g. 5 for 5%)." %}</li>
+                                <li>{% trans "Enter the time in years (e.g. 10)." %}</li>
+                                <li>{% trans "Click Calculate to see future value, breakdown chart, growth chart, and time-horizon comparison." %}</li>
+                                <li>{% trans "Use the time-horizon table to compare different holding periods." %}</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Future value" %}</h4><p class="text-gray-700 text-sm">{% trans "The total amount you will have after the given years, including principal and compounded interest." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Total interest" %}</h4><p class="text-gray-700 text-sm">{% trans "The amount earned from interest over the period (future value minus principal)." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Interest %" %}</h4><p class="text-gray-700 text-sm">{% trans "What share of the future value is interest. The rest is your original principal." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Time-horizon comparison" %}</h4><p class="text-gray-700 text-sm">{% trans "Shows future value and interest at 1, 2, 5, 10, 15, 20, 25, and 30 years for the same principal and rate." %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <div class="space-y-3">
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Principal vs Interest" %}</h4><p class="text-gray-700 text-sm">{% trans "A doughnut chart showing how much of the future value is your original principal versus interest earned." %}</p></div>
+                                <div><h4 class="font-semibold text-gray-900 mb-2">{% trans "Growth Over Time" %}</h4><p class="text-gray-700 text-sm">{% trans "A line chart showing your balance at the end of each year. You can see how compound interest accelerates growth over time." %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Growth at a Glance (Example)" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">{% trans "Approximate growth of $10,000 at 5% annual return:" %}</p>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg text-sm">
+                                    <thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left font-semibold text-gray-700 uppercase">{% trans "Years" %}</th><th class="px-4 py-3 text-right font-semibold text-gray-700 uppercase">{% trans "Future value" %}</th><th class="px-4 py-3 text-right font-semibold text-gray-700 uppercase">{% trans "Interest earned" %}</th></tr></thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-gray-700">5</td><td class="px-4 py-3 text-right">$12,763</td><td class="px-4 py-3 text-right">$2,763</td></tr>
+                                        <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-gray-700">10</td><td class="px-4 py-3 text-right">$16,289</td><td class="px-4 py-3 text-right">$6,289</td></tr>
+                                        <tr class="hover:bg-gray-50"><td class="px-4 py-3 text-gray-700">20</td><td class="px-4 py-3 text-right">$26,533</td><td class="px-4 py-3 text-right">$16,533</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "This uses annual compounding. Actual accounts may compound monthly or daily; results can vary." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "For estimation and education only. Investment returns are not guaranteed." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Taxes and inflation are not included. Consult a financial advisor for planning." %}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <script>
-        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            document.getElementById('result').textContent = '$0.00';
-            document.getElementById('results').classList.add('show');
-        });
-    </script>
-
-    </div>
 </div>
+
+<script>
+var breakdownChart = null;
+var growthChart = null;
+
+function checkChartJS() {
+    if (typeof Chart === 'undefined') { console.error('Chart.js is not loaded.'); return false; }
+    return true;
+}
+
+function formatCurrency(n) {
+    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate" %}';
+    }
+
+    function createBreakdownChart(chartData) {
+        var canvas = document.getElementById('breakdownChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (breakdownChart) breakdownChart.destroy();
+        breakdownChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'doughnut',
+            data: chartData.data || {},
+            options: chartData.options || { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    function createGrowthChart(chartData) {
+        var container = document.getElementById('growthChartContainer');
+        var canvas = document.getElementById('growthChart');
+        if (!canvas || !chartData || !checkChartJS()) {
+            if (container) container.classList.add('hidden');
+            return;
+        }
+        if (growthChart) growthChart.destroy();
+        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
+        growthChart = new Chart(canvas.getContext('2d'), {
+            type: chartData.type || 'line',
+            data: chartData.data || {},
+            options: opts
+        });
+        if (container) container.classList.remove('hidden');
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var amountVal = (document.getElementById('amount_').value || '').replace(/,/g, '');
+        var payload = {
+            amount_: amountVal,
+            rate_: document.getElementById('rate_').value,
+            time_years: document.getElementById('time_years').value
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server." %}');
+                return;
+            }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            var s = data.summary || {};
+            var heroVal = document.getElementById('heroValue');
+            var heroPrincipal = document.getElementById('heroPrincipal');
+            var heroInterest = document.getElementById('heroInterest');
+            if (heroVal) heroVal.textContent = formatCurrency(s.future_value);
+            if (heroPrincipal) heroPrincipal.textContent = formatCurrency(s.principal);
+            if (heroInterest) heroInterest.textContent = formatCurrency(s.total_interest);
+            var el = function(id) { return document.getElementById(id); };
+            if (el('detailPrincipal')) el('detailPrincipal').textContent = formatCurrency(s.principal);
+            if (el('detailFutureValue')) el('detailFutureValue').textContent = formatCurrency(s.future_value);
+            if (el('detailTotalInterest')) el('detailTotalInterest').textContent = formatCurrency(s.total_interest);
+            if (el('detailInterestPct')) el('detailInterestPct').textContent = (s.interest_pct != null ? s.interest_pct : 0) + '%';
+            var scenariosBody = document.getElementById('scenariosBody');
+            if (scenariosBody && data.scenarios) {
+                scenariosBody.innerHTML = '';
+                data.scenarios.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    tr.innerHTML = '<td class="px-2 py-2">' + row.years + ' {% trans "years" %}</td><td class="px-2 py-2 text-right font-medium">' + formatCurrency(row.future_value) + '</td><td class="px-2 py-2 text-right text-green-600">' + formatCurrency(row.total_interest) + '</td>';
+                    scenariosBody.appendChild(tr);
+                });
+            }
+            if (data.chart_data && checkChartJS()) {
+                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
+                if (data.chart_data.growth_chart) createGrowthChart(data.chart_data.growth_chart);
+            }
+            resultsWrapper.classList.remove('hidden');
+            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
+        }
+    });
+});
+</script>
 {% endblock %}

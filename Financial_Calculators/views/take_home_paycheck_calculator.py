@@ -1,9 +1,14 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class TakeHomePaycheckCalculator(View):
     """
     Class-based view for Take Home Paycheck Calculator
@@ -65,37 +70,76 @@ class TakeHomePaycheckCalculator(View):
         """Handle GET request"""
         states = [{'code': code, 'rate': rate} for code, rate in sorted(self.STATE_TAX_RATES.items())]
         context = {
-            'calculator_name': 'Take Home Paycheck Calculator',
+            'calculator_name': str(_('Take Home Paycheck Calculator')),
             'states': states,
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0.0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value)))
+        except (ValueError, TypeError):
+            return default
+
     def post(self, request):
         """Handle POST request for paycheck calculations"""
         try:
-            data = json.loads(request.body)
-            
-            # Input values
-            gross_pay = float(str(data.get('gross_pay', 0)).replace(',', ''))
-            pay_frequency = data.get('pay_frequency', 'biweekly')  # weekly, biweekly, semimonthly, monthly, annual
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+
+            gross_pay = self._get_float(data, 'gross_pay', 0)
+            pay_frequency = data.get('pay_frequency', 'biweekly')
+            if isinstance(pay_frequency, list):
+                pay_frequency = pay_frequency[0] if pay_frequency else 'biweekly'
             filing_status = data.get('filing_status', 'single')
+            if isinstance(filing_status, list):
+                filing_status = filing_status[0] if filing_status else 'single'
             state = data.get('state', 'CA')
-            
-            # Pre-tax deductions
-            retirement_401k = float(str(data.get('retirement_401k', 0)).replace(',', ''))
-            health_insurance = float(str(data.get('health_insurance', 0)).replace(',', ''))
-            hsa_fsa = float(str(data.get('hsa_fsa', 0)).replace(',', ''))
-            other_pretax = float(str(data.get('other_pretax', 0)).replace(',', ''))
-            
-            # Post-tax deductions
-            other_posttax = float(str(data.get('other_posttax', 0)).replace(',', ''))
-            
-            # Federal allowances
-            federal_allowances = int(data.get('federal_allowances', 0))
-            
-            # Validation
+            if isinstance(state, list):
+                state = state[0] if state else 'CA'
+
+            retirement_401k = self._get_float(data, 'retirement_401k', 0)
+            health_insurance = self._get_float(data, 'health_insurance', 0)
+            hsa_fsa = self._get_float(data, 'hsa_fsa', 0)
+            other_pretax = self._get_float(data, 'other_pretax', 0)
+            other_posttax = self._get_float(data, 'other_posttax', 0)
+            federal_allowances = self._get_int(data, 'federal_allowances', 0)
+
             if gross_pay < 0:
-                return JsonResponse({'success': False, 'error': 'Gross pay cannot be negative.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Gross pay cannot be negative.'))}, status=400)
             
             # Calculate pay periods per year
             periods_per_year = {
@@ -205,13 +249,13 @@ class TakeHomePaycheckCalculator(View):
                     'posttax': round(other_posttax / gross_pay * 100, 1) if gross_pay > 0 else 0
                 }
             }
-            
-            return JsonResponse(result)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+            result['chart_data'] = self._prepare_chart_data(result)
+            return JsonResponse(result, encoder=DjangoJSONEncoder)
+
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': str(_('Invalid input. Please check your numbers.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
     
     def _calculate_federal_tax(self, taxable_income, brackets):
         """Calculate federal tax using tax brackets"""
@@ -237,3 +281,48 @@ class TakeHomePaycheckCalculator(View):
                 return rate
             prev_bracket = bracket_limit
         return brackets[-1][1]
+
+    def _prepare_chart_data(self, result):
+        """Build Chart.js-ready doughnut: Take-Home, Federal, State, FICA, Pre-Tax."""
+        d = result.get('deductions', {})
+        net = result.get('net_pay', 0)
+        federal = d.get('federal_tax', 0)
+        state = d.get('state_tax', 0)
+        ss = d.get('social_security', 0)
+        medicare = d.get('medicare', 0)
+        pretax = d.get('total_pretax', 0)
+        posttax = d.get('other_posttax', 0)
+        labels = [
+            str(_('Take-Home')),
+            str(_('Federal Tax')),
+            str(_('State Tax')),
+            str(_('Social Security')),
+            str(_('Medicare')),
+            str(_('Pre-Tax Deductions')),
+        ]
+        if posttax and posttax > 0:
+            labels.append(str(_('Post-Tax')))
+        values = [round(net, 2), round(federal, 2), round(state, 2), round(ss, 2), round(medicare, 2), round(pretax, 2)]
+        if posttax and posttax > 0:
+            values.append(round(posttax, 2))
+        colors = ['#10b981', '#ef4444', '#f97316', '#eab308', '#ec4899', '#3b82f6']
+        if posttax and posttax > 0:
+            colors.append('#8b5cf6')
+        return {
+            'breakdown_chart': {
+                'type': 'doughnut',
+                'data': {
+                    'labels': labels,
+                    'datasets': [{
+                        'data': values,
+                        'backgroundColor': colors[: len(values)],
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'position': 'bottom'}}
+                }
+            }
+        }

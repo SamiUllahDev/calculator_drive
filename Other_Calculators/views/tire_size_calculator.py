@@ -438,6 +438,7 @@ class TireSizeCalculator(View):
                 'actual_speed': round(actual_speed, 2),
                 'speed_difference': round(speed_diff, 2),
                 'speed_difference_percent': round(speed_diff_percent, 2),
+                'speed_unit': data.get('speed_unit', 'mph'),
                 'diameter_ratio': round(diameter_ratio, 4),
                 'step_by_step': steps,
             })

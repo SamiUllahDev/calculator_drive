@@ -33,22 +33,482 @@
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Gas Mileage Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate MPG, distance, fuel needed, and trip cost from distance, fuel, and price." %}
+            </p>
+        </div>
 
-  <h1>Gas Mileage Calculator</h1>
-  <form id="calc">
-    <p>Simple demo template for Gas Mileage Calculator.</p>
-    <button type="submit">Calculate</button>
-  </form>
-  <div id="result"></div>
-  <script>
-    document.getElementById('calc').addEventListener('submit', function(e){
-      e.preventDefault();
-      document.getElementById('result').innerText = 'Result placeholder for Gas Mileage Calculator';
-    });
-  </script>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Left Column: Your Input -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Input" %}
+                    </h2>
+                    <form id="gasMileageForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                            <select id="calcType" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
+                                <option value="mpg">{% trans "Calculate MPG" %}</option>
+                                <option value="distance">{% trans "Calculate Distance" %}</option>
+                                <option value="fuel_needed">{% trans "Calculate Fuel Needed" %}</option>
+                                <option value="cost">{% trans "Calculate Trip Cost" %}</option>
+                            </select>
+                        </div>
 
+                        <!-- Calculate MPG -->
+                        <div id="mpgFields" class="calculation-mode space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Distance" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="distance_mpg" step="any" min="0" class="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                                    <select id="distance_unit_mpg" class="px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white w-28">
+                                        <option value="miles">{% trans "miles" %}</option>
+                                        <option value="km">{% trans "km" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Fuel Used" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="fuel_used_mpg" step="any" min="0" class="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                                    <select id="fuel_unit_mpg" class="px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white w-28">
+                                        <option value="gallons">{% trans "gallons" %}</option>
+                                        <option value="liters">{% trans "liters" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Distance -->
+                        <div id="distanceFields" class="calculation-mode hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "MPG" %}</label>
+                                <input type="number" id="mpg_distance" step="any" min="0" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Fuel Used" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="fuel_used_distance" step="any" min="0" class="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                                    <select id="fuel_unit_distance" class="px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white w-28">
+                                        <option value="gallons">{% trans "gallons" %}</option>
+                                        <option value="liters">{% trans "liters" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="result_unit_distance" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white">
+                                    <option value="miles">{% trans "miles" %}</option>
+                                    <option value="km">{% trans "km" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Fuel Needed -->
+                        <div id="fuelNeededFields" class="calculation-mode hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Distance" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="distance_fuel" step="any" min="0" class="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                                    <select id="distance_unit_fuel" class="px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white w-28">
+                                        <option value="miles">{% trans "miles" %}</option>
+                                        <option value="km">{% trans "km" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "MPG" %}</label>
+                                <input type="number" id="mpg_fuel" step="any" min="0" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Result Unit" %}</label>
+                                <select id="result_unit_fuel" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white">
+                                    <option value="gallons">{% trans "gallons" %}</option>
+                                    <option value="liters">{% trans "liters" %}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Cost -->
+                        <div id="costFields" class="calculation-mode hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Distance" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="distance_cost" step="any" min="0" class="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                                    <select id="distance_unit_cost" class="px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white w-28">
+                                        <option value="miles">{% trans "miles" %}</option>
+                                        <option value="km">{% trans "km" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "MPG" %}</label>
+                                <input type="number" id="mpg_cost" step="any" min="0" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Fuel Price" %}</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="fuel_price" step="any" min="0" class="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0">
+                                    <select id="price_unit" class="px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base bg-white w-32">
+                                        <option value="per_gallon">{% trans "/gal" %}</option>
+                                        <option value="per_liter">{% trans "/L" %}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            {% trans "Calculate" %}
+                        </button>
+                        <button type="button" id="resetBtn" class="w-full bg-white border-2 border-gray-300 text-gray-700 font-semibold py-2.5 px-6 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                            {% trans "Reset" %}
+                        </button>
+                    </form>
+                    <div id="errorState" class="mt-4 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Initial State, Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Select a calculation type (MPG, distance, fuel needed, or trip cost), enter values and units, then click Calculate to see the result and step-by-step solution." %}
+                    </p>
+                </div>
+                <div id="results" class="hidden space-y-6">
+                    <div id="resultContent"></div>
+                    <div id="stepByStep" class="space-y-2"></div>
+                </div>
+                <div id="chartSection" class="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 hidden">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        {% trans "Visualization" %}
+                    </h3>
+                    <div class="relative" style="height: 400px;">
+                        <canvas id="resultChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "What is Gas Mileage?" %}</h3>
+                            <p>{% trans "Gas mileage (MPG - miles per gallon) measures how far a vehicle travels per unit of fuel. Higher MPG means better fuel economy and lower fuel costs." %}</p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select a calculation type (MPG, distance, fuel needed, or trip cost)" %}</li>
+                                <li>{% trans "Enter the required values and select units" %}</li>
+                                <li>{% trans "Click Calculate to see the result and step-by-step solution" %}</li>
+                                <li>{% trans "Use Reset to clear and hide results" %}</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Calculation Types" %}</h3>
+                            <ul class="list-disc list-inside space-y-1">
+                                <li><strong>{% trans "Calculate MPG" %}:</strong> {% trans "From distance and fuel used" %}</li>
+                                <li><strong>{% trans "Calculate Distance" %}:</strong> {% trans "From MPG and fuel used" %}</li>
+                                <li><strong>{% trans "Calculate Fuel Needed" %}:</strong> {% trans "From distance and MPG" %}</li>
+                                <li><strong>{% trans "Calculate Trip Cost" %}:</strong> {% trans "From distance, MPG, and fuel price" %}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formulas" %}</h3>
+                            <div class="bg-gray-50 p-3 rounded space-y-2 text-xs">
+                                <p><strong>MPG</strong> = {% trans "Distance" %} ÷ {% trans "Fuel used" %}</p>
+                                <p><strong>{% trans "Distance" %}</strong> = MPG × {% trans "Fuel used" %}</p>
+                                <p><strong>{% trans "Fuel needed" %}</strong> = {% trans "Distance" %} ÷ MPG</p>
+                                <p><strong>{% trans "Cost" %}</strong> = ({% trans "Distance" %} ÷ MPG) × {% trans "Price per gallon" %}</p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li>{% trans "Distance and fuel values must be greater than zero" %}</li>
+                                <li>{% trans "MPG must be greater than zero for distance, fuel, and cost calculations" %}</li>
+                                <li>{% trans "Results use miles and gallons internally; units are converted for display" %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+var resultChart = null;
+
+function showError(message) {
+    var el = document.getElementById('errorState');
+    var msg = document.getElementById('errorMessage');
+    if (el && msg) {
+        msg.textContent = message;
+        el.classList.remove('hidden');
+    }
+}
+
+function hideError() {
+    var el = document.getElementById('errorState');
+    if (el) el.classList.add('hidden');
+    document.querySelectorAll('#gasMileageForm input').forEach(function(i) {
+        i.classList.remove('border-red-500');
+    });
+}
+
+function handleReset() {
+    hideError();
+    document.getElementById('initialState').classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('calcType').addEventListener('change', function() {
+        switchCalculationMode(this.value);
+    });
+    document.getElementById('gasMileageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        calculate();
+    });
+    document.getElementById('resetBtn').addEventListener('click', handleReset);
+    switchCalculationMode('mpg');
+});
+
+function switchCalculationMode(mode) {
+    hideError();
+    document.getElementById('initialState').classList.remove('hidden');
+    document.querySelectorAll('.calculation-mode').forEach(function(el) {
+        el.classList.add('hidden');
+    });
+    var formMap = {
+        'mpg': 'mpgFields',
+        'distance': 'distanceFields',
+        'fuel_needed': 'fuelNeededFields',
+        'cost': 'costFields'
+    };
+    var id = formMap[mode];
+    if (id) document.getElementById(id).classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chartSection').classList.add('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+}
+
+function getFormData() {
+    var calcType = document.getElementById('calcType').value;
+    var formData = { calc_type: calcType };
+    if (calcType === 'mpg') {
+        formData.distance = parseFloat(document.getElementById('distance_mpg').value) || 0;
+        formData.distance_unit = document.getElementById('distance_unit_mpg').value;
+        formData.fuel_used = parseFloat(document.getElementById('fuel_used_mpg').value) || 0;
+        formData.fuel_unit = document.getElementById('fuel_unit_mpg').value;
+    } else if (calcType === 'distance') {
+        formData.mpg = parseFloat(document.getElementById('mpg_distance').value) || 0;
+        formData.fuel_used = parseFloat(document.getElementById('fuel_used_distance').value) || 0;
+        formData.fuel_unit = document.getElementById('fuel_unit_distance').value;
+        formData.result_unit = document.getElementById('result_unit_distance').value;
+    } else if (calcType === 'fuel_needed') {
+        formData.distance = parseFloat(document.getElementById('distance_fuel').value) || 0;
+        formData.distance_unit = document.getElementById('distance_unit_fuel').value;
+        formData.mpg = parseFloat(document.getElementById('mpg_fuel').value) || 0;
+        formData.result_unit = document.getElementById('result_unit_fuel').value;
+    } else if (calcType === 'cost') {
+        formData.distance = parseFloat(document.getElementById('distance_cost').value) || 0;
+        formData.distance_unit = document.getElementById('distance_unit_cost').value;
+        formData.mpg = parseFloat(document.getElementById('mpg_cost').value) || 0;
+        formData.fuel_price = parseFloat(document.getElementById('fuel_price').value) || 0;
+        formData.price_unit = document.getElementById('price_unit').value;
+    }
+    return formData;
+}
+
+function validateFormData(formData) {
+    if (formData.calc_type === 'mpg') {
+        if (!formData.distance || formData.distance <= 0) {
+            showError('{% trans "Please enter a distance greater than zero" %}');
+            return false;
+        }
+        if (!formData.fuel_used || formData.fuel_used <= 0) {
+            showError('{% trans "Please enter fuel used greater than zero" %}');
+            return false;
+        }
+    } else if (formData.calc_type === 'distance') {
+        if (!formData.mpg || formData.mpg <= 0) {
+            showError('{% trans "Please enter MPG greater than zero" %}');
+            return false;
+        }
+        if (!formData.fuel_used || formData.fuel_used <= 0) {
+            showError('{% trans "Please enter fuel used greater than zero" %}');
+            return false;
+        }
+    } else if (formData.calc_type === 'fuel_needed') {
+        if (!formData.distance || formData.distance <= 0) {
+            showError('{% trans "Please enter a distance greater than zero" %}');
+            return false;
+        }
+        if (!formData.mpg || formData.mpg <= 0) {
+            showError('{% trans "Please enter MPG greater than zero" %}');
+            return false;
+        }
+    } else if (formData.calc_type === 'cost') {
+        if (!formData.distance || formData.distance <= 0) {
+            showError('{% trans "Please enter a distance greater than zero" %}');
+            return false;
+        }
+        if (!formData.mpg || formData.mpg <= 0) {
+            showError('{% trans "Please enter MPG greater than zero" %}');
+            return false;
+        }
+        if (formData.fuel_price < 0) {
+            showError('{% trans "Fuel price must be non-negative" %}');
+            return false;
+        }
+    }
+    return true;
+}
+
+function calculate() {
+    var formData = getFormData();
+    if (!validateFormData(formData)) return;
+    hideError();
+    fetch('{% url "other_calculators:gas_mileage_calculator" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            showError(data.error || '{% trans "An error occurred. Please try again." %}');
+        }
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        showError('{% trans "An error occurred. Please try again." %}');
+    });
+}
+
+function formatUnit(unit) {
+    var map = { 'miles': '{% trans "miles" %}', 'km': 'km', 'gallons': '{% trans "gallons" %}', 'liters': 'L', 'per_gallon': '{% trans "/gal" %}', 'per_liter': '{% trans "/L" %}' };
+    return map[unit] || unit;
+}
+
+function displayResults(data) {
+    document.getElementById('initialState').classList.add('hidden');
+    var resultsDiv = document.getElementById('results');
+    var resultContent = document.getElementById('resultContent');
+    var stepByStepDiv = document.getElementById('stepByStep');
+    var chartSection = document.getElementById('chartSection');
+    var html = '<div class="space-y-4">';
+    if (data.calc_type === 'mpg') {
+        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">';
+        html += '<p class="text-sm opacity-90">{% trans "MPG (Miles per Gallon)" %}</p>';
+        html += '<p class="text-4xl font-bold mt-1">' + Number(data.mpg).toFixed(2) + ' MPG</p>';
+        html += '<p class="text-sm opacity-95 mt-2">' + data.distance + ' ' + formatUnit(data.distance_unit) + ' ÷ ' + data.fuel_used + ' ' + formatUnit(data.fuel_unit) + '</p></div>';
+    } else if (data.calc_type === 'distance') {
+        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">';
+        html += '<p class="text-sm opacity-90">{% trans "Distance" %}</p>';
+        html += '<p class="text-4xl font-bold mt-1">' + Number(data.distance).toFixed(2) + ' ' + formatUnit(data.result_unit) + '</p>';
+        html += '<p class="text-sm opacity-95 mt-2">' + data.mpg + ' MPG × ' + data.fuel_used + ' ' + formatUnit(data.fuel_unit) + '</p></div>';
+    } else if (data.calc_type === 'fuel_needed') {
+        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">';
+        html += '<p class="text-sm opacity-90">{% trans "Fuel Needed" %}</p>';
+        html += '<p class="text-4xl font-bold mt-1">' + Number(data.fuel_needed).toFixed(2) + ' ' + formatUnit(data.result_unit) + '</p>';
+        html += '<p class="text-sm opacity-95 mt-2">' + data.distance + ' ' + formatUnit(data.distance_unit) + ' ÷ ' + data.mpg + ' MPG</p></div>';
+    } else if (data.calc_type === 'cost') {
+        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">';
+        html += '<p class="text-sm opacity-90">{% trans "Total Trip Cost" %}</p>';
+        html += '<p class="text-4xl font-bold mt-1">$' + Number(data.total_cost).toFixed(2) + '</p>';
+        html += '<p class="text-sm opacity-95 mt-2">{% trans "Cost per mile" %}: $' + Number(data.cost_per_mile).toFixed(4) + '</p>';
+        html += '<p class="text-sm opacity-95">' + data.distance + ' ' + formatUnit(data.distance_unit) + ', ' + data.mpg + ' MPG, $' + data.fuel_price + ' ' + formatUnit(data.price_unit) + '</p></div>';
+    }
+    html += '</div>';
+    resultContent.innerHTML = html;
+    if (data.step_by_step && data.step_by_step.length > 0) {
+        var stepsHtml = '<div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 space-y-3"><h3 class="text-lg font-semibold text-gray-900 mb-3">{% trans "Step-by-Step Solution" %}</h3>';
+        data.step_by_step.forEach(function(step) {
+            stepsHtml += step ? ('<p class="text-sm text-gray-700 border-l-4 border-blue-500 pl-3">' + step + '</p>') : '<div class="my-2"></div>';
+        });
+        stepsHtml += '</div>';
+        stepByStepDiv.innerHTML = stepsHtml;
+    } else {
+        stepByStepDiv.innerHTML = '';
+    }
+    resultsDiv.classList.remove('hidden');
+    if (resultChart) {
+        resultChart.destroy();
+        resultChart = null;
+    }
+    if (data.chart_data) {
+        var chartKey = Object.keys(data.chart_data)[0];
+        var config = data.chart_data[chartKey];
+        if (config) {
+            resultChart = new Chart(document.getElementById('resultChart').getContext('2d'), config);
+            chartSection.classList.remove('hidden');
+        } else {
+            chartSection.classList.add('hidden');
+        }
+    } else {
+        chartSection.classList.add('hidden');
+    }
+}
+
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

@@ -1,203 +1,467 @@
-{% extends 'core/base.html' %}
-{% load static %}
+{% extends "core/base.html" %}
 {% load i18n %}
 
-{% block title %}Average Return Calculator - CAGR & Investment Performance{% endblock %}
+{% block title %}{% trans "Average Return Calculator - CAGR & Investment Performance" %}{% endblock %}
+{% block meta_description %}{% trans "Free average return calculator. CAGR, arithmetic and geometric mean, risk metrics. Compare start/end values or annual returns. Get instant results with growth chart." %}{% endblock %}
+{% block meta_keywords %}{% trans "average return calculator, CAGR calculator, compound annual growth rate, investment performance, geometric mean" %}{% endblock %}
 
-{% block meta_description %}Calculate average returns, CAGR, and investment performance metrics.{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+<meta property="og:title" content="{% trans 'Average Return Calculator' %}">
+<meta property="og:description" content="{% trans 'Calculate CAGR and investment performance from start/end values or annual returns.' %}">
+<meta property="og:type" content="website">
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Average Return Calculator' %}",
+    "description": "{% trans 'Calculate average returns, CAGR, and investment performance metrics.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "{% trans 'Home' %}", "item": "/"},
+        {"@type": "ListItem", "position": 2, "name": "{% trans 'Financial Calculators' %}", "item": "/financial-calculators/"},
+        {"@type": "ListItem", "position": 3, "name": "{% trans 'Average Return Calculator' %}", "item": "/financial-calculators/average-return-calculator/"}
+    ]
+}
+</script>
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">📊 Average Return Calculator</h1>
-            <p class="text-emerald-200 text-lg max-w-2xl mx-auto">Calculate investment performance with CAGR, average returns & risk metrics</p>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Average Return Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate your investment performance with CAGR, average returns, and risk metrics. Use start/end values or enter annual returns for a detailed analysis." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Calculator Form -->
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <!-- Calculation Type -->
-                    <div>
-                        <label class="block text-sm font-medium text-emerald-200 mb-3">Calculation Type</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="relative cursor-pointer">
-                                <input type="radio" name="calc_type" value="simple" checked class="peer sr-only">
-                                <div class="p-4 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-emerald-400 peer-checked:bg-emerald-500/20 transition-all text-center">
-                                    <div class="text-2xl">💵</div>
-                                    <div class="text-sm text-white mt-1">Start/End Values</div>
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="relative cursor-pointer">
+                                    <input type="radio" name="calc_type" value="simple" checked class="peer sr-only">
+                                    <div class="p-3 border-2 border-gray-300 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all text-center">
+                                        <span class="text-lg">💵</span>
+                                        <div class="text-sm font-medium text-gray-700 mt-1">{% trans "Start/End Values" %}</div>
+                                    </div>
+                                </label>
+                                <label class="relative cursor-pointer">
+                                    <input type="radio" name="calc_type" value="periodic" class="peer sr-only">
+                                    <div class="p-3 border-2 border-gray-300 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all text-center">
+                                        <span class="text-lg">📈</span>
+                                        <div class="text-sm font-medium text-gray-700 mt-1">{% trans "Annual Returns" %}</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="simple_fields" class="space-y-4">
+                            <div>
+                                <label for="initial_value" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Initial Investment" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" name="initial_value" id="initial_value" value="10,000" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right" placeholder="10,000" inputmode="decimal">
                                 </div>
-                            </label>
-                            <label class="relative cursor-pointer">
-                                <input type="radio" name="calc_type" value="periodic" class="peer sr-only">
-                                <div class="p-4 bg-white/5 border-2 border-white/20 rounded-xl peer-checked:border-emerald-400 peer-checked:bg-emerald-500/20 transition-all text-center">
-                                    <div class="text-2xl">📈</div>
-                                    <div class="text-sm text-white mt-1">Annual Returns</div>
+                            </div>
+                            <div>
+                                <label for="final_value" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Final Value" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" name="final_value" id="final_value" value="25,000" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right" placeholder="25,000" inputmode="decimal">
                                 </div>
-                            </label>
+                            </div>
+                            <div>
+                                <label for="years" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Investment Period (Years)" %}</label>
+                                <input type="number" name="years" id="years" value="10" min="1" max="100" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base text-right" placeholder="10">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Range: 1–100 years" %}</p>
+                            </div>
+                        </div>
+
+                        <div id="periodic_fields" class="hidden space-y-4">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-sm font-medium text-gray-700">{% trans "Annual Returns" %}</label>
+                                <button type="button" id="add_return" class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors">{% trans "Add year" %}</button>
+                            </div>
+                            <p class="text-xs text-gray-500 -mt-2">{% trans "Enter return percentage for each year (e.g. 12 for 12%%)." %}</p>
+                            <div id="returns_container" class="space-y-2">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 1</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="12" step="0.1" placeholder="0" aria-label="{% trans 'Return year 1' %}">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 2</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="-5" step="0.1" placeholder="0" aria-label="{% trans 'Return year 2' %}">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 3</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="18" step="0.1" placeholder="0" aria-label="{% trans 'Return year 3' %}">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 4</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="8" step="0.1" placeholder="0" aria-label="{% trans 'Return year 4' %}">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-700 text-sm font-medium w-14 shrink-0">{% trans "Year" %} 5</span>
+                                    <div class="relative flex-1 max-w-[8rem]">
+                                        <input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="15" step="0.1" placeholder="0" aria-label="{% trans 'Return year 5' %}">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">{% trans "Enter at least 2 years. Click 'Add year' to add more." %}</p>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Returns" %}</span>
+                        </button>
+                    </form>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
                     </div>
-
-                    <!-- Simple Fields -->
-                    <div id="simple_fields" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-emerald-200 mb-2">Initial Investment</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="initial_value" id="initial_value" value="10,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-emerald-200 mb-2">Final Value</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                <input type="text" name="final_value" id="final_value" value="25,000" 
-                                    class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-emerald-200 mb-2">Investment Period (Years)</label>
-                            <input type="number" name="years" id="years" value="10" 
-                                class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
                         </div>
                     </div>
-
-                    <!-- Periodic Fields -->
-                    <div id="periodic_fields" class="hidden space-y-4">
-                        <div class="flex justify-between items-center">
-                            <label class="block text-sm font-medium text-emerald-200">Annual Returns (%)</label>
-                            <button type="button" id="add_return" class="px-3 py-1 bg-emerald-500/30 text-emerald-200 rounded-lg text-sm">+ Add Year</button>
-                        </div>
-                        <div id="returns_container" class="grid grid-cols-2 gap-2">
-                            <div class="flex items-center gap-2">
-                                <span class="text-emerald-300 text-sm w-12">Yr 1</span>
-                                <input type="number" class="annual-return flex-1 px-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" value="12" step="0.1">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-emerald-300 text-sm w-12">Yr 2</span>
-                                <input type="number" class="annual-return flex-1 px-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" value="-5" step="0.1">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-emerald-300 text-sm w-12">Yr 3</span>
-                                <input type="number" class="annual-return flex-1 px-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" value="18" step="0.1">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-emerald-300 text-sm w-12">Yr 4</span>
-                                <input type="number" class="annual-return flex-1 px-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" value="8" step="0.1">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-emerald-300 text-sm w-12">Yr 5</span>
-                                <input type="number" class="annual-return flex-1 px-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" value="15" step="0.1">
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" 
-                        class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
-                        Calculate Returns
-                    </button>
-                </form>
+                </div>
             </div>
 
-            <!-- Results Panel -->
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-emerald-400 border-t-transparent mx-auto mb-4"></div>
-                    <p class="text-emerald-200">Calculating...</p>
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">
+                        {% trans "Enter your details, then click Calculate to see your CAGR, average returns, risk metrics, and growth chart." %}
+                    </p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <!-- CAGR -->
-                    <div class="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl p-6 shadow-2xl">
-                        <h3 class="text-emerald-100 text-sm font-medium mb-1">CAGR (Compound Annual Growth Rate)</h3>
-                        <div class="text-5xl font-bold text-white" id="cagr_display">9.65%</div>
-                        <div class="text-emerald-200 text-sm mt-2" id="cagr_detail">Your investment grew 150% over 10 years</div>
-                    </div>
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden space-y-6">
 
-                    <!-- Key Metrics -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-emerald-300 text-sm">Arithmetic Mean</div>
-                            <div class="text-xl font-bold text-white" id="arithmetic_mean">9.65%</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-emerald-300 text-sm">Geometric Mean</div>
-                            <div class="text-xl font-bold text-white" id="geometric_mean">9.65%</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-emerald-300 text-sm">Total Return</div>
-                            <div class="text-xl font-bold text-white" id="total_return">150.00%</div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-emerald-300 text-sm">Absolute Gain</div>
-                            <div class="text-xl font-bold text-white" id="absolute_gain">$15,000</div>
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-2">{% trans "Compound Annual Growth Rate (CAGR)" %}</p>
+                            <p id="cagr_display" class="text-5xl sm:text-6xl font-bold mb-2">0%</p>
+                            <p id="cagr_detail" class="text-sm opacity-90 mt-2"></p>
                         </div>
                     </div>
 
-                    <!-- Risk Metrics (for periodic) -->
-                    <div id="risk_section" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">📉 Risk Metrics</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <div class="text-emerald-300 text-sm">Standard Deviation</div>
-                                <div class="text-xl font-bold text-white" id="std_dev">-</div>
+                    <!-- Detailed Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Arithmetic Mean" %}</p>
+                                <p id="arithmetic_mean" class="text-sm font-bold text-gray-900">-</p>
                             </div>
-                            <div>
-                                <div class="text-emerald-300 text-sm">Best Year</div>
-                                <div class="text-xl font-bold text-green-400" id="best_year">-</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Geometric Mean" %}</p>
+                                <p id="geometric_mean" class="text-sm font-bold text-gray-900">-</p>
                             </div>
-                            <div>
-                                <div class="text-emerald-300 text-sm">Worst Year</div>
-                                <div class="text-xl font-bold text-red-400" id="worst_year">-</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total Return" %}</p>
+                                <p id="total_return" class="text-sm font-bold text-gray-900">-</p>
                             </div>
-                            <div>
-                                <div class="text-emerald-300 text-sm">Positive Years</div>
-                                <div class="text-xl font-bold text-white" id="positive_years">-</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Absolute Gain" %}</p>
+                                <p id="absolute_gain" class="text-sm font-bold text-gray-900">-</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Comparison -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">📊 Benchmark Comparison</h3>
+                    <!-- Risk Metrics (for annual returns) -->
+                    <div id="risk_section" class="hidden bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Risk Metrics" %}
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Standard Deviation" %}</p>
+                                <p id="std_dev" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Best Year" %}</p>
+                                <p id="best_year" class="text-sm font-bold text-green-600">-</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Worst Year" %}</p>
+                                <p id="worst_year" class="text-sm font-bold text-red-600">-</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Positive Years" %}</p>
+                                <p id="positive_years" class="text-sm font-bold text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Benchmark Comparison -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Benchmark Comparison" %}
+                        </h3>
                         <div class="space-y-4">
                             <div>
                                 <div class="flex justify-between text-sm mb-1">
-                                    <span class="text-emerald-300">Your Return</span>
-                                    <span class="text-white" id="your_bar_label">9.65%</span>
+                                    <span class="text-gray-600">{% trans "Your Return" %}</span>
+                                    <span id="your_bar_label" class="font-medium text-gray-900">-</span>
                                 </div>
-                                <div class="w-full bg-white/10 rounded-full h-3">
-                                    <div id="your_bar" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-3 rounded-full" style="width: 65%"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-sm mb-1">
-                                    <span class="text-emerald-300">S&P 500 Historical (10%)</span>
-                                    <span class="text-white">10.00%</span>
-                                </div>
-                                <div class="w-full bg-white/10 rounded-full h-3">
-                                    <div class="bg-blue-500 h-3 rounded-full" style="width: 67%"></div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div id="your_bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all" style="width: 0%"></div>
                                 </div>
                             </div>
                             <div>
                                 <div class="flex justify-between text-sm mb-1">
-                                    <span class="text-emerald-300">Bond Returns (5%)</span>
-                                    <span class="text-white">5.00%</span>
+                                    <span class="text-gray-600">{% trans "S&P 500 Historical (10%)" %}</span>
+                                    <span class="text-gray-900">10%</span>
                                 </div>
-                                <div class="w-full bg-white/10 rounded-full h-3">
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div class="bg-blue-400 h-3 rounded-full" style="width: 67%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-600">{% trans "Bond Returns (5%)" %}</span>
+                                    <span class="text-gray-900">5%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
                                     <div class="bg-amber-500 h-3 rounded-full" style="width: 33%"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Growth Chart -->
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Investment Growth</h3>
-                        <canvas id="growthChart" height="200"></canvas>
+                    <!-- Investment Growth Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                            {% trans "Investment Growth" %}
+                        </h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="growthChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comprehensive User Guide - Always Visible Below Results -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+
+                    <div class="space-y-6">
+                        <!-- What is CAGR Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Average Return and CAGR?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                                {% blocktrans %}The average return can mean the simple (arithmetic) average of period returns or the geometric average. The geometric average is the same as the Compound Annual Growth Rate (CAGR): the constant yearly rate that would turn your starting value into your ending value over the same period. CAGR smooths volatility and is the standard way to compare investment performance over time.{% endblocktrans %}
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                <p class="text-center font-mono text-sm font-bold text-gray-900">CAGR = (Ending Value ÷ Beginning Value)^(1 ÷ Years) − 1</p>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% blocktrans %}Use Start/End Values when you only know initial and final amounts; use Annual Returns when you have year-by-year returns and want arithmetic mean, geometric mean, standard deviation, and best/worst year.{% endblocktrans %}
+                            </p>
+                        </div>
+
+                        <!-- What Your Results Mean Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What Your Results Mean" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
+                                    <h4 class="font-semibold text-green-900 mb-1">{% trans "CAGR (Compound Annual Growth Rate)" %}</h4>
+                                    <p class="text-sm text-green-800">
+                                        {% trans "The annualized return that would grow your initial value to your final value over the given years. Use it to compare different investments or time periods." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                                    <h4 class="font-semibold text-blue-900 mb-1">{% trans "Arithmetic Mean" %}</h4>
+                                    <p class="text-sm text-blue-800">
+                                        {% trans "The simple average of your period returns. Shown when you enter annual returns. It does not account for compounding." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-amber-500 pl-4 py-2 bg-amber-50 rounded-r">
+                                    <h4 class="font-semibold text-amber-900 mb-1">{% trans "Geometric Mean" %}</h4>
+                                    <p class="text-sm text-amber-800">
+                                        {% trans "The compounded average return; same as CAGR for your series. Always lower than arithmetic mean when returns vary. This is the right measure for investment performance." %}
+                                    </p>
+                                </div>
+                                <div class="border-l-4 border-gray-500 pl-4 py-2 bg-gray-50 rounded-r">
+                                    <h4 class="font-semibold text-gray-900 mb-1">{% trans "Total Return & Absolute Gain" %}</h4>
+                                    <p class="text-sm text-gray-800">
+                                        {% trans "Total return is the overall percentage gain or loss. Absolute gain is the dollar difference between final and initial value." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Select calculation type: Start/End Values or Annual Returns" %}</li>
+                                <li>{% trans "For Start/End Values: enter initial investment, final value, and number of years" %}</li>
+                                <li>{% trans "For Annual Returns: enter at least 2 yearly return percentages; click 'Add year' to add more" %}</li>
+                                <li>{% trans "Click 'Calculate Returns' to see your results" %}</li>
+                                <li>{% trans "Review the CAGR card, stats, benchmark comparison, and growth chart" %}</li>
+                                <li>{% trans "Read the guide below for interpretation" %}</li>
+                            </ol>
+                        </div>
+
+                        <!-- Understanding Your Results Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "CAGR Value" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your main result. It is the constant annual rate that would turn your starting amount into your ending amount over the given period." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Risk Metrics (Annual Returns only)" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Standard deviation measures volatility. Best year and worst year show the highest and lowest single-year returns. Positive years is the count of years with a positive return." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Benchmark Comparison" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Your return is compared visually to common benchmarks (e.g. S&P 500 historical ~10%%, bonds ~5%%) so you can see how your performance stacks up." %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Growth Chart" %}</h4>
+                                    <p class="text-gray-700 text-sm">
+                                        {% trans "Shows how your investment value would have grown year by year at the calculated CAGR or from your entered annual returns." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formula Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Formulas" %}</h3>
+                            <p class="text-gray-700 text-sm mb-3">
+                                {% trans "CAGR from start and end values:" %}
+                            </p>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-3">
+                                <p class="font-mono text-sm sm:text-base">CAGR = (Ending Value / Beginning Value)^(1/Years) − 1</p>
+                            </div>
+                            <p class="text-gray-700 text-sm mb-2">
+                                {% trans "Geometric mean (equivalent to CAGR) from N period returns:" %}
+                            </p>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <p class="font-mono text-sm sm:text-base">Geometric Mean = ( (1+r₁)(1+r₂)...(1+rₙ) )^(1/N) − 1</p>
+                            </div>
+                        </div>
+
+                        <!-- Important Notes Section -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "CAGR assumes a smooth growth path; actual returns will vary year to year." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "This calculator is for educational and informational purposes only. It is not financial or investment advice." %}</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>{% trans "Past performance does not guarantee future results. Consult a financial advisor for personal advice." %}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- When to Use This Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "When to Use This Calculator" %}</h3>
+                            <ul class="space-y-2 text-gray-700 text-sm list-disc list-inside">
+                                <li>{% trans "Comparing performance of different investments or time periods" %}</li>
+                                <li>{% trans "Checking if your portfolio beat inflation or a benchmark" %}</li>
+                                <li>{% trans "Estimating long-term growth from historical annual returns" %}</li>
+                                <li>{% trans "Evaluating mutual funds, ETFs, or retirement account performance" %}</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -205,149 +469,196 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let growthChart = null;
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var resultsSection = document.getElementById('resultsSection');
+    var initialState = document.getElementById('initialState');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var growthChart = null;
 
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-}
-
-// Toggle fields
-document.querySelectorAll('input[name="calc_type"]').forEach(radio => {
-    radio.addEventListener('change', function() {
-        if (this.value === 'simple') {
-            document.getElementById('simple_fields').classList.remove('hidden');
-            document.getElementById('periodic_fields').classList.add('hidden');
-            document.getElementById('risk_section').classList.add('hidden');
-        } else {
-            document.getElementById('simple_fields').classList.add('hidden');
-            document.getElementById('periodic_fields').classList.remove('hidden');
-        }
-    });
-});
-
-// Add year
-document.getElementById('add_return').addEventListener('click', function() {
-    const container = document.getElementById('returns_container');
-    const count = container.querySelectorAll('.annual-return').length + 1;
-    const div = document.createElement('div');
-    div.className = 'flex items-center gap-2';
-    div.innerHTML = `
-        <span class="text-emerald-300 text-sm w-12">Yr ${count}</span>
-        <input type="number" class="annual-return flex-1 px-2 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" value="0" step="0.1">
-    `;
-    container.appendChild(div);
-});
-
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const calcType = document.querySelector('input[name="calc_type"]:checked').value;
-    
-    let formData = { calc_type: calcType };
-
-    if (calcType === 'simple') {
-        formData.initial_value = document.getElementById('initial_value').value;
-        formData.final_value = document.getElementById('final_value').value;
-        formData.years = document.getElementById('years').value;
-    } else {
-        const returns = [];
-        document.querySelectorAll('.annual-return').forEach(input => {
-            returns.push(parseFloat(input.value) || 0);
-        });
-        formData.returns = returns;
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
     }
 
-    try {
-        const response = await fetch('{% url "financial_calculators:average_return_calculator" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
-
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert(data.error || 'Calculation error');
-        }
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
-    }
-});
-
-function updateResults(data) {
-    document.getElementById('cagr_display').textContent = data.cagr.toFixed(2) + '%';
-    document.getElementById('cagr_detail').textContent = `Your investment grew ${data.total_return.toFixed(1)}% over ${data.years || data.num_years} years`;
-    
-    document.getElementById('arithmetic_mean').textContent = data.arithmetic_mean.toFixed(2) + '%';
-    document.getElementById('geometric_mean').textContent = data.geometric_mean.toFixed(2) + '%';
-    document.getElementById('total_return').textContent = data.total_return.toFixed(2) + '%';
-    document.getElementById('absolute_gain').textContent = formatCurrency(data.absolute_gain);
-
-    document.getElementById('your_bar_label').textContent = data.cagr.toFixed(2) + '%';
-    document.getElementById('your_bar').style.width = Math.min(100, data.cagr * 6.7) + '%';
-
-    // Risk metrics for periodic
-    if (data.std_dev !== undefined) {
-        document.getElementById('risk_section').classList.remove('hidden');
-        document.getElementById('std_dev').textContent = data.std_dev.toFixed(2) + '%';
-        document.getElementById('best_year').textContent = data.best_year.toFixed(1) + '%';
-        document.getElementById('worst_year').textContent = data.worst_year.toFixed(1) + '%';
-        document.getElementById('positive_years').textContent = data.positive_years + '/' + data.num_years;
-    } else {
-        document.getElementById('risk_section').classList.add('hidden');
-    }
-
-    updateChart(data);
-}
-
-function updateChart(data) {
-    const ctx = document.getElementById('growthChart').getContext('2d');
-    if (growthChart) growthChart.destroy();
-
-    const years = data.growth_data ? data.growth_data.map(d => 'Year ' + d.year) : Array.from({length: (data.years || 10) + 1}, (_, i) => 'Year ' + i);
-    const values = data.growth_data ? data.growth_data.map(d => d.value) : [];
-
-    if (values.length === 0 && data.initial_value && data.final_value) {
-        const rate = 1 + data.cagr / 100;
-        for (let i = 0; i <= (data.years || 10); i++) {
-            values.push(data.initial_value * Math.pow(rate, i));
-        }
-    }
-
-    growthChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: years,
-            datasets: [{
-                label: 'Portfolio Value',
-                data: values,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: '#fff' } } },
-            scales: {
-                x: { ticks: { color: '#6ee7b7' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                y: { ticks: { color: '#6ee7b7' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            if (this.value === 'simple') {
+                document.getElementById('simple_fields').classList.remove('hidden');
+                document.getElementById('periodic_fields').classList.add('hidden');
+            } else {
+                document.getElementById('simple_fields').classList.add('hidden');
+                document.getElementById('periodic_fields').classList.remove('hidden');
             }
+        });
+    });
+
+    document.getElementById('add_return').addEventListener('click', function() {
+        var container = document.getElementById('returns_container');
+        var count = container.querySelectorAll('.annual-return').length + 1;
+        var row = document.createElement('div');
+        row.className = 'flex items-center gap-3';
+        row.innerHTML = '<span class="text-gray-700 text-sm font-medium w-14 shrink-0">Year ' + count + '</span><div class="relative flex-1 max-w-[8rem]"><input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0" step="0.1" placeholder="0" aria-label="Return year ' + count + '"><span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span></div>';
+        container.appendChild(row);
+    });
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errorState.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+        calculateBtn.disabled = true;
+        calculateBtnText.textContent = '{% trans "Calculating..." %}';
+
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl) {
+            errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
+            errorState.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
+            return;
+        }
+
+        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
+        var payload = { calc_type: calcType };
+
+        if (calcType === 'simple') {
+            payload.initial_value = document.getElementById('initial_value').value;
+            payload.final_value = document.getElementById('final_value').value;
+            payload.years = document.getElementById('years').value;
+        } else {
+            var returns = [];
+            document.querySelectorAll('.annual-return').forEach(function(input) {
+                returns.push(parseFloat(input.value) || 0);
+            });
+            payload.returns = returns;
+        }
+
+        try {
+            var response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
+                body: JSON.stringify(payload)
+            });
+            var data;
+            try {
+                data = await response.json();
+            } catch (parseErr) {
+                loadingState.classList.add('hidden');
+                calculateBtn.disabled = false;
+                calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
+                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
+                errorState.classList.remove('hidden');
+                return;
+            }
+
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
+
+            if (!data.success) {
+                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
+                errorState.classList.remove('hidden');
+                return;
+            }
+
+            initialState.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+
+            var cagrVal = data.cagr != null ? data.cagr : 0;
+            var resultCard = document.getElementById('resultCard');
+            if (resultCard) {
+                if (typeof cagrVal === 'number' && cagrVal >= 0) {
+                    resultCard.className = 'bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+                } else if (typeof cagrVal === 'number' && cagrVal < 0) {
+                    resultCard.className = 'bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+                } else {
+                    resultCard.className = 'bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
+                }
+            }
+            var yearsVal = data.years != null ? data.years : data.num_years || 0;
+            var totalRet = data.total_return != null ? data.total_return : 0;
+            var absGain = data.absolute_gain != null ? data.absolute_gain : 0;
+
+            document.getElementById('cagr_display').textContent = (typeof cagrVal === 'number' ? cagrVal.toFixed(2) : cagrVal) + '%';
+            document.getElementById('cagr_detail').textContent = '{% trans "Your investment grew" %} ' + (typeof totalRet === 'number' ? totalRet.toFixed(1) : totalRet) + '% {% trans "over" %} ' + yearsVal + ' {% trans "years" %}';
+
+            document.getElementById('arithmetic_mean').textContent = data.arithmetic_mean != null ? data.arithmetic_mean.toFixed(2) + '%' : '-';
+            document.getElementById('geometric_mean').textContent = data.geometric_mean != null ? data.geometric_mean.toFixed(2) + '%' : (cagrVal != null ? cagrVal.toFixed(2) + '%' : '-');
+            document.getElementById('total_return').textContent = (typeof totalRet === 'number' ? totalRet.toFixed(2) : totalRet) + '%';
+            document.getElementById('absolute_gain').textContent = typeof absGain === 'number' ? formatCurrency(absGain) : '-';
+
+            document.getElementById('your_bar_label').textContent = (typeof cagrVal === 'number' ? cagrVal.toFixed(2) : cagrVal) + '%';
+            document.getElementById('your_bar').style.width = Math.min(100, Math.max(0, (typeof cagrVal === 'number' ? cagrVal : 0) * 6.7)) + '%';
+
+            if (data.std_dev !== undefined && data.std_dev !== null) {
+                document.getElementById('risk_section').classList.remove('hidden');
+                document.getElementById('std_dev').textContent = data.std_dev.toFixed(2) + '%';
+                document.getElementById('best_year').textContent = (data.best_year != null ? data.best_year.toFixed(1) : '-') + '%';
+                document.getElementById('worst_year').textContent = (data.worst_year != null ? data.worst_year.toFixed(1) : '-') + '%';
+                document.getElementById('positive_years').textContent = (data.positive_years != null ? data.positive_years : '-') + '/' + (data.num_years != null ? data.num_years : '-');
+            } else {
+                document.getElementById('risk_section').classList.add('hidden');
+            }
+
+            var ctx = document.getElementById('growthChart');
+            if (ctx && typeof Chart !== 'undefined') {
+                if (growthChart) growthChart.destroy();
+                var labels = [];
+                var values = [];
+                if (data.growth_data && data.growth_data.length) {
+                    data.growth_data.forEach(function(d) {
+                        labels.push('{% trans "Year" %} ' + d.year);
+                        values.push(d.value);
+                    });
+                } else if (data.initial_value != null && data.final_value != null && yearsVal > 0) {
+                    var rate = 1 + (cagrVal / 100);
+                    for (var i = 0; i <= yearsVal; i++) {
+                        labels.push('{% trans "Year" %} ' + i);
+                        values.push(data.initial_value * Math.pow(rate, i));
+                    }
+                }
+                if (values.length) {
+                    growthChart = new Chart(ctx.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '{% trans "Portfolio Value" %}',
+                                data: values,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true } },
+                            scales: {
+                                x: { ticks: { maxRotation: 45 } },
+                                y: { beginAtZero: false }
+                            }
+                        }
+                    });
+                }
+            }
+
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            console.error(err);
+            loadingState.classList.add('hidden');
+            calculateBtn.disabled = false;
+            calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
+            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
+            errorState.classList.remove('hidden');
         }
     });
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+});
 </script>
 {% endblock %}

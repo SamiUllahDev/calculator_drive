@@ -1,38 +1,75 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 import json
 import numpy as np
 from datetime import datetime
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class PersonalLoanCalculator(View):
     """
     Class-based view for Personal Loan Calculator
     Calculates monthly payments, total interest, and amortization for personal loans.
     """
     template_name = 'financial_calculators/personal_loan_calculator.html'
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a flat dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0):
+        """Safely get float from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        """Safely get int from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '')))
+        except (ValueError, TypeError):
+            return default
+
     def get(self, request):
         """Handle GET request"""
         context = {
             'calculator_name': 'Personal Loan Calculator',
+            'page_title': 'Personal Loan Calculator - Calculate Monthly Payments',
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
-        """Handle POST request for personal loan calculations"""
+        """Handle POST request for personal loan calculations (JSON or form)."""
         try:
-            data = json.loads(request.body)
+            data = self._get_data(request)
             
             calc_type = data.get('calc_type', 'calculate_payment')
             
             if calc_type == 'calculate_payment':
-                # Calculate monthly payment
-                loan_amount = float(str(data.get('loan_amount', 0)).replace(',', ''))
-                interest_rate = float(str(data.get('interest_rate', 0)).replace(',', ''))
-                loan_term = int(data.get('loan_term', 36))  # months
-                origination_fee = float(str(data.get('origination_fee', 0)).replace(',', ''))
+                loan_amount = self._get_float(data, 'loan_amount', 0)
+                interest_rate = self._get_float(data, 'interest_rate', 0)
+                loan_term = self._get_int(data, 'loan_term', 36)
+                origination_fee = self._get_float(data, 'origination_fee', 0)
                 
                 # Validation
                 if loan_amount <= 0:
@@ -135,10 +172,9 @@ class PersonalLoanCalculator(View):
                 }
                 
             elif calc_type == 'calculate_affordability':
-                # Calculate how much can be borrowed based on desired payment
-                desired_payment = float(str(data.get('desired_payment', 0)).replace(',', ''))
-                interest_rate = float(str(data.get('interest_rate', 0)).replace(',', ''))
-                loan_term = int(data.get('loan_term', 36))
+                desired_payment = self._get_float(data, 'desired_payment', 0)
+                interest_rate = self._get_float(data, 'interest_rate', 0)
+                loan_term = self._get_int(data, 'loan_term', 36)
                 
                 if desired_payment <= 0:
                     return JsonResponse({'success': False, 'error': 'Desired payment must be greater than zero.'}, status=400)
@@ -166,9 +202,8 @@ class PersonalLoanCalculator(View):
                 }
                 
             elif calc_type == 'compare_terms':
-                # Compare different loan terms
-                loan_amount = float(str(data.get('loan_amount', 0)).replace(',', ''))
-                interest_rate = float(str(data.get('interest_rate', 0)).replace(',', ''))
+                loan_amount = self._get_float(data, 'loan_amount', 0)
+                interest_rate = self._get_float(data, 'interest_rate', 0)
                 
                 if loan_amount <= 0:
                     return JsonResponse({'success': False, 'error': 'Loan amount must be greater than zero.'}, status=400)

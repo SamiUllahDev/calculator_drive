@@ -1,100 +1,111 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class DebtToIncomeCalculator(View):
     """
     Class-based view for Debt-to-Income (DTI) Ratio Calculator
     Calculates front-end and back-end DTI ratios for mortgage qualification.
     """
     template_name = 'financial_calculators/debt_to_income_calculator.html'
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0):
+        """Safely get float from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Debt-to-Income Calculator',
+            'calculator_name': _('Debt-to-Income Calculator'),
+            'page_title': _('Debt-to-Income (DTI) Calculator - Check Mortgage Qualification'),
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
-        """Handle POST request for DTI calculations"""
+        """Handle POST request for DTI calculations (JSON or form)."""
         try:
-            data = json.loads(request.body)
-            
-            # Income
-            gross_monthly_income = float(str(data.get('gross_monthly_income', 0)).replace(',', ''))
-            other_income = float(str(data.get('other_income', 0)).replace(',', ''))
-            
-            # Housing costs (for front-end ratio)
-            mortgage_payment = float(str(data.get('mortgage_payment', 0)).replace(',', ''))
-            property_tax = float(str(data.get('property_tax', 0)).replace(',', ''))
-            home_insurance = float(str(data.get('home_insurance', 0)).replace(',', ''))
-            hoa_fees = float(str(data.get('hoa_fees', 0)).replace(',', ''))
-            
-            # Other debts (for back-end ratio)
-            car_payment = float(str(data.get('car_payment', 0)).replace(',', ''))
-            student_loans = float(str(data.get('student_loans', 0)).replace(',', ''))
-            credit_cards = float(str(data.get('credit_cards', 0)).replace(',', ''))
-            personal_loans = float(str(data.get('personal_loans', 0)).replace(',', ''))
-            other_debts = float(str(data.get('other_debts', 0)).replace(',', ''))
-            child_support = float(str(data.get('child_support', 0)).replace(',', ''))
-            
-            # Validation
+            data = self._get_data(request)
+
+            gross_monthly_income = self._get_float(data, 'gross_monthly_income', 0)
+            other_income = self._get_float(data, 'other_income', 0)
+            mortgage_payment = self._get_float(data, 'mortgage_payment', 0)
+            property_tax = self._get_float(data, 'property_tax', 0)
+            home_insurance = self._get_float(data, 'home_insurance', 0)
+            hoa_fees = self._get_float(data, 'hoa_fees', 0)
+            car_payment = self._get_float(data, 'car_payment', 0)
+            student_loans = self._get_float(data, 'student_loans', 0)
+            credit_cards = self._get_float(data, 'credit_cards', 0)
+            personal_loans = self._get_float(data, 'personal_loans', 0)
+            other_debts = self._get_float(data, 'other_debts', 0)
+            child_support = self._get_float(data, 'child_support', 0)
+
             total_income = gross_monthly_income + other_income
             if total_income <= 0:
-                return JsonResponse({'success': False, 'error': 'Total income must be greater than zero.'}, status=400)
-            
-            # Calculate housing costs (PITI)
+                return JsonResponse({'success': False, 'error': _('Total income must be greater than zero.')}, status=400)
+
             total_housing = mortgage_payment + property_tax + home_insurance + hoa_fees
-            
-            # Calculate total monthly debts
             total_other_debts = car_payment + student_loans + credit_cards + personal_loans + other_debts + child_support
             total_debts = total_housing + total_other_debts
-            
-            # Calculate DTI ratios
+
             front_end_ratio = (total_housing / total_income) * 100
             back_end_ratio = (total_debts / total_income) * 100
-            
-            # Determine qualification status
+
             def get_status(ratio, front=False):
                 if front:
                     if ratio <= 28:
-                        return {'status': 'excellent', 'message': 'Excellent - Well within lender guidelines'}
+                        return {'status': 'excellent', 'message': _('Excellent - Well within lender guidelines')}
                     elif ratio <= 31:
-                        return {'status': 'good', 'message': 'Good - Meets conventional loan requirements'}
+                        return {'status': 'good', 'message': _('Good - Meets conventional loan requirements')}
                     elif ratio <= 36:
-                        return {'status': 'fair', 'message': 'Fair - May qualify with compensating factors'}
+                        return {'status': 'fair', 'message': _('Fair - May qualify with compensating factors')}
                     else:
-                        return {'status': 'poor', 'message': 'High - May have difficulty qualifying'}
+                        return {'status': 'poor', 'message': _('High - May have difficulty qualifying')}
                 else:
                     if ratio <= 36:
-                        return {'status': 'excellent', 'message': 'Excellent - Strong qualification position'}
+                        return {'status': 'excellent', 'message': _('Excellent - Strong qualification position')}
                     elif ratio <= 43:
-                        return {'status': 'good', 'message': 'Good - Meets qualified mortgage (QM) standards'}
+                        return {'status': 'good', 'message': _('Good - Meets qualified mortgage (QM) standards')}
                     elif ratio <= 50:
-                        return {'status': 'fair', 'message': 'Fair - May qualify for FHA or VA loans'}
+                        return {'status': 'fair', 'message': _('Fair - May qualify for FHA or VA loans')}
                     else:
-                        return {'status': 'poor', 'message': 'High - Significant barrier to mortgage approval'}
-            
+                        return {'status': 'poor', 'message': _('High - Significant barrier to mortgage approval')}
+
             front_end_status = get_status(front_end_ratio, front=True)
             back_end_status = get_status(back_end_ratio, front=False)
-            
-            # Calculate maximum affordable housing payment based on income
-            max_housing_28 = total_income * 0.28  # Conservative
-            max_housing_31 = total_income * 0.31  # Conventional
-            max_housing_36 = total_income * 0.36  # FHA
-            
-            # Calculate maximum total debt based on income
-            max_debt_36 = total_income * 0.36  # Conservative
-            max_debt_43 = total_income * 0.43  # QM limit
-            max_debt_50 = total_income * 0.50  # FHA limit
-            
-            # Room for additional debt
+
+            max_housing_28 = total_income * 0.28
+            max_housing_31 = total_income * 0.31
+            max_housing_36 = total_income * 0.36
+            max_debt_36 = total_income * 0.36
+            max_debt_43 = total_income * 0.43
+            max_debt_50 = total_income * 0.50
             room_to_43 = max(0, max_debt_43 - total_debts)
             room_to_36 = max(0, max_debt_36 - total_debts)
-            
+
             result = {
                 'success': True,
                 'income': {
@@ -137,39 +148,29 @@ class DebtToIncomeCalculator(View):
                     'room_to_43': round(room_to_43, 2)
                 },
                 'guidelines': {
-                    'conventional': {
-                        'front_end': '28% or less',
-                        'back_end': '36% or less'
-                    },
-                    'fha': {
-                        'front_end': '31% or less',
-                        'back_end': '43% or less (up to 50% with compensating factors)'
-                    },
-                    'va': {
-                        'front_end': 'No limit',
-                        'back_end': '41% or less (flexible)'
-                    }
+                    'conventional': {'front_end': _('28% or less'), 'back_end': _('36% or less')},
+                    'fha': {'front_end': _('31% or less'), 'back_end': _('43% or less (up to 50%% with compensating factors)')},
+                    'va': {'front_end': _('No limit'), 'back_end': _('41% or less (flexible)')}
                 }
             }
-            
-            # Recommendations
+
             recommendations = []
             if back_end_ratio > 43:
-                recommendations.append(f'Your DTI of {back_end_ratio:.1f}% exceeds the QM limit of 43%. Consider paying down ${total_debts - max_debt_43:,.0f} in monthly debts.')
+                recommendations.append(_('Your DTI of %(ratio)s%% exceeds the QM limit of 43%%. Consider paying down debt to improve qualification.') % {'ratio': f'{back_end_ratio:.1f}'})
             if front_end_ratio > 28:
-                recommendations.append(f'Your housing ratio of {front_end_ratio:.1f}% is above the ideal 28%. Consider a less expensive home or increasing your income.')
+                recommendations.append(_('Your housing ratio of %(ratio)s%% is above the ideal 28%%. Consider a less expensive home or increasing your income.') % {'ratio': f'{front_end_ratio:.1f}'})
             if back_end_ratio <= 36:
-                recommendations.append('Your DTI is excellent for conventional mortgage qualification.')
+                recommendations.append(_('Your DTI is excellent for conventional mortgage qualification.'))
             if credit_cards > 0:
                 cc_impact = credit_cards / total_income * 100
                 if cc_impact > 5:
-                    recommendations.append(f'Credit card payments represent {cc_impact:.1f}% of your income. Paying these off could significantly improve your DTI.')
-            
+                    recommendations.append(_('Credit card payments represent %(pct)s%% of your income. Paying these off could significantly improve your DTI.') % {'pct': f'{cc_impact:.1f}'})
+
             result['recommendations'] = recommendations
-            
+
             return JsonResponse(result)
-            
+
         except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)

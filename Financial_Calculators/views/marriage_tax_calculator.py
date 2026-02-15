@@ -1,18 +1,21 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
-import numpy as np
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class MarriageTaxCalculator(View):
     """
-    Class-based view for Marriage Tax Calculator
-    Calculates marriage tax bonus or penalty by comparing married vs single filing.
+    Class-based view for Marriage Tax Calculator.
+    Compares married vs single filing; returns marriage bonus/penalty and Chart.js chart_data (BMI-style).
     """
     template_name = 'financial_calculators/marriage_tax_calculator.html'
 
-    # 2024 Federal Tax Brackets
     TAX_BRACKETS = {
         'single': [
             (11600, 0.10),
@@ -42,8 +45,6 @@ class MarriageTaxCalculator(View):
             (float('inf'), 0.37)
         ]
     }
-
-    # 2024 Standard Deductions
     STANDARD_DEDUCTIONS = {
         'single': 14600,
         'married_jointly': 29200,
@@ -51,19 +52,55 @@ class MarriageTaxCalculator(View):
     }
 
     def get(self, request):
-        """Handle GET request"""
-        context = {
-            'calculator_name': 'Marriage Tax Calculator',
-        }
+        context = {'calculator_name': str(_('Marriage Tax Calculator'))}
         return render(request, self.template_name, context)
 
+    def _get_data(self, request):
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        if request.body:
+            try:
+                return json.loads(request.body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0.0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_bool(self, data, key, default=False):
+        val = data.get(key, default)
+        if isinstance(val, list):
+            val = val[0] if val else default
+        if val in (True, 'true', '1', 1, 'yes'):
+            return True
+        if val in (False, 'false', '0', 0, 'no', '', None):
+            return False
+        return bool(val)
+
     def _calculate_tax(self, taxable_income, filing_status):
-        """Calculate federal income tax based on brackets"""
         brackets = self.TAX_BRACKETS[filing_status]
         tax = 0
         remaining = taxable_income
         previous_limit = 0
-        
         for limit, rate in brackets:
             if remaining <= 0:
                 break
@@ -71,123 +108,89 @@ class MarriageTaxCalculator(View):
             tax += bracket_amount * rate
             remaining -= bracket_amount
             previous_limit = limit
-        
         return tax
 
     def post(self, request):
-        """Handle POST request for marriage tax calculations"""
         try:
-            data = json.loads(request.body)
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
 
-            # Person 1 income
-            income_1 = float(str(data.get('income_1', 0)).replace(',', ''))
-            pre_tax_deductions_1 = float(str(data.get('pre_tax_deductions_1', 0)).replace(',', ''))
-            itemized_deductions_1 = float(str(data.get('itemized_deductions_1', 0)).replace(',', ''))
-            
-            # Person 2 income
-            income_2 = float(str(data.get('income_2', 0)).replace(',', ''))
-            pre_tax_deductions_2 = float(str(data.get('pre_tax_deductions_2', 0)).replace(',', ''))
-            itemized_deductions_2 = float(str(data.get('itemized_deductions_2', 0)).replace(',', ''))
-            
-            # Filing preferences
-            use_itemized = data.get('use_itemized', False)
+            income_1 = self._get_float(data, 'income_1', 0) or self._get_float(data, 'income1', 0)
+            income_2 = self._get_float(data, 'income_2', 0) or self._get_float(data, 'income2', 0)
+            pre_tax_deductions_1 = self._get_float(data, 'pre_tax_deductions_1', 0) or self._get_float(data, 'retirement1', 0)
+            pre_tax_deductions_2 = self._get_float(data, 'pre_tax_deductions_2', 0) or self._get_float(data, 'retirement2', 0)
+            itemized_combined = self._get_float(data, 'itemized', 0)
+            if itemized_combined > 0:
+                use_itemized = self._get_bool(data, 'use_itemized', True)
+                itemized_deductions_1 = itemized_combined / 2
+                itemized_deductions_2 = itemized_combined / 2
+            else:
+                use_itemized = self._get_bool(data, 'use_itemized', False)
+                itemized_deductions_1 = self._get_float(data, 'itemized_deductions_1', 0)
+                itemized_deductions_2 = self._get_float(data, 'itemized_deductions_2', 0)
 
             if income_1 < 0 or income_2 < 0:
-                return JsonResponse({'success': False, 'error': 'Income cannot be negative.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Income cannot be negative.'))}, status=400)
 
-            # Calculate AGI for each person
             agi_1 = income_1 - pre_tax_deductions_1
             agi_2 = income_2 - pre_tax_deductions_2
             combined_agi = agi_1 + agi_2
 
-            # SCENARIO 1: Both file as Single
-            # Person 1
-            if use_itemized and itemized_deductions_1 > self.STANDARD_DEDUCTIONS['single']:
-                deduction_1 = itemized_deductions_1
-            else:
-                deduction_1 = self.STANDARD_DEDUCTIONS['single']
-            
+            # Single filing
+            deduction_1 = itemized_deductions_1 if (use_itemized and itemized_deductions_1 > self.STANDARD_DEDUCTIONS['single']) else self.STANDARD_DEDUCTIONS['single']
+            deduction_2 = itemized_deductions_2 if (use_itemized and itemized_deductions_2 > self.STANDARD_DEDUCTIONS['single']) else self.STANDARD_DEDUCTIONS['single']
             taxable_1 = max(0, agi_1 - deduction_1)
-            tax_single_1 = self._calculate_tax(taxable_1, 'single')
-
-            # Person 2
-            if use_itemized and itemized_deductions_2 > self.STANDARD_DEDUCTIONS['single']:
-                deduction_2 = itemized_deductions_2
-            else:
-                deduction_2 = self.STANDARD_DEDUCTIONS['single']
-            
             taxable_2 = max(0, agi_2 - deduction_2)
+            tax_single_1 = self._calculate_tax(taxable_1, 'single')
             tax_single_2 = self._calculate_tax(taxable_2, 'single')
-
             total_tax_as_singles = tax_single_1 + tax_single_2
 
-            # SCENARIO 2: Married Filing Jointly
+            # Married filing jointly
             combined_itemized = itemized_deductions_1 + itemized_deductions_2
-            if use_itemized and combined_itemized > self.STANDARD_DEDUCTIONS['married_jointly']:
-                deduction_mfj = combined_itemized
-            else:
-                deduction_mfj = self.STANDARD_DEDUCTIONS['married_jointly']
-            
+            deduction_mfj = combined_itemized if (use_itemized and combined_itemized > self.STANDARD_DEDUCTIONS['married_jointly']) else self.STANDARD_DEDUCTIONS['married_jointly']
             taxable_mfj = max(0, combined_agi - deduction_mfj)
             tax_married_jointly = self._calculate_tax(taxable_mfj, 'married_jointly')
 
-            # SCENARIO 3: Married Filing Separately
-            # Person 1 MFS
-            if use_itemized and itemized_deductions_1 > self.STANDARD_DEDUCTIONS['married_separately']:
-                deduction_mfs_1 = itemized_deductions_1
-            else:
-                deduction_mfs_1 = self.STANDARD_DEDUCTIONS['married_separately']
-            
+            # Married filing separately
+            deduction_mfs_1 = itemized_deductions_1 if (use_itemized and itemized_deductions_1 > self.STANDARD_DEDUCTIONS['married_separately']) else self.STANDARD_DEDUCTIONS['married_separately']
+            deduction_mfs_2 = itemized_deductions_2 if (use_itemized and itemized_deductions_2 > self.STANDARD_DEDUCTIONS['married_separately']) else self.STANDARD_DEDUCTIONS['married_separately']
             taxable_mfs_1 = max(0, agi_1 - deduction_mfs_1)
-            tax_mfs_1 = self._calculate_tax(taxable_mfs_1, 'married_separately')
-
-            # Person 2 MFS
-            if use_itemized and itemized_deductions_2 > self.STANDARD_DEDUCTIONS['married_separately']:
-                deduction_mfs_2 = itemized_deductions_2
-            else:
-                deduction_mfs_2 = self.STANDARD_DEDUCTIONS['married_separately']
-            
             taxable_mfs_2 = max(0, agi_2 - deduction_mfs_2)
+            tax_mfs_1 = self._calculate_tax(taxable_mfs_1, 'married_separately')
             tax_mfs_2 = self._calculate_tax(taxable_mfs_2, 'married_separately')
-
             total_tax_mfs = tax_mfs_1 + tax_mfs_2
 
-            # Calculate marriage penalty/bonus
             marriage_effect = total_tax_as_singles - tax_married_jointly
-            
             if marriage_effect > 0:
                 effect_type = 'bonus'
-                effect_description = f'Marriage Bonus: You save ${abs(marriage_effect):,.2f} by being married'
+                effect_description = str(_('Marriage Bonus: You save %(amount)s by filing jointly.')) % {'amount': f'${abs(marriage_effect):,.2f}'}
             elif marriage_effect < 0:
                 effect_type = 'penalty'
-                effect_description = f'Marriage Penalty: You pay ${abs(marriage_effect):,.2f} more by being married'
+                effect_description = str(_('Marriage Penalty: You pay %(amount)s more by filing jointly.')) % {'amount': f'${abs(marriage_effect):,.2f}'}
             else:
                 effect_type = 'neutral'
-                effect_description = 'No difference between married and single filing'
+                effect_description = str(_('No difference between married and single filing.'))
 
-            # Best filing option for married couple
             if tax_married_jointly <= total_tax_mfs:
-                best_married_option = 'Married Filing Jointly'
+                best_married_option = str(_('Married Filing Jointly'))
                 best_married_tax = tax_married_jointly
             else:
-                best_married_option = 'Married Filing Separately'
+                best_married_option = str(_('Married Filing Separately'))
                 best_married_tax = total_tax_mfs
 
-            # Effective tax rates
             total_income = income_1 + income_2
             effective_rate_single = (total_tax_as_singles / total_income * 100) if total_income > 0 else 0
             effective_rate_mfj = (tax_married_jointly / total_income * 100) if total_income > 0 else 0
             effective_rate_mfs = (total_tax_mfs / total_income * 100) if total_income > 0 else 0
 
-            # Income disparity analysis
             income_ratio = max(income_1, income_2) / min(income_1, income_2) if min(income_1, income_2) > 0 else float('inf')
-            
             if income_ratio < 1.5:
-                disparity_note = "Similar incomes often lead to marriage penalty"
+                disparity_note = str(_('Similar incomes often lead to marriage penalty.'))
             elif income_ratio > 3:
-                disparity_note = "Large income difference usually results in marriage bonus"
+                disparity_note = str(_('Large income difference usually results in marriage bonus.'))
             else:
-                disparity_note = "Moderate income difference - effect varies"
+                disparity_note = str(_('Moderate income difference — effect varies.'))
 
             result = {
                 'success': True,
@@ -221,14 +224,8 @@ class MarriageTaxCalculator(View):
                     'effective_rate': round(effective_rate_mfj, 2)
                 },
                 'married_separately': {
-                    'person_1': {
-                        'taxable_income': round(taxable_mfs_1, 2),
-                        'tax': round(tax_mfs_1, 2)
-                    },
-                    'person_2': {
-                        'taxable_income': round(taxable_mfs_2, 2),
-                        'tax': round(tax_mfs_2, 2)
-                    },
+                    'person_1': {'taxable_income': round(taxable_mfs_1, 2), 'tax': round(tax_mfs_1, 2)},
+                    'person_2': {'taxable_income': round(taxable_mfs_2, 2), 'tax': round(tax_mfs_2, 2)},
                     'total_tax': round(total_tax_mfs, 2),
                     'effective_rate': round(effective_rate_mfs, 2)
                 },
@@ -248,21 +245,56 @@ class MarriageTaxCalculator(View):
                     'mfj_vs_mfs_savings': round(total_tax_mfs - tax_married_jointly, 2)
                 },
                 'comparison_chart': {
-                    'labels': ['Filing as Singles', 'Married Filing Jointly', 'Married Filing Separately'],
-                    'values': [round(total_tax_as_singles, 2), round(tax_married_jointly, 2), round(total_tax_mfs, 2)]
+                    'labels': [
+                        str(_('Filing as Singles')),
+                        str(_('Married Filing Jointly')),
+                        str(_('Married Filing Separately'))
+                    ],
+                    'values': [
+                        round(total_tax_as_singles, 2),
+                        round(tax_married_jointly, 2),
+                        round(total_tax_mfs, 2)
+                    ]
                 },
                 'notes': [
-                    'Marriage bonus/penalty depends on income disparity',
-                    'Couples with similar incomes often face marriage penalty',
-                    'Single-earner couples typically get marriage bonus',
-                    'MFS loses many deductions/credits (student loan interest, education credits, etc.)',
-                    'State taxes may have different marriage effects'
+                    str(_('Marriage bonus/penalty depends on income disparity.')),
+                    str(_('Couples with similar incomes often face marriage penalty.')),
+                    str(_('Single-earner couples typically get marriage bonus.')),
+                    str(_('State taxes may have different marriage effects.'))
                 ]
             }
+            result['chart_data'] = self._prepare_chart_data(result)
+            return JsonResponse(result, encoder=DjangoJSONEncoder)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': str(_('Invalid input. Please check your numbers.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
 
-            return JsonResponse(result)
-
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+    def _prepare_chart_data(self, result):
+        comp = result.get('comparison_chart', {})
+        labels = comp.get('labels', [])
+        values = comp.get('values', [])
+        if not labels or not values:
+            return {}
+        return {
+            'comparison_chart': {
+                'type': 'bar',
+                'data': {
+                    'labels': labels,
+                    'datasets': [{
+                        'label': str(_('Tax Amount')),
+                        'data': values,
+                        'backgroundColor': ['#f472b6', '#10b981', '#6366f1'],
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'display': False}},
+                    'scales': {
+                        'y': {'beginAtZero': True}
+                    }
+                }
+            }
+        }

@@ -1,42 +1,470 @@
 {% extends "core/base.html" %}
+{% load static %}
+{% load i18n %}
 
-{% block title %}Percent Off Calculator{% endblock %}
-{% block meta_description %}Percent Off Calculator - Fast, accurate, and easy to use. Calculate online for free.{% endblock %}
+{% block title %}{% trans "Percent Off Calculator - Sale Price & Savings" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate sale price from percent off, find percent off from prices, stacked discounts, and buy-X-get-Y deals. Free and easy to use." %}{% endblock %}
+{% block meta_keywords %}{% trans "percent off calculator, sale price, percentage discount, stacked discounts, buy one get one" %}{% endblock %}
+
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-    <div class="container">
-        <h1>Percent Off Calculator</h1>
-        <form id="calculatorForm">
-                        <div class="form-group">
-                <label for="original_price_">Original Price ($):</label>
-                <input type="number" id="original_price_" name="original_price_" placeholder="Enter Original Price ($)" step="0.01" required>
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
             </div>
-            <div class="form-group">
-                <label for="percent_off_">Percent Off (%):</label>
-                <input type="number" id="percent_off_" name="percent_off_" placeholder="Enter Percent Off (%)" step="0.01" required>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Percent Off Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate sale price, percent off, stacked discounts, and buy-X-get-Y deals." %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        {% trans "Calculate" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Mode" %}</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 hover:bg-gray-50">
+                                    <input type="radio" name="calc_type" value="calculate_sale_price" class="sr-only" checked>
+                                    <span class="text-sm">{% trans "Sale price from % off" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 hover:bg-gray-50">
+                                    <input type="radio" name="calc_type" value="calculate_percent_off" class="sr-only">
+                                    <span class="text-sm">{% trans "% off from two prices" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 hover:bg-gray-50">
+                                    <input type="radio" name="calc_type" value="calculate_original" class="sr-only">
+                                    <span class="text-sm">{% trans "Original from sale + % off" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 hover:bg-gray-50">
+                                    <input type="radio" name="calc_type" value="stacked_discounts" class="sr-only">
+                                    <span class="text-sm">{% trans "Stacked discounts" %}</span>
+                                </label>
+                                <label class="flex items-center p-3 rounded-lg border-2 border-gray-200 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 hover:bg-gray-50">
+                                    <input type="radio" name="calc_type" value="buy_x_get_y" class="sr-only">
+                                    <span class="text-sm">{% trans "Buy X Get Y" %}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="salePriceFields" class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Original Price" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="original_price" name="original_price" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="100" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Percent Off" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="percent_off" name="percent_off" class="w-full px-4 py-2.5 pr-8 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="20" inputmode="decimal">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="percentOffFields" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Original Price" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="original_price_2" name="original_price_2" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="100" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sale Price" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="sale_price" name="sale_price" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="75" inputmode="decimal">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="originalFields" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Sale Price" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="sale_price_2" name="sale_price_2" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="80" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Percent Off" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="percent_off_2" name="percent_off_2" class="w-full px-4 py-2.5 pr-8 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="20" inputmode="decimal">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="stackedFields" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Original Price" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="original_price_3" name="original_price_3" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="100" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Discounts (%)" %}</label>
+                                <input type="text" id="discounts" name="discounts" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="20, 10" placeholder="20, 10">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Comma-separated, e.g. 20, 10 for 20% then 10% off" %}</p>
+                            </div>
+                        </div>
+                        <div id="buyXGetYFields" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Price per item" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="text" id="original_price_4" name="original_price_4" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="10" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Buy" %}</label>
+                                    <input type="number" id="buy_quantity" name="buy_quantity" class="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="2" min="1">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Get" %}</label>
+                                    <input type="number" id="get_quantity" name="get_quantity" class="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="1" min="1">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Get (discount %)" %}</label>
+                                <div class="relative">
+                                    <input type="text" id="get_discount" name="get_discount" class="w-full px-4 py-2.5 pr-8 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right" value="100" inputmode="decimal">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "100 = free" %}</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit">Calculate</button>
-        </form>
-        <div class="results" id="results">
-            <div class="result-item">
-                <span class="result-label">Result:</span>
-                <span class="result-value" id="result">$0.00</span>
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Choose a mode, enter your numbers, and click Calculate to see sale price and savings." %}</p>
+                </div>
+
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Sale Price" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90"><span id="heroDetail"></span></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "You pay" %}</p>
+                            <p id="detailPay" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "You save" %}</p>
+                            <p id="detailSave" class="text-sm font-bold text-green-600">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Original" %}</p>
+                            <p id="detailOriginal" class="text-sm font-bold text-gray-900">$0</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Discount" %}</p>
+                            <p id="detailDiscount" class="text-sm font-bold text-blue-600">0%</p>
+                        </div>
+                    </div>
+
+                    <div id="formulaBlock" class="hidden bg-gray-50 rounded-xl border-2 border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-900 mb-2">{% trans "Formula" %}</h3>
+                        <p id="formulaText" class="text-sm text-gray-700 font-mono"></p>
+                    </div>
+                    <div id="stackedBreakdown" class="hidden bg-white rounded-xl border-2 border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Step-by-step" %}</h3>
+                        <div id="stackedBreakdownBody" class="space-y-2 text-sm"></div>
+                        <p id="stackedNote" class="text-sm text-gray-600 mt-3"></p>
+                    </div>
+                    <div id="buyXGetYBlock" class="hidden bg-white rounded-xl border-2 border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Deal summary" %}</h3>
+                        <div id="buyXGetYBody" class="space-y-2 text-sm text-gray-700"></div>
+                    </div>
+                    <div id="comparisonTableWrap" class="hidden bg-white rounded-xl border-2 border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-900 mb-3">{% trans "Compare discount %" %}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left font-medium">{% trans "Off" %}</th><th class="px-3 py-2 text-right font-medium">{% trans "Save" %}</th><th class="px-3 py-2 text-right font-medium">{% trans "Price" %}</th></tr></thead>
+                                <tbody id="comparisonBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div id="breakdownChartWrap" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "You Pay vs You Save" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]"><canvas id="breakdownChart"></canvas></div>
+                        </div>
+                        <div id="comparisonChartWrap" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Sale price at different % off" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]"><canvas id="comparisonChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Percent Off Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                {% blocktrans %}This calculator handles several percent-off scenarios: find the sale price from an original price and a discount %%; find the discount %% from original and sale price; find the original price from sale price and %%; apply multiple stacked discounts; or model buy-X-get-Y deals (e.g. buy 2 get 1 free). It shows what you pay, what you save, and includes comparison charts.{% endblocktrans %}
+                            </p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Modes" %}</h3>
+                            <ul class="space-y-2 text-sm text-gray-700">
+                                <li><strong>{% trans "Sale price from % off:" %}</strong> {% trans "Enter original price and percent off to get sale price and savings. Compare at 10%%, 15%%, … 70%% off." %}</li>
+                                <li><strong>{% trans "% off from two prices:" %}</strong> {% trans "Enter original and sale price to get the equivalent percent off and savings." %}</li>
+                                <li><strong>{% trans "Original from sale + % off:" %}</strong> {% trans "Enter sale price and percent off to work out the original price." %}</li>
+                                <li><strong>{% trans "Stacked discounts:" %}</strong> {% trans "Enter original price and a list of discount percents (e.g. 20, 10). Each discount applies to the previous result. See effective total %." %}</li>
+                                <li><strong>{% trans "Buy X Get Y:" %}</strong> {% trans "Enter price per item, buy quantity, get quantity, and get discount %% (100 = free). See deal total and effective discount." %}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                            <p class="text-sm text-gray-700"><strong>{% trans "You Pay vs You Save:" %}</strong> {% trans "Doughnut showing the split between amount paid and amount saved." %}</p>
+                            <p class="text-sm text-gray-700 mt-2"><strong>{% trans "Sale price at different % off:" %}</strong> {% trans "Bar chart of sale price at 10%%, 15%%, … 50%% off for the same original price (when available)." %}</p>
+                        </div>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                            <ul class="space-y-2 text-sm text-blue-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Sale price = Original × (1 - %%/100). Original = Sale ÷ (1 - %%/100)." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Stacked discounts: 20%% then 10%% is not 30%% off; the second 10%% applies to the already-reduced price." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Buy 2 Get 1 Free (100%%): you pay for 2 items and get 3; effective discount is 33.3%%." %}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <script>
-        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            document.getElementById('result').textContent = '$0.00';
-            document.getElementById('results').classList.add('show');
-        });
-    </script>
-
-    </div>
 </div>
+
+<script>
+var breakdownChart = null;
+var comparisonChart = null;
+
+function checkChartJS() { return typeof Chart !== 'undefined'; }
+
+function formatCurrency(n) {
+    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+}
+
+function getVal(id) {
+    var el = document.getElementById(id);
+    return (el && el.value ? el.value.replace(/,/g, '').trim() : '') || '0';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+
+    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            var mode = this.value;
+            document.getElementById('salePriceFields').classList.toggle('hidden', mode !== 'calculate_sale_price');
+            document.getElementById('percentOffFields').classList.toggle('hidden', mode !== 'calculate_percent_off');
+            document.getElementById('originalFields').classList.toggle('hidden', mode !== 'calculate_original');
+            document.getElementById('stackedFields').classList.toggle('hidden', mode !== 'stacked_discounts');
+            document.getElementById('buyXGetYFields').classList.toggle('hidden', mode !== 'buy_x_get_y');
+        });
+    });
+
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate" %}';
+    }
+
+    function createBreakdownChart(chartData) {
+        var canvas = document.getElementById('breakdownChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (breakdownChart) breakdownChart.destroy();
+        breakdownChart = new Chart(canvas.getContext('2d'), { type: chartData.type || 'doughnut', data: chartData.data || {}, options: chartData.options || {} });
+    }
+    function createComparisonChart(chartData) {
+        var canvas = document.getElementById('comparisonChart');
+        if (!canvas || !chartData || !checkChartJS()) return;
+        if (comparisonChart) comparisonChart.destroy();
+        var opts = chartData.options || {};
+        opts.scales = opts.scales || {};
+        opts.scales.y = opts.scales.y || {};
+        opts.scales.y.ticks = opts.scales.y.ticks || {};
+        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v); };
+        comparisonChart = new Chart(canvas.getContext('2d'), { type: chartData.type || 'bar', data: chartData.data || {}, options: opts });
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
+        var payload = { calc_type: calcType };
+        if (calcType === 'calculate_sale_price') {
+            payload.original_price = getVal('original_price');
+            payload.percent_off = getVal('percent_off');
+        } else if (calcType === 'calculate_percent_off') {
+            payload.original_price = getVal('original_price_2');
+            payload.sale_price = getVal('sale_price');
+        } else if (calcType === 'calculate_original') {
+            payload.sale_price = getVal('sale_price_2');
+            payload.percent_off = getVal('percent_off_2');
+        } else if (calcType === 'stacked_discounts') {
+            payload.original_price = getVal('original_price_3');
+            var d = document.getElementById('discounts').value;
+            payload.discounts = d ? d.split(',').map(function(x) { return x.trim(); }).filter(Boolean) : [20, 10];
+        } else if (calcType === 'buy_x_get_y') {
+            payload.original_price = getVal('original_price_4');
+            payload.buy_quantity = document.getElementById('buy_quantity').value || 2;
+            payload.get_quantity = document.getElementById('get_quantity').value || 1;
+            payload.get_discount = getVal('get_discount');
+        }
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) { showError('{% trans "Session expired. Please refresh the page and try again." %}'); return; }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value }, body: JSON.stringify(payload) });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try { data = text ? JSON.parse(text) : {}; } catch (err) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server. Please try again." %}');
+                return;
+            }
+            if (!data.success) { showError(data.error || '{% trans "Invalid response." %}'); return; }
+
+            var ct = data.calc_type;
+            var salePrice = data.sale_price != null ? data.sale_price : data.final_price != null ? data.final_price : data.deal_price;
+            var savings = data.savings != null ? data.savings : data.total_savings;
+            var orig = data.original_price;
+            var pct = data.percent_off != null ? data.percent_off : data.effective_discount;
+
+            document.getElementById('heroLabel').textContent = ct === 'calculate_sale_price' ? '{% trans "Sale Price" %}' : (ct === 'calculate_percent_off' ? '{% trans "Percent Off" %}' : (ct === 'calculate_original' ? '{% trans "Original Price" %}' : (ct === 'stacked_discounts' ? '{% trans "Final Price" %}' : '{% trans "Deal Price" %}')));
+            if (ct === 'calculate_percent_off') document.getElementById('heroValue').textContent = (pct != null ? pct.toFixed(1) : 0) + '%';
+            else document.getElementById('heroValue').textContent = formatCurrency(salePrice != null ? salePrice : orig);
+            document.getElementById('heroDetail').textContent = orig != null ? ('{% trans "Original" %}: ' + formatCurrency(orig)) : (data.deal ? data.deal : '');
+
+            document.getElementById('detailPay').textContent = formatCurrency(salePrice);
+            document.getElementById('detailSave').textContent = formatCurrency(savings);
+            document.getElementById('detailOriginal').textContent = formatCurrency(orig);
+            document.getElementById('detailDiscount').textContent = (pct != null ? (typeof pct === 'number' ? pct.toFixed(1) : pct) : '0') + '%';
+
+            document.getElementById('formulaBlock').classList.add('hidden');
+            if (data.formula) {
+                document.getElementById('formulaBlock').classList.remove('hidden');
+                document.getElementById('formulaText').textContent = data.formula;
+            }
+
+            document.getElementById('stackedBreakdown').classList.add('hidden');
+            if (ct === 'stacked_discounts' && data.breakdown && data.breakdown.length) {
+                document.getElementById('stackedBreakdown').classList.remove('hidden');
+                var sb = document.getElementById('stackedBreakdownBody');
+                sb.innerHTML = '';
+                data.breakdown.forEach(function(row) {
+                    var div = document.createElement('div');
+                    div.className = 'flex justify-between p-2 bg-gray-50 rounded';
+                    div.innerHTML = '<span>{% trans "Step" %} ' + row.step + ': -' + row.discount + '%</span><span>' + formatCurrency(row.price_before) + ' → ' + formatCurrency(row.price_after) + ' (' + formatCurrency(row.savings) + ' {% trans "saved" %})</span>';
+                    sb.appendChild(div);
+                });
+                if (data.note) document.getElementById('stackedNote').textContent = data.note;
+            }
+
+            document.getElementById('buyXGetYBlock').classList.add('hidden');
+            if (ct === 'buy_x_get_y') {
+                document.getElementById('buyXGetYBlock').classList.remove('hidden');
+                var by = document.getElementById('buyXGetYBody');
+                by.innerHTML = '<p><strong>' + (data.deal || '') + '</strong></p><p>{% trans "Regular total" %}: ' + formatCurrency(data.regular_total) + ' → {% trans "Deal total" %}: ' + formatCurrency(data.deal_price) + '</p><p>{% trans "You save" %}: ' + formatCurrency(data.savings) + ' (' + (data.effective_discount != null ? data.effective_discount.toFixed(1) : 0) + '%%)</p><p>{% trans "Effective per item" %}: ' + formatCurrency(data.effective_per_item) + '</p>';
+            }
+
+            document.getElementById('comparisonTableWrap').classList.add('hidden');
+            if (data.comparison && data.comparison.length) {
+                document.getElementById('comparisonTableWrap').classList.remove('hidden');
+                var tbody = document.getElementById('comparisonBody');
+                tbody.innerHTML = '';
+                data.comparison.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    tr.innerHTML = '<td class="px-3 py-2">' + row.percent + '%</td><td class="px-3 py-2 text-right">' + formatCurrency(row.savings) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.final_price) + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+
+            if (data.chart_data) {
+                if (data.chart_data.breakdown_chart && checkChartJS()) createBreakdownChart(data.chart_data.breakdown_chart);
+                else if (breakdownChart) { breakdownChart.destroy(); breakdownChart = null; }
+                if (data.chart_data.comparison_chart && checkChartJS()) { document.getElementById('comparisonChartWrap').classList.remove('hidden'); createComparisonChart(data.chart_data.comparison_chart); }
+                else document.getElementById('comparisonChartWrap').classList.add('hidden');
+            }
+
+            resultsWrapper.classList.remove('hidden');
+            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -1,19 +1,21 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 from datetime import date
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class RmdCalculator(View):
     """
-    Class-based view for Required Minimum Distribution (RMD) Calculator
+    Class-based view for Required Minimum Distribution (RMD) Calculator.
     Calculates RMDs based on IRS Uniform Lifetime Table and SECURE Act 2.0 rules.
     """
     template_name = 'financial_calculators/rmd_calculator.html'
-    
-    # IRS Uniform Lifetime Table (2024) - used for most beneficiaries
-    # Maps age to distribution period (life expectancy factor)
+
     UNIFORM_LIFETIME_TABLE = {
         72: 27.4, 73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0,
         79: 21.1, 80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0,
@@ -23,42 +25,62 @@ class RmdCalculator(View):
         107: 4.1, 108: 3.9, 109: 3.7, 110: 3.5, 111: 3.4, 112: 3.3, 113: 3.1,
         114: 3.0, 115: 2.9, 116: 2.8, 117: 2.7, 118: 2.5, 119: 2.3, 120: 2.0
     }
-    
-    # SECURE Act 2.0 RMD starting ages
-    RMD_START_AGE_2023 = 73  # For those born 1951-1959
-    RMD_START_AGE_2033 = 75  # For those born 1960 or later
-    
+
+    RMD_START_AGE_2023 = 73
+    RMD_START_AGE_2033 = 75
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def get(self, request):
-        """Handle GET request - render the calculator form"""
+        """Handle GET request"""
         context = {
-            'calculator_name': 'RMD Calculator',
+            'calculator_name': _('RMD Calculator'),
+            'page_title': _('RMD Calculator - Required Minimum Distribution Calculator'),
             'current_year': date.today().year,
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            
-            # Get input values
+            data = self._get_data(request)
+
             birth_year = self._get_int(data, 'birth_year', 1955)
             account_balance = self._get_float(data, 'account_balance', 500000)
-            account_type = data.get('account_type', 'traditional_ira')
-            spouse_age = self._get_int(data, 'spouse_age', 0)
-            spouse_sole_beneficiary = data.get('spouse_sole_beneficiary', False)
             expected_return = self._get_float(data, 'expected_return', 5) / 100
-            
-            # Calculate current age
+            spouse_age = self._get_int(data, 'spouse_age', 0)
+
+            account_type = data.get('account_type', 'traditional_ira')
+            if isinstance(account_type, list):
+                account_type = account_type[0] if account_type else 'traditional_ira'
+
+            spouse_sole_beneficiary = data.get('spouse_sole_beneficiary')
+            if isinstance(spouse_sole_beneficiary, str):
+                spouse_sole_beneficiary = spouse_sole_beneficiary.lower() in ('true', '1', 'yes')
+            elif spouse_sole_beneficiary is None:
+                spouse_sole_beneficiary = False
+
             current_year = date.today().year
             current_age = current_year - birth_year
-            
-            # Validate inputs
+
             errors = self._validate_inputs(birth_year, account_balance, current_age)
             if errors:
-                return JsonResponse({'success': False, 'errors': errors}, status=400)
-            
-            # Calculate RMD projections
+                return JsonResponse({'success': False, 'error': str(errors[0])}, status=400)
+
             result = self._calculate_rmd_projection(
                 birth_year=birth_year,
                 current_age=current_age,
@@ -68,48 +90,72 @@ class RmdCalculator(View):
                 spouse_sole_beneficiary=spouse_sole_beneficiary,
                 expected_return=expected_return
             )
-            
+
+            # Backend-controlled status styling (BMI-style)
+            status_key = 'required' if result['rmd_has_started'] else 'not_required'
+            result['status_info'] = {
+                'status': status_key,
+                'title': str(_('RMDs Are Required')) if result['rmd_has_started'] else str(_('RMDs Not Yet Required')),
+                'message': (
+                    str(_('At age %(age)s, you must take Required Minimum Distributions each year.')) % {'age': result['current_age']}
+                    if result['rmd_has_started'] else
+                    str(_('You have %(years)s years until RMDs begin at age %(age)s.')) % {'years': result['years_until_rmd'], 'age': result['rmd_start_age']}
+                ),
+                'color_info': self.get_color_info(status_key)
+            }
+
+            # Chart.js-ready chart data (backend-controlled, BMI-style)
+            result['chart_data'] = self.prepare_chart_data(
+                result.get('chart_data_raw'),
+                result['rmd_has_started']
+            )
+            result.pop('chart_data_raw', None)
+
             return JsonResponse({'success': True, **result})
-            
+
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': str(_('Invalid input: %(detail)s') % {'detail': str(e)})}, status=400)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'errors': ['Invalid JSON data']
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'errors': [str(e)]
-            }, status=500)
-    
+            return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+
     def _get_float(self, data, key, default=0.0):
-        """Safely extract float value from data"""
+        """Safely get float (handles list, strips % and commas)."""
         try:
             value = data.get(key, default)
-            return float(value) if value not in [None, ''] else default
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
         except (ValueError, TypeError):
             return default
-    
+
     def _get_int(self, data, key, default=0):
-        """Safely extract integer value from data"""
+        """Safely get int value."""
         try:
             value = data.get(key, default)
-            return int(float(value)) if value not in [None, ''] else default
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '').replace('$', '')))
         except (ValueError, TypeError):
             return default
-    
+
     def _validate_inputs(self, birth_year, account_balance, current_age):
         """Validate calculator inputs"""
         errors = []
-        
         current_year = date.today().year
+
         if birth_year < 1920 or birth_year > current_year - 18:
-            errors.append('Please enter a valid birth year')
+            errors.append(str(_('Please enter a valid birth year.')))
         if account_balance < 0:
-            errors.append('Account balance must be 0 or greater')
+            errors.append(str(_('Account balance must be 0 or greater.')))
         if current_age < 18 or current_age > 120:
-            errors.append('Age must be between 18 and 120')
-        
+            errors.append(str(_('Age must be between 18 and 120.')))
+
         return errors
     
     def _get_rmd_start_age(self, birth_year):
@@ -151,66 +197,61 @@ class RmdCalculator(View):
             )
             current_rmd = account_balance / current_distribution_period
         
-        # Project RMDs for the next 20 years (or until account depleted)
-        balance = account_balance
+        # Project RMDs for the next 20 years (or until account depleted); use NumPy for arrays
+        balance = float(account_balance)
         yearly_breakdown = []
-        chart_data = {
-            'labels': [],
-            'rmd_amounts': [],
-            'balances': []
-        }
-        
-        total_rmds = 0
-        
+        labels_list = []
+        rmd_amounts_list = []
+        balances_list = []
+
+        total_rmds = 0.0
+
         for year_offset in range(20):
             year = current_year + year_offset
             age = current_age + year_offset
-            
+
             if age < rmd_start_age:
-                # No RMD required yet
                 balance *= (1 + expected_return)
-                rmd = 0
-                distribution_period = 0
+                rmd = 0.0
+                distribution_period = 0.0
             else:
-                # Calculate RMD
                 distribution_period = self._get_distribution_period(
-                    age, spouse_age + year_offset if spouse_age else 0, 
+                    age, spouse_age + year_offset if spouse_age else 0,
                     spouse_sole_beneficiary
                 )
-                rmd = balance / distribution_period if distribution_period > 0 else 0
-                
-                # Apply RMD and growth
+                rmd = balance / distribution_period if distribution_period > 0 else 0.0
                 balance -= rmd
                 if balance > 0:
                     balance *= (1 + expected_return)
                 else:
-                    balance = 0
-                
+                    balance = 0.0
                 total_rmds += rmd
-            
+
+            starting_balance = round(balance + rmd if rmd else balance / (1 + expected_return), 2)
             yearly_breakdown.append({
                 'year': year,
                 'age': age,
-                'starting_balance': round(balance + rmd if rmd else balance / (1 + expected_return), 2),
+                'starting_balance': starting_balance,
                 'distribution_period': round(distribution_period, 1),
                 'rmd': round(rmd, 2),
                 'ending_balance': round(balance, 2)
             })
-            
-            chart_data['labels'].append(f'{year}')
-            chart_data['rmd_amounts'].append(round(rmd, 2))
-            chart_data['balances'].append(round(balance, 2))
-            
+            labels_list.append(str(year))
+            rmd_amounts_list.append(round(rmd, 2))
+            balances_list.append(round(balance, 2))
             if balance <= 0:
                 break
-        
-        # Calculate tax impact estimate (assuming 22% bracket)
+
+        chart_data_raw = {
+            'labels': labels_list,
+            'rmd_amounts': rmd_amounts_list,
+            'balances': balances_list
+        }
+
         estimated_tax_rate = 0.22
         current_rmd_tax = current_rmd * estimated_tax_rate
-        
-        # Monthly equivalent
         monthly_rmd = current_rmd / 12 if current_rmd > 0 else 0
-        
+
         return {
             'current_age': current_age,
             'rmd_start_age': rmd_start_age,
@@ -222,6 +263,63 @@ class RmdCalculator(View):
             'distribution_period': round(current_distribution_period, 1),
             'current_rmd_tax': round(current_rmd_tax, 2),
             'total_projected_rmds': round(total_rmds, 2),
-            'chart_data': chart_data,
+            'chart_data_raw': chart_data_raw,
             'yearly_breakdown': yearly_breakdown
         }
+
+    def get_color_info(self, status):
+        """Return color info for status alert (backend-controlled, BMI-style)."""
+        color_map = {
+            'required': {
+                'hex': '#2563eb',
+                'rgb': 'rgb(37, 99, 235)',
+                'tailwind_classes': 'bg-blue-50 border-blue-200 text-blue-800',
+                'icon_classes': 'text-blue-600'
+            },
+            'not_required': {
+                'hex': '#059669',
+                'rgb': 'rgb(5, 150, 105)',
+                'tailwind_classes': 'bg-green-50 border-green-200 text-green-800',
+                'icon_classes': 'text-green-600'
+            }
+        }
+        return color_map.get(status, color_map['required'])
+
+    def prepare_chart_data(self, raw, rmd_has_started):
+        """Build Chart.js-ready config for RMD and balance charts (backend-controlled)."""
+        if not raw or not raw.get('labels'):
+            return {'rmd_chart': None, 'balance_chart': None}
+
+        labels = raw['labels']
+        rmd_amounts = raw.get('rmd_amounts', [])
+        balances = raw.get('balances', [])
+
+        rmd_chart = {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': 'RMD Amount',
+                    'data': rmd_amounts,
+                    'backgroundColor': '#3b82f6',
+                    'borderRadius': 8
+                }]
+            }
+        }
+
+        balance_chart = {
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': 'Account Balance',
+                    'data': balances,
+                    'borderColor': '#10b981',
+                    'backgroundColor': 'rgba(16, 185, 129, 0.1)',
+                    'fill': True,
+                    'tension': 0.4
+                }]
+            }
+        }
+
+        return {'rmd_chart': rmd_chart, 'balance_chart': balance_chart}

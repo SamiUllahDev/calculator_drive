@@ -1,50 +1,160 @@
 from django.views import View
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
-import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
+class SafeJSONEncoder(DjangoJSONEncoder):
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError:
+            return str(o) if o is not None else None
+
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class DepreciationCalculator(View):
     """
-    Class-based view for Depreciation Calculator
-    Calculates asset depreciation using various methods.
+    Class-based view for Depreciation Calculator.
+    Calculates asset depreciation using various methods. Returns Chart.js-ready chart_data (BMI-style).
     """
     template_name = 'financial_calculators/depreciation_calculator.html'
 
     def get(self, request):
-        """Handle GET request"""
-        context = {
-            'calculator_name': 'Depreciation Calculator',
-        }
+        context = {'calculator_name': str(_('Depreciation Calculator'))}
         return render(request, self.template_name, context)
 
-    def post(self, request):
-        """Handle POST request for depreciation calculations"""
-        try:
-            data = json.loads(request.body)
+    def _get_data(self, request):
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        if request.body:
+            try:
+                return json.loads(request.body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
 
-            # Asset details
-            asset_cost = float(str(data.get('asset_cost', 0)).replace(',', ''))
-            salvage_value = float(str(data.get('salvage_value', 0)).replace(',', ''))
-            useful_life = int(data.get('useful_life', 5))  # years
+    def _get_float(self, data, key, default=0.0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '')))
+        except (ValueError, TypeError):
+            return default
+
+    def _prepare_chart_data(self, schedule, asset_cost, salvage_value, total_depreciation):
+        """Backend-controlled: book value over time line chart + total dep vs salvage doughnut."""
+        out = {}
+        if schedule:
+            years = [str(_('Year')) + ' ' + str(s['year']) for s in schedule]
+            book_vals = [float(s.get('ending_book_value', 0)) for s in schedule]
+            acc_vals = [float(s.get('accumulated_depreciation', 0)) for s in schedule]
+            out['value_chart'] = {
+                'type': 'line',
+                'data': {
+                    'labels': years,
+                    'datasets': [
+                        {
+                            'label': str(_('Ending book value')),
+                            'data': book_vals,
+                            'borderColor': '#6366f1',
+                            'backgroundColor': 'rgba(99, 102, 241, 0.1)',
+                            'fill': True,
+                            'tension': 0.3
+                        },
+                        {
+                            'label': str(_('Accumulated depreciation')),
+                            'data': acc_vals,
+                            'borderColor': '#ef4444',
+                            'backgroundColor': 'rgba(239, 68, 68, 0.1)',
+                            'fill': True,
+                            'tension': 0.3
+                        }
+                    ]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'position': 'bottom'}},
+                    'scales': {'x': {'grid': {'display': False}}, 'y': {'beginAtZero': True}}
+                }
+            }
+        remaining = max(0, asset_cost - total_depreciation)
+        if asset_cost > 0 and (total_depreciation > 0 or remaining > 0):
+            out['breakdown_chart'] = {
+                'type': 'doughnut',
+                'data': {
+                    'labels': [str(_('Total depreciation')), str(_('Remaining value'))],
+                    'datasets': [{
+                        'data': [round(total_depreciation, 2), round(remaining, 2)],
+                        'backgroundColor': ['#6366f1', '#10b981'],
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'cutout': '55%',
+                    'plugins': {'legend': {'position': 'bottom'}}
+                }
+            }
+        return out
+
+    def post(self, request):
+        try:
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': str(_('Invalid request data.'))}, status=400)
+
+            asset_cost = self._get_float(data, 'asset_cost', 0)
+            salvage_value = self._get_float(data, 'salvage_value', 0)
+            useful_life = self._get_int(data, 'useful_life', 5)
             depreciation_method = data.get('method', 'straight_line')
-            
-            # For declining balance
-            db_rate = float(str(data.get('db_rate', 200)).replace(',', ''))  # 200% for double declining
-            
-            # For units of production
-            total_units = int(data.get('total_units', 0))
-            units_per_year = data.get('units_per_year', [])  # list of units produced each year
+            if isinstance(depreciation_method, list):
+                depreciation_method = depreciation_method[0] if depreciation_method else 'straight_line'
+            db_rate = self._get_float(data, 'db_rate', 200)
+            total_units = self._get_int(data, 'total_units', 0)
+            units_per_year = data.get('units_per_year', [])
 
             if asset_cost <= 0:
-                return JsonResponse({'success': False, 'error': 'Asset cost must be greater than zero.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Asset cost must be greater than zero.'))}, status=400)
             if useful_life <= 0:
-                return JsonResponse({'success': False, 'error': 'Useful life must be greater than zero.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Useful life must be greater than zero.'))}, status=400)
             if salvage_value < 0:
-                return JsonResponse({'success': False, 'error': 'Salvage value cannot be negative.'}, status=400)
-            if salvage_value >= asset_cost:
-                return JsonResponse({'success': False, 'error': 'Salvage value must be less than asset cost.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Salvage value cannot be negative.'))}, status=400)
+            if salvage_value >= asset_cost and depreciation_method != 'macrs':
+                return JsonResponse({'success': False, 'error': str(_('Salvage value must be less than asset cost.'))}, status=400)
 
             depreciable_amount = asset_cost - salvage_value
             schedule = []
@@ -108,8 +218,8 @@ class DepreciationCalculator(View):
 
                 result = {
                     'success': True,
-                    'method': f'{int(db_rate)}% Declining Balance',
-                    'formula': 'Depreciation = Book Value × Rate',
+                    'method': str(_('%(pct)s%% Declining Balance')) % {'pct': int(db_rate)},
+                    'formula': str(_('Depreciation = Book Value × Rate')),
                     'depreciation_rate': round(rate * 100, 2),
                     'first_year_depreciation': round(schedule[0]['depreciation'], 2) if schedule else 0
                 }
@@ -145,8 +255,8 @@ class DepreciationCalculator(View):
 
                 result = {
                     'success': True,
-                    'method': 'Double Declining Balance (DDB)',
-                    'formula': 'Depreciation = Book Value × (2 / Useful Life)',
+                    'method': str(_('Double Declining Balance (DDB)')),
+                    'formula': str(_('Depreciation = Book Value × (2 / Useful Life)')),
                     'depreciation_rate': round(rate * 100, 2),
                     'first_year_depreciation': round(schedule[0]['depreciation'], 2) if schedule else 0
                 }
@@ -178,8 +288,8 @@ class DepreciationCalculator(View):
 
                 result = {
                     'success': True,
-                    'method': "Sum of Years' Digits (SYD)",
-                    'formula': 'Depreciation = (Remaining Life / Sum of Years) × Depreciable Amount',
+                    'method': str(_("Sum of Years' Digits (SYD)")),
+                    'formula': str(_('Depreciation = (Remaining Life / Sum of Years) × Depreciable Amount')),
                     'sum_of_years': sum_of_years,
                     'first_year_depreciation': round(schedule[0]['depreciation'], 2) if schedule else 0
                 }
@@ -187,7 +297,7 @@ class DepreciationCalculator(View):
             elif depreciation_method == 'units_of_production':
                 # Units of Production
                 if total_units <= 0:
-                    return JsonResponse({'success': False, 'error': 'Total units must be greater than zero for this method.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('Total units must be greater than zero for this method.'))}, status=400)
                 
                 depreciation_per_unit = depreciable_amount / total_units
                 
@@ -200,9 +310,14 @@ class DepreciationCalculator(View):
                     units_per_year = [total_units / useful_life] * useful_life
                 
                 try:
-                    units_list = [float(str(u).replace(',', '')) for u in units_per_year]
-                except:
-                    units_list = [total_units / useful_life] * useful_life
+                    if isinstance(units_per_year, list):
+                        units_list = [self._get_float({'x': u}, 'x', total_units / useful_life) for u in units_per_year[:useful_life]]
+                    else:
+                        units_list = [total_units / useful_life] * useful_life
+                    if len(units_list) < useful_life:
+                        units_list.extend([total_units / useful_life] * (useful_life - len(units_list)))
+                except (ValueError, TypeError, ZeroDivisionError):
+                    units_list = [total_units / useful_life] * useful_life if useful_life else []
                 
                 for year, units in enumerate(units_list, 1):
                     depreciation = units * depreciation_per_unit
@@ -231,8 +346,8 @@ class DepreciationCalculator(View):
 
                 result = {
                     'success': True,
-                    'method': 'Units of Production',
-                    'formula': 'Depreciation = Units Produced × Depreciation per Unit',
+                    'method': str(_('Units of Production')),
+                    'formula': str(_('Depreciation = Units Produced × Depreciation per Unit')),
                     'total_units': total_units,
                     'depreciation_per_unit': round(depreciation_per_unit, 4)
                 }
@@ -249,7 +364,7 @@ class DepreciationCalculator(View):
                 }
                 
                 if useful_life not in macrs_rates:
-                    return JsonResponse({'success': False, 'error': 'MACRS requires property class of 3, 5, 7, 10, or 15 years.'}, status=400)
+                    return JsonResponse({'success': False, 'error': str(_('MACRS requires property class of 3, 5, 7, 10, or 15 years.'))}, status=400)
                 
                 rates = macrs_rates[useful_life]
                 book_value = asset_cost
@@ -272,28 +387,54 @@ class DepreciationCalculator(View):
 
                 result = {
                     'success': True,
-                    'method': f'MACRS ({useful_life}-Year Property)',
-                    'formula': 'Depreciation = Cost × MACRS Rate',
-                    'property_class': f'{useful_life}-Year',
-                    'note': 'MACRS does not consider salvage value'
+                    'method': str(_('MACRS (%(years)s-Year Property)')) % {'years': useful_life},
+                    'formula': str(_('Depreciation = Cost × MACRS Rate')),
+                    'property_class': str(_('%(years)s-Year')) % {'years': useful_life},
+                    'note': str(_('MACRS does not consider salvage value'))
                 }
 
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid depreciation method.'}, status=400)
+                return JsonResponse({'success': False, 'error': str(_('Invalid depreciation method.'))}, status=400)
 
-            # Add common fields to result
+            total_depreciation = round(sum([s['depreciation'] for s in schedule]), 2)
             result.update({
                 'asset_cost': round(asset_cost, 2),
                 'salvage_value': round(salvage_value, 2),
                 'depreciable_amount': round(depreciable_amount, 2),
                 'useful_life': useful_life,
-                'total_depreciation': round(sum([s['depreciation'] for s in schedule]), 2),
+                'total_depreciation': total_depreciation,
                 'schedule': schedule
             })
-
-            return JsonResponse(result)
-
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
+            ending_book_value = schedule[-1]['ending_book_value'] if schedule else salvage_value
+            result['summary'] = {
+                'method': result.get('method', ''),
+                'formula': result.get('formula', ''),
+                'asset_cost': result['asset_cost'],
+                'salvage_value': result['salvage_value'],
+                'depreciable_amount': result['depreciable_amount'],
+                'useful_life': useful_life,
+                'total_depreciation': total_depreciation,
+                'ending_book_value': ending_book_value,
+                'first_year_depreciation': result.get('first_year_depreciation') or result.get('annual_depreciation') or (schedule[0]['depreciation'] if schedule else 0),
+                'rate_percent': result.get('depreciation_rate')
+            }
+            result['chart_data'] = self._prepare_chart_data(schedule, asset_cost, salvage_value, total_depreciation)
+            try:
+                body = json.dumps(result, cls=SafeJSONEncoder)
+            except (TypeError, ValueError) as ser_err:
+                logger.exception("Depreciation JSON serialization failed: %s", ser_err)
+                return JsonResponse({'success': False, 'error': str(_('An error occurred during calculation.'))}, status=500)
+            return HttpResponse(body, content_type='application/json')
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': str(_('Invalid input. Please check your numbers.'))}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+            logger.exception("Depreciation calculation failed: %s", e)
+            from django.conf import settings
+            err_msg = str(_("An error occurred during calculation."))
+            if getattr(settings, 'DEBUG', False):
+                err_msg += " [" + str(e).replace('"', "'") + "]"
+            return HttpResponse(
+                json.dumps({'success': False, 'error': err_msg}),
+                content_type='application/json',
+                status=500
+            )

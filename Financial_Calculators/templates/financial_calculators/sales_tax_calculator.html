@@ -1,171 +1,290 @@
 {% extends "core/base.html" %}
+{% load static %}
 {% load i18n %}
 
 {% block title %}{% trans "Sales Tax Calculator - Calculate Tax Amount" %}{% endblock %}
 {% block meta_description %}{% trans "Free sales tax calculator. Calculate sales tax, extract tax from total, or find the tax rate. Easy to use with US state tax rates reference." %}{% endblock %}
 {% block meta_keywords %}{% trans "sales tax calculator, tax calculator, calculate sales tax, extract tax, tax rate" %}{% endblock %}
 
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
+
 {% block content %}
-<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
-        
-        <nav class="mb-6">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Sales Tax Calculator" %}</li>
-            </ol>
-        </nav>
+<div class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
 
-        <div class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Sales Tax Calculator" %}</h1>
-            <p class="text-gray-600">{% trans "Calculate sales tax, extract tax from totals, or find tax rates" %}</p>
+        <!-- Header (BMI-style, no breadcrumb) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-emerald-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">{% trans "Sales Tax Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Add tax to a price, extract tax from a total, or find the tax rate. Quick and easy." %}
+            </p>
         </div>
 
-        <div class="space-y-6">
-            
-            <!-- Add Tax Calculator -->
-            <div class="bg-white border border-gray-200 rounded-lg p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">{% trans "Add Sales Tax to Price" %}</h3>
-                <form id="addTaxForm" class="space-y-4">
-                    {% csrf_token %}
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Price Before Tax" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input type="number" id="add_price" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="100" step="0.01" min="0">
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Input Form (BMI-style card) -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Calculation Type" %}</h3>
+                            <div class="space-y-2">
+                                <label class="flex items-center p-2 rounded-lg border-2 border-gray-200 hover:bg-gray-50 cursor-pointer" data-mode="add_tax">
+                                    <input type="radio" name="calc_type" value="add_tax" class="h-4 w-4 text-emerald-600" checked>
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Add Sales Tax to Price" %}</span>
+                                </label>
+                                <label class="flex items-center p-2 rounded-lg border-2 border-gray-200 hover:bg-gray-50 cursor-pointer" data-mode="extract_tax">
+                                    <input type="radio" name="calc_type" value="extract_tax" class="h-4 w-4 text-emerald-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Extract Tax from Total" %}</span>
+                                </label>
+                                <label class="flex items-center p-2 rounded-lg border-2 border-gray-200 hover:bg-gray-50 cursor-pointer" data-mode="find_rate">
+                                    <input type="radio" name="calc_type" value="find_rate" class="h-4 w-4 text-emerald-600">
+                                    <span class="ml-3 text-sm text-gray-700">{% trans "Find Tax Rate" %}</span>
+                                </label>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Tax Rate" %}</label>
-                            <div class="relative">
-                                <input type="number" id="add_rate" class="w-full px-3 py-2 border border-gray-300 rounded-md pr-8" value="8.25" step="0.01" min="0" max="100">
-                                <span class="absolute right-3 top-2 text-gray-500">%</span>
+
+                        <!-- Add Tax fields -->
+                        <div id="addTaxFields" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="price">{% trans "Price Before Tax" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="number" id="price" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base" value="100" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="tax_rate">{% trans "Tax Rate (%)" %}</label>
+                                <input type="number" id="tax_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base" value="8.25" step="0.01" min="0" max="100">
                             </div>
                         </div>
-                        <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition">
-                            {% trans "Calculate" %}
+
+                        <!-- Extract Tax fields (total = price input) -->
+                        <div id="extractTaxFields" class="hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="total_price">{% trans "Total (Including Tax)" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="number" id="total_price" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base" value="108.25" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="extract_tax_rate">{% trans "Tax Rate (%)" %}</label>
+                                <input type="number" id="extract_tax_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base" value="8.25" step="0.01" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <!-- Find Rate fields -->
+                        <div id="findRateFields" class="hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="before_tax">{% trans "Price Before Tax" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="number" id="before_tax" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base" value="100" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1" for="total_after">{% trans "Total After Tax" %}</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <input type="number" id="total_after" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base" value="108.25" step="0.01" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
                         </button>
-                    </div>
-                    <div id="addResult" class="hidden mt-4 p-4 bg-blue-50 rounded-lg">
-                        <div class="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                                <p class="text-sm text-gray-600">{% trans "Before Tax" %}</p>
-                                <p class="text-xl font-bold text-gray-900" id="addBeforeTax">$0.00</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">{% trans "Tax" %}</p>
-                                <p class="text-xl font-bold text-red-600" id="addTaxAmount">$0.00</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">{% trans "Total" %}</p>
-                                <p class="text-xl font-bold text-green-600" id="addTotal">$0.00</p>
-                            </div>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                            <p class="text-emerald-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
                     </div>
-                </form>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Extract Tax Calculator -->
-            <div class="bg-white border border-gray-200 rounded-lg p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">{% trans "Extract Tax from Total" %}</h3>
-                <form id="extractTaxForm" class="space-y-4">
-                    {% csrf_token %}
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Total (Including Tax)" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input type="number" id="extract_price" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="108.25" step="0.01" min="0">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Tax Rate" %}</label>
-                            <div class="relative">
-                                <input type="number" id="extract_rate" class="w-full px-3 py-2 border border-gray-300 rounded-md pr-8" value="8.25" step="0.01" min="0" max="100">
-                                <span class="absolute right-3 top-2 text-gray-500">%</span>
-                            </div>
-                        </div>
-                        <button type="submit" class="bg-green-600 text-white py-2 px-4 rounded-md font-medium hover:bg-green-700 transition">
-                            {% trans "Extract Tax" %}
-                        </button>
-                    </div>
-                    <div id="extractResult" class="hidden mt-4 p-4 bg-green-50 rounded-lg">
-                        <div class="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                                <p class="text-sm text-gray-600">{% trans "Before Tax" %}</p>
-                                <p class="text-xl font-bold text-gray-900" id="extractBeforeTax">$0.00</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">{% trans "Tax" %}</p>
-                                <p class="text-xl font-bold text-red-600" id="extractTaxAmount">$0.00</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">{% trans "Total" %}</p>
-                                <p class="text-xl font-bold text-green-600" id="extractTotal">$0.00</p>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
+            <!-- Right Column: Results (BMI-style) -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Choose a calculation type, enter your numbers, and click Calculate to see your results and breakdown." %}</p>
+                </div>
 
-            <!-- Find Rate Calculator -->
-            <div class="bg-white border border-gray-200 rounded-lg p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">{% trans "Find Tax Rate" %}</h3>
-                <form id="findRateForm" class="space-y-4">
-                    {% csrf_token %}
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Price Before Tax" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input type="number" id="rate_before" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="100" step="0.01" min="0">
-                            </div>
+                <!-- Results (hidden until success) -->
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Total" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0.00</p>
+                            <p id="heroSub" class="text-sm opacity-90"></p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Total After Tax" %}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input type="number" id="rate_after" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="108.25" step="0.01" min="0">
-                            </div>
+                    </div>
+                    <div id="chartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Breakdown" %}</h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="breakdownChart"></canvas>
                         </div>
-                        <button type="submit" class="bg-purple-600 text-white py-2 px-4 rounded-md font-medium hover:bg-purple-700 transition">
-                            {% trans "Find Rate" %}
-                        </button>
                     </div>
-                    <div id="rateResult" class="hidden mt-4 p-4 bg-purple-50 rounded-lg text-center">
-                        <p class="text-sm text-gray-600">{% trans "Tax Rate" %}</p>
-                        <p class="text-3xl font-bold text-purple-600" id="foundRate">0%</p>
-                        <p class="text-sm text-gray-500 mt-2">{% trans "Tax Amount:" %} <span id="foundTaxAmount">$0.00</span></p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="resultDetails">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Before Tax" %}</p>
+                            <p id="detailBeforeTax" class="text-lg font-bold text-gray-900">$0.00</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Tax Amount" %}</p>
+                            <p id="detailTaxAmount" class="text-lg font-bold text-red-600">$0.00</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Total" %}</p>
+                            <p id="detailTotal" class="text-lg font-bold text-gray-900">$0.00</p>
+                        </div>
                     </div>
-                </form>
+                    <div id="findRateExtra" class="hidden bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                        <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Tax Rate" %}</p>
+                        <p id="detailTaxRate" class="text-2xl font-bold text-emerald-600">0%</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- US State Tax Rates -->
-        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "US State Sales Tax Rates" %}</h2>
-            <p class="text-sm text-gray-600 mb-4">{% trans "These are base state rates. Local taxes may apply." %}</p>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="py-2 px-3 text-left">{% trans "State" %}</th>
-                            <th class="py-2 px-3 text-right">{% trans "Rate" %}</th>
-                            <th class="py-2 px-3 text-left">{% trans "State" %}</th>
-                            <th class="py-2 px-3 text-right">{% trans "Rate" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="border-b"><td class="py-2 px-3">California</td><td class="py-2 px-3 text-right">7.25%</td><td class="py-2 px-3">Oregon</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
-                        <tr class="border-b"><td class="py-2 px-3">Texas</td><td class="py-2 px-3 text-right">6.25%</td><td class="py-2 px-3">Montana</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
-                        <tr class="border-b"><td class="py-2 px-3">New York</td><td class="py-2 px-3 text-right">4.00%</td><td class="py-2 px-3">Delaware</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
-                        <tr><td class="py-2 px-3">Florida</td><td class="py-2 px-3 text-right">6.00%</td><td class="py-2 px-3">New Hampshire</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
-                    </tbody>
-                </table>
+        <!-- Complete User Guide -->
+        <div class="mt-8 bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Sales Tax?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                        {% blocktrans %}Sales tax is a consumption tax charged at the point of purchase. In the US, rates vary by state and often by locality. Some states have no sales tax. This calculator helps you add tax to a pre-tax price, work backwards from a total to find the pre-tax amount and tax, or determine the effective tax rate when you know both amounts.{% endblocktrans %}
+                    </p>
+                    <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                        <p class="text-center font-mono text-sm font-bold text-gray-900">{% trans "Total = Price × (1 + Rate) &nbsp;&nbsp;|&nbsp;&nbsp; Tax = Total − Price &nbsp;&nbsp;|&nbsp;&nbsp; Rate = (Total − Price) ÷ Price" %}</p>
+                    </div>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% trans "Add Tax uses the first formula; Extract Tax solves for Price and Tax from Total and Rate; Find Rate solves for the effective rate from Price and Total." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50 rounded-r">
+                            <h4 class="font-semibold text-emerald-900 mb-1">{% trans "Add Tax" %}</h4>
+                            <p class="text-sm text-emerald-800">{% trans "You have a price before tax and a tax rate. The calculator adds the tax to get the total you pay." %}</p>
+                        </div>
+                        <div class="border-l-4 border-teal-500 pl-4 py-2 bg-teal-50 rounded-r">
+                            <h4 class="font-semibold text-teal-900 mb-1">{% trans "Extract Tax" %}</h4>
+                            <p class="text-sm text-teal-800">{% trans "You have a total (including tax) and the tax rate. The calculator splits it into pre-tax amount and tax amount." %}</p>
+                        </div>
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Find Rate" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "You have the price before tax and the total after tax. The calculator finds the effective tax rate (and tax amount)." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select the calculation type: Add Tax, Extract Tax, or Find Rate." %}</li>
+                        <li>{% trans "Enter the values in the fields shown (price, total, and/or tax rate as applicable)." %}</li>
+                        <li>{% trans "Click Calculate to see the result in the hero card, breakdown chart, and detail boxes." %}</li>
+                        <li>{% trans "Use the US State reference below to look up typical rates if needed." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Hero result" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "The main result shows the most important number for your mode: total amount (Add Tax), before-tax amount (Extract Tax), or effective tax rate (Find Rate)." %}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Detail boxes" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Before tax, tax amount, and total are shown so you can verify the math. In Find Rate mode, the effective tax rate is also displayed." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                    <div>
+                        <h4 class="font-semibold text-gray-900 mb-2">{% trans "Breakdown chart" %}</h4>
+                        <p class="text-gray-700 text-sm">{% trans "A doughnut or pie chart shows the split between before-tax amount and tax amount. This gives you a quick visual of how much of the total is tax." %}</p>
+                    </div>
+                </div>
+
+                <!-- US State Tax Rates (compact reference) -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "US State Sales Tax Rates (Reference)" %}</h3>
+                    <p class="text-sm text-gray-600 mb-4">{% trans "Base state rates only. Local taxes may apply." %}</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border border-gray-200 rounded-lg">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-2 px-3 text-left">{% trans "State" %}</th>
+                                    <th class="py-2 px-3 text-right">{% trans "Rate" %}</th>
+                                    <th class="py-2 px-3 text-left">{% trans "State" %}</th>
+                                    <th class="py-2 px-3 text-right">{% trans "Rate" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b"><td class="py-2 px-3">California</td><td class="py-2 px-3 text-right">7.25%</td><td class="py-2 px-3">Oregon</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
+                                <tr class="border-b"><td class="py-2 px-3">Texas</td><td class="py-2 px-3 text-right">6.25%</td><td class="py-2 px-3">Montana</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
+                                <tr class="border-b"><td class="py-2 px-3">New York</td><td class="py-2 px-3 text-right">4.00%</td><td class="py-2 px-3">Delaware</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
+                                <tr><td class="py-2 px-3">Florida</td><td class="py-2 px-3 text-right">6.00%</td><td class="py-2 px-3">New Hampshire</td><td class="py-2 px-3 text-right text-green-600">0%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "This tool is for estimation only. Actual tax may vary by jurisdiction and product type." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "Some items are exempt from sales tax (e.g. groceries in some states). Check your local rules." %}</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -173,68 +292,144 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
-    async function calculate(calcType, formData) {
+    const form = document.getElementById('calculatorForm');
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const calculateBtnText = document.getElementById('calculateBtnText');
+    const initialState = document.getElementById('initialState');
+    const resultsWrapper = document.getElementById('resultsWrapper');
+    let breakdownChart = null;
+
+    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            const mode = this.value;
+            document.getElementById('addTaxFields').classList.toggle('hidden', mode !== 'add_tax');
+            document.getElementById('extractTaxFields').classList.toggle('hidden', mode !== 'extract_tax');
+            document.getElementById('findRateFields').classList.toggle('hidden', mode !== 'find_rate');
+            initialState.classList.remove('hidden');
+            resultsWrapper.classList.add('hidden');
+        });
+    });
+
+    function showLoading(show) {
+        if (loadingState) loadingState.classList.toggle('hidden', !show);
+        if (errorState) errorState.classList.add('hidden');
+        if (calculateBtn) calculateBtn.disabled = show;
+        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
+    }
+    function showError(msg) {
+        if (loadingState) loadingState.classList.add('hidden');
+        if (errorState) errorState.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        if (calculateBtn) calculateBtn.disabled = false;
+        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
+    }
+    function formatMoney(n) { return '$' + Number(n).toFixed(2); }
+
+    function renderChart(chartData) {
+        var container = document.getElementById('chartContainer');
+        var canvas = document.getElementById('breakdownChart');
+        if (!chartData || !chartData.breakdown_chart || !canvas) {
+            if (container) container.classList.add('hidden');
+            return;
+        }
+        if (breakdownChart) breakdownChart.destroy();
+        var config = chartData.breakdown_chart;
+        breakdownChart = new Chart(canvas.getContext('2d'), {
+            type: config.type || 'doughnut',
+            data: config.data || {},
+            options: config.options || { responsive: true, maintainAspectRatio: false }
+        });
+        container.classList.remove('hidden');
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
+        var payload = { calc_type: calcType };
+        if (calcType === 'add_tax') {
+            payload.price = document.getElementById('price').value;
+            payload.tax_rate = document.getElementById('tax_rate').value;
+        } else if (calcType === 'extract_tax') {
+            payload.price = document.getElementById('total_price').value;
+            payload.tax_rate = document.getElementById('extract_tax_rate').value;
+        } else {
+            payload.before_tax = document.getElementById('before_tax').value;
+            payload.total = document.getElementById('total_after').value;
+        }
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
         try {
-            const response = await fetch(window.location.href, {
+            var resp = await fetch(window.location.href, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfEl.value
                 },
-                body: JSON.stringify({calc_type: calcType, ...formData})
+                body: JSON.stringify(payload)
             });
-            
-            const data = await response.json();
-            if (!data.success) { alert(data.error); return null; }
-            return data;
-        } catch (error) {
-            alert('{% trans "An error occurred." %}');
-            return null;
-        }
-    }
-    
-    // Add Tax Form
-    document.getElementById('addTaxForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const data = await calculate('add_tax', {
-            price: document.getElementById('add_price').value,
-            tax_rate: document.getElementById('add_rate').value
-        });
-        if (data) {
-            document.getElementById('addResult').classList.remove('hidden');
-            document.getElementById('addBeforeTax').textContent = '$' + data.before_tax.toFixed(2);
-            document.getElementById('addTaxAmount').textContent = '$' + data.tax_amount.toFixed(2);
-            document.getElementById('addTotal').textContent = '$' + data.total.toFixed(2);
-        }
-    });
-    
-    // Extract Tax Form
-    document.getElementById('extractTaxForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const data = await calculate('extract_tax', {
-            price: document.getElementById('extract_price').value,
-            tax_rate: document.getElementById('extract_rate').value
-        });
-        if (data) {
-            document.getElementById('extractResult').classList.remove('hidden');
-            document.getElementById('extractBeforeTax').textContent = '$' + data.before_tax.toFixed(2);
-            document.getElementById('extractTaxAmount').textContent = '$' + data.tax_amount.toFixed(2);
-            document.getElementById('extractTotal').textContent = '$' + data.total.toFixed(2);
-        }
-    });
-    
-    // Find Rate Form
-    document.getElementById('findRateForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const data = await calculate('find_rate', {
-            before_tax: document.getElementById('rate_before').value,
-            total: document.getElementById('rate_after').value
-        });
-        if (data) {
-            document.getElementById('rateResult').classList.remove('hidden');
-            document.getElementById('foundRate').textContent = data.tax_rate.toFixed(2) + '%';
-            document.getElementById('foundTaxAmount').textContent = '$' + data.tax_amount.toFixed(2);
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (parseErr) {
+                if (resp.status === 403) {
+                    showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                } else if (resp.status >= 500) {
+                    showError('{% trans "Server error. Please try again later." %}');
+                } else {
+                    showError('{% trans "Invalid response from server. Please try again." %}');
+                }
+                return;
+            }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            initialState.classList.add('hidden');
+            resultsWrapper.classList.remove('hidden');
+
+            var heroLabel = document.getElementById('heroLabel');
+            var heroValue = document.getElementById('heroValue');
+            var heroSub = document.getElementById('heroSub');
+            if (calcType === 'add_tax') {
+                heroLabel.textContent = '{% trans "Total" %}';
+                heroValue.textContent = formatMoney(data.total);
+                heroSub.textContent = '{% trans "Before tax" %}: ' + formatMoney(data.before_tax) + ' • {% trans "Tax" %}: ' + formatMoney(data.tax_amount);
+            } else if (calcType === 'extract_tax') {
+                heroLabel.textContent = '{% trans "Before Tax" %}';
+                heroValue.textContent = formatMoney(data.before_tax);
+                heroSub.textContent = '{% trans "Total paid" %}: ' + formatMoney(data.total) + ' • {% trans "Tax" %}: ' + formatMoney(data.tax_amount);
+            } else {
+                heroLabel.textContent = '{% trans "Tax Rate" %}';
+                heroValue.textContent = Number(data.tax_rate).toFixed(2) + '%';
+                heroSub.textContent = '{% trans "Tax amount" %}: ' + formatMoney(data.tax_amount);
+            }
+
+            document.getElementById('detailBeforeTax').textContent = formatMoney(data.before_tax);
+            document.getElementById('detailTaxAmount').textContent = formatMoney(data.tax_amount);
+            document.getElementById('detailTotal').textContent = formatMoney(data.total);
+            document.getElementById('findRateExtra').classList.toggle('hidden', calcType !== 'find_rate');
+            if (calcType === 'find_rate') document.getElementById('detailTaxRate').textContent = Number(data.tax_rate).toFixed(2) + '%';
+
+            if (data.chart_data) renderChart(data.chart_data);
+            else document.getElementById('chartContainer').classList.add('hidden');
+
+            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
         }
     });
 });

@@ -1,45 +1,84 @@
 from django.views import View
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class CreditCardsPayoffCalculator(View):
     """
     Class-based view for Credit Cards Payoff Calculator
     Calculates payoff time, interest paid, and provides debt payoff strategies.
     """
     template_name = 'financial_calculators/credit_cards_payoff_calculator.html'
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            return json.loads(request.body)
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
+    def _get_float(self, data, key, default=0):
+        """Safely get float from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return float(str(value).replace(',', '').replace('$', '').replace('%', ''))
+        except (ValueError, TypeError):
+            return default
+
+    def _get_int(self, data, key, default=0):
+        """Safely get int from data."""
+        try:
+            value = data.get(key, default)
+            if value is None or value == '' or value == 'null':
+                return default
+            if isinstance(value, list):
+                value = value[0] if value else default
+            return int(float(str(value).replace(',', '')))
+        except (ValueError, TypeError):
+            return default
+
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Credit Cards Payoff Calculator',
+            'calculator_name': _('Credit Cards Payoff Calculator'),
+            'page_title': _('Credit Card Payoff Calculator - Pay Off Debt Faster'),
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
-        """Handle POST request for credit card payoff calculations"""
+        """Handle POST request for credit card payoff calculations (JSON or form)."""
         try:
-            data = json.loads(request.body)
-            
+            data = self._get_data(request)
+
             calc_type = data.get('calc_type', 'single_card')
-            
+            if isinstance(calc_type, list):
+                calc_type = calc_type[0] if calc_type else 'single_card'
+
             if calc_type == 'single_card':
-                # Single card payoff calculation
-                balance = float(str(data.get('balance', 0)).replace(',', ''))
-                apr = float(str(data.get('apr', 0)).replace(',', ''))
-                min_payment_pct = float(str(data.get('min_payment_pct', 2)).replace(',', ''))
-                fixed_payment = float(str(data.get('fixed_payment', 0)).replace(',', ''))
-                
-                # Validation
+                balance = self._get_float(data, 'balance', 0)
+                apr = self._get_float(data, 'apr', 0)
+                min_payment_pct = self._get_float(data, 'min_payment_pct', 2)  # default 2%
+                fixed_payment = self._get_float(data, 'fixed_payment', 0)
+
                 if balance <= 0:
-                    return JsonResponse({'success': False, 'error': 'Balance must be greater than zero.'}, status=400)
+                    return JsonResponse({'success': False, 'error': _('Balance must be greater than zero.')}, status=400)
                 if apr < 0 or apr > 100:
-                    return JsonResponse({'success': False, 'error': 'APR must be between 0% and 100%.'}, status=400)
+                    return JsonResponse({'success': False, 'error': _('APR must be between 0%% and 100%%.')}, status=400)
                 
                 monthly_rate = apr / 100 / 12
                 min_payment = max(25, balance * (min_payment_pct / 100))
@@ -86,22 +125,25 @@ class CreditCardsPayoffCalculator(View):
                     result['savings'] = savings
                 
             elif calc_type == 'multiple_cards':
-                # Multiple cards - debt snowball/avalanche
                 cards = data.get('cards', [])
-                strategy = data.get('strategy', 'avalanche')  # avalanche (highest APR) or snowball (lowest balance)
-                extra_payment = float(str(data.get('extra_payment', 0)).replace(',', ''))
-                
+                strategy = data.get('strategy', 'avalanche')
+                if isinstance(strategy, list):
+                    strategy = strategy[0] if strategy else 'avalanche'
+                extra_payment = self._get_float(data, 'extra_payment', 0)
+
                 if not cards or len(cards) == 0:
-                    return JsonResponse({'success': False, 'error': 'Please add at least one credit card.'}, status=400)
-                
-                # Parse and validate cards
+                    return JsonResponse({'success': False, 'error': _('Please add at least one credit card.')}, status=400)
+
                 parsed_cards = []
                 for i, card in enumerate(cards):
-                    card_balance = float(str(card.get('balance', 0)).replace(',', ''))
-                    card_apr = float(str(card.get('apr', 0)).replace(',', ''))
-                    card_min = float(str(card.get('min_payment', 0)).replace(',', ''))
-                    card_name = card.get('name', f'Card {i+1}')
-                    
+                    card_balance = self._get_float(card, 'balance', 0)
+                    card_apr = self._get_float(card, 'apr', 0)
+                    card_min = self._get_float(card, 'min_payment', 0)
+                    card_name = card.get('name')
+                    if isinstance(card_name, list):
+                        card_name = card_name[0] if card_name else ''
+                    card_name = (card_name or '').strip() or _('Card %(number)s') % {'number': i + 1}
+
                     if card_balance > 0:
                         parsed_cards.append({
                             'name': card_name,
@@ -110,9 +152,9 @@ class CreditCardsPayoffCalculator(View):
                             'min_payment': max(25, card_min) if card_min > 0 else max(25, card_balance * 0.02),
                             'monthly_rate': card_apr / 100 / 12
                         })
-                
+
                 if not parsed_cards:
-                    return JsonResponse({'success': False, 'error': 'No valid card balances found.'}, status=400)
+                    return JsonResponse({'success': False, 'error': _('No valid card balances found.')}, status=400)
                 
                 # Sort cards by strategy
                 if strategy == 'avalanche':
@@ -136,15 +178,14 @@ class CreditCardsPayoffCalculator(View):
                 }
                 
             elif calc_type == 'payoff_goal':
-                # Calculate payment needed to reach payoff goal
-                balance = float(str(data.get('balance', 0)).replace(',', ''))
-                apr = float(str(data.get('apr', 0)).replace(',', ''))
-                target_months = int(data.get('target_months', 12))
-                
+                balance = self._get_float(data, 'balance', 0)
+                apr = self._get_float(data, 'apr', 0)
+                target_months = self._get_int(data, 'target_months', 12)
+
                 if balance <= 0:
-                    return JsonResponse({'success': False, 'error': 'Balance must be greater than zero.'}, status=400)
+                    return JsonResponse({'success': False, 'error': _('Balance must be greater than zero.')}, status=400)
                 if target_months <= 0:
-                    return JsonResponse({'success': False, 'error': 'Target months must be at least 1.'}, status=400)
+                    return JsonResponse({'success': False, 'error': _('Target months must be at least 1.')}, status=400)
                 
                 monthly_rate = apr / 100 / 12
                 
@@ -170,14 +211,14 @@ class CreditCardsPayoffCalculator(View):
                 }
             
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid calculation type.'}, status=400)
-            
+                return JsonResponse({'success': False, 'error': _('Invalid calculation type.')}, status=400)
+
             return JsonResponse(result)
-            
+
         except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': f'Invalid input: {str(e)}'}, status=400)
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'error': 'An error occurred during calculation.'}, status=500)
+            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)
     
     def _calculate_payoff(self, balance, monthly_rate, payment_value, is_fixed=True):
         """Calculate payoff schedule"""

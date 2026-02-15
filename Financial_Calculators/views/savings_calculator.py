@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext_lazy as _
 import json
 import numpy as np
 from datetime import datetime
@@ -52,60 +53,73 @@ class SavingsCalculator(View):
     def get(self, request):
         """Handle GET request"""
         context = {
-            'calculator_name': 'Savings Calculator',
+            'calculator_name': _('Savings Calculator'),
+            'page_title': _('Savings Calculator - Free Savings Goal Calculator'),
         }
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        """Parse JSON or form POST into a dict."""
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            
-            # Get calculation mode
-            calc_mode = data.get('calc_mode', 'future_value')  # future_value, monthly_deposit, or time_to_goal
-            
-            # Get inputs
+            data = self._get_data(request)
+            if not data:
+                return JsonResponse({'success': False, 'error': _('Invalid request data.')}, status=400)
+
+            calc_mode = data.get('calc_mode', 'future_value')
+            if isinstance(calc_mode, list):
+                calc_mode = calc_mode[0] if calc_mode else 'future_value'
+
             initial_savings = self._get_float(data, 'initial_savings', 0)
             monthly_deposit = self._get_float(data, 'monthly_deposit', 0)
             interest_rate = self._get_float(data, 'interest_rate', 0)
             years = self._get_float(data, 'years', 0)
             savings_goal = self._get_float(data, 'savings_goal', 0)
             compound_frequency = data.get('compound_frequency', 'monthly')
-            
-            # Validation
+            if isinstance(compound_frequency, list):
+                compound_frequency = compound_frequency[0] if compound_frequency else 'monthly'
+
             errors = []
-            
             if initial_savings < self.MIN_AMOUNT:
-                errors.append('Initial savings cannot be negative.')
+                errors.append(_('Initial savings cannot be negative.'))
             elif initial_savings > self.MAX_AMOUNT:
-                errors.append(f'Initial savings cannot exceed ${self.MAX_AMOUNT:,}.')
-            
+                errors.append(_('Initial savings cannot exceed %(max)s.') % {'max': f'${self.MAX_AMOUNT:,}'})
             if monthly_deposit < self.MIN_AMOUNT:
-                errors.append('Monthly deposit cannot be negative.')
+                errors.append(_('Monthly deposit cannot be negative.'))
             elif monthly_deposit > self.MAX_AMOUNT / 12:
-                errors.append('Monthly deposit is too large.')
-            
+                errors.append(_('Monthly deposit is too large.'))
             if interest_rate < self.MIN_RATE:
-                errors.append('Interest rate cannot be negative.')
+                errors.append(_('Interest rate cannot be negative.'))
             elif interest_rate > self.MAX_RATE:
-                errors.append(f'Interest rate cannot exceed {self.MAX_RATE}%.')
-            
+                errors.append(_('Interest rate cannot exceed %(max)s%%.') % {'max': self.MAX_RATE})
             if calc_mode != 'time_to_goal':
                 if years < self.MIN_YEARS:
-                    errors.append(f'Time period must be at least {self.MIN_YEARS} year.')
+                    errors.append(_('Time period must be at least %(n)s year.') % {'n': self.MIN_YEARS})
                 elif years > self.MAX_YEARS:
-                    errors.append(f'Time period cannot exceed {self.MAX_YEARS} years.')
-            
+                    errors.append(_('Time period cannot exceed %(n)s years.') % {'n': self.MAX_YEARS})
             if calc_mode == 'time_to_goal' or savings_goal > 0:
                 if savings_goal <= 0:
-                    errors.append('Please enter a valid savings goal.')
+                    errors.append(_('Please enter a valid savings goal.'))
                 elif savings_goal > self.MAX_AMOUNT:
-                    errors.append(f'Savings goal cannot exceed ${self.MAX_AMOUNT:,}.')
-            
+                    errors.append(_('Savings goal cannot exceed %(max)s.') % {'max': f'${self.MAX_AMOUNT:,}'})
             if errors:
-                return JsonResponse({'success': False, 'error': errors[0]}, status=400)
-            
-            # Get compound frequency
+                return JsonResponse({'success': False, 'error': str(errors[0])}, status=400)
+
             compound_map = {
                 'annually': 1,
                 'semiannually': 2,
@@ -115,8 +129,7 @@ class SavingsCalculator(View):
             }
             n = compound_map.get(compound_frequency, 12)
             r = interest_rate / 100
-            
-            # Perform calculations based on mode
+
             if calc_mode == 'future_value':
                 result = self._calculate_future_value(
                     initial_savings, monthly_deposit, r, n, years
@@ -129,26 +142,26 @@ class SavingsCalculator(View):
                 result = self._calculate_time_to_goal(
                     initial_savings, monthly_deposit, savings_goal, r, n
                 )
+                if result.get('error'):
+                    return JsonResponse({'success': False, 'error': result['error']}, status=400)
             else:
-                return JsonResponse({'success': False, 'error': 'Invalid calculation mode.'}, status=400)
-            
-            # Check for goal achievement
+                return JsonResponse({'success': False, 'error': _('Invalid calculation mode.')}, status=400)
+
             if savings_goal > 0 and result.get('final_balance', 0) >= savings_goal:
                 result['goal_achieved'] = True
                 result['goal_surplus'] = round(result['final_balance'] - savings_goal, 2)
             else:
                 result['goal_achieved'] = False
-            
-            return JsonResponse({
-                'success': True,
-                **result
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': 'Calculation error. Please check your inputs and try again.'
-            }, status=400)
+
+            result['chart_data'] = self._prepare_chart_data(result)
+            return JsonResponse({'success': True, **result})
+
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'success': False, 'error': _('Invalid input: %(detail)s') % {'detail': str(e)}}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': _('Invalid request data.')}, status=400)
+        except Exception:
+            return JsonResponse({'success': False, 'error': _('Calculation error. Please check your inputs and try again.')}, status=400)
     
     def _get_float(self, data, key, default=0):
         """Safely get float value"""
@@ -368,4 +381,64 @@ class SavingsCalculator(View):
                 'balance': chart_balance,
                 'deposits': chart_deposits,
             }
+        }
+
+    def _prepare_chart_data(self, result):
+        """Build Chart.js-ready config (backend-controlled, BMI-style)."""
+        raw = result.get('chart_data') or {}
+        labels = raw.get('labels') or []
+        balance = raw.get('balance') or []
+        deposits = raw.get('deposits') or []
+        initial = result.get('initial_savings') or 0
+        total_dep = result.get('total_deposits') or 0
+        interest = result.get('total_interest') or 0
+        contributions = total_dep - initial
+
+        growth_chart = None
+        if labels and balance and deposits:
+            growth_chart = {
+                'type': 'line',
+                'data': {
+                    'labels': labels,
+                    'datasets': [
+                        {
+                            'label': _('Total Balance'),
+                            'data': balance,
+                            'borderColor': '#22c55e',
+                            'backgroundColor': 'rgba(34, 197, 94, 0.1)',
+                            'fill': True,
+                            'tension': 0.4
+                        },
+                        {
+                            'label': _('Total Deposits'),
+                            'data': deposits,
+                            'borderColor': '#3b82f6',
+                            'backgroundColor': 'rgba(59, 130, 246, 0.1)',
+                            'fill': True,
+                            'tension': 0.4
+                        }
+                    ]
+                }
+            }
+
+        breakdown_chart = None
+        if initial >= 0 or contributions >= 0 or interest >= 0:
+            breakdown_chart = {
+                'type': 'doughnut',
+                'data': {
+                    'labels': [_('Initial Savings'), _('Contributions'), _('Interest Earned')],
+                    'datasets': [{
+                        'data': [round(initial, 2), round(contributions, 2), round(interest, 2)],
+                        'backgroundColor': ['#3b82f6', '#8b5cf6', '#22c55e'],
+                        'borderWidth': 0
+                    }]
+                }
+            }
+
+        return {
+            'growth_chart': growth_chart,
+            'breakdown_chart': breakdown_chart,
+            'labels': labels,
+            'balance': balance,
+            'deposits': deposits
         }

@@ -5,126 +5,174 @@
 {% block meta_description %}{% trans "Calculate annuity payouts, present value, and future value. Free annuity calculator with payment schedules and detailed breakdowns." %}{% endblock %}
 {% block meta_keywords %}{% trans "annuity calculator, annuity payout, present value annuity, future value annuity, periodic payment" %}{% endblock %}
 
+{% block extra_head %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "{% trans 'Annuity Payout Calculator' %}",
+    "description": "{% trans 'Calculate annuity payouts, present value, and future value with payment schedules.' %}",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+{% endblock %}
+
 {% block content %}
-<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        
-        <nav class="mb-6">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
             <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
+                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
                 <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600">{% trans "Financial Calculators" %}</a></li>
+                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
                 <li><span class="mx-2">/</span></li>
                 <li class="text-gray-900 font-medium">{% trans "Annuity Payout Calculator" %}</li>
             </ol>
         </nav>
 
-        <div class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{% trans "Annuity Payout Calculator" %}</h1>
-            <p class="text-gray-600">{% trans "Calculate periodic annuity payments from a lump sum" %}</p>
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Annuity Payout Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "Calculate periodic annuity payments from a lump sum, or find present value or future value from a payment stream." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+
             <div class="lg:col-span-4">
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
                     <form id="calculatorForm" class="space-y-4">
                         {% csrf_token %}
-                        
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Calculation Type" %}</label>
-                            <select id="calc_type" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Calculation Type" %}</label>
+                            <select id="calc_type" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base">
                                 <option value="payout">{% trans "Calculate Payout Amount" %}</option>
                                 <option value="present_value">{% trans "Calculate Present Value" %}</option>
                                 <option value="future_value">{% trans "Calculate Future Value" %}</option>
                             </select>
                         </div>
-
                         <div id="principalField">
                             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Starting Principal" %}</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input type="number" id="principal" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="100000" min="0">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="principal" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right text-base" value="100,000" min="0" aria-label="{% trans 'Starting principal' %}">
                             </div>
                         </div>
-
                         <div id="paymentField" class="hidden">
                             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Periodic Payment" %}</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input type="number" id="periodic_payment" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md" value="1000" min="0">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="periodic_payment" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right text-base" value="1,000" min="0" aria-label="{% trans 'Periodic payment' %}">
                             </div>
                         </div>
-
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Annual Interest Rate" %}</label>
                             <div class="relative">
-                                <input type="number" id="annual_rate" class="w-full px-3 py-2 border border-gray-300 rounded-md pr-8" value="5" min="0" max="50" step="0.1">
-                                <span class="absolute right-3 top-2 text-gray-500">%</span>
+                                <input type="text" id="annual_rate" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right text-base pr-10" value="5" aria-label="{% trans 'Annual interest rate' %}">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
                             </div>
                         </div>
-
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Years" %}</label>
-                            <input type="number" id="years" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="20" min="1" max="100">
+                            <input type="number" id="years" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" value="20" min="1" max="100" aria-label="{% trans 'Years' %}">
                         </div>
-
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Payment Frequency" %}</label>
-                            <select id="payment_frequency" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white">
+                            <select id="payment_frequency" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base">
                                 <option value="monthly" selected>{% trans "Monthly" %}</option>
                                 <option value="quarterly">{% trans "Quarterly" %}</option>
                                 <option value="annually">{% trans "Annually" %}</option>
                             </select>
                         </div>
-
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Annuity Type" %}</label>
-                            <select id="annuity_type" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white">
+                            <select id="annuity_type" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base">
                                 <option value="ordinary" selected>{% trans "Ordinary (end of period)" %}</option>
                                 <option value="due">{% trans "Annuity Due (beginning of period)" %}</option>
                             </select>
                         </div>
-
-                        <button type="submit" id="calculateBtn" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition">
-                            {% trans "Calculate" %}
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate" %}</span>
                         </button>
                     </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p class="text-blue-700 font-medium">{% trans "Calculating..." %}</p>
+                        </div>
+                    </div>
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-8">
-                <div id="resultsSection" class="hidden">
-                    
-                    <!-- Main Result -->
-                    <div class="bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg p-6 mb-6 text-center">
-                        <p class="text-green-100 text-sm mb-1" id="resultLabel">{% trans "Periodic Payment" %}</p>
-                        <p class="text-4xl font-bold" id="mainResult">$0.00</p>
-                        <p class="text-green-100 text-sm mt-2" id="frequencyText">{% trans "per month" %}</p>
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Choose calculation type (payout, present value, or future value), enter your numbers, and click Calculate." %}</p>
+                </div>
+
+                <div id="resultsSection" class="hidden space-y-6">
+                    <!-- Hero Result Card -->
+                    <div id="heroResultCard" class="bg-gradient-to-br from-green-600 to-teal-600 rounded-xl p-6 sm:p-8 shadow-xl text-white text-center">
+                        <p class="text-sm sm:text-base opacity-90 mb-2" id="resultLabel">{% trans "Periodic Payment" %}</p>
+                        <p class="text-4xl sm:text-5xl font-bold" id="mainResult">$0.00</p>
+                        <p class="text-sm opacity-90 mt-2" id="frequencyText">{% trans "per month" %}</p>
                     </div>
 
-                    <!-- Summary -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-4 text-center">
                             <p class="text-xl font-bold text-gray-900" id="totalPayments">$0</p>
-                            <p class="text-xs text-gray-500">{% trans "Total Received" %}</p>
+                            <p class="text-xs text-gray-600">{% trans "Total Received" %}</p>
                         </div>
                         <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
                             <p class="text-xl font-bold text-green-600" id="totalInterest">$0</p>
-                            <p class="text-xs text-gray-500">{% trans "Total Interest" %}</p>
+                            <p class="text-xs text-gray-600">{% trans "Total Interest" %}</p>
                         </div>
                         <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
                             <p class="text-xl font-bold text-blue-600" id="numPayments">0</p>
-                            <p class="text-xs text-gray-500">{% trans "# of Payments" %}</p>
+                            <p class="text-xs text-gray-600">{% trans "# of Payments" %}</p>
                         </div>
                         <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
                             <p class="text-xl font-bold text-gray-900" id="periodicRate">0%</p>
-                            <p class="text-xs text-gray-500">{% trans "Per Period Rate" %}</p>
+                            <p class="text-xs text-gray-600">{% trans "Per Period Rate" %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown Chart -->
+                    <div id="chartWrapper" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Breakdown" %}</h3>
+                        <div class="relative h-48">
+                            <canvas id="breakdownChart"></canvas>
                         </div>
                     </div>
 
                     <!-- Payment Schedule -->
-                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                         <h3 class="font-semibold text-gray-900 mb-4">{% trans "Payment Schedule (First 12 Payments)" %}</h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm">
@@ -142,127 +190,189 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                    <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <!-- Complete User Guide -->
+        <section class="mt-12 sm:mt-16 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+            <div class="p-6 sm:p-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                    <svg class="w-8 h-8 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                     </svg>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">{% trans "Calculate Your Annuity" %}</h3>
-                    <p class="text-gray-500">{% trans "Enter your details to calculate periodic annuity payments." %}</p>
+                    {% trans "Complete User Guide" %}
+                </h2>
+                <div class="prose prose-gray max-w-none">
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "What is the Annuity Payout Calculator?" %}</h3>
+                    <p class="text-gray-600">{% trans "This calculator answers three questions: (1) Given a lump sum (principal), what periodic payment can I receive over a set term? (2) Given a periodic payment, what is its present value today? (3) Given a periodic payment, what will it grow to (future value) over time? You can choose monthly, quarterly, or annual payments and ordinary annuity or annuity due." %}</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "Calculation Types" %}</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="pl-4 border-l-4 border-blue-500"><strong>{% trans "Calculate Payout Amount" %}:</strong> {% trans "Enter your starting principal, rate, years, and frequency. You get the payment per period and total received." %}</li>
+                        <li class="pl-4 border-l-4 border-indigo-500"><strong>{% trans "Calculate Present Value" %}:</strong> {% trans "Enter the periodic payment you will make, rate, years, and frequency. You get the equivalent lump sum (present value) today." %}</li>
+                        <li class="pl-4 border-l-4 border-green-500"><strong>{% trans "Calculate Future Value" %}:</strong> {% trans "Enter the periodic payment you will invest, rate, years, and frequency. You get the future value and total interest earned." %}</li>
+                    </ul>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "Key Concepts" %}</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="pl-4 border-l-4 border-amber-500"><strong>{% trans "Ordinary Annuity" %}:</strong> {% trans "Payments at the end of each period (most common for loans and bonds)." %}</li>
+                        <li class="pl-4 border-l-4 border-amber-600"><strong>{% trans "Annuity Due" %}:</strong> {% trans "Payments at the beginning of each period (e.g. rent, insurance)." %}</li>
+                    </ul>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "How to Use" %}</h3>
+                    <p class="text-gray-600">{% trans "Select the calculation type, then fill in the fields that apply (principal for payout; periodic payment for present/future value). Set annual interest rate, years, payment frequency, and annuity type. Click Calculate. The main result, summary cards, breakdown chart, and (for payout) payment schedule will update." %}</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "Understanding the Breakdown Chart" %}</h3>
+                    <p class="text-gray-600">{% trans "For payout: the chart shows principal vs. interest received. For present value: present value vs. interest component. For future value: total contributions vs. interest earned." %}</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "Important Notes" %}</h3>
+                    <p class="text-gray-600">{% trans "Interest rate is annual; the calculator converts it to a per-period rate. Years must be between 1 and 100. The payment schedule is shown only for the payout calculation (first 12 payments). This tool is for estimation; consult a financial professional for important decisions." %}</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-6 mb-2">{% trans "Tips" %}</h3>
+                    <ul class="list-disc pl-6 text-gray-600 space-y-1">
+                        <li>{% trans "Use monthly frequency for monthly income planning; the result will be per month." %}</li>
+                        <li>{% trans "Compare ordinary vs. annuity due to see how payment timing affects the payout or value." %}</li>
+                        <li>{% trans "Try different years and rates to see how term and rate change your results." %}</li>
+                    </ul>
                 </div>
             </div>
-        </div>
-
-        <!-- User Guide -->
-        <div class="mt-8 bg-white border border-gray-200 rounded-lg p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">{% trans "Understanding Annuities" %}</h2>
-            <div class="grid md:grid-cols-2 gap-6 text-sm text-gray-600">
-                <div>
-                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Ordinary Annuity" %}</h3>
-                    <p>{% trans "Payments are made at the end of each period. This is the most common type for loans and bonds." %}</p>
-                </div>
-                <div>
-                    <h3 class="font-semibold text-gray-900 mb-2">{% trans "Annuity Due" %}</h3>
-                    <p>{% trans "Payments are made at the beginning of each period. Common for rent and insurance premiums." %}</p>
-                </div>
-            </div>
-        </div>
+        </section>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const calcTypeSelect = document.getElementById('calc_type');
-    
-    // Toggle fields based on calculation type
-    calcTypeSelect.addEventListener('change', function() {
-        if (this.value === 'payout') {
-            document.getElementById('principalField').classList.remove('hidden');
-            document.getElementById('paymentField').classList.add('hidden');
-        } else {
-            document.getElementById('principalField').classList.add('hidden');
-            document.getElementById('paymentField').classList.remove('hidden');
-        }
+    var form = document.getElementById('calculatorForm');
+    var calcTypeSelect = document.getElementById('calc_type');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var breakdownChartInstance = null;
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
+    }
+
+    function formatInput(input) {
+        var value = input.value.replace(/[^\d.]/g, '');
+        var parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        input.value = parts.join('.');
+    }
+
+    ['principal', 'periodic_payment'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', function() { formatInput(this); });
     });
-    
+
+    calcTypeSelect.addEventListener('change', function() {
+        var isPayout = this.value === 'payout';
+        document.getElementById('principalField').classList.toggle('hidden', !isPayout);
+        document.getElementById('paymentField').classList.toggle('hidden', isPayout);
+    });
+
+    function showLoading(show) {
+        form.style.display = show ? 'none' : 'block';
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
+    }
+
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        form.style.display = 'block';
+        errorState.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
+    }
+
+    function buildChartFromBackend(canvasId, chartSpec) {
+        if (!chartSpec || !window.Chart) return;
+        var ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+        if (breakdownChartInstance) breakdownChartInstance.destroy();
+        breakdownChartInstance = new Chart(ctx.getContext('2d'), {
+            type: chartSpec.type || 'doughnut',
+            data: chartSpec.data || {},
+            options: chartSpec.options || {}
+        });
+    }
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
-        const calcType = document.getElementById('calc_type').value;
-        
+        var btn = document.getElementById('calculateBtn');
+        if (btn) btn.disabled = true;
+        showLoading(true);
+
+        var calcType = document.getElementById('calc_type').value;
+        var bodyData = {
+            calc_type: calcType,
+            annual_rate: document.getElementById('annual_rate').value.replace(/,/g, ''),
+            years: document.getElementById('years').value,
+            payment_frequency: document.getElementById('payment_frequency').value,
+            annuity_type: document.getElementById('annuity_type').value
+        };
+        if (calcType === 'payout') {
+            bodyData.principal = document.getElementById('principal').value.replace(/,/g, '');
+        } else {
+            bodyData.periodic_payment = document.getElementById('periodic_payment').value.replace(/,/g, '');
+        }
+
         try {
-            const bodyData = {
-                calc_type: calcType,
-                annual_rate: document.getElementById('annual_rate').value,
-                years: document.getElementById('years').value,
-                payment_frequency: document.getElementById('payment_frequency').value,
-                annuity_type: document.getElementById('annuity_type').value
-            };
-            
-            if (calcType === 'payout') {
-                bodyData.principal = document.getElementById('principal').value;
-            } else {
-                bodyData.periodic_payment = document.getElementById('periodic_payment').value;
-            }
-            
-            const response = await fetch(window.location.href, {
+            var response = await fetch(window.location.href, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
                 body: JSON.stringify(bodyData)
             });
-            
-            const data = await response.json();
-            if (!data.success) { alert(data.error); return; }
-            
+            var data = await response.json();
+
+            if (!data.success) {
+                showError(data.error || '{% trans "An error occurred." %}');
+                if (btn) btn.disabled = false;
+                return;
+            }
+
+            showLoading(false);
+            if (btn) btn.disabled = false;
+
             document.getElementById('initialState').classList.add('hidden');
             document.getElementById('resultsSection').classList.remove('hidden');
-            
-            // Update main result based on calc type
-            const freqText = {'monthly': 'per month', 'quarterly': 'per quarter', 'annually': 'per year'};
-            
+
+            var freqText = { 'monthly': '{% trans "per month" %}', 'quarterly': '{% trans "per quarter" %}', 'annually': '{% trans "per year" %}' };
+
             if (calcType === 'payout') {
                 document.getElementById('resultLabel').textContent = '{% trans "Periodic Payment" %}';
-                document.getElementById('mainResult').textContent = '$' + data.periodic_payment.toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('totalPayments').textContent = '$' + data.total_received.toLocaleString();
-                document.getElementById('totalInterest').textContent = '$' + data.total_interest.toLocaleString();
+                document.getElementById('mainResult').textContent = formatCurrency(data.periodic_payment);
+                document.getElementById('totalPayments').textContent = formatCurrency(data.total_received);
+                document.getElementById('totalInterest').textContent = formatCurrency(data.total_interest);
             } else if (calcType === 'present_value') {
                 document.getElementById('resultLabel').textContent = '{% trans "Present Value" %}';
-                document.getElementById('mainResult').textContent = '$' + data.present_value.toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('totalPayments').textContent = '$' + data.total_payments.toLocaleString();
-                document.getElementById('totalInterest').textContent = '-';
+                document.getElementById('mainResult').textContent = formatCurrency(data.present_value);
+                document.getElementById('totalPayments').textContent = formatCurrency(data.total_payments);
+                document.getElementById('totalInterest').textContent = '—';
             } else {
                 document.getElementById('resultLabel').textContent = '{% trans "Future Value" %}';
-                document.getElementById('mainResult').textContent = '$' + data.future_value.toLocaleString('en-US', {minimumFractionDigits: 2});
-                document.getElementById('totalPayments').textContent = '$' + data.total_contributions.toLocaleString();
-                document.getElementById('totalInterest').textContent = '$' + data.total_interest.toLocaleString();
+                document.getElementById('mainResult').textContent = formatCurrency(data.future_value);
+                document.getElementById('totalPayments').textContent = formatCurrency(data.total_contributions);
+                document.getElementById('totalInterest').textContent = formatCurrency(data.total_interest);
             }
-            
-            document.getElementById('frequencyText').textContent = freqText[data.payment_frequency] || 'per period';
+
+            document.getElementById('frequencyText').textContent = freqText[data.payment_frequency] || '{% trans "per period" %}';
             document.getElementById('numPayments').textContent = data.total_periods;
-            document.getElementById('periodicRate').textContent = data.periodic_rate + '%';
-            
-            // Update schedule table
-            const scheduleTable = document.getElementById('scheduleTable');
+            document.getElementById('periodicRate').textContent = (data.periodic_rate != null ? data.periodic_rate : 0) + '%';
+
+            if (data.chart_data && data.chart_data.breakdown_chart) {
+                buildChartFromBackend('breakdownChart', data.chart_data.breakdown_chart);
+            }
+
+            var scheduleTable = document.getElementById('scheduleTable');
             if (data.schedule && data.schedule.length > 0) {
-                scheduleTable.innerHTML = data.schedule.map(row => `
-                    <tr class="border-b">
-                        <td class="py-2 px-3">${row.period}</td>
-                        <td class="py-2 px-3 text-right">$${row.payment.toLocaleString()}</td>
-                        <td class="py-2 px-3 text-right text-green-600">$${row.interest.toLocaleString()}</td>
-                        <td class="py-2 px-3 text-right">$${row.principal.toLocaleString()}</td>
-                        <td class="py-2 px-3 text-right">$${row.remaining.toLocaleString()}</td>
-                    </tr>
-                `).join('');
+                scheduleTable.innerHTML = data.schedule.map(function(row) {
+                    return '<tr class="border-b"><td class="py-2 px-3">' + row.period + '</td><td class="py-2 px-3 text-right">' + formatCurrency(row.payment) + '</td><td class="py-2 px-3 text-right text-green-600">' + formatCurrency(row.interest) + '</td><td class="py-2 px-3 text-right">' + formatCurrency(row.principal) + '</td><td class="py-2 px-3 text-right">' + formatCurrency(row.remaining) + '</td></tr>';
+                }).join('');
             } else {
                 scheduleTable.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-500">{% trans "Schedule not available for this calculation type." %}</td></tr>';
             }
-            
-        } catch (error) {
-            alert('{% trans "An error occurred." %}');
+
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showError('{% trans "An error occurred." %}');
+            if (btn) btn.disabled = false;
         }
     });
 });

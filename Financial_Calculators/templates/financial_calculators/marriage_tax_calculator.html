@@ -1,226 +1,388 @@
-{% extends 'core/base.html' %}
+{% extends "core/base.html" %}
 {% load static %}
 {% load i18n %}
 
-{% block title %}Marriage Tax Calculator - Marriage Penalty or Bonus?{% endblock %}
+{% block title %}{% trans "Marriage Tax Calculator - Marriage Penalty or Bonus?" %}{% endblock %}
+{% block meta_description %}{% trans "Calculate whether marriage will result in a tax penalty or bonus compared to filing as singles. Compare single vs married filing jointly and separately." %}{% endblock %}
+{% block meta_keywords %}{% trans "marriage tax calculator, marriage penalty, marriage bonus, filing jointly, filing separately" %}{% endblock %}
 
-{% block meta_description %}Calculate whether marriage will result in a tax penalty or bonus compared to filing separately.{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.build_absolute_uri }}">
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-pink-900 via-rose-900 to-red-900 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-3">💒 Marriage Tax Calculator</h1>
-            <p class="text-pink-200 text-lg">Discover your marriage tax penalty or bonus</p>
+<div class="min-h-screen bg-gradient-to-br from-rose-50 via-white to-pink-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header (BMI-style) -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-rose-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-pink-600">{% trans "Marriage Tax Calculator" %}</span>
+            </h1>
+            <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
+                {% trans "See whether you get a marriage tax bonus or penalty by comparing single vs married filing." %}
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
-                <form id="calculator-form" class="space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold text-white">👤 Person 1</h3>
-                            <div>
-                                <label class="block text-sm text-pink-200 mb-2">Annual Income</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="income1" id="income1" value="75,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+        <!-- Main Calculator Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- Input Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% trans "Your Details" %}
+                    </h2>
+                    <form id="calculatorForm" class="space-y-4">
+                        {% csrf_token %}
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Person 1" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="income1">{% trans "Annual Income" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="text" id="income1" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-base" value="75,000">
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm text-pink-200 mb-2">401k Contribution</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="retirement1" id="retirement1" value="6,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="retirement1">{% trans "Pre-tax Deductions (e.g. 401k)" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="text" id="retirement1" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-base" value="6,000">
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold text-white">👤 Person 2</h3>
-                            <div>
-                                <label class="block text-sm text-pink-200 mb-2">Annual Income</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="income2" id="income2" value="85,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">{% trans "Person 2" %}</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="income2">{% trans "Annual Income" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="text" id="income2" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-base" value="85,000">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1" for="retirement2">{% trans "Pre-tax Deductions (e.g. 401k)" %}</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input type="text" id="retirement2" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-base" value="8,000">
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-sm text-pink-200 mb-2">401k Contribution</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                    <input type="text" name="retirement2" id="retirement2" value="8,000" 
-                                        class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
-                                </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="itemized">{% trans "Itemized Deductions (Combined)" %}</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                <input type="text" id="itemized" class="w-full pl-8 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-base" value="0">
                             </div>
+                            <p class="text-xs text-gray-500 mt-1">{% trans "Leave 0 to use standard deduction." %}</p>
+                        </div>
+                        <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Marriage Tax Impact" %}</span>
+                        </button>
+                    </form>
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-rose-50 border-2 border-rose-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600 mx-auto mb-4"></div>
+                            <p class="text-rose-700 font-medium">{% trans "Calculating..." %}</p>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-pink-200 mb-2">Itemized Deductions (Combined)</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                            <input type="text" name="itemized" id="itemized" value="0" 
-                                class="w-full pl-8 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white">
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
                         </div>
-                        <p class="text-pink-300 text-xs mt-1">Leave 0 to use standard deduction</p>
                     </div>
-
-                    <button type="submit" class="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-xl transition-all">
-                        Calculate Marriage Tax Impact
-                    </button>
-                </form>
+                </div>
             </div>
 
-            <div class="space-y-6">
-                <div id="loading" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-pink-400 border-t-transparent mx-auto"></div>
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-8 space-y-6">
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter both incomes and pre-tax deductions, then click Calculate to see your marriage tax bonus or penalty and comparison." %}</p>
                 </div>
 
-                <div id="results" class="space-y-6">
-                    <div id="result_card" class="bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl">
-                        <h3 class="text-green-100 text-sm mb-1" id="result_label">Marriage Bonus!</h3>
-                        <div class="text-5xl font-bold text-white" id="difference">$2,450</div>
-                        <div class="text-green-200 text-sm mt-2" id="result_detail">You'll save money by filing jointly</div>
+                <div id="resultsWrapper" class="hidden space-y-6">
+                    <div id="resultHero" class="rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p id="heroLabel" class="text-sm sm:text-base opacity-90 mb-2">{% trans "Marriage Bonus" %}</p>
+                            <p id="heroValue" class="text-4xl sm:text-5xl font-bold mb-2">$0</p>
+                            <p id="heroSub" class="text-sm opacity-90" id="heroDescription"></p>
+                        </div>
                     </div>
-
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-pink-300 text-sm">Tax if Single (Combined)</div>
-                            <div class="text-xl font-bold text-white" id="single_tax">$24,500</div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Tax if Single (Combined)" %}</p>
+                            <p id="detailSingleTax" class="text-lg font-bold text-gray-900">$0</p>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                            <div class="text-pink-300 text-sm">Tax if Married</div>
-                            <div class="text-xl font-bold text-white" id="married_tax">$22,050</div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Tax if Married (Best Option)" %}</p>
+                            <p id="detailMarriedTax" class="text-lg font-bold text-gray-900">$0</p>
                         </div>
                     </div>
-
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">📊 Tax Comparison</h3>
-                        <div class="space-y-4">
-                            <div class="flex justify-between py-2 border-b border-white/10">
-                                <span class="text-pink-300">Person 1 Tax (Single)</span>
-                                <span class="text-white" id="person1_tax">$10,500</span>
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Tax Comparison" %}</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">{% trans "Person 1 Tax (Single)" %}</span>
+                                <span class="font-medium" id="person1Tax">$0</span>
                             </div>
-                            <div class="flex justify-between py-2 border-b border-white/10">
-                                <span class="text-pink-300">Person 2 Tax (Single)</span>
-                                <span class="text-white" id="person2_tax">$14,000</span>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">{% trans "Person 2 Tax (Single)" %}</span>
+                                <span class="font-medium" id="person2Tax">$0</span>
                             </div>
-                            <div class="flex justify-between py-2 border-b border-white/10">
-                                <span class="text-pink-300">Combined Single Tax</span>
-                                <span class="text-white font-medium" id="combined_single">$24,500</span>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">{% trans "Combined Single Tax" %}</span>
+                                <span class="font-medium" id="combinedSingleTax">$0</span>
                             </div>
                             <div class="flex justify-between py-2">
-                                <span class="text-pink-300">Married Filing Jointly</span>
-                                <span class="text-white font-medium" id="married_jointly">$22,050</span>
+                                <span class="text-gray-600">{% trans "Married Filing Jointly" %}</span>
+                                <span class="font-medium" id="marriedJointlyTax">$0</span>
                             </div>
                         </div>
                     </div>
-
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-4">Tax Comparison</h3>
-                        <canvas id="comparisonChart" height="200"></canvas>
+                    <div id="chartContainer" class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg hidden">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Tax by Filing Status" %}</h3>
+                        <div class="relative h-[250px] min-h-[250px]">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
                     </div>
-
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 class="text-lg font-semibold text-white mb-3">💡 Why This Happens</h3>
-                        <p class="text-pink-200 text-sm" id="explanation">
-                            Marriage bonuses often occur when spouses have unequal incomes. The higher earner benefits from wider tax brackets when filing jointly.
-                        </p>
+                    <div class="bg-rose-50 rounded-xl p-4 border-2 border-rose-200">
+                        <h3 class="font-semibold text-rose-900 mb-2">{% trans "Why This Happens" %}</h3>
+                        <p id="explanation" class="text-sm text-rose-800"></p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Complete User Guide -->
+        <div class="mt-8 bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <svg class="w-7 h-7 mr-3 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                {% trans "Complete User Guide" %}
+            </h2>
+
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Marriage Tax Bonus or Penalty?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        {% blocktrans %}When two people marry, they can file as Married Filing Jointly (MFJ) or Married Filing Separately (MFS). How their combined tax compares to what they would have paid as two single filers is called the marriage bonus (you pay less) or marriage penalty (you pay more). The result depends on your incomes: similar incomes often produce a penalty; very different incomes often produce a bonus, because joint brackets can benefit the higher earner. This calculator uses 2024 federal brackets and standard deductions to estimate the difference.{% endblocktrans %}
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Key Concepts" %}</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-rose-500 pl-4 py-2 bg-rose-50 rounded-r">
+                            <h4 class="font-semibold text-rose-900 mb-1">{% trans "Filing as singles vs MFJ" %}</h4>
+                            <p class="text-sm text-rose-800">{% trans "Filing as singles: each person's tax if not married. Married Filing Jointly (MFJ): combined income and deductions with one set of brackets (double the single brackets)." %}</p>
+                        </div>
+                        <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                            <h4 class="font-semibold text-pink-900 mb-1">{% trans "Married Filing Separately (MFS)" %}</h4>
+                            <p class="text-sm text-pink-800">{% trans "Each spouse files separately; many credits and deductions are limited or lost. In practice, MFJ is usually better when allowed." %}</p>
+                        </div>
+                        <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
+                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Marriage bonus vs penalty" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Marriage bonus: total tax as married is less than combined tax as singles. Marriage penalty: total tax as married is more than combined tax as singles. Similar incomes often produce a penalty; very different incomes often produce a bonus." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Enter Person 1's annual income and pre-tax deductions (e.g. 401k)." %}</li>
+                        <li>{% trans "Enter Person 2's annual income and pre-tax deductions." %}</li>
+                        <li>{% trans "Enter combined itemized deductions if you itemize; otherwise leave 0 for standard deduction." %}</li>
+                        <li>{% trans "Click Calculate to see marriage bonus or penalty and the comparison chart." %}</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                    <p class="text-gray-700 text-sm">{% trans "The hero card shows whether you have a marriage bonus (savings) or penalty (extra tax) and the amount. The comparison table shows tax per person as single, combined single tax, and married filing jointly. The chart compares tax under Singles, MFJ, and MFS. Use the “Why This Happens” note for a short explanation based on your income split." %}</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding the Charts" %}</h3>
+                    <div>
+                        <h4 class="font-semibold text-gray-900 mb-2">{% trans "Comparison chart" %}</h4>
+                        <p class="text-gray-700 text-sm">{% trans "A bar chart comparing tax under Singles, Married Filing Jointly, and Married Filing Separately. This lets you see at a glance how each filing status affects your total tax." %}</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "This calculator is for estimation only. It is not tax advice. State taxes and phase-outs are not included." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>{% trans "MFS limits many deductions and credits. In practice, MFJ is usually better when allowed." %}</span>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let comparisonChart = null;
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-}
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('calculatorForm');
+    var loadingState = document.getElementById('loadingState');
+    var errorState = document.getElementById('errorState');
+    var errorMessage = document.getElementById('errorMessage');
+    var calculateBtn = document.getElementById('calculateBtn');
+    var calculateBtnText = document.getElementById('calculateBtnText');
+    var initialState = document.getElementById('initialState');
+    var resultsWrapper = document.getElementById('resultsWrapper');
+    var comparisonChart = null;
 
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const formData = {
-        income1: document.getElementById('income1').value,
-        income2: document.getElementById('income2').value,
-        retirement1: document.getElementById('retirement1').value,
-        retirement2: document.getElementById('retirement2').value,
-        itemized: document.getElementById('itemized').value
-    };
-
-    try {
-        const response = await fetch('{% url "financial_calculators:marriage_tax_calculator" %}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-            body: JSON.stringify(formData)
+    function formatCurrency(n) {
+        var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+    }
+    function showLoading(show) {
+        loadingState.classList.toggle('hidden', !show);
+        errorState.classList.add('hidden');
+        calculateBtn.disabled = show;
+        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Marriage Tax Impact" %}';
+    }
+    function showError(msg) {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
+        calculateBtn.disabled = false;
+        calculateBtnText.textContent = '{% trans "Calculate Marriage Tax Impact" %}';
+    }
+    function renderChart(chartData) {
+        var container = document.getElementById('chartContainer');
+        var canvas = document.getElementById('comparisonChart');
+        if (!chartData || !chartData.comparison_chart || !canvas) {
+            if (container) container.classList.add('hidden');
+            return;
+        }
+        if (comparisonChart) comparisonChart.destroy();
+        var config = chartData.comparison_chart;
+        comparisonChart = new Chart(canvas.getContext('2d'), {
+            type: config.type || 'bar',
+            data: config.data || {},
+            options: config.options || { responsive: true, maintainAspectRatio: false }
         });
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
-        if (data.success) updateResults(data);
-        else alert(data.error || 'Error');
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
+        container.classList.remove('hidden');
     }
-});
 
-function updateResults(data) {
-    const card = document.getElementById('result_card');
-    const isBonus = data.difference >= 0;
-    
-    if (isBonus) {
-        card.className = 'bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl';
-        document.getElementById('result_label').textContent = '🎉 Marriage Bonus!';
-        document.getElementById('result_detail').textContent = "You'll save money by filing jointly";
-    } else {
-        card.className = 'bg-gradient-to-br from-red-600 to-rose-600 rounded-2xl p-6 shadow-2xl';
-        document.getElementById('result_label').textContent = '⚠️ Marriage Penalty';
-        document.getElementById('result_detail').textContent = "You'll pay more by filing jointly";
-    }
-    
-    document.getElementById('difference').textContent = formatCurrency(Math.abs(data.difference));
-    document.getElementById('single_tax').textContent = formatCurrency(data.combined_single_tax);
-    document.getElementById('married_tax').textContent = formatCurrency(data.married_tax);
-    document.getElementById('person1_tax').textContent = formatCurrency(data.person1_tax);
-    document.getElementById('person2_tax').textContent = formatCurrency(data.person2_tax);
-    document.getElementById('combined_single').textContent = formatCurrency(data.combined_single_tax);
-    document.getElementById('married_jointly').textContent = formatCurrency(data.married_tax);
-    
-    updateChart(data);
-}
-
-function updateChart(data) {
-    const ctx = document.getElementById('comparisonChart').getContext('2d');
-    if (comparisonChart) comparisonChart.destroy();
-    comparisonChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Person 1 Single', 'Person 2 Single', 'Combined Single', 'Married Jointly'],
-            datasets: [{
-                label: 'Tax Amount',
-                data: [data.person1_tax, data.person2_tax, data.combined_single_tax, data.married_tax],
-                backgroundColor: ['#f472b6', '#fb7185', '#fda4af', '#10b981']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { ticks: { color: '#fda4af' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                y: { ticks: { color: '#fda4af' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        initialState.classList.add('hidden');
+        resultsWrapper.classList.add('hidden');
+        var payload = {
+            income1: document.getElementById('income1').value,
+            income2: document.getElementById('income2').value,
+            retirement1: document.getElementById('retirement1').value,
+            retirement2: document.getElementById('retirement2').value,
+            itemized: document.getElementById('itemized').value
+        };
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfEl || !csrfEl.value) {
+            showError('{% trans "Session expired. Please refresh the page and try again." %}');
+            return;
+        }
+        showLoading(true);
+        try {
+            var resp = await fetch(window.location.href, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfEl.value
+                },
+                body: JSON.stringify(payload)
+            });
+            var text = await resp.text();
+            showLoading(false);
+            var data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (parseErr) {
+                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
+                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
+                else showError('{% trans "Invalid response from server. Please try again." %}');
+                return;
             }
+            if (!data.success) {
+                showError(data.error || '{% trans "Invalid response." %}');
+                return;
+            }
+            try {
+                initialState.classList.add('hidden');
+                resultsWrapper.classList.remove('hidden');
+
+                var effect = data.marriage_effect || {};
+                var hero = document.getElementById('resultHero');
+                if (hero) {
+                    if (effect.type === 'bonus') {
+                        hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white bg-gradient-to-br from-green-600 to-emerald-600';
+                        document.getElementById('heroLabel').textContent = '{% trans "Marriage Bonus" %}';
+                    } else if (effect.type === 'penalty') {
+                        hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white bg-gradient-to-br from-red-600 to-rose-600';
+                        document.getElementById('heroLabel').textContent = '{% trans "Marriage Penalty" %}';
+                    } else {
+                        hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white bg-gradient-to-br from-gray-600 to-slate-600';
+                        document.getElementById('heroLabel').textContent = '{% trans "No Difference" %}';
+                    }
+                }
+                var heroVal = document.getElementById('heroValue');
+                var heroDesc = document.getElementById('heroDescription');
+                if (heroVal) heroVal.textContent = formatCurrency(effect.amount);
+                if (heroDesc) heroDesc.textContent = effect.description || '';
+
+                var single = data.single_filing || {};
+                var mfj = data.married_jointly || {};
+                var best = data.best_option || {};
+                var el = function(id) { return document.getElementById(id); };
+                if (el('detailSingleTax')) el('detailSingleTax').textContent = formatCurrency(single.total_tax);
+                if (el('detailMarriedTax')) el('detailMarriedTax').textContent = formatCurrency(best.tax_if_married != null ? best.tax_if_married : mfj.tax);
+                if (el('person1Tax')) el('person1Tax').textContent = formatCurrency(single.person_1 && single.person_1.tax != null ? single.person_1.tax : 0);
+                if (el('person2Tax')) el('person2Tax').textContent = formatCurrency(single.person_2 && single.person_2.tax != null ? single.person_2.tax : 0);
+                if (el('combinedSingleTax')) el('combinedSingleTax').textContent = formatCurrency(single.total_tax);
+                if (el('marriedJointlyTax')) el('marriedJointlyTax').textContent = formatCurrency(mfj.tax);
+                var expl = document.getElementById('explanation');
+                if (expl) expl.textContent = (data.analysis && data.analysis.disparity_note) || effect.description || '';
+
+                if (data.chart_data) renderChart(data.chart_data);
+                else { var cc = document.getElementById('chartContainer'); if (cc) cc.classList.add('hidden'); }
+
+                if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (displayErr) {
+                showError('{% trans "Could not display results. Please try again." %}');
+            }
+        } catch (err) {
+            showLoading(false);
+            showError('{% trans "Network or server error. Please try again." %}');
         }
     });
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
+});
 </script>
 {% endblock %}

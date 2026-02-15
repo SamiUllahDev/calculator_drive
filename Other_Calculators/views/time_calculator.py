@@ -1,14 +1,23 @@
 from django.views import View
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
+from django.core.serializers.json import DjangoJSONEncoder
 import json
-import math
-import numpy as np
-from datetime import datetime, timedelta
+import logging
 import re
+
+logger = logging.getLogger(__name__)
+
+
+class SafeJSONEncoder(DjangoJSONEncoder):
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError:
+            return str(o) if o is not None else None
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -53,46 +62,81 @@ class TimeCalculator(View):
     
     def get(self, request):
         """Handle GET request"""
-        context = {
-            'calculator_name': _('Time Calculator'),
-        }
+        context = {'calculator_name': str(_('Time Calculator'))}
         return render(request, self.template_name, context)
-    
+
+    def _get_data(self, request):
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                body = request.body
+                if not body:
+                    return {}
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                return {}
+        if request.body:
+            try:
+                return json.loads(request.body)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        data = {}
+        for k in request.POST:
+            v = request.POST.getlist(k)
+            data[k] = v[0] if len(v) == 1 else v
+        return data
+
     def post(self, request):
         """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
+            data = self._get_data(request)
+            if not data:
+                return HttpResponse(
+                    json.dumps({'success': False, 'error': str(_('Invalid request data.'))}, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
             calc_type = data.get('calc_type', 'difference')
-            
+            if isinstance(calc_type, list):
+                calc_type = calc_type[0] if calc_type else 'difference'
             if calc_type == 'difference':
-                return self._calculate_difference(data)
+                result = self._calculate_difference(data)
             elif calc_type == 'add_subtract':
-                return self._calculate_add_subtract(data)
+                result = self._calculate_add_subtract(data)
             elif calc_type == 'convert':
-                return self._convert_time(data)
+                result = self._convert_time(data)
             elif calc_type == 'duration':
-                return self._calculate_duration(data)
+                result = self._calculate_duration(data)
             else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
+                return HttpResponse(
+                    json.dumps({'success': False, 'error': str(_('Invalid calculation type.'))}, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            if isinstance(result, dict) and not result.get('success'):
+                return HttpResponse(
+                    json.dumps(result, cls=SafeJSONEncoder),
+                    content_type='application/json',
+                    status=400
+                )
+            return HttpResponse(json.dumps(result, cls=SafeJSONEncoder), content_type='application/json')
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
+            logger.exception("Time calculator failed: %s", e)
+            from django.conf import settings
+            err_msg = str(_('An error occurred during calculation.'))
+            if getattr(settings, 'DEBUG', False):
+                err_msg += ' [' + str(e).replace('"', "'") + ']'
+            return HttpResponse(
+                json.dumps({'success': False, 'error': err_msg}, cls=SafeJSONEncoder),
+                content_type='application/json',
+                status=500
+            )
     
     def _parse_time(self, time_str):
-        """Parse time string in various formats"""
+        """Parse time string in various formats. Validates 24h: hours 0-23, minutes/seconds 0-59."""
+        if not time_str:
+            return None
+        time_str = str(time_str).strip()
         try:
-            # Try HH:MM:SS format
             if ':' in time_str:
                 parts = time_str.split(':')
                 if len(parts) == 2:
@@ -105,141 +149,87 @@ class TimeCalculator(View):
                     seconds = int(parts[2])
                 else:
                     return None
+                if not (0 <= hours <= 23 and 0 <= minutes <= 59 and 0 <= seconds <= 59):
+                    return None
                 return hours * 3600 + minutes * 60 + seconds
-            else:
-                # Try numeric value
-                return float(time_str)
-        except Exception:
+            return float(time_str)
+        except (ValueError, TypeError):
             return None
     
     def _calculate_difference(self, data):
         """Calculate time difference between two times"""
-        try:
-            if 'time1' not in data or not data.get('time1'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('First time is required.')
-                }, status=400)
-            
-            if 'time2' not in data or not data.get('time2'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Second time is required.')
-                }, status=400)
-            
-            time1_str = data.get('time1', '')
-            time2_str = data.get('time2', '')
-            
-            # Parse times
-            time1_seconds = self._parse_time(time1_str)
-            time2_seconds = self._parse_time(time2_str)
-            
-            if time1_seconds is None or time2_seconds is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid time format. Use HH:MM or HH:MM:SS format.')
-                }, status=400)
-            
-            # Calculate difference
-            difference_seconds = abs(time2_seconds - time1_seconds)
-            
-            # Convert to hours, minutes, seconds
-            hours = int(difference_seconds // 3600)
-            minutes = int((difference_seconds % 3600) // 60)
-            seconds = int(difference_seconds % 60)
-            
-            # Format result
-            result_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-            
-            steps = self._prepare_difference_steps(time1_str, time2_str, time1_seconds, time2_seconds, difference_seconds, hours, minutes, seconds, result_formatted)
-            chart_data = self._prepare_difference_chart_data(time1_seconds, time2_seconds, difference_seconds)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'difference',
-                'time1': time1_str,
-                'time2': time2_str,
-                'difference_seconds': difference_seconds,
-                'difference_formatted': result_formatted,
-                'hours': hours,
-                'minutes': minutes,
-                'seconds': seconds,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating time difference: {error}').format(error=str(e))
-            }, status=500)
+        time1_str = (data.get('time1') or [None])[0] if isinstance(data.get('time1'), list) else data.get('time1', '')
+        time2_str = (data.get('time2') or [None])[0] if isinstance(data.get('time2'), list) else data.get('time2', '')
+        if not time1_str:
+            return {'success': False, 'error': str(_('First time is required.'))}
+        if not time2_str:
+            return {'success': False, 'error': str(_('Second time is required.'))}
+        time1_seconds = self._parse_time(time1_str)
+        time2_seconds = self._parse_time(time2_str)
+        if time1_seconds is None or time2_seconds is None:
+            return {'success': False, 'error': str(_('Invalid time. Use HH:MM or HH:MM:SS (hours 0–23, minutes and seconds 0–59).'))}
+        difference_seconds = abs(time2_seconds - time1_seconds)
+        hours = int(difference_seconds // 3600)
+        minutes = int((difference_seconds % 3600) // 60)
+        seconds = int(difference_seconds % 60)
+        result_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        steps = self._prepare_difference_steps(time1_str, time2_str, time1_seconds, time2_seconds, difference_seconds, hours, minutes, seconds, result_formatted)
+        chart_data = self._prepare_difference_chart_data(time1_seconds, time2_seconds, difference_seconds)
+        return {
+            'success': True,
+            'calc_type': 'difference',
+            'time1': time1_str,
+            'time2': time2_str,
+            'difference_seconds': difference_seconds,
+            'difference_formatted': result_formatted,
+            'hours': hours,
+            'minutes': minutes,
+            'seconds': seconds,
+            'step_by_step': steps,
+            'chart_data': chart_data,
+        }
     
     def _calculate_add_subtract(self, data):
-        """Add or subtract time"""
+        """Add or subtract time. Returns a dict (same as other calc methods)."""
         try:
-            if 'time' not in data or not data.get('time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time is required.')
-                }, status=400)
-            
-            if 'amount' not in data or data.get('amount') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Amount is required.')
-                }, status=400)
-            
+            time_str = (data.get('time') or [None])[0] if isinstance(data.get('time'), list) else data.get('time', '')
+            operation = (data.get('operation') or ['add'])[0] if isinstance(data.get('operation'), list) else data.get('operation', 'add')
+            amount_raw = (data.get('amount') or [None])[0] if isinstance(data.get('amount'), list) else data.get('amount')
+            amount_unit = (data.get('amount_unit') or ['hours'])[0] if isinstance(data.get('amount_unit'), list) else data.get('amount_unit', 'hours')
+
+            if not time_str:
+                return {'success': False, 'error': str(_('Time is required.'))}
+            if amount_raw is None or amount_raw == '':
+                return {'success': False, 'error': str(_('Amount is required.'))}
             try:
-                amount = float(data.get('amount', 0))
+                amount = float(amount_raw)
             except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            time_str = data.get('time', '')
-            operation = data.get('operation', 'add')  # 'add' or 'subtract'
-            amount_unit = data.get('amount_unit', 'hours')
-            
-            # Parse time
+                return {'success': False, 'error': str(_('Invalid input type. Please enter numeric values.'))}
+
             time_seconds = self._parse_time(time_str)
-            
             if time_seconds is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid time format. Use HH:MM or HH:MM:SS format.')
-                }, status=400)
-            
-            # Validate
+                return {'success': False, 'error': str(_('Invalid time. Use HH:MM or HH:MM:SS (hours 0–23, minutes and seconds 0–59).'))}
             if amount < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Amount must be non-negative.')
-                }, status=400)
-            
-            # Convert amount to seconds
-            amount_seconds = float(amount * self.TIME_CONVERSIONS[amount_unit])
-            
-            # Perform operation
+                return {'success': False, 'error': str(_('Amount must be non-negative.'))}
+
+            amount_seconds = float(amount * self.TIME_CONVERSIONS.get(amount_unit, 3600))
             if operation == 'add':
                 result_seconds = time_seconds + amount_seconds
-            else:  # subtract
+            else:
                 result_seconds = time_seconds - amount_seconds
                 if result_seconds < 0:
-                    # Handle negative result (previous day)
-                    result_seconds += 86400  # Add 24 hours
-            
-            # Convert to hours, minutes, seconds
-            total_seconds = int(result_seconds % 86400)  # Keep within 24 hours
+                    result_seconds += 86400
+
+            total_seconds = int(result_seconds % 86400)
             hours = int(total_seconds // 3600)
             minutes = int((total_seconds % 3600) // 60)
             seconds = int(total_seconds % 60)
-            
             result_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-            
+
             steps = self._prepare_add_subtract_steps(time_str, operation, amount, amount_unit, time_seconds, amount_seconds, result_seconds, hours, minutes, seconds, result_formatted)
-            
-            return JsonResponse({
+            chart_data = self._prepare_add_subtract_chart_data(time_seconds, amount_seconds, result_seconds)
+
+            return {
                 'success': True,
                 'calc_type': 'add_subtract',
                 'time': time_str,
@@ -252,129 +242,81 @@ class TimeCalculator(View):
                 'minutes': minutes,
                 'seconds': seconds,
                 'step_by_step': steps,
-            })
-            
+                'chart_data': chart_data,
+            }
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating add/subtract: {error}').format(error=str(e))
-            }, status=500)
+            logger.exception("Time calculator add_subtract failed: %s", e)
+            return {'success': False, 'error': str(_('Error calculating add/subtract: {error}')).format(error=str(e))}
     
     def _convert_time(self, data):
         """Convert time between units"""
+        time_raw = data.get('time')
+        if time_raw is None or time_raw == '':
+            return {'success': False, 'error': str(_('Time is required.'))}
         try:
-            if 'time' not in data or data.get('time') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time is required.')
-                }, status=400)
-            
-            try:
-                time_value = float(data.get('time', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            from_unit = data.get('from_unit', 'hours')
-            to_unit = data.get('to_unit', 'minutes')
-            
-            # Validate
-            if time_value < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Time must be non-negative.')
-                }, status=400)
-            
-            # Convert to seconds
-            time_seconds = float(time_value * self.TIME_CONVERSIONS[from_unit])
-            
-            # Convert to target unit
-            result = float(np.divide(time_seconds, self.TIME_CONVERSIONS[to_unit]))
-            
-            steps = self._prepare_convert_steps(time_value, from_unit, time_seconds, result, to_unit)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'convert',
-                'time': time_value,
-                'from_unit': from_unit,
-                'result': round(result, 6),
-                'to_unit': to_unit,
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error converting time: {error}').format(error=str(e))
-            }, status=500)
+            time_value = float(time_raw)
+        except (ValueError, TypeError):
+            return {'success': False, 'error': str(_('Invalid input type. Please enter numeric values.'))}
+        from_unit = data.get('from_unit', 'hours')
+        to_unit = data.get('to_unit', 'minutes')
+        if isinstance(from_unit, list):
+            from_unit = from_unit[0] if from_unit else 'hours'
+        if isinstance(to_unit, list):
+            to_unit = to_unit[0] if to_unit else 'minutes'
+        if time_value < 0:
+            return {'success': False, 'error': str(_('Time must be non-negative.'))}
+        time_seconds = float(time_value * self.TIME_CONVERSIONS.get(from_unit, 3600))
+        to_factor = self.TIME_CONVERSIONS.get(to_unit, 60)
+        result = time_seconds / to_factor if to_factor else 0
+        result = round(result, 6)
+        steps = self._prepare_convert_steps(time_value, from_unit, time_seconds, result, to_unit)
+        chart_data = self._prepare_convert_chart_data(time_value, from_unit, result, to_unit)
+        return {
+            'success': True,
+            'calc_type': 'convert',
+            'time': time_value,
+            'from_unit': from_unit,
+            'result': result,
+            'to_unit': to_unit,
+            'step_by_step': steps,
+            'chart_data': chart_data,
+        }
     
     def _calculate_duration(self, data):
         """Calculate duration from start and end times"""
-        try:
-            if 'start_time' not in data or not data.get('start_time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Start time is required.')
-                }, status=400)
-            
-            if 'end_time' not in data or not data.get('end_time'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('End time is required.')
-                }, status=400)
-            
-            start_time_str = data.get('start_time', '')
-            end_time_str = data.get('end_time', '')
-            
-            # Parse times
-            start_seconds = self._parse_time(start_time_str)
-            end_seconds = self._parse_time(end_time_str)
-            
-            if start_seconds is None or end_seconds is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid time format. Use HH:MM or HH:MM:SS format.')
-                }, status=400)
-            
-            # Calculate duration
-            if end_seconds < start_seconds:
-                # End time is next day
-                duration_seconds = (86400 - start_seconds) + end_seconds
-            else:
-                duration_seconds = end_seconds - start_seconds
-            
-            # Convert to hours, minutes, seconds
-            hours = int(duration_seconds // 3600)
-            minutes = int((duration_seconds % 3600) // 60)
-            seconds = int(duration_seconds % 60)
-            
-            result_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-            
-            steps = self._prepare_duration_steps(start_time_str, end_time_str, start_seconds, end_seconds, duration_seconds, hours, minutes, seconds, result_formatted)
-            chart_data = self._prepare_duration_chart_data(start_seconds, end_seconds, duration_seconds)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'duration',
-                'start_time': start_time_str,
-                'end_time': end_time_str,
-                'duration_seconds': duration_seconds,
-                'duration_formatted': result_formatted,
-                'hours': hours,
-                'minutes': minutes,
-                'seconds': seconds,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating duration: {error}').format(error=str(e))
-            }, status=500)
+        start_time_str = (data.get('start_time') or [None])[0] if isinstance(data.get('start_time'), list) else data.get('start_time', '')
+        end_time_str = (data.get('end_time') or [None])[0] if isinstance(data.get('end_time'), list) else data.get('end_time', '')
+        if not start_time_str:
+            return {'success': False, 'error': str(_('Start time is required.'))}
+        if not end_time_str:
+            return {'success': False, 'error': str(_('End time is required.'))}
+        start_seconds = self._parse_time(start_time_str)
+        end_seconds = self._parse_time(end_time_str)
+        if start_seconds is None or end_seconds is None:
+            return {'success': False, 'error': str(_('Invalid time. Use HH:MM or HH:MM:SS (hours 0–23, minutes and seconds 0–59).'))}
+        if end_seconds < start_seconds:
+            duration_seconds = (86400 - start_seconds) + end_seconds
+        else:
+            duration_seconds = end_seconds - start_seconds
+        hours = int(duration_seconds // 3600)
+        minutes = int((duration_seconds % 3600) // 60)
+        seconds = int(duration_seconds % 60)
+        result_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        steps = self._prepare_duration_steps(start_time_str, end_time_str, start_seconds, end_seconds, duration_seconds, hours, minutes, seconds, result_formatted)
+        chart_data = self._prepare_duration_chart_data(start_seconds, end_seconds, duration_seconds)
+        return {
+            'success': True,
+            'calc_type': 'duration',
+            'start_time': start_time_str,
+            'end_time': end_time_str,
+            'duration_seconds': duration_seconds,
+            'duration_formatted': result_formatted,
+            'hours': hours,
+            'minutes': minutes,
+            'seconds': seconds,
+            'step_by_step': steps,
+            'chart_data': chart_data,
+        }
     
     # Step-by-step solution preparation methods
     def _prepare_difference_steps(self, time1_str, time2_str, time1_seconds, time2_seconds, difference_seconds, hours, minutes, seconds, result_formatted):
@@ -480,48 +422,27 @@ class TimeCalculator(View):
             chart_config = {
                 'type': 'bar',
                 'data': {
-                    'labels': [_('Time 1'), _('Time 2'), _('Difference')],
+                    'labels': [str(_('Time 1')), str(_('Time 2')), str(_('Difference'))],
                     'datasets': [{
-                        'label': _('Time (seconds)'),
+                        'label': str(_('Time (seconds)')),
                         'data': [time1_seconds, time2_seconds, difference_seconds],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(234, 179, 8, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#eab308'
-                        ],
-                        'borderWidth': 2
+                        'backgroundColor': ['#6366f1', '#8b5cf6', '#a78bfa'],
+                        'borderRadius': 4,
+                        'borderWidth': 0
                     }]
                 },
                 'options': {
                     'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Time Difference')
-                        }
-                    },
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'display': False}},
                     'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Time (seconds)')
-                            }
-                        }
+                        'x': {'grid': {'display': False}},
+                        'y': {'beginAtZero': True, 'ticks': {'precision': 0}}
                     }
                 }
             }
             return {'difference_chart': chart_config}
-        except Exception as e:
+        except Exception:
             return None
     
     def _prepare_duration_chart_data(self, start_seconds, end_seconds, duration_seconds):
@@ -530,46 +451,85 @@ class TimeCalculator(View):
             chart_config = {
                 'type': 'bar',
                 'data': {
-                    'labels': [_('Start'), _('End'), _('Duration')],
+                    'labels': [str(_('Start')), str(_('End')), str(_('Duration'))],
                     'datasets': [{
-                        'label': _('Time (seconds)'),
+                        'label': str(_('Time (seconds)')),
                         'data': [start_seconds, end_seconds, duration_seconds],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(234, 179, 8, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#eab308'
-                        ],
-                        'borderWidth': 2
+                        'backgroundColor': ['#6366f1', '#8b5cf6', '#a78bfa'],
+                        'borderRadius': 4,
+                        'borderWidth': 0
                     }]
                 },
                 'options': {
                     'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Time Duration')
-                        }
-                    },
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'display': False}},
                     'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Time (seconds)')
-                            }
-                        }
+                        'x': {'grid': {'display': False}},
+                        'y': {'beginAtZero': True, 'ticks': {'precision': 0}}
                     }
                 }
             }
             return {'duration_chart': chart_config}
-        except Exception as e:
+        except Exception:
+            return None
+
+    def _prepare_add_subtract_chart_data(self, time_seconds, amount_seconds, result_seconds):
+        """Prepare chart data for add/subtract visualization (all in seconds)."""
+        try:
+            chart_config = {
+                'type': 'bar',
+                'data': {
+                    'labels': [str(_('Start time')), str(_('Amount')), str(_('Result'))],
+                    'datasets': [{
+                        'label': str(_('Time (seconds)')),
+                        'data': [time_seconds, amount_seconds, result_seconds],
+                        'backgroundColor': ['#6366f1', '#8b5cf6', '#a78bfa'],
+                        'borderRadius': 4,
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'display': False}},
+                    'scales': {
+                        'x': {'grid': {'display': False}},
+                        'y': {'beginAtZero': True, 'ticks': {'precision': 0}}
+                    }
+                }
+            }
+            return {'add_subtract_chart': chart_config}
+        except Exception:
+            return None
+
+    def _prepare_convert_chart_data(self, time_value, from_unit, result, to_unit):
+        """Prepare chart data for unit conversion (from and to values in seconds for comparison)."""
+        try:
+            time_sec = time_value * self.TIME_CONVERSIONS.get(from_unit, 3600)
+            result_sec = result * self.TIME_CONVERSIONS.get(to_unit, 60)
+            chart_config = {
+                'type': 'bar',
+                'data': {
+                    'labels': [str(_('From')) + ' (' + self._format_unit(from_unit) + ')', str(_('To')) + ' (' + self._format_unit(to_unit) + ')'],
+                    'datasets': [{
+                        'label': str(_('Time (seconds)')),
+                        'data': [time_sec, result_sec],
+                        'backgroundColor': ['#6366f1', '#8b5cf6'],
+                        'borderRadius': 4,
+                        'borderWidth': 0
+                    }]
+                },
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {'legend': {'display': False}},
+                    'scales': {
+                        'x': {'grid': {'display': False}},
+                        'y': {'beginAtZero': True, 'ticks': {'precision': 0}}
+                    }
+                }
+            }
+            return {'convert_chart': chart_config}
+        except Exception:
             return None
