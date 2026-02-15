@@ -2,53 +2,102 @@
 {% load i18n %}
 {% load account %}
 
-{% block title %}{% trans "Confirm Email Address" %} | {{ block.super }}{% endblock %}
+{% block title %}{% trans "Confirm Email" %} | {{ block.super }}{% endblock %}
 
 {% block meta_description %}{% trans "Confirm your email address" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .auth-card { animation: fadeInUp 0.6s ease-out; }
+    .auth-icon { animation: scaleIn 0.5s ease-out 0.2s both; }
+    .auth-title { animation: fadeIn 0.5s ease-out 0.3s both; }
+    .auth-subtitle { animation: fadeIn 0.5s ease-out 0.4s both; }
+    .auth-cta { animation: fadeInUp 0.5s ease-out 0.5s both; }
+    .confirm-icon-circle { animation: float 3s ease-in-out infinite; background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%); }
+    .error-icon-circle { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); }
+
+    .auth-submit-btn { position: relative; overflow: hidden; transition: all 0.3s ease; }
+    .auth-submit-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35); }
+    .auth-submit-btn:active { transform: translateY(0); }
+    .auth-submit-btn.loading { pointer-events: none; opacity: 0.85; }
+    .auth-submit-btn.loading .btn-text { visibility: hidden; }
+    .auth-submit-btn.loading::after {
+        content: ''; position: absolute; width: 20px; height: 20px;
+        border: 3px solid rgba(255,255,255,0.3); border-top-color: white;
+        border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <section class="max-w-7xl mx-auto px-4 py-8 sm:py-12 lg:py-16">
     <div class="max-w-md mx-auto">
-        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 lg:p-10">
+        <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-10 auth-card" style="border: 1px solid rgba(229,231,235,0.8);">
             <div class="text-center">
                 {% if confirmation %}
                     {% user_display confirmation.email_address.user as user_display %}
-                    <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 auth-icon confirm-icon-circle">
                         <i class="bi bi-envelope-check text-blue-600 text-3xl"></i>
                     </div>
-                    <h1 class="text-3xl font-extrabold text-gray-900 mb-2">
-                        {% trans "Confirm Email Address" %}
+                    <h1 class="text-3xl font-extrabold text-gray-900 mb-2 auth-title">
+                        {% trans "Confirm Email" %}
                     </h1>
-                    <p class="text-sm text-gray-600 mb-6">
-                        {% blocktrans with email=confirmation.email_address.email %}Please confirm that <a href="mailto:{{ email }}" class="font-medium text-blue-600 hover:text-blue-700">{{ email }}</a> is an email address for user {{ user_display }}.{% endblocktrans %}
+                    <p class="text-sm text-gray-500 mb-2 auth-subtitle">
+                        {% trans "Please confirm that" %}
+                    </p>
+                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl mb-6 auth-subtitle" style="animation-delay: 0.45s;">
+                        <i class="bi bi-envelope text-blue-600"></i>
+                        <span class="font-semibold text-blue-700">{{ confirmation.email_address.email }}</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-6 auth-subtitle" style="animation-delay: 0.5s;">
+                        {% blocktrans %}is an email address for {{ user_display }}.{% endblocktrans %}
                     </p>
 
-                    <form method="post" action="{% url 'account_confirm_email' confirmation.key %}" class="space-y-6">
+                    <form method="post" action="{% url 'account_confirm_email' confirmation.key %}" class="auth-cta" id="confirm-form">
                         {% csrf_token %}
-                        <button type="submit" 
-                                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md">
-                            <i class="bi bi-check-circle"></i>
-                            <span>{% trans "Confirm" %}</span>
+                        <button type="submit" id="confirm-btn"
+                                class="auth-submit-btn w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-md">
+                            <span class="btn-text flex items-center gap-2">
+                                <i class="bi bi-check-circle"></i>
+                                {% trans "Confirm Email Address" %}
+                            </span>
                         </button>
                     </form>
                 {% else %}
-                    <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
-                        <i class="bi bi-x-circle text-red-600 text-3xl"></i>
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 auth-icon error-icon-circle">
+                        <i class="bi bi-link-45deg text-red-600 text-3xl"></i>
                     </div>
-                    <h1 class="text-3xl font-extrabold text-gray-900 mb-2">
+                    <h1 class="text-3xl font-extrabold text-gray-900 mb-2 auth-title">
                         {% trans "Invalid Link" %}
                     </h1>
-                    <p class="text-sm text-gray-600 mb-6">
-                        {% trans "This email confirmation link expired or is invalid. Please" %} <a href="{% url 'account_email' %}" class="font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200">{% trans "issue a new email confirmation request" %}</a>.
+                    <p class="text-sm text-gray-500 mb-6 auth-subtitle">
+                        {% trans "This email confirmation link expired or is invalid." %}
                     </p>
-                    <a href="{% url 'account_email' %}" 
-                       class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md">
-                        <i class="bi bi-arrow-left"></i>
-                        <span>{% trans "Back to Email Settings" %}</span>
-                    </a>
+                    
+                    <div class="auth-cta">
+                        <a href="{% url 'account_email' %}" 
+                           class="auth-submit-btn w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-md">
+                            <i class="bi bi-arrow-repeat"></i>
+                            <span>{% trans "Request New Confirmation" %}</span>
+                        </a>
+                    </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </section>
+
+{% if confirmation %}
+<script>
+document.getElementById('confirm-form').addEventListener('submit', function() {
+    document.getElementById('confirm-btn').classList.add('loading');
+});
+</script>
+{% endif %}
 {% endblock %}

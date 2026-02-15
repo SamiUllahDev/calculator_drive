@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     'core',
     'Financial_Calculators',
     'Fitness_and_Health_Calculators',
@@ -227,6 +228,28 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'  # Social accounts don't need email verification
 SOCIALACCOUNT_EMAIL_REQUIRED = False
 
+# Google OAuth2 Provider Configuration
+# Client ID and Secret are stored in the database via SocialApp model
+# Configure them via Django Admin > Social applications, or use the setup_google_oauth command
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+        'FETCH_USERINFO': True,
+        'APP': {
+            'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''),
+            'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+            'key': ''
+        }
+    }
+}
+
 # Email Configuration
 # Gmail SMTP Settings
 # SECURITY NOTE: In production, use environment variables for EMAIL_HOST_PASSWORD
@@ -330,7 +353,7 @@ SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
 SESSION_SAVE_EVERY_REQUEST = False  # Only save session if modified
 
 # CSRF Settings
-CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to CSRF cookie
+CSRF_COOKIE_HTTPONLY = False  # Must be False for allauth social login to work (JS needs CSRF cookie)
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF (default)
 CSRF_COOKIE_AGE = 31449600  # 1 year (default)
 

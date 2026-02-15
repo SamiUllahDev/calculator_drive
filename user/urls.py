@@ -34,6 +34,7 @@ urlpatterns = [
     path('favorites/', views.favorites_list, name='favorites'),
     path('favorites/toggle/', views.toggle_favorite, name='toggle_favorite'),
     path('favorites/check/', views.check_favorite, name='check_favorite'),
+    path('favorites/check-bulk/', views.check_favorites_bulk, name='check_favorites_bulk'),
     
     # Notifications
     path('notifications/', views.NotificationListView.as_view(), name='notifications'),

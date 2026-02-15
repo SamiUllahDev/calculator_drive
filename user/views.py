@@ -712,17 +712,23 @@ def dashboard(request):
     return render(request, 'user/dashboard.html', context)
 
 
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 
+def _normalize_calculator_url(url):
+    """Normalize calculator URL for consistent storage and lookup.
+    Always stores without trailing slash."""
+    if url:
+        url = url.strip().rstrip('/')
+    return url
+
+
 @ensure_csrf_cookie
-@login_required
 def toggle_favorite(request):
     """Toggle favorite calculator for authenticated user"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
     
-    # Check if user is authenticated (should be handled by @login_required, but double-check)
+    # Check if user is authenticated - return JSON instead of HTML redirect
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
     
@@ -749,8 +755,8 @@ def toggle_favorite(request):
                 'error': 'Missing required fields: calculator_name and calculator_url are required'
             }, status=400)
         
-        # Normalize URL (remove trailing slash for consistency)
-        calculator_url = calculator_url.rstrip('/')
+        # Normalize URL for consistent storage and lookup
+        calculator_url = _normalize_calculator_url(calculator_url)
         
         # Check if favorite already exists
         try:
@@ -810,9 +816,8 @@ def check_favorite(request):
         return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
     
     calculator_url = request.GET.get('calculator_url')
-    # Normalize URL (remove trailing slash for consistency)
-    if calculator_url:
-        calculator_url = calculator_url.rstrip('/')
+    # Normalize URL for consistent lookup
+    calculator_url = _normalize_calculator_url(calculator_url)
     if not calculator_url:
         return JsonResponse({'success': False, 'error': 'Missing calculator_url'}, status=400)
     
@@ -824,6 +829,47 @@ def check_favorite(request):
     return JsonResponse({
         'success': True,
         'is_favorite': is_favorite
+    })
+
+
+@ensure_csrf_cookie
+def check_favorites_bulk(request):
+    """Check multiple calculators' favorite status in a single request.
+    Accepts POST with JSON body: { "calculator_urls": ["/math/calc1/", "/finance/calc2/"] }
+    Returns: { "success": true, "favorites": { "/math/calc1": true, "/finance/calc2": false } }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    
+    calculator_urls = data.get('calculator_urls', [])
+    if not isinstance(calculator_urls, list):
+        return JsonResponse({'success': False, 'error': 'calculator_urls must be a list'}, status=400)
+    
+    # Normalize all URLs
+    normalized_urls = [_normalize_calculator_url(url) for url in calculator_urls if url]
+    
+    # Single query to get all favorited URLs
+    favorited_urls = set(
+        FavoriteCalculator.objects.filter(
+            user=request.user,
+            calculator_url__in=normalized_urls
+        ).values_list('calculator_url', flat=True)
+    )
+    
+    # Build response mapping normalized URL -> is_favorite
+    favorites = {url: (url in favorited_urls) for url in normalized_urls}
+    
+    return JsonResponse({
+        'success': True,
+        'favorites': favorites
     })
 
 
