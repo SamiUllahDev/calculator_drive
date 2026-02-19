@@ -57,7 +57,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             
             <!-- Input Form -->
-            <div class="lg:col-span-4">
+            <div class="lg:col-span-4 no-print">
                 <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
                     <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
                         <svg class="w-6 h-6 mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,6 +83,13 @@
                         
                         <!-- Love Percentage Mode -->
                         <div id="form-love_percentage" role="tabpanel" class="space-y-4">
+                            <div>
+                                <label for="love-algorithm" class="block text-sm font-medium text-gray-700 mb-2">{% trans "Algorithm" %}</label>
+                                <select id="love-algorithm" name="algorithm" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
+                                    <option value="classic">{% trans "Classic LOVE letters" %}</option>
+                                    <option value="balanced">{% trans "Balanced (letters + common)" %}</option>
+                                </select>
+                            </div>
                             <div>
                                 <label for="name1" class="block text-sm font-medium text-gray-700 mb-2">
                                     {% trans "First Name" %} <span class="text-red-500">*</span>
@@ -147,19 +154,61 @@
 
             <!-- Results Section -->
             <div class="lg:col-span-8">
+                <!-- Recent calculations (professional feature) -->
+                <div id="recentHistorySection" class="hidden mb-6 no-print">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">{% trans "Recent" %}</h3>
+                    <div id="recentHistoryList" class="flex flex-wrap gap-2"></div>
+                </div>
+
                 <section id="resultsSection" class="hidden space-y-6">
                     
-                    <!-- Result Display -->
-                    <div class="bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+                    <!-- Result Display with progress ring -->
+                    <div class="bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg relative overflow-hidden">
                         <div class="flex items-center justify-center gap-2 mb-2">
                             <svg class="w-5 h-5 text-pink-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             <p class="text-pink-100 text-sm font-medium">{% trans "Result" %}</p>
                         </div>
-                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
+                        <div id="resultValueWrapper" class="flex flex-col items-center justify-center mb-2">
+                            <div id="progressRingContainer" class="hidden relative w-32 h-32 sm:w-40 sm:h-40 mx-auto mb-2">
+                                <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                    <circle id="progressRingBg" cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="8"/>
+                                    <circle id="progressRingFill" cx="50" cy="50" r="45" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283"/>
+                                </svg>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span id="resultValue" class="text-3xl sm:text-4xl font-bold">0</span>
+                                    <span id="resultPercentSign" class="text-2xl sm:text-3xl font-bold ml-0.5 hidden">%</span>
+                                </div>
+                            </div>
+                            <div id="resultValuePlain" class="text-4xl sm:text-5xl font-bold"></div>
+                        </div>
                         <div class="text-pink-100 text-lg" id="resultUnit"></div>
                         <div id="categoryDisplay" class="mt-3"></div>
+                        <!-- Romantic tip card -->
+                        <div id="romanticTipCard" class="hidden mt-4 p-4 bg-white/10 rounded-lg text-left border border-white/20">
+                            <p class="text-sm font-medium text-pink-100 mb-1">{% trans "Tip" %}</p>
+                            <p id="romanticTipText" class="text-white text-sm leading-relaxed"></p>
+                        </div>
+                        <!-- Action bar: Copy, Try again, Share -->
+                        <div id="resultActionBar" class="hidden mt-4 flex flex-wrap items-center justify-center gap-2">
+                            <button type="button" id="copyResultBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                <span>{% trans "Copy result" %}</span>
+                            </button>
+                            <button type="button" id="tryAgainBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                <span>{% trans "Try another" %}</span>
+                            </button>
+                            <button type="button" id="shareResultBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                                <span>{% trans "Share" %}</span>
+                            </button>
+                            <button type="button" id="printResultBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                                <span>{% trans "Print" %}</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Details Cards -->
@@ -215,7 +264,8 @@
                         <li>{% trans "Enter two names in the input fields (first name and second name)." %}</li>
                         <li>{% trans "Names can be full names, first names, or nicknames." %}</li>
                         <li>{% trans "Click 'Calculate' to see the results." %}</li>
-                        <li>{% trans "Review the love percentage/compatibility score, category, visualizations, and step-by-step solution." %}</li>
+                        <li>{% trans "Review the love percentage/compatibility score, category, romantic tip, visualizations, and step-by-step solution." %}</li>
+                        <li>{% trans "Use Copy result, Share, or Print to save or share your result; Try another to run a new calculation." %}</li>
                     </ol>
                 </div>
 
@@ -224,7 +274,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
                             <h4 class="font-semibold text-pink-900 mb-1">{% trans "Love Percentage" %}</h4>
-                            <p class="text-sm text-pink-800">{% trans "Calculate love percentage using the 'LOVE' algorithm. Counts L, O, V, E letters in combined names and analyzes common letters to determine compatibility percentage (0-100%)." %}</p>
+                            <p class="text-sm text-pink-800">{% trans "Calculate love percentage using the 'LOVE' algorithm. Choose Classic (L, O, V, E letters + common letters) or Balanced (50/50 weights). Counts letters in combined names to determine compatibility percentage (0-100%)." %}</p>
                         </div>
                         <div class="border-l-4 border-rose-500 pl-4 py-2 bg-rose-50 rounded-r">
                             <h4 class="font-semibold text-rose-900 mb-1">{% trans "Compatibility Score" %}</h4>
@@ -316,6 +366,73 @@
 <script>
 let currentMode = 'love_percentage';
 let loveChart = null;
+const RECENT_HISTORY_KEY = 'love_calc_recent';
+const RECENT_HISTORY_MAX = 5;
+let lastResultShareSummary = '';
+
+function animateValue(el, fromVal, toVal, durationMs) {
+    if (fromVal === toVal) { el.textContent = toVal; return; }
+    const start = performance.now();
+    function tick(now) {
+        const t = Math.min((now - start) / durationMs, 1);
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const current = Math.round(fromVal + (toVal - fromVal) * eased);
+        el.textContent = current;
+        if (t < 1) requestAnimationFrame(tick);
+        else el.textContent = toVal;
+    }
+    requestAnimationFrame(tick);
+}
+
+function animateProgressRing(percent, durationMs) {
+    const ring = document.getElementById('progressRingFill');
+    if (!ring) return;
+    const circumference = 2 * Math.PI * 45;
+    const offset = circumference - (percent / 100) * circumference;
+    ring.style.transition = `stroke-dashoffset ${durationMs}ms ease-out`;
+    ring.style.strokeDashoffset = offset;
+}
+
+function pushRecentHistory(name1, name2, mode, summary) {
+    try {
+        let list = JSON.parse(localStorage.getItem(RECENT_HISTORY_KEY) || '[]');
+        list.unshift({ name1, name2, mode, summary });
+        list = list.slice(0, RECENT_HISTORY_MAX);
+        localStorage.setItem(RECENT_HISTORY_KEY, JSON.stringify(list));
+        renderRecentHistory();
+    } catch (e) {}
+}
+
+function renderRecentHistory() {
+    const container = document.getElementById('recentHistoryList');
+    const section = document.getElementById('recentHistorySection');
+    if (!container) return;
+    try {
+        const list = JSON.parse(localStorage.getItem(RECENT_HISTORY_KEY) || '[]');
+        if (list.length === 0) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+        container.innerHTML = list.map((item, i) =>
+            `<button type="button" class="recent-chip px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-800 rounded-full text-sm font-medium transition" data-name1="${escapeHtml(item.name1)}" data-name2="${escapeHtml(item.name2)}" data-mode="${escapeHtml(item.mode)}">${escapeHtml(item.name1)} & ${escapeHtml(item.name2)}</button>`
+        ).join('');
+        container.querySelectorAll('.recent-chip').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const name1 = this.getAttribute('data-name1');
+                const name2 = this.getAttribute('data-name2');
+                const mode = this.getAttribute('data-mode') || 'love_percentage';
+                switchMode(mode);
+                document.getElementById('name1').value = name1;
+                document.getElementById('name2').value = name2;
+                document.getElementById('name1_comp').value = name1;
+                document.getElementById('name2_comp').value = name2;
+                document.getElementById('name1_analysis').value = name1;
+                document.getElementById('name2_analysis').value = name2;
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('initialState').classList.remove('hidden');
+                document.getElementById('loveCalculatorForm').scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    } catch (e) { section.classList.add('hidden'); }
+}
 
 function switchMode(mode) {
     if (!mode) return;
@@ -369,6 +486,10 @@ async function calculateLove(event) {
     }
     
     let requestData = { calc_type: currentMode };
+    if (currentMode === 'love_percentage') {
+        const algo = document.getElementById('love-algorithm');
+        if (algo) requestData.algorithm = algo.value || 'classic';
+    }
     const visibleForm = document.getElementById(`form-${currentMode}`);
     if (!visibleForm) {
         errorEl.textContent = '{% trans "Invalid calculation type." %}';
@@ -426,7 +547,38 @@ async function calculateLove(event) {
         // Show results
         document.getElementById('initialState')?.classList.add('hidden');
         document.getElementById('resultsSection')?.classList.remove('hidden');
-        
+        lastResultShareSummary = data.share_summary || '';
+
+        const progressRingContainer = document.getElementById('progressRingContainer');
+        const resultValuePlain = document.getElementById('resultValuePlain');
+        const resultValueEl = document.getElementById('resultValue');
+        const resultPercentSign = document.getElementById('resultPercentSign');
+        const romanticTipCard = document.getElementById('romanticTipCard');
+        const romanticTipText = document.getElementById('romanticTipText');
+        const resultActionBar = document.getElementById('resultActionBar');
+
+        const isPercentMode = data.calc_type === 'love_percentage' || data.calc_type === 'compatibility';
+        const numericValue = isPercentMode ? (data.love_percentage ?? data.compatibility) : null;
+
+        if (progressRingContainer) progressRingContainer.classList.toggle('hidden', !isPercentMode);
+        if (resultValuePlain) resultValuePlain.classList.toggle('hidden', isPercentMode);
+        if (resultPercentSign) resultPercentSign.classList.toggle('hidden', !isPercentMode);
+
+        if (isPercentMode && numericValue != null) {
+            resultValueEl.textContent = '0';
+            const ring = document.getElementById('progressRingFill');
+            if (ring) { ring.style.transition = 'none'; ring.style.strokeDashoffset = '283'; ring.offsetHeight; ring.style.transition = ''; }
+            animateValue(resultValueEl, 0, numericValue, 1200);
+            animateProgressRing(numericValue, 1200);
+        }
+
+        // Romantic tip & actions
+        if (data.romantic_tip && romanticTipCard && romanticTipText) {
+            romanticTipText.textContent = data.romantic_tip;
+            romanticTipCard.classList.remove('hidden');
+        } else if (romanticTipCard) romanticTipCard.classList.add('hidden');
+        if (resultActionBar) resultActionBar.classList.remove('hidden');
+
         // Update result display
         let resultValue = '';
         let resultUnit = '';
@@ -474,7 +626,7 @@ async function calculateLove(event) {
                 </div>
             `;
         } else if (data.calc_type === 'name_analysis') {
-            resultValue = data.analysis.common_letters.length;
+            resultValue = String(data.analysis.common_letters.length);
             resultUnit = '{% trans "common letters" %}';
             detailsHtml = `
                 <div class="bg-pink-50 rounded-lg p-4 border border-pink-200">
@@ -492,10 +644,13 @@ async function calculateLove(event) {
             `;
         }
         
-        document.getElementById('resultValue').textContent = resultValue;
+        if (!isPercentMode && resultValuePlain) resultValuePlain.textContent = resultValue;
         document.getElementById('resultUnit').textContent = resultUnit;
         document.getElementById('categoryDisplay').innerHTML = categoryHtml;
         document.getElementById('detailsSection').innerHTML = detailsHtml;
+
+        pushRecentHistory(data.name1, data.name2, data.calc_type, data.share_summary || '');
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         
         // Chart
         if (data.chart_data) {
@@ -521,27 +676,34 @@ async function calculateLove(event) {
             document.getElementById('chartsSection').classList.add('hidden');
         }
         
-        // Step-by-step
+        // Step-by-step (supports backend step types for all languages; fallback to string + regex for legacy)
         const stepEl = document.getElementById('stepByStep');
         if (stepEl && data.step_by_step?.length > 0) {
             let stepNum = 0;
             stepEl.innerHTML = data.step_by_step.map(step => {
-                if (!step || !step.trim()) return '<div class="my-3"></div>';
-                
-                const text = escapeHtml(step);
-                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(text);
-                const isFormula = /[=×÷+\-*\/]/.test(text) && (text.length < 100 || text.includes('='));
-                const isResult = /^(Result|Total|Final|Answer|Love Percentage|Compatibility|Score)/i.test(text);
-                
-                if (isStep) {
+                let text, stepType;
+                if (typeof step === 'object' && step !== null && 'text' in step && 'type' in step) {
+                    text = (step.text || '').trim();
+                    stepType = step.type || 'text';
+                } else {
+                    text = (typeof step === 'string' ? step : '').trim();
+                    stepType = null;
+                }
+                const escaped = escapeHtml(text);
+                if (!text && stepType !== 'blank') return '<div class="my-3"></div>';
+                if (stepType === 'blank' || !text) return '<div class="my-3"></div>';
+
+                if (stepType === 'step') {
                     stepNum++;
                     return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-pink-500 shadow-sm">
                         <div class="flex-shrink-0 w-8 h-8 bg-pink-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
-                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${escaped}</p></div>
                     </div>`;
-                } else if (isFormula || text.includes('=')) {
-                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
-                } else if (isResult) {
+                }
+                if (stepType === 'formula') {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${escaped}</code></div>`;
+                }
+                if (stepType === 'result') {
                     return `<div class="mb-4 p-4 bg-gradient-to-r from-pink-50 to-rose-50 border-l-4 border-pink-500 rounded-lg">
                         <div class="flex items-center gap-2 mb-2">
                             <svg class="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -549,11 +711,38 @@ async function calculateLove(event) {
                             </svg>
                             <span class="font-semibold text-pink-800">{% trans "Result" %}</span>
                         </div>
-                        <p class="text-gray-800 font-medium">${text}</p>
+                        <p class="text-gray-800 font-medium">${escaped}</p>
                     </div>`;
-                } else {
-                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
                 }
+                if (stepType === 'text') {
+                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${escaped}</p></div>`;
+                }
+                // Legacy: infer type from English regex when backend sends plain strings
+                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note|Where:)/i.test(escaped);
+                const isFormula = /[=×÷+\-*\/]/.test(escaped) && (escaped.length < 100 || escaped.includes('='));
+                const isResult = /^(Result|Total|Final|Answer|Love Percentage|Compatibility|Score)/i.test(escaped);
+                if (isStep) {
+                    stepNum++;
+                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-pink-500 shadow-sm">
+                        <div class="flex-shrink-0 w-8 h-8 bg-pink-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
+                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${escaped}</p></div>
+                    </div>`;
+                }
+                if (isFormula) {
+                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${escaped}</code></div>`;
+                }
+                if (isResult) {
+                    return `<div class="mb-4 p-4 bg-gradient-to-r from-pink-50 to-rose-50 border-l-4 border-pink-500 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                            </svg>
+                            <span class="font-semibold text-pink-800">{% trans "Result" %}</span>
+                        </div>
+                        <p class="text-gray-800 font-medium">${escaped}</p>
+                    </div>`;
+                }
+                return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${escaped}</p></div>`;
             }).join('');
         }
         
@@ -574,6 +763,45 @@ async function calculateLove(event) {
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     switchMode('love_percentage');
+    renderRecentHistory();
+
+    document.getElementById('copyResultBtn')?.addEventListener('click', function() {
+        const text = lastResultShareSummary || (document.getElementById('resultValue')?.textContent + document.getElementById('resultUnit')?.textContent);
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            const span = this.querySelector('span');
+            if (span) { const o = span.textContent; span.textContent = '{% trans "Copied!" %}'; setTimeout(() => { span.textContent = o; }, 1500); }
+        });
+    });
+    document.getElementById('tryAgainBtn')?.addEventListener('click', function() {
+        document.getElementById('resultsSection').classList.add('hidden');
+        document.getElementById('initialState').classList.remove('hidden');
+        document.getElementById('loveCalculatorForm').scrollIntoView({ behavior: 'smooth' });
+    });
+    document.getElementById('shareResultBtn')?.addEventListener('click', function() {
+        const text = lastResultShareSummary || '';
+        if (navigator.share && text) {
+            navigator.share({ title: '{% trans "Love Calculator" %}', text: text }).catch(() => {
+                navigator.clipboard.writeText(text);
+            });
+        } else if (text) {
+            navigator.clipboard.writeText(text);
+            const span = this.querySelector('span');
+            if (span) { const o = span.textContent; span.textContent = '{% trans "Copied!" %}'; setTimeout(() => { span.textContent = o; }, 1500); }
+        }
+    });
+    document.getElementById('printResultBtn')?.addEventListener('click', function() {
+        window.print();
+    });
 });
+
+// Print: show only result area
 </script>
+<style media="print">
+@media print {
+    .no-print { display: none !important; }
+    #recentHistorySection { display: none !important; }
+    #resultActionBar { display: none !important; }
+}
+</style>
 {% endblock %}

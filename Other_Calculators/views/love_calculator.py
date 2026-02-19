@@ -37,7 +37,20 @@ class LoveCalculator(View):
         'fair': (40, 59, _('Fair Match')),
         'poor': (0, 39, _('Needs Work')),
     }
-    
+
+    # Romantic tips by category (for professional UX)
+    ROMANTIC_TIPS = {
+        'excellent': _('A rare connection! Keep nurturing trust and communication.'),
+        'very_good': _('Strong compatibility—great foundation for something special.'),
+        'good': _('Solid potential. Small gestures and quality time can deepen the bond.'),
+        'fair': _('Every relationship takes effort. Patience and understanding go a long way.'),
+        'poor': _('Names are just fun—real love is built on respect and shared values.'),
+    }
+
+    def _get_romantic_tip(self, category_key):
+        """Return a short romantic tip for the given category."""
+        return self.ROMANTIC_TIPS.get(category_key, self.ROMANTIC_TIPS['poor'])
+
     def _format_unit(self, unit):
         """Format unit name for display"""
         return unit
@@ -152,19 +165,27 @@ class LoveCalculator(View):
                 100.0
             ))
             
-            # Combine methods for final percentage
-            # Use a weighted average
-            final_percentage = float(np.add(
-                np.multiply(letter_percentage, 0.4),
-                np.multiply(common_percentage, 0.6)
-            ))
-            
-            # Add some randomness based on name lengths for fun
+            # Combine methods for final percentage (algorithm choice)
+            algorithm = data.get('algorithm', 'classic')
+            if algorithm == 'balanced':
+                # 50/50 weights + length similarity
+                final_percentage = float(np.add(
+                    np.multiply(letter_percentage, 0.5),
+                    np.multiply(common_percentage, 0.5)
+                ))
+            else:
+                # Classic: 40% LOVE letters, 60% common
+                final_percentage = float(np.add(
+                    np.multiply(letter_percentage, 0.4),
+                    np.multiply(common_percentage, 0.6)
+                ))
+
+            # Length similarity factor (both algorithms)
             length_factor = float(np.multiply(
                 np.divide(min(len(name1_lower), len(name2_lower)), max(len(name1_lower), len(name2_lower))),
                 10.0
             )) if max(len(name1_lower), len(name2_lower)) > 0 else 0
-            
+
             final_percentage = float(np.add(final_percentage, length_factor))
             
             # Normalize to 0-100
@@ -179,7 +200,9 @@ class LoveCalculator(View):
             steps = self._prepare_love_percentage_steps(name1, name2, combined, l_count, o_count, v_count, e_count, love_score, letter_percentage, common_letters, common_percentage, final_percentage, love_percentage)
             
             chart_data = self._prepare_love_percentage_chart_data(love_percentage, category)
-            
+            romantic_tip = self._get_romantic_tip(category['name'])
+            share_summary = f'{name1} & {name2}: {love_percentage}% — {category["message"]}'
+
             return JsonResponse({
                 'success': True,
                 'calc_type': 'love_percentage',
@@ -188,6 +211,8 @@ class LoveCalculator(View):
                 'love_percentage': love_percentage,
                 'category': category['name'],
                 'message': category['message'],
+                'romantic_tip': romantic_tip,
+                'share_summary': share_summary,
                 'step_by_step': steps,
                 'chart_data': chart_data,
             })
@@ -274,7 +299,9 @@ class LoveCalculator(View):
             steps = self._prepare_compatibility_steps(name1, name2, common_letters, common_score, length_score, vowel_score, compatibility)
             
             chart_data = self._prepare_compatibility_chart_data(compatibility, common_score, length_score, vowel_score)
-            
+            romantic_tip = self._get_romantic_tip(category['name'])
+            share_summary = f'{name1} & {name2}: {compatibility}% — {category["message"]}'
+
             return JsonResponse({
                 'success': True,
                 'calc_type': 'compatibility',
@@ -286,6 +313,8 @@ class LoveCalculator(View):
                 'vowel_score': round(vowel_score, 1),
                 'category': category['name'],
                 'message': category['message'],
+                'romantic_tip': romantic_tip,
+                'share_summary': share_summary,
                 'step_by_step': steps,
                 'chart_data': chart_data,
             })
@@ -350,13 +379,15 @@ class LoveCalculator(View):
             analysis['unique_letters_name2'] = sorted(list(set2 - set1))
             
             steps = self._prepare_name_analysis_steps(name1, name2, analysis)
-            
+            share_summary = f'{name1} & {name2}: {len(analysis["common_letters"])} common letters'
+
             return JsonResponse({
                 'success': True,
                 'calc_type': 'name_analysis',
                 'name1': name1,
                 'name2': name2,
                 'analysis': analysis,
+                'share_summary': share_summary,
                 'step_by_step': steps,
             })
             
@@ -373,99 +404,103 @@ class LoveCalculator(View):
                 return {'name': key, 'message': message}
         return {'name': 'poor', 'message': _('Needs Work')}
     
+    def _step(self, text, step_type='text'):
+        """Return a step dict with text and type for language-agnostic frontend rendering."""
+        return {'text': text, 'type': step_type}
+
     # Step-by-step solution preparation methods
     def _prepare_love_percentage_steps(self, name1, name2, combined, l_count, o_count, v_count, e_count, love_score, letter_percentage, common_letters, common_percentage, final_percentage, love_percentage):
         """Prepare step-by-step solution for love percentage calculation"""
         steps = []
-        steps.append(_('Step 1: Identify the given names'))
-        steps.append(_('Name 1: {name}').format(name=name1))
-        steps.append(_('Name 2: {name}').format(name=name2))
-        steps.append('')
-        steps.append(_('Step 2: Combine and normalize names'))
-        steps.append(_('Combined: {combined}').format(combined=combined))
-        steps.append('')
-        steps.append(_('Step 3: Count L, O, V, E letters'))
-        steps.append(_('L count: {count}').format(count=l_count))
-        steps.append(_('O count: {count}').format(count=o_count))
-        steps.append(_('V count: {count}').format(count=v_count))
-        steps.append(_('E count: {count}').format(count=e_count))
-        steps.append(_('Total LOVE letters: {total}').format(total=love_score))
-        steps.append('')
-        steps.append(_('Step 4: Calculate letter percentage'))
-        steps.append(_('Letter Percentage = (LOVE letters / Total letters) × 100'))
-        steps.append(_('Letter Percentage = ({love} / {total}) × 100 = {percent}%').format(
+        steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
+        steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
+        steps.append(self._step(_('Name 2: {name}').format(name=name2), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 2: Combine and normalize names'), 'step'))
+        steps.append(self._step(_('Combined: {combined}').format(combined=combined), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 3: Count L, O, V, E letters'), 'step'))
+        steps.append(self._step(_('L count: {count}').format(count=l_count), 'text'))
+        steps.append(self._step(_('O count: {count}').format(count=o_count), 'text'))
+        steps.append(self._step(_('V count: {count}').format(count=v_count), 'text'))
+        steps.append(self._step(_('E count: {count}').format(count=e_count), 'text'))
+        steps.append(self._step(_('Total LOVE letters: {total}').format(total=love_score), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 4: Calculate letter percentage'), 'step'))
+        steps.append(self._step(_('Letter Percentage = (LOVE letters / Total letters) × 100'), 'formula'))
+        steps.append(self._step(_('Letter Percentage = ({love} / {total}) × 100 = {percent}%').format(
             love=love_score, total=len(combined), percent=round(letter_percentage, 1)
-        ))
-        steps.append('')
-        steps.append(_('Step 5: Calculate common letters percentage'))
-        steps.append(_('Common Letters: {common}').format(common=common_letters))
-        steps.append(_('Common Percentage: {percent}%').format(percent=round(common_percentage, 1)))
-        steps.append('')
-        steps.append(_('Step 6: Combine percentages'))
-        steps.append(_('Final Percentage = (Letter % × 0.4) + (Common % × 0.6)'))
-        steps.append(_('Final Percentage = ({letter} × 0.4) + ({common} × 0.6) = {final}%').format(
+        ), 'formula'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 5: Calculate common letters percentage'), 'step'))
+        steps.append(self._step(_('Common Letters: {common}').format(common=common_letters), 'text'))
+        steps.append(self._step(_('Common Percentage: {percent}%').format(percent=round(common_percentage, 1)), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 6: Combine percentages'), 'step'))
+        steps.append(self._step(_('Final Percentage = (Letter % × 0.4) + (Common % × 0.6)'), 'formula'))
+        steps.append(self._step(_('Final Percentage = ({letter} × 0.4) + ({common} × 0.6) = {final}%').format(
             letter=round(letter_percentage, 1), common=round(common_percentage, 1), final=love_percentage
-        ))
-        steps.append('')
-        steps.append(_('Step 7: Final Result'))
-        steps.append(_('Love Percentage: {percent}%').format(percent=love_percentage))
+        ), 'formula'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 7: Final Result'), 'step'))
+        steps.append(self._step(_('Love Percentage: {percent}%').format(percent=love_percentage), 'result'))
         return steps
-    
+
     def _prepare_compatibility_steps(self, name1, name2, common_letters, common_score, length_score, vowel_score, compatibility):
         """Prepare step-by-step solution for compatibility calculation"""
         steps = []
-        steps.append(_('Step 1: Identify the given names'))
-        steps.append(_('Name 1: {name}').format(name=name1))
-        steps.append(_('Name 2: {name}').format(name=name2))
-        steps.append('')
-        steps.append(_('Step 2: Calculate common letters score'))
-        steps.append(_('Common Letters: {common}').format(common=common_letters))
-        steps.append(_('Common Score: {score}%').format(score=round(common_score, 1)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate name length similarity'))
-        steps.append(_('Length Score: {score}%').format(score=round(length_score, 1)))
-        steps.append('')
-        steps.append(_('Step 4: Calculate vowel/consonant ratio similarity'))
-        steps.append(_('Vowel Score: {score}%').format(score=round(vowel_score, 1)))
-        steps.append('')
-        steps.append(_('Step 5: Calculate overall compatibility'))
-        steps.append(_('Compatibility = (Common Score + Length Score + Vowel Score) / 3'))
-        steps.append(_('Compatibility = ({common} + {length} + {vowel}) / 3 = {final}%').format(
+        steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
+        steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
+        steps.append(self._step(_('Name 2: {name}').format(name=name2), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 2: Calculate common letters score'), 'step'))
+        steps.append(self._step(_('Common Letters: {common}').format(common=common_letters), 'text'))
+        steps.append(self._step(_('Common Score: {score}%').format(score=round(common_score, 1)), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 3: Calculate name length similarity'), 'step'))
+        steps.append(self._step(_('Length Score: {score}%').format(score=round(length_score, 1)), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 4: Calculate vowel/consonant ratio similarity'), 'step'))
+        steps.append(self._step(_('Vowel Score: {score}%').format(score=round(vowel_score, 1)), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 5: Calculate overall compatibility'), 'step'))
+        steps.append(self._step(_('Compatibility = (Common Score + Length Score + Vowel Score) / 3'), 'formula'))
+        steps.append(self._step(_('Compatibility = ({common} + {length} + {vowel}) / 3 = {final}%').format(
             common=round(common_score, 1), length=round(length_score, 1),
             vowel=round(vowel_score, 1), final=compatibility
-        ))
+        ), 'result'))
         return steps
-    
+
     def _prepare_name_analysis_steps(self, name1, name2, analysis):
         """Prepare step-by-step solution for name analysis"""
         steps = []
-        steps.append(_('Step 1: Identify the given names'))
-        steps.append(_('Name 1: {name}').format(name=name1))
-        steps.append(_('Name 2: {name}').format(name=name2))
-        steps.append('')
-        steps.append(_('Step 2: Analyze name lengths'))
-        steps.append(_('Name 1 Length: {len} characters').format(len=analysis['name1_length']))
-        steps.append(_('Name 2 Length: {len} characters').format(len=analysis['name2_length']))
-        steps.append('')
-        steps.append(_('Step 3: Count vowels and consonants'))
-        steps.append(_('Name 1: {vowels} vowels, {consonants} consonants').format(
+        steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
+        steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
+        steps.append(self._step(_('Name 2: {name}').format(name=name2), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 2: Analyze name lengths'), 'step'))
+        steps.append(self._step(_('Name 1 Length: {len} characters').format(len=analysis['name1_length']), 'text'))
+        steps.append(self._step(_('Name 2 Length: {len} characters').format(len=analysis['name2_length']), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 3: Count vowels and consonants'), 'step'))
+        steps.append(self._step(_('Name 1: {vowels} vowels, {consonants} consonants').format(
             vowels=analysis['vowel_count_name1'], consonants=analysis['consonant_count_name1']
-        ))
-        steps.append(_('Name 2: {vowels} vowels, {consonants} consonants').format(
+        ), 'text'))
+        steps.append(self._step(_('Name 2: {vowels} vowels, {consonants} consonants').format(
             vowels=analysis['vowel_count_name2'], consonants=analysis['consonant_count_name2']
-        ))
-        steps.append('')
-        steps.append(_('Step 4: Find common letters'))
+        ), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 4: Find common letters'), 'step'))
         if analysis['common_letters']:
-            steps.append(_('Common Letters: {letters}').format(letters=', '.join(analysis['common_letters'])))
+            steps.append(self._step(_('Common Letters: {letters}').format(letters=', '.join(analysis['common_letters'])), 'text'))
         else:
-            steps.append(_('Common Letters: None'))
-        steps.append('')
-        steps.append(_('Step 5: Find unique letters'))
+            steps.append(self._step(_('Common Letters: None'), 'text'))
+        steps.append(self._step('', 'blank'))
+        steps.append(self._step(_('Step 5: Find unique letters'), 'step'))
         if analysis['unique_letters_name1']:
-            steps.append(_('Unique to Name 1: {letters}').format(letters=', '.join(analysis['unique_letters_name1'])))
+            steps.append(self._step(_('Unique to Name 1: {letters}').format(letters=', '.join(analysis['unique_letters_name1'])), 'text'))
         if analysis['unique_letters_name2']:
-            steps.append(_('Unique to Name 2: {letters}').format(letters=', '.join(analysis['unique_letters_name2'])))
+            steps.append(self._step(_('Unique to Name 2: {letters}').format(letters=', '.join(analysis['unique_letters_name2'])), 'text'))
         return steps
     
     # Chart data preparation methods
