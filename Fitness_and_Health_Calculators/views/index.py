@@ -35,6 +35,8 @@ class HealthIndexView(TemplateView):
             {'name': _('Fat Intake Calculator'), 'url': 'fat-intake-calculator', 'category': _('Nutrition & Diet'), 'description': _('Calculate recommended fat intake')},
             {'name': _('Protein Calculator'), 'url': 'protein-calculator', 'category': _('Nutrition & Diet'), 'description': _('Calculate protein needs based on weight and goals')},
             {'name': _('Weight Watcher Points Calculator'), 'url': 'weight-watcher-points-calculator', 'category': _('Nutrition & Diet'), 'description': _('Calculate Weight Watchers points for foods')},
+            {'name': _('Chipotle Nutrition Calculator'), 'url': 'chipotle-nutrition-calculator', 'category': _('Nutrition & Diet'), 'description': _('Build a Chipotle meal and see full nutrition breakdown')},
+            {'name': _('Starbucks Calorie Calculator'), 'url': 'starbucks-calorie-calculator', 'category': _('Nutrition & Diet'), 'description': _('Customize your Starbucks order and see calories, sugar, and caffeine')},
             
             # Fitness & Exercise
             {'name': _('Target Heart Rate Calculator'), 'url': 'target-heart-rate-calculator', 'category': _('Fitness & Exercise'), 'description': _('Calculate your target heart rate zones')},

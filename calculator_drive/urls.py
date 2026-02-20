@@ -20,6 +20,8 @@ from django.conf.urls.i18n import i18n_patterns
 from django.views.i18n import set_language
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
+import os
 from core.sitemap_view import sitemap
 from core.sitemaps import (
     StaticViewSitemap,
@@ -47,11 +49,19 @@ sitemaps = {
     'blog-tags': BlogTagSitemap,
 }
 
+# ads.txt view for Google AdSense
+def ads_txt(request):
+    ads_txt_path = os.path.join(settings.BASE_DIR, 'ads.txt')
+    with open(ads_txt_path, 'r') as f:
+        content = f.read()
+    return HttpResponse(content, content_type='text/plain')
+
 # URLs that should NOT have language prefix
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/setlang/', set_language, name='set_language'),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path('ads.txt', ads_txt, name='ads_txt'),
 ]
 
 # URLs that should have language prefix (e.g., /ar/, /fr/, but NOT /en/ for default)

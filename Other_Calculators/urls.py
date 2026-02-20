@@ -53,6 +53,12 @@ from .views.time_duration_calculator import TimeDurationCalculator
 from .views.day_counter import DayCounter
 from .views.day_of_the_week_calculator import DayOfTheWeekCalculator
 from .views.day_of_week_calculator import DayOfWeekCalculator
+from .views.snow_day_calculator import SnowDayCalculator
+from .views.female_delusion_calculator import FemaleDelusionCalculator
+from .views.schedule_one_calculator import ScheduleOneCalculator
+from .views.gag_calculator import GagCalculator
+from .views.silca_tire_pressure_calculator import SilcaTirePressureCalculator
+from .views.circle_skirt_calculator import CircleSkirtCalculator
 
 urlpatterns = [
     path('', OtherIndexView.as_view(), name='index'),
@@ -109,6 +115,12 @@ urlpatterns = [
     path('day-counter/', DayCounter.as_view(), name='day_counter'),
     path('day-of-the-week-calculator/', DayOfTheWeekCalculator.as_view(), name='day_of_the_week_calculator'),
     path('day-of-week-calculator/', DayOfWeekCalculator.as_view(), name='day_of_week_calculator'),
+    path('snow-day-calculator/', SnowDayCalculator.as_view(), name='snow_day_calculator'),
+    path('female-delusion-calculator/', FemaleDelusionCalculator.as_view(), name='female_delusion_calculator'),
+    path('schedule-1-calculator/', ScheduleOneCalculator.as_view(), name='schedule_one_calculator'),
+    path('gag-calculator/', GagCalculator.as_view(), name='gag_calculator'),
+    path('silca-tire-pressure-calculator/', SilcaTirePressureCalculator.as_view(), name='silca_tire_pressure_calculator'),
+    path('circle-skirt-calculator/', CircleSkirtCalculator.as_view(), name='circle_skirt_calculator'),
 ]
 
 app_name = 'other_calculators'

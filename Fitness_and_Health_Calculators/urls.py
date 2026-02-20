@@ -31,6 +31,8 @@ from .views.bac_calculator import BacCalculator
 from .views.anorexic_bmi_calculator import AnorexicBmiCalculator
 from .views.weight_watcher_points_calculator import WeightWatcherPointsCalculator
 from .views.overweight_calculator import OverweightCalculator
+from .views.chipotle_nutrition_calculator import ChipotleNutritionCalculator
+from .views.starbucks_calorie_calculator import StarbucksCalorieCalculator
 
 urlpatterns = [
     path('', HealthIndexView.as_view(), name='index'),
@@ -65,6 +67,8 @@ urlpatterns = [
     path('anorexic-bmi-calculator/', AnorexicBmiCalculator.as_view(), name='anorexic_bmi_calculator'),
     path('weight-watcher-points-calculator/', WeightWatcherPointsCalculator.as_view(), name='weight_watcher_points_calculator'),
     path('overweight-calculator/', OverweightCalculator.as_view(), name='overweight_calculator'),
+    path('chipotle-nutrition-calculator/', ChipotleNutritionCalculator.as_view(), name='chipotle_nutrition_calculator'),
+    path('starbucks-calorie-calculator/', StarbucksCalorieCalculator.as_view(), name='starbucks_calorie_calculator'),
 ]
 
 app_name = 'fitness_and_health_calculators'

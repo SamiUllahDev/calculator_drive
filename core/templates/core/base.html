@@ -82,6 +82,49 @@
 
     <!-- Allow pages to add additional meta tags -->
     {% block extra_head %}{% endblock %}
+
+    <!-- Auto-sync OG, Twitter & Keywords from page title/description -->
+    <script>
+      (function() {
+        var t = document.title || '';
+        var dm = document.querySelector('meta[name="description"]');
+        var d = dm ? dm.getAttribute('content') : '';
+
+        // Only sync if the page has a specific title (not default)
+        if (t && t !== 'Calculator Drive') {
+          // Sync OG tags
+          var ogT = document.querySelector('meta[property="og:title"]');
+          if (ogT) ogT.setAttribute('content', t);
+          var ogD = document.querySelector('meta[property="og:description"]');
+          if (ogD && d) ogD.setAttribute('content', d);
+
+          // Sync Twitter tags
+          var twT = document.querySelector('meta[name="twitter:title"]');
+          if (twT) twT.setAttribute('content', t);
+          var twD = document.querySelector('meta[name="twitter:description"]');
+          if (twD && d) twD.setAttribute('content', d);
+
+          // Auto-generate keywords from title + description
+          var kwM = document.querySelector('meta[name="keywords"]');
+          if (kwM) {
+            var src = (t + ' ' + d).toLowerCase();
+            // Remove common stop words
+            var stop = ['a','an','the','and','or','but','in','on','at','to','for','of','with','by','from','is','it','as','be','was','are','this','that','has','have','had','not','no','so','if','its','can','do','does','will','would','could','should','may','might','into','than','then','them','they','these','those','also','just','about','over','such','after','before','between','through','very','too','your','our','their','my','his','her','we','you','free','online','how','what','why','use','used','using','tools','tool','trusted','students','professionals','researchers','worldwide','collection','professional'];
+            var words = src.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(function(w) {
+              return w.length > 2 && stop.indexOf(w) === -1;
+            });
+            // Deduplicate
+            var seen = {};
+            var unique = [];
+            words.forEach(function(w) { if (!seen[w]) { seen[w] = 1; unique.push(w); } });
+            // Add base keywords
+            var base = ['calculator', 'calculators', 'calculatordrive'];
+            base.forEach(function(b) { if (!seen[b]) unique.push(b); });
+            kwM.setAttribute('content', unique.slice(0, 20).join(', '));
+          }
+        }
+      })();
+    </script>
     
     <!-- Enhanced Structured Data -->
     <script type="application/ld+json">
@@ -1193,7 +1236,314 @@
       {% block content %}
       {% endblock %}
     </main>
-    
+
+    <!-- ======================== SHARE FLOATING BUTTON ======================== -->
+    <style>
+      .share-fab {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 45;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+        transition: all 0.3s cubic-bezier(.4,0,.2,1);
+        font-size: 1.25rem;
+      }
+      .share-fab:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 24px rgba(37, 99, 235, 0.45);
+      }
+      .share-fab.active {
+        background: linear-gradient(135deg, #7c3aed, #2563eb);
+        transform: rotate(45deg);
+      }
+
+      /* Popup */
+      .share-popup {
+        position: fixed;
+        bottom: 88px;
+        right: 24px;
+        z-index: 44;
+        width: 280px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(12px) scale(0.95);
+        transition: all 0.25s cubic-bezier(.4,0,.2,1);
+        overflow: hidden;
+      }
+      .share-popup.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+      }
+      .share-popup-header {
+        padding: 14px 18px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .share-popup-header h3 {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+      }
+      .share-popup-close {
+        background: none; border: none; cursor: pointer;
+        color: #94a3b8; font-size: 1.1rem; padding: 4px;
+        border-radius: 6px; transition: all 0.2s;
+      }
+      .share-popup-close:hover { color: #475569; background: #f1f5f9; }
+
+      .share-popup-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 4px;
+        padding: 14px;
+      }
+      .share-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 4px 8px;
+        border-radius: 10px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+      .share-btn:hover { background: #f8fafc; transform: translateY(-2px); }
+      .share-btn-icon {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem; color: #fff;
+        transition: transform 0.2s;
+      }
+      .share-btn:hover .share-btn-icon { transform: scale(1.1); }
+      .share-btn-label {
+        font-size: 0.5625rem;
+        font-weight: 600;
+        color: #64748b;
+        letter-spacing: 0.01em;
+        text-align: center;
+        line-height: 1.1;
+      }
+      /* Copy link bar */
+      .share-copy-bar {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        margin: 0 14px 14px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .share-copy-bar input {
+        flex: 1; border: none; outline: none;
+        padding: 8px 12px; font-size: 0.75rem;
+        color: #475569; background: #f8fafc;
+        font-family: 'Inter', sans-serif;
+        min-width: 0;
+      }
+      .share-copy-btn {
+        padding: 8px 14px;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff; border: none; cursor: pointer;
+        font-size: 0.75rem; font-weight: 600;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .share-copy-btn:hover { background: linear-gradient(135deg, #1d4ed8, #1e40af); }
+      .share-copy-btn.copied { background: #10b981; }
+
+      /* Brand colors */
+      .share-icon-facebook  { background: #1877F2; }
+      .share-icon-twitter    { background: #0f1419; }
+      .share-icon-whatsapp   { background: #25D366; }
+      .share-icon-linkedin   { background: #0A66C2; }
+      .share-icon-pinterest  { background: #E60023; }
+      .share-icon-reddit     { background: #FF4500; }
+      .share-icon-telegram   { background: #0088CC; }
+      .share-icon-email      { background: #64748b; }
+      .share-icon-native     { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+      .share-icon-more       { background: #8b5cf6; }
+
+      /* Overlay for mobile */
+      .share-overlay {
+        position: fixed; inset: 0; z-index: 43;
+        background: transparent;
+        display: none;
+      }
+      .share-overlay.active { display: block; }
+
+      @media (max-width: 475px) {
+        .share-popup { right: 12px; left: 12px; width: auto; bottom: 84px; }
+        .share-fab { bottom: 20px; right: 16px; }
+      }
+    </style>
+
+    <!-- Share overlay (click to close) -->
+    <div id="shareOverlay" class="share-overlay" onclick="toggleSharePopup(false)"></div>
+
+    <!-- Share Popup -->
+    <div id="sharePopup" class="share-popup">
+      <div class="share-popup-header">
+        <h3>📤 {% trans "Share This Tool" %}</h3>
+        <button class="share-popup-close" onclick="toggleSharePopup(false)" aria-label="{% trans 'Close share menu' %}">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="share-popup-grid">
+        <!-- Facebook -->
+        <a class="share-btn" id="shareFacebook" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-facebook"><i class="bi bi-facebook"></i></span>
+          <span class="share-btn-label">Facebook</span>
+        </a>
+        <!-- X / Twitter -->
+        <a class="share-btn" id="shareTwitter" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-twitter"><i class="bi bi-twitter-x"></i></span>
+          <span class="share-btn-label">X</span>
+        </a>
+        <!-- WhatsApp -->
+        <a class="share-btn" id="shareWhatsapp" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-whatsapp"><i class="bi bi-whatsapp"></i></span>
+          <span class="share-btn-label">WhatsApp</span>
+        </a>
+        <!-- LinkedIn -->
+        <a class="share-btn" id="shareLinkedin" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-linkedin"><i class="bi bi-linkedin"></i></span>
+          <span class="share-btn-label">LinkedIn</span>
+        </a>
+        <!-- Pinterest -->
+        <a class="share-btn" id="sharePinterest" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-pinterest"><i class="bi bi-pinterest"></i></span>
+          <span class="share-btn-label">Pinterest</span>
+        </a>
+        <!-- Reddit -->
+        <a class="share-btn" id="shareReddit" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-reddit"><i class="bi bi-reddit"></i></span>
+          <span class="share-btn-label">Reddit</span>
+        </a>
+        <!-- Telegram -->
+        <a class="share-btn" id="shareTelegram" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="share-btn-icon share-icon-telegram"><i class="bi bi-telegram"></i></span>
+          <span class="share-btn-label">Telegram</span>
+        </a>
+        <!-- Email -->
+        <a class="share-btn" id="shareEmail" href="#">
+          <span class="share-btn-icon share-icon-email"><i class="bi bi-envelope-fill"></i></span>
+          <span class="share-btn-label">{% trans "Email" %}</span>
+        </a>
+        <!-- Native Share (mobile) -->
+        <button class="share-btn" id="shareNative" style="display:none;" onclick="nativeShare()">
+          <span class="share-btn-icon share-icon-native"><i class="bi bi-share"></i></span>
+          <span class="share-btn-label">{% trans "More" %}</span>
+        </button>
+      </div>
+
+      <!-- Copy link bar -->
+      <div class="share-copy-bar">
+        <input type="text" id="shareCopyInput" readonly>
+        <button class="share-copy-btn" id="shareCopyBtn" onclick="copyShareLink()">{% trans "Copy" %}</button>
+      </div>
+    </div>
+
+    <!-- Floating Share Button -->
+    <button id="shareFab" class="share-fab" onclick="toggleSharePopup()" aria-label="{% trans 'Share this page' %}">
+      <i class="bi bi-share-fill"></i>
+    </button>
+
+    <script>
+      /* ── Share Logic ── */
+      function getShareData() {
+        const url = window.location.href;
+        const title = document.title;
+        const desc = document.querySelector('meta[name="description"]');
+        const text = desc ? desc.getAttribute('content') : title;
+        return { url, title, text };
+      }
+
+      function toggleSharePopup(forceState) {
+        const popup = document.getElementById('sharePopup');
+        const fab = document.getElementById('shareFab');
+        const overlay = document.getElementById('shareOverlay');
+        const show = forceState !== undefined ? forceState : !popup.classList.contains('active');
+
+        popup.classList.toggle('active', show);
+        fab.classList.toggle('active', show);
+        overlay.classList.toggle('active', show);
+
+        if (show) {
+          const d = getShareData();
+          const e = encodeURIComponent;
+          document.getElementById('shareFacebook').href = `https://www.facebook.com/sharer/sharer.php?u=${e(d.url)}`;
+          document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?url=${e(d.url)}&text=${e(d.title)}`;
+          document.getElementById('shareWhatsapp').href = `https://wa.me/?text=${e(d.title + ' ' + d.url)}`;
+          document.getElementById('shareLinkedin').href = `https://www.linkedin.com/shareArticle?mini=true&url=${e(d.url)}&title=${e(d.title)}`;
+          document.getElementById('sharePinterest').href = `https://pinterest.com/pin/create/button/?url=${e(d.url)}&description=${e(d.title)}`;
+          document.getElementById('shareReddit').href = `https://www.reddit.com/submit?url=${e(d.url)}&title=${e(d.title)}`;
+          document.getElementById('shareTelegram').href = `https://t.me/share/url?url=${e(d.url)}&text=${e(d.title)}`;
+          document.getElementById('shareEmail').href = `mailto:?subject=${e(d.title)}&body=${e(d.text + '\n\n' + d.url)}`;
+          document.getElementById('shareCopyInput').value = d.url;
+
+          /* Show native share on supported devices */
+          if (navigator.share) {
+            document.getElementById('shareNative').style.display = '';
+          }
+        }
+      }
+
+      function copyShareLink() {
+        const input = document.getElementById('shareCopyInput');
+        const btn = document.getElementById('shareCopyBtn');
+        navigator.clipboard.writeText(input.value).then(() => {
+          btn.textContent = '{% trans "Copied!" %}';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '{% trans "Copy" %}';
+            btn.classList.remove('copied');
+          }, 2000);
+        }).catch(() => {
+          input.select();
+          document.execCommand('copy');
+          btn.textContent = '{% trans "Copied!" %}';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '{% trans "Copy" %}';
+            btn.classList.remove('copied');
+          }, 2000);
+        });
+      }
+
+      function nativeShare() {
+        const d = getShareData();
+        navigator.share({ title: d.title, text: d.text, url: d.url }).catch(() => {});
+        toggleSharePopup(false);
+      }
+
+      /* Close on Escape */
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') toggleSharePopup(false);
+      });
+    </script>
+
     <!-- ======================== FOOTER ======================== -->
     <style>
       .site-footer {

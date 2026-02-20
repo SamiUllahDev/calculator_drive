@@ -55,6 +55,7 @@ class OtherIndexView(TemplateView):
             {'name': _('Heat Index Calculator'), 'url': 'heat-index-calculator', 'category': _('Weather'), 'description': _('Calculate heat index from temperature and humidity')},
             {'name': _('Dew Point Calculator'), 'url': 'dew-point-calculator', 'category': _('Weather'), 'description': _('Calculate dew point temperature')},
             {'name': _('Wind Chill Calculator'), 'url': 'wind-chill-calculator', 'category': _('Weather'), 'description': _('Calculate wind chill from temperature and wind speed')},
+            {'name': _('Snow Day Calculator'), 'url': 'snow-day-calculator', 'category': _('Weather'), 'description': _('Predict the likelihood of school closures due to snow')},
             
             # Automotive
             {'name': _('Fuel Cost Calculator'), 'url': 'fuel-cost-calculator', 'category': _('Automotive'), 'description': _('Calculate fuel costs for trips')},
@@ -78,11 +79,20 @@ class OtherIndexView(TemplateView):
             {'name': _('Golf Handicap Calculator'), 'url': 'golf-handicap-calculator', 'category': _('Fun & Utilities'), 'description': _('Calculate golf handicap')},
             {'name': _('Dice Roller'), 'url': 'dice-roller', 'category': _('Fun & Utilities'), 'description': _('Roll virtual dice')},
             {'name': _('Password Generator'), 'url': 'password-generator', 'category': _('Fun & Utilities'), 'description': _('Generate secure passwords')},
+            {'name': _('Female Delusion Calculator'), 'url': 'female-delusion-calculator', 'category': _('Fun & Utilities'), 'description': _('Find the statistical probability of your ideal partner')},
+            {'name': _('Schedule 1 Calculator'), 'url': 'schedule-1-calculator', 'category': _('Fun & Utilities'), 'description': _('Calculate mix profits and effects for the game Schedule I')},
+            {'name': _('GAG Calculator'), 'url': 'gag-calculator', 'category': _('Fun & Utilities'), 'description': _('Rate yourself and discover your attractiveness grade')},
             
             # Economics & Network
             {'name': _('GDP Calculator'), 'url': 'gdp-calculator', 'category': _('Economics & Network'), 'description': _('Calculate GDP and economic indicators')},
             {'name': _('IP Subnet Calculator'), 'url': 'ip-subnet-calculator', 'category': _('Economics & Network'), 'description': _('Calculate IP subnet masks and ranges')},
             {'name': _('Bandwidth Calculator'), 'url': 'bandwidth-calculator', 'category': _('Economics & Network'), 'description': _('Calculate bandwidth and data transfer')},
+
+            # Sports & Vehicles
+            {'name': _('Tire Pressure Calculator'), 'url': 'silca-tire-pressure-calculator', 'category': _('Sports & Vehicles'), 'description': _('Silca-style optimal tire pressure for cycling')},
+
+            # Crafts & Sewing
+            {'name': _('Circle Skirt Calculator'), 'url': 'circle-skirt-calculator', 'category': _('Crafts & Sewing'), 'description': _('Calculate fabric and cutting measurements for circle skirts')},
         ]
         
         context['calculators'] = calculators
