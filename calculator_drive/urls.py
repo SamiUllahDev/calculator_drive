@@ -56,12 +56,20 @@ def ads_txt(request):
         content = f.read()
     return HttpResponse(content, content_type='text/plain')
 
+# robots.txt view for search engine crawlers
+def robots_txt(request):
+    robots_txt_path = os.path.join(settings.BASE_DIR, 'robots.txt')
+    with open(robots_txt_path, 'r') as f:
+        content = f.read()
+    return HttpResponse(content, content_type='text/plain')
+
 # URLs that should NOT have language prefix
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/setlang/', set_language, name='set_language'),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('ads.txt', ads_txt, name='ads_txt'),
+    path('robots.txt', robots_txt, name='robots_txt'),
 ]
 
 # URLs that should have language prefix (e.g., /ar/, /fr/, but NOT /en/ for default)
