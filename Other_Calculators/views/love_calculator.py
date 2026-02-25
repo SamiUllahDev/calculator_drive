@@ -424,13 +424,14 @@ class LoveCalculator(View):
         n1 = list(name1.lower().replace(' ', ''))
         n2 = list(name2.lower().replace(' ', ''))
 
-        # Remove common characters
+        # Remove common characters (one occurrence at a time)
         n1_copy = n1.copy()
         n2_copy = n2.copy()
         for ch in n1_copy:
             if ch in n2_copy:
                 n1.remove(ch)
                 n2.remove(ch)
+                n2_copy.remove(ch)
 
         remaining = len(n1) + len(n2)
         if remaining == 0:
