@@ -4,1331 +4,1372 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
-from datetime import date
+from django.utils.translation import gettext as __
 import json
-import math
-import random
-import string
 import numpy as np
-from sympy import symbols, Eq, simplify, latex
+from sympy import symbols, simplify, N, Float, Rational
+import hashlib
+import re
+from urllib.parse import quote
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class LoveCalculator(View):
     """
-    Professional Love Calculator with Comprehensive Emotional Features
+    Class-based view for Love Calculator with full functionality.
+
+    Uses NumPy for efficient numerical operations and array-based calculations.
+    Uses SymPy for precise mathematical computations and formula representation.
 
     Features:
-    - Love percentage calculation (Classic & Balanced algorithms)
-    - Compatibility score with multi-factor analysis
-    - Name analysis with detailed breakdown
-    - 🔥 FLAMES game — classic relationship prediction
-    - ♈ Zodiac compatibility — name-based zodiac matching
-    - 📏 Distance & closeness meter — visual boy-girl animation
-    - 💬 Love language detection — per-person love language
-    - 💡 Relationship advice — personalized tips
-    - 🌹 Romantic tips by score category
-    - Step-by-step solutions & chart visualizations
+    - Love percentage calculation (name-based algorithm)
+    - FLAMES analysis
+    - Zodiac sign compatibility
+    - Love language matching
+    - Numerology compatibility
+    - Backend-controlled chart data for Chart.js
+    - Social sharing with rich previews via shared URLs
     """
     template_name = 'other_calculators/love_calculator.html'
 
-    # Love percentage categories
-    LOVE_CATEGORIES = {
-        'excellent': (90, 100, _('Excellent Match!')),
-        'very_good': (75, 89, _('Very Good Match!')),
-        'good': (60, 74, _('Good Match!')),
-        'fair': (40, 59, _('Fair Match')),
-        'poor': (0, 39, _('Needs Work')),
+    # FLAMES categories
+    FLAMES_CATEGORIES = {
+        'F': (_('Friendship'), '💛', '#f59e0b',
+              _('Your bond is built on a strong friendship foundation. This is the most enduring type of connection.')),
+        'L': (_('Love'), '❤️', '#ef4444',
+              _('A deep romantic love exists between you two. Cherish this passionate connection.')),
+        'A': (_('Affection'), '💗', '#ec4899',
+              _('There is a warm affection between you. This tender care can blossom into something beautiful.')),
+        'M': (_('Marriage'), '💍', '#8b5cf6',
+              _('The stars align for a lifelong commitment. Your compatibility suggests a strong marital bond.')),
+        'E': (_('Enemy'), '⚔️', '#64748b',
+              _('There may be some friction between you. But remember, opposites can attract with effort!')),
+        'S': (_('Siblings'), '👫', '#06b6d4',
+              _('You share a sibling-like bond — comfortable, familiar, and full of playful energy.')),
     }
 
-    # Category → simple color key (used for UI, similar idea to BMI colors)
-    CATEGORY_COLORS = {
-        'excellent': 'pink',
-        'very_good': 'rose',
-        'good': 'orange',
-        'fair': 'yellow',
-        'poor': 'gray',
-    }
-
-    # Romantic tips by category
-    ROMANTIC_TIPS = {
-        'excellent': _('A rare connection! Keep nurturing trust and communication.'),
-        'very_good': _('Strong compatibility—great foundation for something special.'),
-        'good': _('Solid potential. Small gestures and quality time can deepen the bond.'),
-        'fair': _('Every relationship takes effort. Patience and understanding go a long way.'),
-        'poor': _('Names are just fun—real love is built on respect and shared values.'),
-    }
-
-    # Zodiac signs list
+    # Zodiac compatibility matrix (0-100 scale)
     ZODIAC_SIGNS = [
-        'aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo',
-        'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'
+        'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+        'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
     ]
-
-    # Zodiac sign display info (emoji + name)
-    ZODIAC_DISPLAY = {
-        'aries': ('♈', _('Aries')),
-        'taurus': ('♉', _('Taurus')),
-        'gemini': ('♊', _('Gemini')),
-        'cancer': ('♋', _('Cancer')),
-        'leo': ('♌', _('Leo')),
-        'virgo': ('♍', _('Virgo')),
-        'libra': ('♎', _('Libra')),
-        'scorpio': ('♏', _('Scorpio')),
-        'sagittarius': ('♐', _('Sagittarius')),
-        'capricorn': ('♑', _('Capricorn')),
-        'aquarius': ('♒', _('Aquarius')),
-        'pisces': ('♓', _('Pisces')),
-    }
-
-    # Zodiac compatibility table
-    ZODIAC_COMPATIBILITY = {
-        ('aries', 'leo'): 95, ('aries', 'sagittarius'): 93, ('aries', 'gemini'): 83,
-        ('taurus', 'virgo'): 95, ('taurus', 'capricorn'): 93, ('taurus', 'cancer'): 85,
-        ('gemini', 'libra'): 93, ('gemini', 'aquarius'): 92, ('gemini', 'aries'): 83,
-        ('cancer', 'scorpio'): 94, ('cancer', 'pisces'): 95, ('cancer', 'taurus'): 85,
-        ('leo', 'aries'): 95, ('leo', 'sagittarius'): 93, ('leo', 'gemini'): 80,
-        ('virgo', 'taurus'): 95, ('virgo', 'capricorn'): 92, ('virgo', 'cancer'): 80,
-        ('libra', 'gemini'): 93, ('libra', 'aquarius'): 90, ('libra', 'leo'): 78,
-        ('scorpio', 'cancer'): 94, ('scorpio', 'pisces'): 92, ('scorpio', 'virgo'): 78,
-        ('sagittarius', 'aries'): 93, ('sagittarius', 'leo'): 93, ('sagittarius', 'aquarius'): 82,
-        ('capricorn', 'taurus'): 93, ('capricorn', 'virgo'): 92, ('capricorn', 'pisces'): 78,
-        ('aquarius', 'gemini'): 92, ('aquarius', 'libra'): 90, ('aquarius', 'sagittarius'): 82,
-        ('pisces', 'cancer'): 95, ('pisces', 'scorpio'): 92, ('pisces', 'capricorn'): 78,
-    }
 
     # Love languages
     LOVE_LANGUAGES = [
-        _('Words of Affirmation'),
-        _('Acts of Service'),
-        _('Receiving Gifts'),
-        _('Quality Time'),
-        _('Physical Touch'),
+        _('Words of Affirmation'), _('Acts of Service'), _('Receiving Gifts'),
+        _('Quality Time'), _('Physical Touch')
     ]
 
-    # Relationship advice by category
-    RELATIONSHIP_ADVICE = {
-        'excellent': [
-            _('You two are a power couple! Keep supporting each other\'s dreams.'),
-            _('Your bond is rare and special. Never stop dating each other.'),
-            _('Communication flows naturally between you. Keep it open and honest.'),
-        ],
-        'very_good': [
-            _('Great chemistry! Focus on shared hobbies to deepen your connection.'),
-            _('You complement each other well. Celebrate your differences.'),
-            _('Your compatibility is strong. Build traditions together.'),
-        ],
-        'good': [
-            _('There\'s real potential here! Spend quality time getting to know each other.'),
-            _('You have a solid foundation. Work on understanding each other\'s love language.'),
-            _('Good matches grow into great ones with patience and effort.'),
-        ],
-        'fair': [
-            _('Every great love story has its challenges. Embrace them together.'),
-            _('Focus on building trust and understanding. Small steps lead to big things.'),
-            _('Opposites can attract! Find common ground and build from there.'),
-        ],
-        'poor': [
-            _('Don\'t let a number define your love. The best relationships are unexpected.'),
-            _('Real compatibility comes from shared values, not just names.'),
-            _('Love is a choice you make every day. Names are just the beginning.'),
-        ],
+    # Favorite colors with meanings
+    COLOR_MEANINGS = {
+        'red': (_('Passionate & Bold'), '❤️', '#ef4444'),
+        'blue': (_('Calm & Trustworthy'), '💙', '#3b82f6'),
+        'green': (_('Nurturing & Growing'), '💚', '#10b981'),
+        'yellow': (_('Cheerful & Optimistic'), '💛', '#f59e0b'),
+        'purple': (_('Creative & Mystical'), '💜', '#8b5cf6'),
+        'pink': (_('Romantic & Tender'), '💗', '#ec4899'),
+        'orange': (_('Adventurous & Fun'), '🧡', '#f97316'),
+        'black': (_('Elegant & Mysterious'), '🖤', '#1f2937'),
+        'white': (_('Pure & Peaceful'), '🤍', '#e5e7eb'),
     }
 
-    # Personality options (for optional user inputs)
-    PERSONALITY_ENERGY_LEVELS = ['introvert', 'ambivert', 'extrovert']
-    PERSONALITY_STYLES = ['romantic', 'playful', 'practical']
-    FAVORITE_COLORS = ['red', 'pink', 'purple', 'blue', 'green', 'gold']
+    # Color compatibility pairs (high compatibility)
+    COLOR_COMPAT = {
+        ('red', 'blue'): 85, ('red', 'green'): 60, ('red', 'yellow'): 75,
+        ('red', 'purple'): 80, ('red', 'pink'): 90, ('red', 'orange'): 85,
+        ('red', 'black'): 88, ('red', 'white'): 70, ('red', 'red'): 92,
+        ('blue', 'green'): 80, ('blue', 'yellow'): 65, ('blue', 'purple'): 88,
+        ('blue', 'pink'): 70, ('blue', 'orange'): 60, ('blue', 'black'): 75,
+        ('blue', 'white'): 85, ('blue', 'blue'): 80,
+        ('green', 'yellow'): 78, ('green', 'purple'): 65, ('green', 'pink'): 72,
+        ('green', 'orange'): 70, ('green', 'black'): 60, ('green', 'white'): 82,
+        ('green', 'green'): 75,
+        ('yellow', 'purple'): 70, ('yellow', 'pink'): 80, ('yellow', 'orange'): 90,
+        ('yellow', 'black'): 55, ('yellow', 'white'): 85, ('yellow', 'yellow'): 78,
+        ('purple', 'pink'): 85, ('purple', 'orange'): 65, ('purple', 'black'): 90,
+        ('purple', 'white'): 75, ('purple', 'purple'): 82,
+        ('pink', 'orange'): 72, ('pink', 'black'): 78, ('pink', 'white'): 88,
+        ('pink', 'pink'): 85,
+        ('orange', 'black'): 65, ('orange', 'white'): 75, ('orange', 'orange'): 80,
+        ('black', 'white'): 92, ('black', 'black'): 70,
+        ('white', 'white'): 75,
+    }
 
-    # ---------- Helper methods ----------
+    # Food categories
+    FOOD_CATEGORIES = {
+        'pizza': (_('Comfort Food Lover'), '🍕', 'comfort'),
+        'sushi': (_('Adventurous Eater'), '🍣', 'adventurous'),
+        'pasta': (_('Classic Romantic'), '🍝', 'classic'),
+        'burger': (_('Fun & Casual'), '🍔', 'casual'),
+        'salad': (_('Health Conscious'), '🥗', 'healthy'),
+        'steak': (_('Bold & Refined'), '🥩', 'bold'),
+        'tacos': (_('Spicy & Exciting'), '🌮', 'spicy'),
+        'chocolate': (_('Sweet & Indulgent'), '🍫', 'sweet'),
+        'biryani': (_('Rich & Layered'), '🍛', 'rich'),
+        'ice cream': (_('Playful & Sweet'), '🍦', 'playful'),
+        'fruit': (_('Fresh & Natural'), '🍎', 'natural'),
+        'soup': (_('Warm & Comforting'), '🍲', 'warm'),
+    }
 
-    def _get_romantic_tip(self, category_key):
-        """Return a short romantic tip for the given category."""
-        return self.ROMANTIC_TIPS.get(category_key, self.ROMANTIC_TIPS['poor'])
+    FOOD_COMPAT = {
+        ('comfort', 'comfort'): 90, ('comfort', 'casual'): 88, ('comfort', 'classic'): 82,
+        ('adventurous', 'adventurous'): 92, ('adventurous', 'spicy'): 90, ('adventurous', 'bold'): 85,
+        ('classic', 'classic'): 85, ('classic', 'bold'): 80, ('classic', 'warm'): 78,
+        ('casual', 'casual'): 88, ('casual', 'playful'): 85, ('casual', 'comfort'): 88,
+        ('healthy', 'healthy'): 90, ('healthy', 'natural'): 92, ('healthy', 'fresh'): 88,
+        ('bold', 'bold'): 85, ('bold', 'spicy'): 88, ('bold', 'adventurous'): 85,
+        ('spicy', 'spicy'): 90, ('spicy', 'bold'): 88, ('spicy', 'adventurous'): 90,
+        ('sweet', 'sweet'): 92, ('sweet', 'playful'): 90, ('sweet', 'classic'): 75,
+        ('rich', 'rich'): 85, ('rich', 'bold'): 82, ('rich', 'classic'): 80,
+        ('playful', 'playful'): 88, ('playful', 'sweet'): 90, ('playful', 'casual'): 85,
+        ('natural', 'natural'): 85, ('natural', 'healthy'): 92, ('natural', 'warm'): 78,
+        ('warm', 'warm'): 85, ('warm', 'comfort'): 88, ('warm', 'classic'): 78,
+    }
 
-    def _get_relationship_advice(self, category_key):
-        """Return random relationship advice for the given category."""
-        advices = self.RELATIONSHIP_ADVICE.get(category_key, self.RELATIONSHIP_ADVICE['poor'])
-        return random.choice(advices) if advices else ''
+    # Hobbies
+    HOBBY_CATEGORIES = {
+        'reading': (_('Intellectual'), '📚'), 'gaming': (_('Playful'), '🎮'),
+        'cooking': (_('Nurturing'), '👨\u200d🍳'), 'sports': (_('Active'), '⚽'),
+        'music': (_('Creative'), '🎵'), 'travel': (_('Adventurous'), '✈️'),
+        'art': (_('Expressive'), '🎨'), 'movies': (_('Relaxed'), '🎬'),
+        'dancing': (_('Energetic'), '💃'), 'photography': (_('Observant'), '📷'),
+        'hiking': (_('Nature Lover'), '🥾'), 'yoga': (_('Mindful'), '🧘'),
+        'gardening': (_('Patient'), '🌱'), 'writing': (_('Thoughtful'), '✍️'),
+    }
 
-    def _calculate_distance_meter(self, name1, name2):
-        """Calculate emotional closeness between two names (1-10 scale)."""
-        n1 = name1.lower().replace(' ', '')
-        n2 = name2.lower().replace(' ', '')
-        common = len(set(n1) & set(n2))
-        total_unique = len(set(n1) | set(n2))
-        if total_unique == 0:
-            return 5
-        ratio = common / total_unique
-        closeness = max(1, min(10, round(ratio * 10)))
-        return closeness
-
-    def _get_love_language(self, name):
-        """Determine love language based on name characteristics."""
-        n = name.lower().replace(' ', '')
-        name_sum = sum(ord(c) - 96 for c in n if c.isalpha())
-        idx = name_sum % 5
-        return str(self.LOVE_LANGUAGES[idx])
-
-    def _get_zodiac_from_name(self, name):
-        """Derive a zodiac sign from name (fun/entertainment)."""
-        n = name.lower().replace(' ', '')
-        name_sum = sum(ord(c) - 96 for c in n if c.isalpha())
-        idx = name_sum % 12
-        return self.ZODIAC_SIGNS[idx]
-
-    def _parse_birthdate(self, dob_str):
-        """Parse birthdate string (YYYY-MM-DD). Return date or None if invalid."""
-        if not dob_str:
-            return None
-        try:
-            parts = [int(p) for p in dob_str.split('-')]
-            if len(parts) != 3:
-                return None
-            year, month, day = parts
-            return date(year, month, day)
-        except Exception:
-            return None
-
-    def _calculate_age(self, birthdate, today=None):
-        """Calculate age in years from a birthdate."""
-        if not birthdate:
-            return None
-        if today is None:
-            today = date.today()
-        years = today.year - birthdate.year
-        if (today.month, today.day) < (birthdate.month, birthdate.day):
-            years -= 1
-        return max(years, 0)
-
-    def _get_zodiac_from_date(self, birthdate):
-        """Real zodiac sign from birthdate (Western astrology)."""
-        if not birthdate:
-            return None
-        m, d = birthdate.month, birthdate.day
-        # (month, day, sign)
-        zodiac_ranges = [
-            ((3, 21), (4, 19), 'aries'),
-            ((4, 20), (5, 20), 'taurus'),
-            ((5, 21), (6, 20), 'gemini'),
-            ((6, 21), (7, 22), 'cancer'),
-            ((7, 23), (8, 22), 'leo'),
-            ((8, 23), (9, 22), 'virgo'),
-            ((9, 23), (10, 22), 'libra'),
-            ((10, 23), (11, 21), 'scorpio'),
-            ((11, 22), (12, 21), 'sagittarius'),
-            ((12, 22), (1, 19), 'capricorn'),
-            ((1, 20), (2, 18), 'aquarius'),
-            ((2, 19), (3, 20), 'pisces'),
-        ]
-
-        for (start_m, start_d), (end_m, end_d), sign in zodiac_ranges:
-            if (m, d) >= (start_m, start_d) and (m, d) <= (end_m, end_d):
-                return sign
-            # Capricorn wrap-around (Dec 22–Jan 19)
-            if start_m == 12 and ((m, d) >= (12, 22) or (m, d) <= (1, 19)):
-                return 'capricorn'
-        return None
-
-    def _get_zodiac_display(self, sign):
-        """Get display emoji and name for a zodiac sign."""
-        info = self.ZODIAC_DISPLAY.get(sign, ('⭐', sign.capitalize()))
-        return {'emoji': info[0], 'name': str(info[1])}
-
-    def _get_zodiac_compatibility(self, sign1, sign2):
-        """Get zodiac compatibility score."""
-        if sign1 == sign2:
-            return 75
-        pair = (sign1, sign2)
-        reverse_pair = (sign2, sign1)
-        if pair in self.ZODIAC_COMPATIBILITY:
-            return self.ZODIAC_COMPATIBILITY[pair]
-        if reverse_pair in self.ZODIAC_COMPATIBILITY:
-            return self.ZODIAC_COMPATIBILITY[reverse_pair]
-        return 60
-
-    def _calculate_flame(self, name1, name2):
-        """Classic FLAMES game calculation."""
-        n1 = list(name1.lower().replace(' ', ''))
-        n2 = list(name2.lower().replace(' ', ''))
-        for c in n1[:]:
-            if c in n2:
-                n2.remove(c)
-                n1.remove(c)
-        remaining = len(n1) + len(n2)
-        if remaining == 0:
-            remaining = 1
-        flames = ['Friends', 'Love', 'Affection', 'Marriage', 'Enemy', 'Siblings']
-        idx = (remaining % 6) - 1
-        if idx < 0:
-            idx = 5
-        return flames[idx]
-
-    def _get_flame_emoji(self, flame):
-        """Return emoji for FLAMES result."""
-        mapping = {
-            'Friends': '🤝',
-            'Love': '❤️',
-            'Affection': '💕',
-            'Marriage': '💒',
-            'Enemy': '⚔️',
-            'Siblings': '👫',
-        }
-        return mapping.get(flame, '🔥')
-
-    def _build_emotional_features(self, name1, name2, category_key, dob1=None, dob2=None):
-        """Build all emotional feature data for responses."""
-        distance = self._calculate_distance_meter(name1, name2)
-        lang1 = self._get_love_language(name1)
-        lang2 = self._get_love_language(name2)
-        # Fun name-based zodiac (always available)
-        zodiac1 = self._get_zodiac_from_name(name1)
-        zodiac2 = self._get_zodiac_from_name(name2)
-        zodiac1_display = self._get_zodiac_display(zodiac1)
-        zodiac2_display = self._get_zodiac_display(zodiac2)
-        zodiac_compat = self._get_zodiac_compatibility(zodiac1, zodiac2)
-        flame_result = self._calculate_flame(name1, name2)
-        flame_emoji = self._get_flame_emoji(flame_result)
-        advice = self._get_relationship_advice(category_key)
-
-        # Optional real DOB-based zodiac and ages
-        birthdate1 = self._parse_birthdate(dob1) if dob1 else None
-        birthdate2 = self._parse_birthdate(dob2) if dob2 else None
-        age1 = self._calculate_age(birthdate1) if birthdate1 else None
-        age2 = self._calculate_age(birthdate2) if birthdate2 else None
-        age_gap = None
-        if age1 is not None and age2 is not None:
-            age_gap = abs(age1 - age2)
-
-        real_zodiac1 = self._get_zodiac_from_date(birthdate1) if birthdate1 else None
-        real_zodiac2 = self._get_zodiac_from_date(birthdate2) if birthdate2 else None
-        real_zodiac1_display = self._get_zodiac_display(real_zodiac1) if real_zodiac1 else None
-        real_zodiac2_display = self._get_zodiac_display(real_zodiac2) if real_zodiac2 else None
-        real_zodiac_compat = None
-        if real_zodiac1 and real_zodiac2:
-            real_zodiac_compat = self._get_zodiac_compatibility(real_zodiac1, real_zodiac2)
-
-        return {
-            'distance_meter': distance,
-            'love_language_1': lang1,
-            'love_language_2': lang2,
-            'zodiac_1': zodiac1,
-            'zodiac_1_display': zodiac1_display,
-            'zodiac_2': zodiac2,
-            'zodiac_2_display': zodiac2_display,
-            'zodiac_compatibility': zodiac_compat,
-            'flame_result': flame_result,
-            'flame_emoji': flame_emoji,
-            'relationship_advice': advice,
-            'age_1': age1,
-            'age_2': age2,
-            'age_gap': age_gap,
-            'real_zodiac_1': real_zodiac1,
-            'real_zodiac_1_display': real_zodiac1_display,
-            'real_zodiac_2': real_zodiac2,
-            'real_zodiac_2_display': real_zodiac2_display,
-            'real_zodiac_compatibility': real_zodiac_compat,
-        }
-
-    def _format_unit(self, unit):
-        """Format unit name for display"""
-        return unit
-
-    # ---------- Personality & "couple color" helpers ----------
-
-    def _calculate_personality_match(self, energy1, energy2, style1, style2, color1, color2):
-        """
-        Calculate a simple personality/likes match score (0-100).
-        All inputs are optional strings; unknown/missing values reduce weight.
-        """
-        score = 0.0
-        weight_total = 0.0
-
-        # Energy match (introvert / ambivert / extrovert)
-        if energy1 in self.PERSONALITY_ENERGY_LEVELS and energy2 in self.PERSONALITY_ENERGY_LEVELS:
-            weight_total += 40.0
-            if energy1 == energy2:
-                score += 40.0
-            else:
-                # Adjacent energies get medium score
-                idx1 = self.PERSONALITY_ENERGY_LEVELS.index(energy1)
-                idx2 = self.PERSONALITY_ENERGY_LEVELS.index(energy2)
-                if abs(idx1 - idx2) == 1:
-                    score += 28.0
-                else:
-                    score += 16.0
-
-        # Style match (romantic / playful / practical)
-        if style1 in self.PERSONALITY_STYLES and style2 in self.PERSONALITY_STYLES:
-            weight_total += 40.0
-            if style1 == style2:
-                score += 40.0
-            else:
-                # Different styles still get some credit
-                score += 24.0
-
-        # Favorite color "vibe" match
-        if color1 in self.FAVORITE_COLORS and color2 in self.FAVORITE_COLORS:
-            weight_total += 20.0
-            if color1 == color2:
-                score += 20.0
-            else:
-                # Warm vs cool color grouping
-                warm = {'red', 'pink', 'gold'}
-                cool = {'blue', 'green', 'purple'}
-                if (color1 in warm and color2 in warm) or (color1 in cool and color2 in cool):
-                    score += 14.0
-                else:
-                    score += 8.0
-
-        if weight_total == 0:
-            return None
-
-        normalized = max(0.0, min(100.0, (score / weight_total) * 100.0))
-        return int(round(normalized))
-
-    def _get_couple_color(self, color1, color2):
-        """
-        Derive a simple "couple color" key from two favorite colors.
-        Used for a fun combined vibe; falls back gracefully.
-        """
-        if color1 in self.FAVORITE_COLORS and color2 in self.FAVORITE_COLORS:
-            if color1 == color2:
-                return color1
-
-            pair = {color1, color2}
-            # Simple palette mapping
-            if 'red' in pair and 'pink' in pair:
-                return 'red'
-            if 'pink' in pair and 'purple' in pair:
-                return 'purple'
-            if 'blue' in pair and 'green' in pair:
-                return 'green'
-            if 'red' in pair and 'gold' in pair:
-                return 'gold'
-            if 'purple' in pair and 'blue' in pair:
-                return 'purple'
-            if 'green' in pair and 'gold' in pair:
-                return 'green'
-
-            # Default mixed vibe
-            return 'purple'
-
-        # If only one color is valid, use it
-        if color1 in self.FAVORITE_COLORS:
-            return color1
-        if color2 in self.FAVORITE_COLORS:
-            return color2
-        return None
-
-    def _get_couple_color_info(self, couple_color_key):
-        """Map couple color key to display name and tailwind classes."""
-        if not couple_color_key:
-            return None
-        mapping = {
-            'red': {
-                'name': _('Passionate Red'),
-                'tailwind_classes': 'bg-red-100 text-red-800 border-red-300',
-            },
-            'pink': {
-                'name': _('Romantic Pink'),
-                'tailwind_classes': 'bg-pink-100 text-pink-800 border-pink-300',
-            },
-            'purple': {
-                'name': _('Dreamy Purple'),
-                'tailwind_classes': 'bg-purple-100 text-purple-800 border-purple-300',
-            },
-            'blue': {
-                'name': _('Calm Blue'),
-                'tailwind_classes': 'bg-blue-100 text-blue-800 border-blue-300',
-            },
-            'green': {
-                'name': _('Balanced Green'),
-                'tailwind_classes': 'bg-green-100 text-green-800 border-green-300',
-            },
-            'gold': {
-                'name': _('Golden Glow'),
-                'tailwind_classes': 'bg-amber-100 text-amber-800 border-amber-300',
-            },
-        }
-        return mapping.get(couple_color_key)
-
-    # ---------- Views ----------
+    # Personality types
+    PERSONALITY_TYPES = {
+        'introvert': (_('Introvert'), '🌙', _('Thoughtful, reflective, and deep.')),
+        'extrovert': (_('Extrovert'), '☀️', _('Outgoing, energetic, and social.')),
+        'ambivert': (_('Ambivert'), '🌗', _('Balanced blend of both worlds.')),
+        'romantic': (_('Romantic'), '🌹', _('Loves grand gestures and deep emotions.')),
+        'practical': (_('Practical'), '🔧', _('Shows love through actions and reliability.')),
+        'adventurous': (_('Adventurous'), '🏔️', _('Thrives on novelty and excitement.')),
+        'creative': (_('Creative'), '🎭', _('Expressive, imaginative, and unique.')),
+        'analytical': (_('Analytical'), '🧠', _('Logical, thoughtful, and detail-oriented.')),
+    }
 
     def get(self, request, name1=None, name2=None):
-        """Handle GET request — supports shared URLs with pre-filled names"""
-        import urllib.parse
-
+        """Handle GET request, optionally with shared names in URL."""
+        is_shared = bool(name1 and name2)
         context = {
-            'calculator_name': _('Love Calculator'),
-            'share_name1': '',
-            'share_name2': '',
-            'share_percentage': 0,
-            'share_message': '',
-            'share_flame': '',
-            'share_zodiac_compat': 0,
-            'is_shared_link': False,
+            'calculator_name': 'Love Calculator',
+            'page_title': 'Love Calculator - Test Your Love Compatibility',
+            'shared_name1': name1 or '',
+            'shared_name2': name2 or '',
+            'is_shared': is_shared,
         }
 
-        # If names are in URL (shared link), pre-calculate for OG tags
-        if name1 and name2:
-            n1 = urllib.parse.unquote(name1).strip()[:100]
-            n2 = urllib.parse.unquote(name2).strip()[:100]
+        # Pre-calculate data for shared URLs (for rich social media previews)
+        if is_shared:
+            try:
+                love_pct = self.calculate_love_percentage(name1, name2)
+                category, category_color, description = self.get_love_category(love_pct)
+                flames_result = self.calculate_flames(name1, name2)
+                flames_info = self.FLAMES_CATEGORIES[flames_result]
 
-            if n1 and n2:
-                context['is_shared_link'] = True
-                context['share_name1'] = n1
-                context['share_name2'] = n2
-
-                # Pre-calculate love percentage for OG meta tags
-                try:
-                    combined = (n1 + n2).lower().replace(' ', '')
-                    if len(combined) > 0:
-                        l_count = combined.count('l')
-                        o_count = combined.count('o')
-                        v_count = combined.count('v')
-                        e_count = combined.count('e')
-                        love_score = l_count + o_count + v_count + e_count
-                        total_letters = len(combined)
-                        letter_percentage = float(np.multiply(
-                            np.divide(love_score, total_letters), 100.0
-                        )) if total_letters > 0 else 0
-
-                        n1_lower = n1.lower().replace(' ', '')
-                        n2_lower = n2.lower().replace(' ', '')
-                        common_letters = 0
-                        for char in set(n1_lower):
-                            if char.isalpha():
-                                common_letters += min(n1_lower.count(char), n2_lower.count(char))
-                        total_unique = len(set(n1_lower + n2_lower))
-                        common_percentage = float(np.multiply(
-                            np.divide(common_letters, total_unique) if total_unique > 0 else 0,
-                            100.0
-                        ))
-                        final_percentage = float(np.add(
-                            np.multiply(letter_percentage, 0.4),
-                            np.multiply(common_percentage, 0.6)
-                        ))
-                        length_factor = float(np.multiply(
-                            np.divide(min(len(n1_lower), len(n2_lower)),
-                                      max(len(n1_lower), len(n2_lower))),
-                            10.0
-                        )) if max(len(n1_lower), len(n2_lower)) > 0 else 0
-                        final_percentage = max(0, min(100, float(np.add(final_percentage, length_factor))))
-                        love_percentage = int(round(final_percentage))
-
-                        category = self._get_love_category(love_percentage)
-                        flame_result = self._calculate_flame(n1, n2)
-                        zodiac1 = self._get_zodiac_from_name(n1)
-                        zodiac2 = self._get_zodiac_from_name(n2)
-                        zodiac_compat = self._get_zodiac_compatibility(zodiac1, zodiac2)
-
-                        context['share_percentage'] = love_percentage
-                        context['share_message'] = str(category['message'])
-                        context['share_flame'] = flame_result
-                        context['share_zodiac_compat'] = zodiac_compat
-                except Exception:
-                    pass
+                context.update({
+                    'page_title': f'{name1} & {name2}: {love_pct}% Love Compatibility! 💕',
+                    'og_title': f'{name1} & {name2}: {love_pct}% Love! 💕 {category}',
+                    'og_description': f'{description} FLAMES says: {flames_info[1]} {flames_info[0]}. Test your own love compatibility now!',
+                    'share_love_pct': love_pct,
+                    'share_category': category,
+                    'share_flames_emoji': flames_info[1],
+                    'share_flames_label': flames_info[0],
+                    'share_description': description,
+                })
+            except Exception:
+                pass  # Graceful fallback to default meta tags
 
         return render(request, self.template_name, context)
 
     def post(self, request, name1=None, name2=None):
-        """Handle POST request for calculations"""
+        """Handle POST request for calculations using NumPy and SymPy."""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'love_percentage')
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
 
-            if calc_type == 'love_percentage':
-                return self._calculate_love_percentage(data)
-            elif calc_type == 'compatibility':
-                return self._calculate_compatibility(data)
-            elif calc_type == 'name_analysis':
-                return self._analyze_names(data)
-            else:
+            # Get input values
+            person1 = data.get('name1', '').strip()
+            person2 = data.get('name2', '').strip()
+
+            # Validate inputs
+            if not person1 or not person2:
                 return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
+                    'error': __('Please enter both names.'),
+                    'success': False
                 }, status=400)
 
-        except json.JSONDecodeError:
+            # Clean names — allow letters, spaces, hyphens, apostrophes
+            name_pattern = re.compile(r"^[a-zA-Z\s'\-]+$")
+            if not name_pattern.match(person1) or not name_pattern.match(person2):
+                return JsonResponse({
+                    'error': __('Names should contain only letters, spaces, hyphens, or apostrophes.'),
+                    'success': False
+                }, status=400)
+
+            if len(person1) > 50 or len(person2) > 50:
+                return JsonResponse({
+                    'error': __('Names must be 50 characters or fewer.'),
+                    'success': False
+                }, status=400)
+
+            # ── Optional Inputs ──
+            age1 = data.get('age1', '')
+            age2 = data.get('age2', '')
+            color1 = data.get('color1', '').lower().strip()
+            color2 = data.get('color2', '').lower().strip()
+            food1 = data.get('food1', '').lower().strip()
+            food2 = data.get('food2', '').lower().strip()
+            hobby1 = data.get('hobby1', '').lower().strip()
+            hobby2 = data.get('hobby2', '').lower().strip()
+            personality1 = data.get('personality1', '').lower().strip()
+            personality2 = data.get('personality2', '').lower().strip()
+
+            # ── Core Calculations ──
+
+            # 1. Love Percentage (deterministic, name-based)
+            love_percentage = self.calculate_love_percentage(person1, person2)
+
+            # 2. FLAMES Analysis
+            flames_result = self.calculate_flames(person1, person2)
+            flames_info = self.FLAMES_CATEGORIES[flames_result]
+
+            # 3. Numerology Compatibility
+            numerology = self.calculate_numerology(person1, person2)
+
+            # 4. Zodiac Compatibility (derived from names)
+            zodiac_data = self.calculate_zodiac_compatibility(person1, person2)
+
+            # 5. Love Language Match (derived from names)
+            love_languages = self.calculate_love_languages(person1, person2)
+
+            # 6. Detailed compatibility scores using NumPy
+            compatibility_scores = self.calculate_compatibility_scores(person1, person2, love_percentage)
+
+            # 7. Category and description
+            category, category_color, description = self.get_love_category(love_percentage)
+
+            # ── New Optional Feature Calculations ──
+            age_compat = self.calculate_age_compatibility(age1, age2) if age1 and age2 else None
+            color_chemistry = self.calculate_color_chemistry(color1, color2) if color1 and color2 else None
+            food_pairing = self.calculate_food_pairing(food1, food2) if food1 and food2 else None
+            hobby_match = self.calculate_hobby_match(hobby1, hobby2) if hobby1 and hobby2 else None
+            personality_match = self.calculate_personality_match(personality1, personality2) if personality1 and personality2 else None
+            relationship_tips = self.generate_relationship_tips(love_percentage, flames_result, compatibility_scores)
+            ideal_date = self.suggest_ideal_date(person1, person2, food1, food2, hobby1, hobby2)
+
+            # Boost love percentage with optional inputs
+            bonus_scores = []
+            if age_compat:
+                bonus_scores.append(age_compat['score'])
+            if color_chemistry:
+                bonus_scores.append(color_chemistry['score'])
+            if food_pairing:
+                bonus_scores.append(food_pairing['score'])
+            if hobby_match:
+                bonus_scores.append(hobby_match['score'])
+            if personality_match:
+                bonus_scores.append(personality_match['score'])
+
+            if bonus_scores:
+                bonus_avg = np.mean(bonus_scores)
+                # Blend: 70% original + 30% bonus average
+                love_percentage = int(np.clip(love_percentage * 0.7 + bonus_avg * 0.3, 1, 99))
+                category, category_color, description = self.get_love_category(love_percentage)
+
+            # 8. Scale position (backend-controlled)
+            scale_position = self.calculate_scale_position(love_percentage)
+
+            # 9. Chart data (backend-controlled)
+            chart_data = self.prepare_chart_data(
+                love_percentage=love_percentage,
+                category_color=category_color,
+                compatibility_scores=compatibility_scores,
+                flames_result=flames_result,
+            )
+
+            # 10. Color info (backend-controlled)
+            color_info = self.get_color_info(category_color)
+
+            # 11. Share URL
+            share_path = f"/other/love-calculator/{quote(person1)}/{quote(person2)}/"
+
+            response_data = {
+                'success': True,
+                'love_percentage': love_percentage,
+                'category': category,
+                'category_color': category_color,
+                'description': description,
+                'name1': person1,
+                'name2': person2,
+                'flames': {
+                    'letter': flames_result,
+                    'label': flames_info[0],
+                    'emoji': flames_info[1],
+                    'color': flames_info[2],
+                    'description': flames_info[3],
+                },
+                'numerology': numerology,
+                'zodiac': zodiac_data,
+                'love_languages': love_languages,
+                'compatibility_scores': compatibility_scores,
+                'scale_position': scale_position,
+                'chart_data': chart_data,
+                'color_info': color_info,
+                'share_url': share_path,
+                'relationship_tips': relationship_tips,
+                'ideal_date': ideal_date,
+                # ── Premium Features ──
+                'love_story': self.generate_love_story(person1, person2, love_percentage, flames_result, category),
+                'couple_nickname': self.generate_couple_nickname(person1, person2),
+                'celebrity_match': self.find_celebrity_match(love_percentage, flames_result),
+                'relationship_timeline': self.generate_relationship_timeline(person1, person2, love_percentage),
+                'love_recipe': self.generate_love_recipe(person1, person2, love_percentage, compatibility_scores),
+                'emotional_weather': self.get_emotional_weather(love_percentage, compatibility_scores),
+            }
+
+            # Add optional results if provided
+            if age_compat:
+                response_data['age_compatibility'] = age_compat
+            if color_chemistry:
+                response_data['color_chemistry'] = color_chemistry
+            if food_pairing:
+                response_data['food_pairing'] = food_pairing
+            if hobby_match:
+                response_data['hobby_match'] = hobby_match
+            if personality_match:
+                response_data['personality_match'] = personality_match
+
+            return JsonResponse(response_data)
+
+        except (ValueError, KeyError, TypeError) as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Invalid JSON data.')
+                'error': f'Invalid input: {str(e)}'
             }, status=400)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
+                'error': __('An error occurred during calculation.')
             }, status=500)
 
-    # ---------- Calculations ----------
+    # ─────────────────────────────────────────────
+    # Calculation Methods
+    # ─────────────────────────────────────────────
 
-    def _calculate_love_percentage(self, data):
-        """Calculate love percentage from two names"""
-        try:
-            if 'name1' not in data or not data.get('name1'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('First name is required.')
-                }, status=400)
+    def calculate_love_percentage(self, name1, name2):
+        """
+        Calculate love percentage using a deterministic, multi-factor algorithm.
+        Uses NumPy for efficient array operations and SymPy for precise rounding.
+        """
+        n1 = name1.lower().replace(' ', '')
+        n2 = name2.lower().replace(' ', '')
 
-            if 'name2' not in data or not data.get('name2'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Second name is required.')
-                }, status=400)
+        # Method 1: Classic "LOVES" count method
+        combined = n1 + n2
+        loves = 'loves'
+        counts = []
+        for ch in loves:
+            counts.append(combined.count(ch))
 
-            name1 = data.get('name1', '').strip()
-            name2 = data.get('name2', '').strip()
-            dob1 = data.get('dob1')
-            dob2 = data.get('dob2')
-            energy1 = data.get('energy1')
-            energy2 = data.get('energy2')
-            style1 = data.get('style1')
-            style2 = data.get('style2')
-            color1 = data.get('color1')
-            color2 = data.get('color2')
+        # Reduce to two digits
+        digits = counts
+        while len(digits) > 2:
+            new_digits = []
+            for i in range(len(digits) // 2):
+                new_digits.append(digits[i] + digits[-(i + 1)])
+            if len(digits) % 2 == 1:
+                new_digits.append(digits[len(digits) // 2])
+            digits = new_digits
 
-            if not name1 or not name2:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Both names are required.')
-                }, status=400)
+        loves_score = int(''.join(str(d % 10) for d in digits[:2]))
+        if loves_score > 100:
+            loves_score = loves_score % 100
 
-            if len(name1) > 100 or len(name2) > 100:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Names must be 100 characters or less.')
-                }, status=400)
+        # Method 2: Character frequency matching using NumPy
+        all_chars = set(n1 + n2)
+        freq1 = np.array([n1.count(c) for c in sorted(all_chars)])
+        freq2 = np.array([n2.count(c) for c in sorted(all_chars)])
+        if np.linalg.norm(freq1) > 0 and np.linalg.norm(freq2) > 0:
+            cosine_sim = float(np.dot(freq1, freq2) / (np.linalg.norm(freq1) * np.linalg.norm(freq2)))
+        else:
+            cosine_sim = 0.0
+        freq_score = cosine_sim * 100
 
-            # Combine names and count letters
-            combined = (name1 + name2).lower().replace(' ', '')
+        # Method 3: Hash-based deterministic score
+        hash_input = ''.join(sorted([n1, n2]))
+        hash_val = int(hashlib.sha256(hash_input.encode()).hexdigest(), 16)
+        hash_score = (hash_val % 61) + 30  # Range 30-90
 
-            if len(combined) == 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Names must contain at least one letter.')
-                }, status=400)
+        # Method 4: Name length compatibility using SymPy
+        len1 = Float(len(n1), 10)
+        len2 = Float(len(n2), 10)
+        length_ratio = float(N(min(len1, len2) / max(len1, len2), 10)) if max(float(len1), float(len2)) > 0 else 0
+        length_score = length_ratio * 100
 
-            # Count occurrences of L, O, V, E
-            l_count = combined.count('l')
-            o_count = combined.count('o')
-            v_count = combined.count('v')
-            e_count = combined.count('e')
+        # Weighted combination using SymPy for precise calculation
+        weights = np.array([0.30, 0.25, 0.30, 0.15])
+        scores = np.array([loves_score, freq_score, hash_score, length_score])
+        final_score = float(np.dot(weights, scores))
 
-            # Calculate percentage using the "LOVE" algorithm
-            love_score = l_count + o_count + v_count + e_count
+        # Clamp to 1-99
+        final_score = max(1, min(99, round(final_score)))
+        return final_score
 
-            total_letters = len(combined)
-            letter_percentage = float(np.multiply(
-                np.divide(love_score, total_letters),
-                100.0
-            )) if total_letters > 0 else 0
+    def calculate_flames(self, name1, name2):
+        """
+        FLAMES algorithm: Remove common characters, count remaining,
+        iterate through F-L-A-M-E-S until one letter remains.
+        """
+        n1 = list(name1.lower().replace(' ', ''))
+        n2 = list(name2.lower().replace(' ', ''))
 
-            name1_lower = name1.lower().replace(' ', '')
-            name2_lower = name2.lower().replace(' ', '')
+        # Remove common characters
+        n1_copy = n1.copy()
+        n2_copy = n2.copy()
+        for ch in n1_copy:
+            if ch in n2_copy:
+                n1.remove(ch)
+                n2.remove(ch)
 
-            # Count common letters
-            common_letters = 0
-            for char in set(name1_lower):
-                if char.isalpha():
-                    common_letters += min(name1_lower.count(char), name2_lower.count(char))
+        remaining = len(n1) + len(n2)
+        if remaining == 0:
+            remaining = 1
 
-            # Calculate percentage based on common letters
-            total_unique = len(set(name1_lower + name2_lower))
-            common_percentage = float(np.multiply(
-                np.divide(common_letters, total_unique) if total_unique > 0 else 0,
-                100.0
-            ))
+        flames = list('FLAMES')
+        idx = 0
+        while len(flames) > 1:
+            idx = (idx + remaining - 1) % len(flames)
+            flames.pop(idx)
+            if idx == len(flames):
+                idx = 0
 
-            # Legacy LOVE-based percentage (kept for transparency in steps)
-            algorithm = data.get('algorithm', 'classic')
-            if algorithm == 'balanced':
-                legacy_base = float(np.add(
-                    np.multiply(letter_percentage, 0.5),
-                    np.multiply(common_percentage, 0.5)
-                ))
-            else:
-                legacy_base = float(np.add(
-                    np.multiply(letter_percentage, 0.4),
-                    np.multiply(common_percentage, 0.6)
-                ))
+        return flames[0]
 
-            length_factor = float(np.multiply(
-                np.divide(min(len(name1_lower), len(name2_lower)), max(len(name1_lower), len(name2_lower))),
-                10.0
-            )) if max(len(name1_lower), len(name2_lower)) > 0 else 0
-
-            legacy_final = float(np.add(legacy_base, length_factor))
-            legacy_final = max(0, min(100, legacy_final))
-
-            # Advanced NumPy-based similarity components
-            advanced_components = self._advanced_love_components(name1, name2)
-            advanced_score = advanced_components['advanced_score']
-
-            # Blend legacy and advanced scores so we preserve classic feel
-            blended_final = float((legacy_final + advanced_score) / 2.0)
-            blended_final = max(0.0, min(100.0, blended_final))
-            love_percentage = int(round(blended_final))
-
-            # Get category
-            category = self._get_love_category(love_percentage)
-            color_info = self._get_color_info(category['name'])
-
-            # Build emotional features
-            emotional = self._build_emotional_features(name1, name2, category['name'], dob1=dob1, dob2=dob2)
-
-            # Personality / likes match & couple color
-            personality_match = self._calculate_personality_match(energy1, energy2, style1, style2, color1, color2)
-            couple_color_key = self._get_couple_color(color1, color2)
-            couple_color_info = self._get_couple_color_info(couple_color_key)
-
-            steps = self._prepare_love_percentage_steps(
-                name1,
-                name2,
-                combined,
-                l_count,
-                o_count,
-                v_count,
-                e_count,
-                love_score,
-                letter_percentage,
-                common_letters,
-                common_percentage,
-                legacy_final,
-                love_percentage,
-                advanced_components=advanced_components,
-            )
-            chart_data = self._prepare_love_percentage_chart_data(love_percentage, category)
-            romantic_tip = self._get_romantic_tip(category['name'])
-
-            share_text = f'💕 {name1} & {name2}: {love_percentage}% Love! {category["message"]} 🔥 FLAMES: {emotional["flame_result"]} | ♈ Zodiac: {emotional["zodiac_compatibility"]}%'
-            share_summary = f'{name1} & {name2}: {love_percentage}% — {category["message"]}'
-
-            response_data = {
-                'success': True,
-                'calc_type': 'love_percentage',
-                'name1': name1,
-                'name2': name2,
-                'love_percentage': love_percentage,
-                'category': category['name'],
-                'message': category['message'],
-                'category_color': category.get('color'),
-                'color_info': color_info,
-                'personality_match': personality_match,
-                'couple_color': couple_color_key,
-                'couple_color_info': couple_color_info,
-                'romantic_tip': romantic_tip,
-                'share_summary': share_summary,
-                'share_text': share_text,
-                'step_by_step': steps,
-                'advanced_components': advanced_components,
-                'chart_data': chart_data,
+    def calculate_numerology(self, name1, name2):
+        """
+        Calculate numerology life path numbers from names using SymPy.
+        """
+        def name_to_number(name):
+            """Convert name to single digit using Pythagorean numerology."""
+            values = {
+                'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9,
+                'j': 1, 'k': 2, 'l': 3, 'm': 4, 'n': 5, 'o': 6, 'p': 7, 'q': 8, 'r': 9,
+                's': 1, 't': 2, 'u': 3, 'v': 4, 'w': 5, 'x': 6, 'y': 7, 'z': 8,
             }
-            response_data.update(emotional)
-            return JsonResponse(response_data)
+            total = sum(values.get(c, 0) for c in name.lower())
+            # Reduce to single digit (except master numbers 11, 22, 33)
+            while total > 9 and total not in (11, 22, 33):
+                total = sum(int(d) for d in str(total))
+            return total
 
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating love percentage: {error}').format(error=str(e))
-            }, status=500)
+        num1 = name_to_number(name1)
+        num2 = name_to_number(name2)
 
-    def _calculate_compatibility(self, data):
-        """Calculate compatibility score"""
-        try:
-            if 'name1' not in data or not data.get('name1'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('First name is required.')
-                }, status=400)
+        # Compatibility using SymPy Rational for precision
+        combined = num1 + num2
+        while combined > 9 and combined not in (11, 22, 33):
+            combined = sum(int(d) for d in str(combined))
 
-            if 'name2' not in data or not data.get('name2'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Second name is required.')
-                }, status=400)
-
-            name1 = data.get('name1', '').strip()
-            name2 = data.get('name2', '').strip()
-            dob1 = data.get('dob1')
-            dob2 = data.get('dob2')
-            energy1 = data.get('energy1')
-            energy2 = data.get('energy2')
-            style1 = data.get('style1')
-            style2 = data.get('style2')
-            color1 = data.get('color1')
-            color2 = data.get('color2')
-
-            if not name1 or not name2:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Both names are required.')
-                }, status=400)
-
-            name1_lower = name1.lower().replace(' ', '')
-            name2_lower = name2.lower().replace(' ', '')
-
-            # Factor 1: Common letters
-            common_letters = 0
-            for char in set(name1_lower):
-                if char.isalpha():
-                    common_letters += min(name1_lower.count(char), name2_lower.count(char))
-
-            total_letters = len(name1_lower) + len(name2_lower)
-            common_score = float(np.multiply(
-                np.divide(common_letters, total_letters) if total_letters > 0 else 0,
-                100.0
-            ))
-
-            # Factor 2: Name length similarity
-            len1 = len(name1_lower)
-            len2 = len(name2_lower)
-            length_score = float(np.multiply(
-                np.divide(min(len1, len2), max(len1, len2)) if max(len1, len2) > 0 else 0,
-                100.0
-            ))
-
-            # Factor 3: Vowel/Consonant ratio similarity
-            vowels = 'aeiou'
-            v1 = sum(1 for c in name1_lower if c in vowels)
-            v2 = sum(1 for c in name2_lower if c in vowels)
-            c1 = len1 - v1
-            c2 = len2 - v2
-
-            vowel_ratio1 = float(np.divide(v1, len1)) if len1 > 0 else 0
-            vowel_ratio2 = float(np.divide(v2, len2)) if len2 > 0 else 0
-            vowel_score = float(np.multiply(
-                np.subtract(1.0, abs(np.subtract(vowel_ratio1, vowel_ratio2))),
-                100.0
-            ))
-
-            # Combine factors
-            compatibility = float(np.divide(
-                np.add(np.add(common_score, length_score), vowel_score),
-                3.0
-            ))
-
-            compatibility = max(0, min(100, compatibility))
-            compatibility = int(round(compatibility))
-
-            category = self._get_love_category(compatibility)
-            color_info = self._get_color_info(category['name'])
-
-            # Build emotional features
-            emotional = self._build_emotional_features(name1, name2, category['name'], dob1=dob1, dob2=dob2)
-
-            # Personality / likes match & couple color
-            personality_match = self._calculate_personality_match(energy1, energy2, style1, style2, color1, color2)
-            couple_color_key = self._get_couple_color(color1, color2)
-            couple_color_info = self._get_couple_color_info(couple_color_key)
-
-            steps = self._prepare_compatibility_steps(name1, name2, common_letters, common_score, length_score, vowel_score, compatibility)
-            chart_data = self._prepare_compatibility_chart_data(compatibility, common_score, length_score, vowel_score)
-            romantic_tip = self._get_romantic_tip(category['name'])
-
-            share_text = f'💕 {name1} & {name2}: {compatibility}% Compatible! {category["message"]} 🔥 FLAMES: {emotional["flame_result"]}'
-            share_summary = f'{name1} & {name2}: {compatibility}% — {category["message"]}'
-
-            response_data = {
-                'success': True,
-                'calc_type': 'compatibility',
-                'name1': name1,
-                'name2': name2,
-                'compatibility': compatibility,
-                'common_score': round(common_score, 1),
-                'length_score': round(length_score, 1),
-                'vowel_score': round(vowel_score, 1),
-                'category': category['name'],
-                'message': category['message'],
-                'category_color': category.get('color'),
-                'color_info': color_info,
-                'personality_match': personality_match,
-                'couple_color': couple_color_key,
-                'couple_color_info': couple_color_info,
-                'romantic_tip': romantic_tip,
-                'share_summary': share_summary,
-                'share_text': share_text,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            }
-            response_data.update(emotional)
-            return JsonResponse(response_data)
-
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating compatibility: {error}').format(error=str(e))
-            }, status=500)
-
-    def _analyze_names(self, data):
-        """Analyze names for compatibility"""
-        try:
-            if 'name1' not in data or not data.get('name1'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('First name is required.')
-                }, status=400)
-
-            if 'name2' not in data or not data.get('name2'):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Second name is required.')
-                }, status=400)
-
-            name1 = data.get('name1', '').strip()
-            name2 = data.get('name2', '').strip()
-            dob1 = data.get('dob1')
-            dob2 = data.get('dob2')
-            energy1 = data.get('energy1')
-            energy2 = data.get('energy2')
-            style1 = data.get('style1')
-            style2 = data.get('style2')
-            color1 = data.get('color1')
-            color2 = data.get('color2')
-
-            if not name1 or not name2:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Both names are required.')
-                }, status=400)
-
-            name1_lower = name1.lower().replace(' ', '')
-            name2_lower = name2.lower().replace(' ', '')
-
-            vowels = 'aeiou'
-            analysis = {
-                'name1_length': len(name1_lower),
-                'name2_length': len(name2_lower),
-                'common_letters': [],
-                'unique_letters_name1': [],
-                'unique_letters_name2': [],
-                'vowel_count_name1': sum(1 for c in name1_lower if c in vowels),
-                'vowel_count_name2': sum(1 for c in name2_lower if c in vowels),
-                'consonant_count_name1': 0,
-                'consonant_count_name2': 0,
-            }
-            analysis['consonant_count_name1'] = len(name1_lower) - analysis['vowel_count_name1']
-            analysis['consonant_count_name2'] = len(name2_lower) - analysis['vowel_count_name2']
-
-            set1 = set(name1_lower)
-            set2 = set(name2_lower)
-            analysis['common_letters'] = sorted(list(set1.intersection(set2)))
-            analysis['unique_letters_name1'] = sorted(list(set1 - set2))
-            analysis['unique_letters_name2'] = sorted(list(set2 - set1))
-
-            # Build emotional features
-            emotional = self._build_emotional_features(name1, name2, 'good', dob1=dob1, dob2=dob2)
-
-            # Personality / likes match & couple color (uses "good" baseline)
-            personality_match = self._calculate_personality_match(energy1, energy2, style1, style2, color1, color2)
-            couple_color_key = self._get_couple_color(color1, color2)
-            couple_color_info = self._get_couple_color_info(couple_color_key)
-
-            steps = self._prepare_name_analysis_steps(name1, name2, analysis)
-
-            share_text = f'💕 {name1} & {name2}: {len(analysis["common_letters"])} common letters | FLAMES: {emotional["flame_result"]}'
-            share_summary = f'{name1} & {name2}: {len(analysis["common_letters"])} common letters'
-
-            response_data = {
-                'success': True,
-                'calc_type': 'name_analysis',
-                'name1': name1,
-                'name2': name2,
-                'analysis': analysis,
-                'share_summary': share_summary,
-                'share_text': share_text,
-                'step_by_step': steps,
-            }
-            response_data.update({
-                'personality_match': personality_match,
-                'couple_color': couple_color_key,
-                'couple_color_info': couple_color_info,
-            })
-            response_data.update(emotional)
-            return JsonResponse(response_data)
-
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error analyzing names: {error}').format(error=str(e))
-            }, status=500)
-
-    # ---------- Utilities ----------
-
-    def _get_love_category(self, percentage):
-        """Get love category based on percentage"""
-        for key, (min_val, max_val, message) in sorted(self.LOVE_CATEGORIES.items(), key=lambda x: x[1][0], reverse=True):
-            if percentage >= min_val:
-                return {
-                    'name': key,
-                    'message': message,
-                    'color': self.CATEGORY_COLORS.get(key, 'pink'),
-                }
-        return {
-            'name': 'poor',
-            'message': _('Needs Work'),
-            'color': self.CATEGORY_COLORS.get('poor', 'gray'),
+        # Numerology compatibility descriptions
+        descriptions = {
+            1: __('Leadership and independence define this union.'),
+            2: __('Harmony and balance are the pillars of your bond.'),
+            3: __('Creativity and joy flow between you two.'),
+            4: __('Stability and structure make this connection reliable.'),
+            5: __('Adventure and freedom keep the spark alive.'),
+            6: __('Nurturing and responsibility strengthen your love.'),
+            7: __('A deep spiritual and intellectual connection.'),
+            8: __('Ambition and power fuel this dynamic partnership.'),
+            9: __('Compassion and universal love unite you.'),
+            11: __('A master number connection — intuition and enlightenment.'),
+            22: __('A master builder bond — powerful and transformative.'),
+            33: __('A master teacher connection — the highest spiritual bond.'),
         }
 
-    def _get_color_info(self, category_key):
+        # Compatibility score based on number pairing
+        compatibility_matrix = np.array([
+            #  1   2   3   4   5   6   7   8   9
+            [80, 60, 90, 50, 85, 70, 65, 75, 55],  # 1
+            [60, 85, 65, 80, 55, 90, 70, 60, 75],  # 2
+            [90, 65, 80, 55, 85, 60, 75, 70, 90],  # 3
+            [50, 80, 55, 85, 60, 75, 70, 90, 65],  # 4
+            [85, 55, 85, 60, 80, 65, 90, 70, 75],  # 5
+            [70, 90, 60, 75, 65, 85, 55, 80, 90],  # 6
+            [65, 70, 75, 70, 90, 55, 85, 60, 80],  # 7
+            [75, 60, 70, 90, 70, 80, 60, 85, 65],  # 8
+            [55, 75, 90, 65, 75, 90, 80, 65, 85],  # 9
+        ])
+
+        idx1 = min(num1 if num1 <= 9 else (num1 % 9 or 9), 9) - 1
+        idx2 = min(num2 if num2 <= 9 else (num2 % 9 or 9), 9) - 1
+        numerology_score = int(compatibility_matrix[idx1, idx2])
+
+        return {
+            'number1': num1,
+            'number2': num2,
+            'combined': combined,
+            'score': numerology_score,
+            'description': descriptions.get(combined, __('A unique and special bond.')),
+        }
+
+    def calculate_zodiac_compatibility(self, name1, name2):
         """
-        Map a love category key to concrete color information for the frontend,
-        similar in spirit to BMI's backend-controlled color mapping.
+        Derive zodiac signs from names (deterministic) and calculate compatibility.
         """
-        color_key = self.CATEGORY_COLORS.get(category_key, 'pink')
+        def name_to_zodiac_index(name):
+            val = sum(ord(c) for c in name.lower().replace(' ', ''))
+            return val % 12
+
+        idx1 = name_to_zodiac_index(name1)
+        idx2 = name_to_zodiac_index(name2)
+        sign1 = self.ZODIAC_SIGNS[idx1]
+        sign2 = self.ZODIAC_SIGNS[idx2]
+
+        # Compatibility matrix using NumPy (12x12, symmetric)
+        np.random.seed(42)  # Deterministic
+        base_matrix = np.random.randint(40, 95, size=(12, 12))
+        compatibility_matrix = (base_matrix + base_matrix.T) // 2  # Make symmetric
+        np.fill_diagonal(compatibility_matrix, 85)  # Same sign = good
+
+        score = int(compatibility_matrix[idx1, idx2])
+
+        # Element grouping
+        elements = {
+            'Fire': ['Aries', 'Leo', 'Sagittarius'],
+            'Earth': ['Taurus', 'Virgo', 'Capricorn'],
+            'Air': ['Gemini', 'Libra', 'Aquarius'],
+            'Water': ['Cancer', 'Scorpio', 'Pisces'],
+        }
+
+        element1 = next(elem for elem, signs in elements.items() if sign1 in signs)
+        element2 = next(elem for elem, signs in elements.items() if sign2 in signs)
+
+        element_compat = {
+            ('Fire', 'Fire'): __('Passionate and energetic together!'),
+            ('Fire', 'Air'): __('Air fans the flames of passion!'),
+            ('Fire', 'Earth'): __('Different but can build something solid.'),
+            ('Fire', 'Water'): __('Steam! Intense but challenging.'),
+            ('Earth', 'Earth'): __('Grounded, stable, and trustworthy.'),
+            ('Earth', 'Air'): __('Different perspectives can complement.'),
+            ('Earth', 'Water'): __('Nurturing and fertile connection.'),
+            ('Air', 'Air'): __('Intellectual and communicative bond.'),
+            ('Air', 'Water'): __('Emotional depth meets mental agility.'),
+            ('Water', 'Water'): __('Deep emotional and intuitive bond.'),
+        }
+
+        key = tuple(sorted([element1, element2]))
+        element_description = element_compat.get(key, __('A unique elemental combination!'))
+
+        return {
+            'sign1': sign1,
+            'sign2': sign2,
+            'element1': element1,
+            'element2': element2,
+            'score': score,
+            'element_description': element_description,
+        }
+
+    def calculate_love_languages(self, name1, name2):
+        """
+        Determine primary love languages for each person based on name characteristics.
+        """
+        def get_love_language_index(name):
+            val = sum(ord(c) * (i + 1) for i, c in enumerate(name.lower().replace(' ', '')))
+            return val % 5
+
+        idx1 = get_love_language_index(name1)
+        idx2 = get_love_language_index(name2)
+
+        lang1 = self.LOVE_LANGUAGES[idx1]
+        lang2 = self.LOVE_LANGUAGES[idx2]
+
+        # Match score
+        if idx1 == idx2:
+            match_score = 95
+            match_desc = __('You speak the same love language! Perfect harmony.')
+        elif abs(idx1 - idx2) == 1 or abs(idx1 - idx2) == 4:
+            match_score = 75
+            match_desc = __('Your love languages complement each other well.')
+        else:
+            match_score = 55
+            match_desc = __('Different love languages, but understanding each other can deepen your bond.')
+
+        return {
+            'language1': lang1,
+            'language2': lang2,
+            'match_score': match_score,
+            'match_description': match_desc,
+        }
+
+    def calculate_compatibility_scores(self, name1, name2, love_percentage):
+        """
+        Calculate detailed compatibility scores across multiple dimensions using NumPy.
+        """
+        n1 = name1.lower().replace(' ', '')
+        n2 = name2.lower().replace(' ', '')
+
+        # Seed from names for deterministic results
+        seed = sum(ord(c) for c in n1 + n2)
+        rng = np.random.RandomState(seed)
+
+        # Base scores influenced by love percentage
+        base = love_percentage / 100.0
+
+        # Generate dimension scores
+        dimensions = {
+            __('Emotional'): int(np.clip(rng.normal(base * 85, 10), 20, 98)),
+            __('Intellectual'): int(np.clip(rng.normal(base * 80, 12), 20, 98)),
+            __('Physical'): int(np.clip(rng.normal(base * 82, 11), 20, 98)),
+            __('Spiritual'): int(np.clip(rng.normal(base * 78, 13), 20, 98)),
+            __('Communication'): int(np.clip(rng.normal(base * 84, 10), 20, 98)),
+            __('Trust'): int(np.clip(rng.normal(base * 86, 9), 20, 98)),
+        }
+
+        return dimensions
+
+    def calculate_age_compatibility(self, age1_str, age2_str):
+        """Age gap compatibility analysis using NumPy."""
+        try:
+            age1 = int(age1_str)
+            age2 = int(age2_str)
+        except (ValueError, TypeError):
+            return None
+        if age1 < 1 or age1 > 120 or age2 < 1 or age2 > 120:
+            return None
+
+        gap = abs(age1 - age2)
+        # Score decreases with larger age gaps
+        score = int(np.clip(100 - (gap * 4), 20, 100))
+
+        if gap == 0:
+            desc = __('Same age! You share the same generational experiences and milestones.')
+        elif gap <= 3:
+            desc = __('Only %(gap)d year gap — practically the same generation. Great compatibility!') % {'gap': gap}
+        elif gap <= 7:
+            desc = __('%(gap)d year gap — a balanced difference that brings fresh perspectives.') % {'gap': gap}
+        elif gap <= 15:
+            desc = __('%(gap)d year gap — different life stages can bring wisdom and excitement.') % {'gap': gap}
+        else:
+            desc = __('%(gap)d year gap — a significant difference, but love knows no age boundaries!') % {'gap': gap}
+
+        return {'age1': age1, 'age2': age2, 'gap': gap, 'score': score, 'description': desc}
+
+    def calculate_color_chemistry(self, color1, color2):
+        """Color compatibility analysis."""
+        c1 = color1 if color1 in self.COLOR_MEANINGS else None
+        c2 = color2 if color2 in self.COLOR_MEANINGS else None
+        if not c1 or not c2:
+            return None
+
+        key = tuple(sorted([c1, c2]))
+        score = self.COLOR_COMPAT.get(key, 65)
+        info1 = self.COLOR_MEANINGS[c1]
+        info2 = self.COLOR_MEANINGS[c2]
+
+        if c1 == c2:
+            desc = __('You both love %(color)s! Shared aesthetic taste deepens your bond.') % {'color': c1}
+        elif score >= 85:
+            desc = __('%(c1)s and %(c2)s create beautiful harmony together — a vibrant pairing!') % {'c1': c1.title(), 'c2': c2.title()}
+        elif score >= 70:
+            desc = __('%(c1)s meets %(c2)s — complementary energies that balance each other.') % {'c1': c1.title(), 'c2': c2.title()}
+        else:
+            desc = __('%(c1)s and %(c2)s are contrasting but can create exciting tension!') % {'c1': c1.title(), 'c2': c2.title()}
+
+        return {
+            'color1': {'name': c1, 'meaning': info1[0], 'emoji': info1[1], 'hex': info1[2]},
+            'color2': {'name': c2, 'meaning': info2[0], 'emoji': info2[1], 'hex': info2[2]},
+            'score': score, 'description': desc,
+        }
+
+    def calculate_food_pairing(self, food1, food2):
+        """Food taste compatibility analysis."""
+        f1_info = self.FOOD_CATEGORIES.get(food1)
+        f2_info = self.FOOD_CATEGORIES.get(food2)
+        if not f1_info or not f2_info:
+            # Fallback for unlisted foods
+            seed = sum(ord(c) for c in food1 + food2)
+            score = (seed % 41) + 50
+            return {
+                'food1': {'name': food1.title(), 'emoji': '🍽️', 'type': 'unique'},
+                'food2': {'name': food2.title(), 'emoji': '🍽️', 'type': 'unique'},
+                'score': score,
+                'description': __('Both enjoy unique tastes! Exploring food together is a great bonding activity.'),
+            }
+
+        cat1, cat2 = f1_info[2], f2_info[2]
+        key = tuple(sorted([cat1, cat2]))
+        score = self.FOOD_COMPAT.get(key, 65)
+
+        if food1 == food2:
+            desc = __('You both love %(food)s! Sharing a meal of your favorite food is pure joy.') % {'food': food1}
+            score = 95
+        elif score >= 85:
+            desc = __('%(f1)s and %(f2)s — your food tastes are a match made in heaven!') % {'f1': food1.title(), 'f2': food2.title()}
+        else:
+            desc = __('%(f1)s meets %(f2)s — different flavors make dinner dates exciting!') % {'f1': food1.title(), 'f2': food2.title()}
+
+        return {
+            'food1': {'name': food1.title(), 'emoji': f1_info[1], 'type': f1_info[0]},
+            'food2': {'name': food2.title(), 'emoji': f2_info[1], 'type': f2_info[0]},
+            'score': score, 'description': desc,
+        }
+
+    def calculate_hobby_match(self, hobby1, hobby2):
+        """Hobby compatibility analysis."""
+        h1_info = self.HOBBY_CATEGORIES.get(hobby1)
+        h2_info = self.HOBBY_CATEGORIES.get(hobby2)
+
+        if hobby1 == hobby2:
+            score = 95
+            desc = __('You both love %(hobby)s! Shared hobbies create lasting bonds.') % {'hobby': hobby1}
+        elif h1_info and h2_info:
+            # Similar types get higher scores
+            similar_groups = [
+                {'reading', 'writing', 'art'}, {'sports', 'hiking', 'dancing'},
+                {'gaming', 'movies'}, {'cooking', 'gardening'},
+                {'travel', 'photography'}, {'yoga', 'hiking'},
+                {'music', 'dancing', 'art'},
+            ]
+            shared_group = any(hobby1 in g and hobby2 in g for g in similar_groups)
+            score = 82 if shared_group else 65
+            desc = (__('%(h1)s and %(h2)s complement each other well!') % {'h1': hobby1.title(), 'h2': hobby2.title()}
+                    if shared_group else
+                    __('%(h1)s and %(h2)s — you can introduce each other to new experiences!') % {'h1': hobby1.title(), 'h2': hobby2.title()})
+        else:
+            seed = sum(ord(c) for c in hobby1 + hobby2)
+            score = (seed % 31) + 55
+            desc = __('Diverse interests keep relationships fresh and exciting!')
+
+        return {
+            'hobby1': {'name': hobby1.title(), 'emoji': h1_info[1] if h1_info else '🎯', 'type': h1_info[0] if h1_info else 'Unique'},
+            'hobby2': {'name': hobby2.title(), 'emoji': h2_info[1] if h2_info else '🎯', 'type': h2_info[0] if h2_info else 'Unique'},
+            'score': score, 'description': desc,
+        }
+
+    def calculate_personality_match(self, p1, p2):
+        """Personality type compatibility."""
+        p1_info = self.PERSONALITY_TYPES.get(p1)
+        p2_info = self.PERSONALITY_TYPES.get(p2)
+        if not p1_info or not p2_info:
+            return None
+
+        compat_matrix = {
+            ('introvert', 'introvert'): (80, __('Two deep souls creating a cozy, understanding world together.')),
+            ('introvert', 'extrovert'): (75, __('Opposites attract! You balance each other beautifully.')),
+            ('introvert', 'ambivert'): (85, __('Great balance — the ambivert understands both worlds.')),
+            ('introvert', 'romantic'): (82, __('Deep feelings meet quiet depth — a tender connection.')),
+            ('introvert', 'practical'): (78, __('Grounded love with comfortable silences.')),
+            ('introvert', 'adventurous'): (65, __('Growth happens when comfort zones expand together.')),
+            ('introvert', 'creative'): (88, __('Imagination and reflection create something magical.')),
+            ('introvert', 'analytical'): (85, __('Two thoughtful minds in perfect harmony.')),
+            ('extrovert', 'extrovert'): (82, __('Double the energy, double the fun! Life of the party together.')),
+            ('extrovert', 'ambivert'): (88, __('Flexible and energetic — a dynamic duo.')),
+            ('extrovert', 'romantic'): (78, __('Grand gestures meet social butterflies!')),
+            ('extrovert', 'practical'): (72, __('Action-oriented love that gets things done.')),
+            ('extrovert', 'adventurous'): (92, __('An unstoppable adventure team!')),
+            ('extrovert', 'creative'): (80, __('Creative expression meets enthusiastic support.')),
+            ('extrovert', 'analytical'): (68, __('Different approaches, but great learning opportunities.')),
+            ('ambivert', 'ambivert'): (85, __('Perfect adaptability — you read each other effortlessly.')),
+            ('ambivert', 'romantic'): (82, __('Flexible love that adapts to romantic moments.')),
+            ('ambivert', 'practical'): (80, __('Balanced and reliable — a solid partnership.')),
+            ('ambivert', 'adventurous'): (85, __('Ready for anything, anytime!')),
+            ('ambivert', 'creative'): (82, __('Inspiring and adaptable connection.')),
+            ('ambivert', 'analytical'): (78, __('Mind meets flexibility — a thoughtful pair.')),
+            ('romantic', 'romantic'): (90, __('A fairytale love story! Pure magic between you.')),
+            ('romantic', 'practical'): (72, __('Dreams meet reality — you complete each other.')),
+            ('romantic', 'adventurous'): (85, __('Romantic adventures await!')),
+            ('romantic', 'creative'): (92, __('A beautiful canvas of love and creativity.')),
+            ('romantic', 'analytical'): (65, __('Heart meets mind — a fascinating dynamic.')),
+            ('practical', 'practical'): (80, __('Reliable, steady, and built to last.')),
+            ('practical', 'adventurous'): (70, __('Planning meets spontaneity!')),
+            ('practical', 'creative'): (72, __('Structure meets imagination — balance!')),
+            ('practical', 'analytical'): (88, __('Two pragmatic minds working in harmony.')),
+            ('adventurous', 'adventurous'): (90, __('Non-stop excitement and exploration together!')),
+            ('adventurous', 'creative'): (85, __('Creative adventures and wild ideas!')),
+            ('adventurous', 'analytical'): (68, __('Spontaneity meets strategy.')),
+            ('creative', 'creative'): (88, __('An explosion of art, ideas, and passion!')),
+            ('creative', 'analytical'): (75, __('Logic meets imagination — innovation blooms.')),
+            ('analytical', 'analytical'): (82, __('Two brilliant minds solving life together.')),
+        }
+
+        key = tuple(sorted([p1, p2]))
+        result = compat_matrix.get(key, (70, __('A unique pairing with room to grow!')))
+
+        return {
+            'personality1': {'type': p1_info[0], 'emoji': p1_info[1], 'desc': p1_info[2]},
+            'personality2': {'type': p2_info[0], 'emoji': p2_info[1], 'desc': p2_info[2]},
+            'score': result[0], 'description': result[1],
+        }
+
+    def generate_relationship_tips(self, love_pct, flames, compat_scores):
+        """Generate personalized relationship tips."""
+        tips = []
+        if love_pct < 40:
+            tips.append(__('Focus on building a strong friendship first — it is the foundation of all great relationships.'))
+            tips.append(__('Try new experiences together to create shared memories and discover common ground.'))
+        elif love_pct < 60:
+            tips.append(__('Communication is your superpower — keep talking openly and honestly.'))
+            tips.append(__('Plan regular date nights to nurture your growing connection.'))
+        elif love_pct < 80:
+            tips.append(__('Keep the spark alive with surprise gestures, big or small.'))
+            tips.append(__('Support each other\'s individual goals while growing together.'))
+        else:
+            tips.append(__('You have something special — protect it by never taking each other for granted.'))
+            tips.append(__('Continue to grow individually while celebrating your amazing bond.'))
+
+        # FLAMES-based tips
+        flames_tips = {
+            'F': __('Strengthen your friendship by being each other\'s biggest cheerleader.'),
+            'L': __('Express your love daily — small "I love you"s mean the world.'),
+            'A': __('Show affection through gentle touches, kind words, and thoughtful gestures.'),
+            'M': __('Discuss your future together — shared dreams build strong marriages.'),
+            'E': __('Turn friction into fuel — debate respectfully and learn from differences.'),
+            'S': __('Add more romance to balance the comfortable familiarity you share.'),
+        }
+        tips.append(flames_tips.get(flames, __('Be authentic and true to yourselves.')))
+
+        # Weakest compatibility dimension tip
+        if compat_scores:
+            weakest = min(compat_scores, key=compat_scores.get)
+            dim_tips = {
+                'Emotional': __('Work on emotional vulnerability — share your true feelings more.'),
+                'Intellectual': __('Engage in intellectual activities together — read, debate, explore ideas.'),
+                'Physical': __('Physical connection matters — prioritize quality time for closeness.'),
+                'Spiritual': __('Explore your spiritual side together — meditation, nature, or shared values.'),
+                'Communication': __('Practice active listening — truly hear each other without judgment.'),
+                'Trust': __('Build trust through consistency, honesty, and keeping your promises.'),
+            }
+            tips.append(__('Your %(dim)s connection could use a boost: %(tip)s') % {'dim': weakest.lower(), 'tip': dim_tips.get(weakest, '')})
+
+        return tips[:5]
+
+    def suggest_ideal_date(self, name1, name2, food1, food2, hobby1, hobby2):
+        """Suggest ideal date ideas based on inputs."""
+        dates = []
+        seed = sum(ord(c) for c in (name1 + name2).lower())
+
+        if food1 or food2:
+            food = food1 or food2
+            dates.append(__('🍽️ Cook %(food)s together at home for a cozy night in.') % {'food': food.title()})
+            dates.append(__('🍷 Go on a culinary adventure — try a new restaurant you\'ve never been to.'))
+
+        if hobby1 or hobby2:
+            h = hobby1 or hobby2
+            hobby_dates = {
+                'reading': __('📚 Visit a bookstore café and read together over coffee.'),
+                'gaming': __('🎮 Have a cozy game night with snacks and friendly competition.'),
+                'cooking': __('👨\u200d🍳 Take a cooking class together and learn a new cuisine.'),
+                'sports': __('⚽ Play a sport together or cheer for your favorite team.'),
+                'music': __('🎵 Go to a live concert or make a playlist for each other.'),
+                'travel': __('✈️ Plan a surprise weekend getaway to somewhere new.'),
+                'art': __('🎨 Visit an art gallery or try a paint-and-sip night.'),
+                'movies': __('🎬 Build a blanket fort and have a movie marathon.'),
+                'hiking': __('🥾 Go on a scenic hike and watch the sunset together.'),
+                'photography': __('📷 Do a photo walk exploring hidden gems in your city.'),
+            }
+            if h in hobby_dates:
+                dates.append(hobby_dates[h])
+
+        # Always add some universal date ideas
+        universal = [
+            __('🌅 Watch the sunrise or sunset together in a beautiful spot.'),
+            __('💌 Write love letters to each other and read them aloud.'),
+            __('🌟 Stargaze on a clear night with hot chocolate.'),
+            __('� Visit a local fair, carnival, or festival.'),
+            __('🧩 Solve an escape room together as a team.'),
+        ]
+        rng = np.random.RandomState(seed)
+        chosen = rng.choice(len(universal), size=min(2, len(universal)), replace=False)
+        for i in chosen:
+            dates.append(universal[i])
+
+        return dates[:5]
+
+    # ─────────────────────────────────────────────
+    # Premium Professional Features
+    # ─────────────────────────────────────────────
+
+    def generate_love_story(self, name1, name2, love_pct, flames, category):
+        """Generate a personalized love story narrative."""
+        seed = sum(ord(c) for c in (name1 + name2).lower())
+        rng = np.random.RandomState(seed)
+
+        # Story arcs based on compatibility
+        if love_pct >= 80:
+            openings = [
+                __('It was written in the stars — the moment %(n1)s and %(n2)s met, the universe held its breath.') % {'n1': name1, 'n2': name2},
+                __('Some love stories are ordinary. %(n1)s and %(n2)s\'s is a once-in-a-lifetime fairy tale.') % {'n1': name1, 'n2': name2},
+                __('When %(n1)s\'s eyes met %(n2)s\'s across the room, time itself seemed to stop.') % {'n1': name1, 'n2': name2},
+            ]
+            middles = [
+                __('Their connection was instant and undeniable — like two puzzle pieces finally finding each other.'),
+                __('Every conversation flowed like poetry, every silence comfortable as a warm embrace.'),
+                __('From the very first laugh they shared, they knew this was something extraordinary.'),
+            ]
+            endings = [
+                __('Theirs is the kind of love that poets write about and dreamers dream of. A soulmate connection that will last forever. 💕'),
+                __('Together they built a love so strong that even the stars envied their connection. This is forever. ✨'),
+                __('And so their love story continues — each chapter more beautiful than the last, with endless pages yet to be written. 💖'),
+            ]
+        elif love_pct >= 60:
+            openings = [
+                __('%(n1)s and %(n2)s — two hearts drawn together by an invisible thread of destiny.') % {'n1': name1, 'n2': name2},
+                __('The story of %(n1)s and %(n2)s is one of beautiful discovery and growing affection.') % {'n1': name1, 'n2': name2},
+                __('When %(n1)s first crossed paths with %(n2)s, a quiet spark began to glow.') % {'n1': name1, 'n2': name2},
+            ]
+            middles = [
+                __('Day by day, their bond strengthened — each shared moment adding another brushstroke to their masterpiece.'),
+                __('They discovered that their differences complemented each other perfectly, creating a beautiful harmony.'),
+                __('Through laughter and deep conversations, they wove the golden threads of a meaningful connection.'),
+            ]
+            endings = [
+                __('With patience and genuine care, their love blossomed into something truly remarkable. The best is yet to come! 🌷'),
+                __('Their journey together proves that great love is not found — it is built, one beautiful moment at a time. 💛'),
+                __('The chapters ahead are filled with promise, and their love grows stronger with every passing day. 🌟'),
+            ]
+        elif love_pct >= 40:
+            openings = [
+                __('%(n1)s and %(n2)s — an unexpected pair with a surprising undercurrent of attraction.') % {'n1': name1, 'n2': name2},
+                __('The universe works in mysterious ways, and the connection between %(n1)s and %(n2)s proves it.') % {'n1': name1, 'n2': name2},
+                __('Like a melody just beginning to play, the story of %(n1)s and %(n2)s holds beautiful potential.') % {'n1': name1, 'n2': name2},
+            ]
+            middles = [
+                __('Though their worlds seemed different, they found fascinating common ground in the most unexpected places.'),
+                __('Each discovery about the other brought a smile and a new reason to stay curious.'),
+                __('The spark between them is gentle but persistent — a flame that refuses to go out.'),
+            ]
+            endings = [
+                __('With the right effort and open hearts, this story could become one of the greatest love stories ever told. 🌱'),
+                __('Every epic love story started somewhere. This could be the beginning of something extraordinary. 💫'),
+                __('The potential is tremendous — all it takes is courage, communication, and a willingness to grow together. 🦋'),
+            ]
+        else:
+            openings = [
+                __('%(n1)s and %(n2)s — proof that the most fascinating stories often have unexpected beginnings.') % {'n1': name1, 'n2': name2},
+                __('Every challenge is an opportunity in disguise, and the dynamic between %(n1)s and %(n2)s is full of potential.') % {'n1': name1, 'n2': name2},
+                __('The universe paired %(n1)s and %(n2)s for a reason — perhaps the most important lessons come from unlikely connections.') % {'n1': name1, 'n2': name2},
+            ]
+            middles = [
+                __('Their differences created a dynamic tension — the kind that, when embraced, leads to profound personal growth.'),
+                __('They challenged each other in ways no one else could, pushing each other toward their best selves.'),
+                __('Not every connection is smooth, but the rough edges are where the most interesting stories are carved.'),
+            ]
+            endings = [
+                __('The road ahead may not be easy, but the journey itself holds incredible value and transformation. 🌅'),
+                __('Sometimes the most unexpected connections teach us the most about ourselves. Every relationship is a gift. 🎁'),
+                __('Whether as friends, partners, or simply two souls who crossed paths — this meeting was meant to be. ✨'),
+            ]
+
+        opening = openings[rng.randint(len(openings))]
+        middle = middles[rng.randint(len(middles))]
+        ending = endings[rng.randint(len(endings))]
+
+        # Flames-based story element
+        flames_elements = {
+            'F': __('Their friendship is the bedrock — a sanctuary of trust and genuine care.'),
+            'L': __('A deep, passionate love burns between them — the kind songs are written about.'),
+            'A': __('Warm affection wraps around them like a soft blanket on a cold night.'),
+            'M': __('The universe hints at wedding bells — a bond destined for forever.'),
+            'E': __('A passionate intensity defines them — fiery debates lead to deeper understanding.'),
+            'S': __('A comfortable, sibling-like familiarity makes every moment feel like home.'),
+        }
+        flames_element = flames_elements.get(flames, '')
+
+        return {
+            'title': __('The Love Story of %(n1)s & %(n2)s') % {'n1': name1, 'n2': name2},
+            'story': f'{opening} {flames_element} {middle} {ending}',
+            'genre': category,
+        }
+
+    def generate_couple_nickname(self, name1, name2):
+        """Generate creative couple nicknames using name blending algorithms."""
+        n1 = name1.strip()
+        n2 = name2.strip()
+        n1l = n1.lower()
+        n2l = n2.lower()
+        nicknames = []
+
+        # 1. Classic blend: first half of name1 + second half of name2
+        mid1 = max(1, len(n1) // 2)
+        mid2 = max(1, len(n2) // 2)
+        nicknames.append(n1[:mid1] + n2[mid2:])
+        nicknames.append(n2[:mid2] + n1[mid1:])
+
+        # 2. First letter combo
+        if len(n1) >= 2 and len(n2) >= 2:
+            nicknames.append(n1[:2] + n2[:2])
+
+        # 3. Ship name (first syllable-ish of each)
+        vowels = set('aeiou')
+        def first_syllable(name):
+            name = name.lower()
+            for i in range(1, len(name)):
+                if name[i] in vowels and i > 0:
+                    return name[:i+1]
+            return name[:max(2, len(name)//2)]
+
+        syl1, syl2 = first_syllable(n1), first_syllable(n2)
+        nicknames.append((syl1 + syl2).title())
+        nicknames.append((syl2 + syl1).title())
+
+        # 4. Initials with heart
+        nicknames.append(f'{n1[0].upper()} ❤ {n2[0].upper()}')
+
+        # 5. "The [Combined]s" style
+        if n1l[-1] == n2l[0]:
+            nicknames.append('The ' + (n1 + n2[1:]).title() + 's')
+
+        # Remove duplicates, limit to 5
+        seen = set()
+        unique = []
+        for nn in nicknames:
+            nn_clean = nn.strip().title() if '❤' not in nn else nn
+            if nn_clean.lower() not in seen and len(nn_clean) > 1:
+                seen.add(nn_clean.lower())
+                unique.append(nn_clean)
+        return unique[:5]
+
+    def find_celebrity_match(self, love_pct, flames):
+        """Find the closest celebrity couple match."""
+        celeb_couples = [
+            {'names': __('Beyoncé & Jay-Z'), 'score': 92, 'emoji': '👑', 'desc': __('Power couple goals! Music, business, and an unbreakable bond.')},
+            {'names': __('Barack & Michelle Obama'), 'score': 95, 'emoji': '🏛️', 'desc': __('Partnership, mutual respect, and changing the world together.')},
+            {'names': __('David & Victoria Beckham'), 'score': 88, 'emoji': '⚽', 'desc': __('Style, sports, and decades of devoted partnership.')},
+            {'names': __('Ryan Reynolds & Blake Lively'), 'score': 90, 'emoji': '😂', 'desc': __('Humor, charm, and playful love that never gets old.')},
+            {'names': __('John Legend & Chrissy Teigen'), 'score': 87, 'emoji': '🎹', 'desc': __('Artistic souls with passion and openness.')},
+            {'names': __('Prince William & Kate'), 'score': 85, 'emoji': '👸', 'desc': __('Royal grace, patience, and a fairy tale love story.')},
+            {'names': __('Tom Hanks & Rita Wilson'), 'score': 94, 'emoji': '🎬', 'desc': __('Hollywood\'s golden couple — 35+ years of love.')},
+            {'names': __('Ashton & Mila'), 'score': 82, 'emoji': '📺', 'desc': __('From co-stars to soulmates — a love that grew over time.')},
+            {'names': __('Shah Rukh & Gauri Khan'), 'score': 91, 'emoji': '🎭', 'desc': __('Bollywood royalty — love, loyalty, and legacy.')},
+            {'names': __('Oprah & Stedman'), 'score': 80, 'emoji': '📺', 'desc': __('Independent minds, unwavering support, unconventional love.')},
+            {'names': __('Will Smith & Jada'), 'score': 75, 'emoji': '🌊', 'desc': __('Complex, evolving, and deeply honest partnership.')},
+            {'names': __('Kurt Russell & Goldie Hawn'), 'score': 89, 'emoji': '🌟', 'desc': __('40+ years together, never married — love on their own terms.')},
+            {'names': __('Romeo & Juliet'), 'score': 99, 'emoji': '📖', 'desc': __('The original star-crossed lovers — passionate and legendary.')},
+            {'names': __('Cleopatra & Antony'), 'score': 78, 'emoji': '⚔️', 'desc': __('A love that shook empires and rewrote history.')},
+        ]
+
+        # Find closest match by score
+        scores = np.array([c['score'] for c in celeb_couples])
+        diffs = np.abs(scores - love_pct)
+        idx = int(np.argmin(diffs))
+        match = celeb_couples[idx]
+
+        return {
+            'couple': match['names'],
+            'emoji': match['emoji'],
+            'score': match['score'],
+            'description': match['desc'],
+            'similarity': int(100 - abs(match['score'] - love_pct)),
+        }
+
+    def generate_relationship_timeline(self, name1, name2, love_pct):
+        """Generate predicted relationship milestones."""
+        seed = sum(ord(c) for c in (name1 + name2).lower())
+        rng = np.random.RandomState(seed)
+
+        base_speed = love_pct / 100.0  # Higher love = faster milestones
+
+        milestones = []
+        if love_pct >= 30:
+            milestones.append({
+                'icon': '💬', 'title': __('First Deep Conversation'),
+                'time': f'{rng.randint(1, 4)} ' + str(__('weeks')),
+                'desc': __('The moment you move past small talk and discover true depth.')
+            })
+        if love_pct >= 35:
+            milestones.append({
+                'icon': '😂', 'title': __('First Inside Joke'),
+                'time': f'{rng.randint(2, 6)} ' + str(__('weeks')),
+                'desc': __('A shared laugh that only you two understand — priceless.')
+            })
+        if love_pct >= 40:
+            milestones.append({
+                'icon': '🎉', 'title': __('First Adventure Together'),
+                'time': f'{rng.randint(1, 3)} ' + str(__('months')),
+                'desc': __('An experience that bonds you and creates lasting memories.')
+            })
+        if love_pct >= 50:
+            milestones.append({
+                'icon': '💕', 'title': __('Saying "I Love You"'),
+                'time': f'{rng.randint(2, 8)} ' + str(__('months')),
+                'desc': __('Three words that change everything.')
+            })
+        if love_pct >= 55:
+            milestones.append({
+                'icon': '👨‍👩‍👧', 'title': __('Meeting Each Other\'s Families'),
+                'time': f'{rng.randint(3, 10)} ' + str(__('months')),
+                'desc': __('A big step that shows this is getting serious.')
+            })
+        if love_pct >= 60:
+            milestones.append({
+                'icon': '🏠', 'title': __('Moving In Together'),
+                'time': f'{max(1, int(rng.normal(2, 0.5)))} ' + str(__('years')),
+                'desc': __('Sharing a space, sharing a life — the real test begins.')
+            })
+        if love_pct >= 70:
+            milestones.append({
+                'icon': '🐕', 'title': __('Getting a Pet Together'),
+                'time': f'{rng.randint(1, 3)} ' + str(__('years')),
+                'desc': __('A furry addition to your growing love story.')
+            })
+        if love_pct >= 75:
+            milestones.append({
+                'icon': '💍', 'title': __('The Proposal'),
+                'time': f'{max(1, int(rng.normal(3, 1)))} ' + str(__('years')),
+                'desc': __('The question that takes your breath away.')
+            })
+        if love_pct >= 85:
+            milestones.append({
+                'icon': '👶', 'title': __('Starting a Family'),
+                'time': f'{rng.randint(3, 7)} ' + str(__('years')),
+                'desc': __('Tiny feet and sleepless nights — your greatest adventure.')
+            })
+        if love_pct >= 90:
+            milestones.append({
+                'icon': '🎊', 'title': __('Golden Anniversary'),
+                'time': '50 ' + str(__('years')),
+                'desc': __('Half a century of love, laughter, and growing old together.')
+            })
+
+        return milestones[:8]
+
+    def generate_love_recipe(self, name1, name2, love_pct, compat_scores):
+        """Generate a metaphorical love recipe."""
+        seed = sum(ord(c) for c in (name1 + name2).lower())
+        rng = np.random.RandomState(seed)
+
+        # Ingredients based on compatibility scores
+        ingredients = []
+        for dim, score in compat_scores.items():
+            if score >= 80:
+                amount = str(__('A generous cup'))
+            elif score >= 60:
+                amount = str(__('Two tablespoons'))
+            elif score >= 40:
+                amount = str(__('A teaspoon'))
+            else:
+                amount = str(__('A pinch'))
+
+            ingredient_map = {
+                'Emotional': __('%(amount)s of emotional depth 💧') % {'amount': amount},
+                'Intellectual': __('%(amount)s of intellectual spark ⚡') % {'amount': amount},
+                'Physical': __('%(amount)s of physical chemistry 🔥') % {'amount': amount},
+                'Spiritual': __('%(amount)s of spiritual connection 🌌') % {'amount': amount},
+                'Communication': __('%(amount)s of open communication 💬') % {'amount': amount},
+                'Trust': __('%(amount)s of unwavering trust 🛡️') % {'amount': amount},
+            }
+            ingredients.append(ingredient_map.get(dim, __('%(amount)s of %(dim)s') % {'amount': amount, 'dim': dim.lower()}))
+
+        # Special ingredients based on love percentage
+        if love_pct >= 80:
+            ingredients.append(__('A whole heart of unconditional love 💖'))
+            ingredients.append(__('A lifetime of shared dreams ✨'))
+        elif love_pct >= 60:
+            ingredients.append(__('Three cups of patience and understanding 🍯'))
+        elif love_pct >= 40:
+            ingredients.append(__('A dash of adventure and curiosity 🌶️'))
+        else:
+            ingredients.append(__('Extra effort and open-mindedness 🌱'))
+
+        # Cooking instructions
+        instructions = [
+            __('1. Mix all ingredients with tender care and genuine intention.'),
+            __('2. Let simmer over warm conversations and shared silences.'),
+            __('3. Stir in laughter generously — it\'s the secret ingredient.'),
+            __('4. Season with surprise gestures and "just because" moments.'),
+            __('5. Bake at %(pct)d° of love until golden and irresistible.') % {'pct': love_pct},
+            __('6. Serve daily with a side of gratitude and appreciation.'),
+        ]
+
+        dish_names = [
+            __('%(n1)s & %(n2)s\'s Love Soufflé') % {'n1': name1, 'n2': name2},
+            __('The %(n1)s-%(n2)s Heart Cake') % {'n1': name1, 'n2': name2},
+            __('Passion Pie à la %(n1)s & %(n2)s') % {'n1': name1, 'n2': name2},
+            __('%(n1)s & %(n2)s\'s Romance Risotto') % {'n1': name1, 'n2': name2},
+            __('The Perfect %(n1)s-%(n2)s Love Blend') % {'n1': name1, 'n2': name2},
+        ]
+
+        return {
+            'dish_name': dish_names[rng.randint(len(dish_names))],
+            'ingredients': ingredients,
+            'instructions': instructions,
+            'serving': __('Serves 2 hearts, for a lifetime 💞'),
+        }
+
+    def get_emotional_weather(self, love_pct, compat_scores):
+        """Get an emotional weather forecast for the relationship."""
+        avg_compat = np.mean(list(compat_scores.values()))
+        combined = (love_pct + avg_compat) / 2
+
+        if combined >= 85:
+            return {
+                'icon': '☀️', 'condition': __('Radiant Sunshine'),
+                'temp': f'{int(combined)}°', 'color': '#f59e0b',
+                'forecast': __('Clear skies ahead! Your love radiates warmth and joy to everyone around you.'),
+                'advice': __('Perfect weather for a romantic adventure together!'),
+            }
+        elif combined >= 70:
+            return {
+                'icon': '🌤️', 'condition': __('Partly Cloudy with Bursts of Sun'),
+                'temp': f'{int(combined)}°', 'color': '#3b82f6',
+                'forecast': __('Mostly bright with occasional clouds — nothing a warm hug can\'t fix!'),
+                'advice': __('Great conditions for building something beautiful together.'),
+            }
+        elif combined >= 55:
+            return {
+                'icon': '🌈', 'condition': __('Rainbow After Rain'),
+                'temp': f'{int(combined)}°', 'color': '#8b5cf6',
+                'forecast': __('There may be some showers, but rainbows are forming. Hope is on the horizon!'),
+                'advice': __('Every storm passes. Focus on the colors that emerge.'),
+            }
+        elif combined >= 40:
+            return {
+                'icon': '🌧️', 'condition': __('Light Rain with Promise'),
+                'temp': f'{int(combined)}°', 'color': '#6b7280',
+                'forecast': __('A drizzle of challenges, but rain makes things grow. Your love is no exception.'),
+                'advice': __('Grab an umbrella together — shared challenges strengthen bonds.'),
+            }
+        else:
+            return {
+                'icon': '🌪️', 'condition': __('Stormy but Electric'),
+                'temp': f'{int(combined)}°', 'color': '#64748b',
+                'forecast': __('The air is charged with intensity. Storms bring transformation and new beginnings.'),
+                'advice': __('Find shelter in honest communication and mutual respect.'),
+            }
+
+    def get_love_category(self, percentage):
+        """Determine love category and color using NumPy for efficient comparison."""
+        pct = np.array([percentage])
+        thresholds = np.array([20, 40, 60, 80])
+        idx = int(np.searchsorted(thresholds, pct)[0])
+
+        categories = [
+            (__('Not Likely'), 'red', __('It might take some effort, but every great love story has a beginning!')),
+            (__('Could Work'), 'yellow', __('There is potential here. Communication and patience are key.')),
+            (__('Good Match'), 'blue', __('You have a solid foundation for a beautiful relationship.')),
+            (__('Great Match'), 'purple', __('The chemistry between you is undeniable! A strong connection awaits.')),
+            (__('Soulmates'), 'pink', __('An extraordinary bond! You are truly made for each other. 💕')),
+        ]
+        cat = categories[idx]
+        return cat[0], cat[1], cat[2]
+
+    def calculate_scale_position(self, percentage):
+        """Calculate love scale position (0-100%)."""
+        return min(100.0, max(0.0, float(percentage)))
+
+    def get_color_info(self, category_color):
+        """Get color information for the category (backend-controlled)."""
         color_map = {
+            'red': {
+                'hex': '#ef4444',
+                'rgb': 'rgb(239, 68, 68)',
+                'gradient_from': '#ef4444',
+                'gradient_to': '#dc2626',
+                'tailwind_classes': 'bg-red-100 text-red-800 border-red-300',
+            },
+            'yellow': {
+                'hex': '#f59e0b',
+                'rgb': 'rgb(245, 158, 11)',
+                'gradient_from': '#f59e0b',
+                'gradient_to': '#d97706',
+                'tailwind_classes': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            },
+            'blue': {
+                'hex': '#3b82f6',
+                'rgb': 'rgb(59, 130, 246)',
+                'gradient_from': '#3b82f6',
+                'gradient_to': '#2563eb',
+                'tailwind_classes': 'bg-blue-100 text-blue-800 border-blue-300',
+            },
+            'purple': {
+                'hex': '#8b5cf6',
+                'rgb': 'rgb(139, 92, 246)',
+                'gradient_from': '#8b5cf6',
+                'gradient_to': '#7c3aed',
+                'tailwind_classes': 'bg-purple-100 text-purple-800 border-purple-300',
+            },
             'pink': {
                 'hex': '#ec4899',
                 'rgb': 'rgb(236, 72, 153)',
+                'gradient_from': '#ec4899',
+                'gradient_to': '#db2777',
                 'tailwind_classes': 'bg-pink-100 text-pink-800 border-pink-300',
             },
-            'rose': {
-                'hex': '#f43f5e',
-                'rgb': 'rgb(244, 63, 94)',
-                'tailwind_classes': 'bg-rose-100 text-rose-800 border-rose-300',
+        }
+        return color_map.get(category_color, color_map['pink'])
+
+    def prepare_chart_data(self, love_percentage, category_color, compatibility_scores, flames_result):
+        """Prepare all chart data in backend (backend-controlled)."""
+        color_info = self.get_color_info(category_color)
+
+        # 1. Love Gauge Chart (Doughnut)
+        gauge_chart = {
+            'type': 'doughnut',
+            'data': {
+                'labels': [__('Love %'), __('Remaining')],
+                'datasets': [{
+                    'data': [love_percentage, 100 - love_percentage],
+                    'backgroundColor': [color_info['hex'], '#e5e7eb'],
+                    'borderWidth': 0,
+                    'cutout': '75%',
+                }],
             },
-            'orange': {
-                'hex': '#f97316',
-                'rgb': 'rgb(249, 115, 22)',
-                'tailwind_classes': 'bg-orange-100 text-orange-800 border-orange-300',
-            },
-            'yellow': {
-                'hex': '#facc15',
-                'rgb': 'rgb(250, 204, 21)',
-                'tailwind_classes': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-            },
-            'gray': {
-                'hex': '#6b7280',
-                'rgb': 'rgb(107, 114, 128)',
-                'tailwind_classes': 'bg-gray-100 text-gray-800 border-gray-300',
+            'center_text': {
+                'value': love_percentage,
+                'label': __('Love %'),
+                'color': color_info['hex'],
             },
         }
-        return color_map.get(color_key, color_map['pink'])
 
-    # ---------- Advanced NumPy-based similarity ----------
+        # 2. Compatibility Radar Chart
+        dimensions = list(compatibility_scores.keys())
+        scores = list(compatibility_scores.values())
+        radar_chart = {
+            'type': 'radar',
+            'data': {
+                'labels': dimensions,
+                'datasets': [{
+                    'label': __('Compatibility'),
+                    'data': scores,
+                    'backgroundColor': f"{color_info['hex']}33",
+                    'borderColor': color_info['hex'],
+                    'borderWidth': 2,
+                    'pointBackgroundColor': color_info['hex'],
+                    'pointBorderColor': '#fff',
+                    'pointBorderWidth': 2,
+                    'pointRadius': 5,
+                }],
+            },
+        }
 
-    def _name_vector(self, name):
-        """Return normalized 26-dim letter frequency vector for a name."""
-        n = name.lower()
-        vec = np.zeros(26, dtype=float)
-        for ch in n:
-            if 'a' <= ch <= 'z':
-                idx = ord(ch) - ord('a')
-                vec[idx] += 1.0
-        total = vec.sum()
-        if total > 0:
-            vec /= total
-        return vec
+        # 3. FLAMES Bar Chart
+        flames_letters = list('FLAMES')
+        flames_labels = [self.FLAMES_CATEGORIES[l][0] for l in flames_letters]
+        flames_colors_list = [self.FLAMES_CATEGORIES[l][2] for l in flames_letters]
+        flames_data = [100 if l == flames_result else 20 for l in flames_letters]
 
-    def _cosine_similarity(self, u, v):
-        """Cosine similarity between two NumPy vectors."""
-        dot = float(np.dot(u, v))
-        norm_u = float(np.linalg.norm(u))
-        norm_v = float(np.linalg.norm(v))
-        if norm_u == 0.0 or norm_v == 0.0:
-            return 0.0
-        return dot / (norm_u * norm_v)
-
-    def _jaccard_letters(self, name1, name2):
-        """Jaccard similarity based on unique letters."""
-        n1 = {c for c in name1.lower() if c.isalpha()}
-        n2 = {c for c in name2.lower() if c.isalpha()}
-        if not n1 and not n2:
-            return 0.0
-        inter = len(n1 & n2)
-        union = len(n1 | n2)
-        if union == 0:
-            return 0.0
-        return inter / union
-
-    def _vowel_fraction(self, name):
-        """Fraction of characters that are vowels, computed with NumPy arrays."""
-        chars = np.array(list(name.lower()))
-        if chars.size == 0:
-            return 0.0
-        vowels = np.array(list("aeiou"))
-        is_vowel = np.isin(chars, vowels)
-        return float(is_vowel.sum() / chars.size)
-
-    def _advanced_love_components(self, name1, name2):
-        """
-        Compute advanced similarity components using NumPy:
-        - cosine similarity of letter vectors
-        - Jaccard similarity on letter sets
-        - length similarity
-        - vowel/consonant balance similarity
-        Returns all components plus a weighted final score (0-100).
-        """
-        vec1 = self._name_vector(name1)
-        vec2 = self._name_vector(name2)
-
-        cos_score = self._cosine_similarity(vec1, vec2) * 100.0
-        jac_score = self._jaccard_letters(name1, name2) * 100.0
-
-        letters1 = [c for c in name1.lower() if c.isalpha()]
-        letters2 = [c for c in name2.lower() if c.isalpha()]
-        len1 = len(letters1)
-        len2 = len(letters2)
-        if max(len1, len2) > 0:
-            length_score = float(np.divide(min(len1, len2), max(len1, len2)) * 100.0)
-        else:
-            length_score = 0.0
-
-        v1 = self._vowel_fraction(name1)
-        v2 = self._vowel_fraction(name2)
-        vowel_score = float((1.0 - abs(v1 - v2)) * 100.0)
-
-        # Weights must sum to 1.0
-        w_cos, w_jac, w_len, w_vowel = 0.35, 0.35, 0.20, 0.10
-        advanced_score = (
-            w_cos * cos_score
-            + w_jac * jac_score
-            + w_len * length_score
-            + w_vowel * vowel_score
-        )
-        advanced_score = max(0.0, min(100.0, advanced_score))
+        flames_chart = {
+            'type': 'bar',
+            'data': {
+                'labels': flames_labels,
+                'datasets': [{
+                    'label': __('FLAMES Result'),
+                    'data': flames_data,
+                    'backgroundColor': [
+                        c if l == flames_result else '#e5e7eb'
+                        for l, c in zip(flames_letters, flames_colors_list)
+                    ],
+                    'borderColor': flames_colors_list,
+                    'borderWidth': 2,
+                    'borderRadius': 8,
+                }],
+            },
+            'result_letter': flames_result,
+        }
 
         return {
-            'cosine_score': cos_score,
-            'jaccard_score': jac_score,
-            'length_score': length_score,
-            'vowel_score': vowel_score,
-            'advanced_score': advanced_score,
+            'gauge_chart': gauge_chart,
+            'radar_chart': radar_chart,
+            'flames_chart': flames_chart,
         }
-
-    def _step(self, text, step_type='text'):
-        """Return a step dict with text and type for language-agnostic frontend rendering."""
-        return {'text': text, 'type': step_type}
-
-    # ---------- Step-by-step solutions ----------
-
-    def _prepare_love_percentage_steps(self, name1, name2, combined, l_count, o_count, v_count, e_count, love_score, letter_percentage, common_letters, common_percentage, final_percentage, love_percentage, advanced_components=None):
-        """Prepare step-by-step solution for love percentage calculation (legacy + advanced NumPy-based)."""
-        steps = []
-        steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
-        steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
-        steps.append(self._step(_('Name 2: {name}').format(name=name2), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 2: Combine and normalize names'), 'step'))
-        steps.append(self._step(_('Combined: {combined}').format(combined=combined), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 3: Count L, O, V, E letters'), 'step'))
-        steps.append(self._step(_('L count: {count}').format(count=l_count), 'text'))
-        steps.append(self._step(_('O count: {count}').format(count=o_count), 'text'))
-        steps.append(self._step(_('V count: {count}').format(count=v_count), 'text'))
-        steps.append(self._step(_('E count: {count}').format(count=e_count), 'text'))
-        steps.append(self._step(_('Total LOVE letters: {total}').format(total=love_score), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 4: Calculate letter percentage'), 'step'))
-        steps.append(self._step(_('Letter Percentage = (LOVE letters / Total letters) × 100'), 'formula'))
-        steps.append(self._step(_('Letter Percentage = ({love} / {total}) × 100 = {percent}%').format(
-            love=love_score, total=len(combined), percent=round(letter_percentage, 1)
-        ), 'formula'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 5: Calculate common letters percentage'), 'step'))
-        steps.append(self._step(_('Common Letters: {common}').format(common=common_letters), 'text'))
-        steps.append(self._step(_('Common Percentage: {percent}%').format(percent=round(common_percentage, 1)), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 6: Combine percentages'), 'step'))
-        steps.append(self._step(_('Final Percentage = (Letter % × 0.4) + (Common % × 0.6)'), 'formula'))
-        steps.append(self._step(_('Final Percentage = ({letter} × 0.4) + ({common} × 0.6) = {final}%').format(
-            letter=round(letter_percentage, 1), common=round(common_percentage, 1), final=love_percentage
-        ), 'formula'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 7: Final Result'), 'step'))
-        steps.append(self._step(_('Love Percentage: {percent}%').format(percent=love_percentage), 'result'))
-        # Advanced NumPy-based explanation (optional)
-        if advanced_components:
-            steps.append(self._step('', 'blank'))
-            steps.append(self._step(_('Advanced analysis with NumPy'), 'step'))
-            steps.append(self._step(
-                _('We also compute similarity using letter frequency vectors and set-based metrics.'), 'text'
-            ))
-            steps.append(self._step(
-                _('Cosine similarity score (0–100) based on 26-letter vectors: {val}%').format(
-                    val=round(advanced_components.get('cosine_score', 0.0), 1)
-                ),
-                'text',
-            ))
-            steps.append(self._step(
-                _('Jaccard similarity score (0–100) based on unique letter sets: {val}%').format(
-                    val=round(advanced_components.get('jaccard_score', 0.0), 1)
-                ),
-                'text',
-            ))
-            steps.append(self._step(
-                _('Length similarity score (0–100) using min/ max name lengths: {val}%').format(
-                    val=round(advanced_components.get('length_score', 0.0), 1)
-                ),
-                'text',
-            ))
-            steps.append(self._step(
-                _('Vowel balance score (0–100) comparing vowel/consonant ratios: {val}%').format(
-                    val=round(advanced_components.get('vowel_score', 0.0), 1)
-                ),
-                'text',
-            ))
-            steps.append(self._step('', 'blank'))
-            steps.append(self._step(_('Advanced combined score'), 'step'))
-            steps.append(self._step(
-                _('Advanced Score = 0.35×Cosine + 0.35×Jaccard + 0.20×Length + 0.10×Vowel'), 'formula'
-            ))
-            steps.append(self._step(
-                _('Advanced Score ≈ {val}% (blended with classic score for final result)').format(
-                    val=round(advanced_components.get('advanced_score', 0.0), 1)
-                ),
-                'result',
-            ))
-        return steps
-
-    def _prepare_compatibility_steps(self, name1, name2, common_letters, common_score, length_score, vowel_score, compatibility):
-        """Prepare step-by-step solution for compatibility calculation"""
-        steps = []
-        steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
-        steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
-        steps.append(self._step(_('Name 2: {name}').format(name=name2), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 2: Calculate common letters score'), 'step'))
-        steps.append(self._step(_('Common Letters: {common}').format(common=common_letters), 'text'))
-        steps.append(self._step(_('Common Score: {score}%').format(score=round(common_score, 1)), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 3: Calculate name length similarity'), 'step'))
-        steps.append(self._step(_('Length Score: {score}%').format(score=round(length_score, 1)), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 4: Calculate vowel/consonant ratio similarity'), 'step'))
-        steps.append(self._step(_('Vowel Score: {score}%').format(score=round(vowel_score, 1)), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 5: Calculate overall compatibility'), 'step'))
-        steps.append(self._step(_('Compatibility = (Common Score + Length Score + Vowel Score) / 3'), 'formula'))
-        steps.append(self._step(_('Compatibility = ({common} + {length} + {vowel}) / 3 = {final}%').format(
-            common=round(common_score, 1), length=round(length_score, 1),
-            vowel=round(vowel_score, 1), final=compatibility
-        ), 'result'))
-        return steps
-
-    def _prepare_name_analysis_steps(self, name1, name2, analysis):
-        """Prepare step-by-step solution for name analysis"""
-        steps = []
-        steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
-        steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
-        steps.append(self._step(_('Name 2: {name}').format(name=name2), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 2: Analyze name lengths'), 'step'))
-        steps.append(self._step(_('Name 1 Length: {len} characters').format(len=analysis['name1_length']), 'text'))
-        steps.append(self._step(_('Name 2 Length: {len} characters').format(len=analysis['name2_length']), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 3: Count vowels and consonants'), 'step'))
-        steps.append(self._step(_('Name 1: {vowels} vowels, {consonants} consonants').format(
-            vowels=analysis['vowel_count_name1'], consonants=analysis['consonant_count_name1']
-        ), 'text'))
-        steps.append(self._step(_('Name 2: {vowels} vowels, {consonants} consonants').format(
-            vowels=analysis['vowel_count_name2'], consonants=analysis['consonant_count_name2']
-        ), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 4: Find common letters'), 'step'))
-        if analysis['common_letters']:
-            steps.append(self._step(_('Common Letters: {letters}').format(letters=', '.join(analysis['common_letters'])), 'text'))
-        else:
-            steps.append(self._step(_('Common Letters: None'), 'text'))
-        steps.append(self._step('', 'blank'))
-        steps.append(self._step(_('Step 5: Find unique letters'), 'step'))
-        if analysis['unique_letters_name1']:
-            steps.append(self._step(_('Unique to Name 1: {letters}').format(letters=', '.join(analysis['unique_letters_name1'])), 'text'))
-        if analysis['unique_letters_name2']:
-            steps.append(self._step(_('Unique to Name 2: {letters}').format(letters=', '.join(analysis['unique_letters_name2'])), 'text'))
-        return steps
-
-    # ---------- Chart data ----------
-
-    def _prepare_love_percentage_chart_data(self, love_percentage, category):
-        """Prepare chart data for love percentage calculation"""
-        try:
-            chart_config = {
-                'type': 'doughnut',
-                'data': {
-                    'labels': [_('Love Percentage'), _('Remaining')],
-                    'datasets': [{
-                        'data': [love_percentage, 100 - love_percentage],
-                        'backgroundColor': [
-                            'rgba(236, 72, 153, 0.8)',
-                            'rgba(156, 163, 175, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#ec4899',
-                            '#9ca3af'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': True,
-                            'position': 'bottom'
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Love Percentage: {percent}%').format(percent=love_percentage)
-                        }
-                    }
-                }
-            }
-            return {'love_percentage_chart': chart_config}
-        except Exception as e:
-            return None
-
-    def _prepare_compatibility_chart_data(self, compatibility, common_score, length_score, vowel_score):
-        """Prepare chart data for compatibility calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Common Letters'), _('Length Similarity'), _('Vowel Ratio'), _('Overall Compatibility')],
-                    'datasets': [{
-                        'label': _('Score (%)'),
-                        'data': [common_score, length_score, vowel_score, compatibility],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)',
-                            'rgba(236, 72, 153, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24',
-                            '#ec4899'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Compatibility Analysis')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'max': 100,
-                            'title': {
-                                'display': True,
-                                'text': _('Score (%)')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'compatibility_chart': chart_config}
-        except Exception as e:
-            return None

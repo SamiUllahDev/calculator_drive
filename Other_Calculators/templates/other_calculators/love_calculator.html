@@ -1,1041 +1,653 @@
 {% extends "core/base.html" %}
 {% load i18n %}
 
-{% block title %}{% if is_shared_link %}{{ share_name1 }} ❤️ {{ share_name2 }}: {{ share_percentage }}% Love! | Love Calculator{% else %}{% trans "Love Calculator - Calculate Love Percentage, Compatibility Score | Free Online Tool" %}{% endif %}{% endblock %}
-{% block meta_description %}{% if is_shared_link %}{{ share_name1 }} & {{ share_name2 }} scored {{ share_percentage }}% in the Love Calculator! {{ share_message }} 🔥 FLAMES: {{ share_flame }} | Try your names now!{% else %}{% trans "Fun love calculator to calculate love percentage and compatibility score between two names. Free online calculator with step-by-step solutions and relationship insights." %}{% endif %}{% endblock %}
-{% block meta_keywords %}{% trans "love calculator, love percentage calculator, calculate love percentage, compatibility calculator, name compatibility calculator, love test, relationship calculator, love compatibility test, love finder" %}{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block meta_description %}{% if is_shared %}{{ shared_name1 }} & {{ shared_name2 }}: {{ share_love_pct }}% Love Compatibility! {{ share_category }}. {{ share_description }} Test your love compatibility now!{% else %}{% trans "Free Love Calculator to test your love compatibility. Get your love percentage, FLAMES analysis, zodiac compatibility, love languages, and numerology reading. Fun and accurate!" %}{% endif %}{% endblock %}
 
-{% block og_title %}{% if is_shared_link %}💕 {{ share_name1 }} ❤️ {{ share_name2 }}: {{ share_percentage }}% Love!{% else %}{% trans "Love Calculator - Calculate Love Percentage, Compatibility Score" %}{% endif %}{% endblock %}
-{% block og_description %}{% if is_shared_link %}{{ share_name1 }} & {{ share_name2 }} scored {{ share_percentage }}% love compatibility! {{ share_message }} 🔥 FLAMES: {{ share_flame }} | ♈ Zodiac: {{ share_zodiac_compat }}% — Calculate your love now!{% else %}{% trans "Calculate love percentage and compatibility score between two names. Free online calculator with step-by-step solutions." %}{% endif %}{% endblock %}
-{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/love-calculator-og.jpg{% endblock %}
+{% block og_title %}{% if is_shared %}{{ og_title }}{% else %}{% trans "Love Calculator - Test Your Love Compatibility 💕" %}{% endif %}{% endblock %}
+{% block og_description %}{% if is_shared %}{{ og_description }}{% else %}{% trans "Free Love Calculator with FLAMES, zodiac, numerology, love languages & more! Discover your love compatibility now." %}{% endif %}{% endblock %}
+{% block og_image_alt %}{% if is_shared %}{{ shared_name1 }} & {{ shared_name2 }} Love Compatibility Result{% else %}{% trans "Love Calculator - CalculatorDrive" %}{% endif %}{% endblock %}
 
-{% block twitter_title %}{% if is_shared_link %}💕 {{ share_name1 }} ❤️ {{ share_name2 }}: {{ share_percentage }}% Love!{% else %}{% trans "Love Calculator - Calculate Love Percentage, Compatibility Score" %}{% endif %}{% endblock %}
-{% block twitter_description %}{% if is_shared_link %}{{ share_name1 }} & {{ share_name2 }} scored {{ share_percentage }}% love compatibility! {{ share_message }} — Calculate your love now!{% else %}{% trans "Calculate love percentage and compatibility. Free online calculator with step-by-step solutions." %}{% endif %}{% endblock %}
-{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/love-calculator-twitter.jpg{% endblock %}
+{% block twitter_title %}{% if is_shared %}{{ og_title }}{% else %}{% trans "Love Calculator - Test Your Love Compatibility 💕" %}{% endif %}{% endblock %}
+{% block twitter_description %}{% if is_shared %}{{ og_description }}{% else %}{% trans "Free Love Calculator with FLAMES, zodiac, numerology, love languages & more! Discover your love compatibility now." %}{% endif %}{% endblock %}
+{% block twitter_image_alt %}{% if is_shared %}{{ shared_name1 }} & {{ shared_name2 }} Love Compatibility{% else %}{% trans "Love Calculator" %}{% endif %}{% endblock %}
 
 {% block extra_head %}
-<link rel="canonical" href="{{ request.build_absolute_uri }}">
-<style>
-/* ===== Love Calculator Custom Styles ===== */
-
-/* Floating hearts animation */
-.floating-hearts { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
-.fh { position: absolute; opacity: 0; animation: floatHeart linear infinite; }
-@keyframes floatHeart {
-    0% { transform: translateY(100vh) rotate(0deg) scale(0.5); opacity: 0; }
-    10% { opacity: 0.4; }
-    90% { opacity: 0.4; }
-    100% { transform: translateY(-10vh) rotate(360deg) scale(1.2); opacity: 0; }
-}
-
-/* Heartbeat animation */
-@keyframes heartbeat {
-    0% { transform: scale(1); }
-    14% { transform: scale(1.2); }
-    28% { transform: scale(1); }
-    42% { transform: scale(1.15); }
-    70% { transform: scale(1); }
-}
-.heartbeat { animation: heartbeat 1.3s ease-in-out infinite; }
-
-/* Pulse glow for the result ring */
-@keyframes pulseGlow {
-    0%, 100% { filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.3)); }
-    50% { filter: drop-shadow(0 0 20px rgba(236, 72, 153, 0.6)); }
-}
-.pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
-
-/* Distance bar animation */
-.distance-person { transition: left 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.distance-fill-bar { transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-
-/* Gradient text */
-.gradient-text {
-    background: linear-gradient(135deg, #ec4899, #f472b6, #a855f7, #ec4899);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: gradShift 4s ease infinite;
-}
-@keyframes gradShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-/* Fade in animation */
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.fade-in-up { animation: fadeInUp 0.5s ease forwards; }
-
-/* Feature card hover */
-.feature-card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.feature-card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(236, 72, 153, 0.15); }
-
-/* Love hearts trail on distance bar */
-.love-trail { position: absolute; top: 50%; transform: translateY(-50%); }
-.love-trail span { position: absolute; font-size: 0.6rem; animation: trailPop 1s ease forwards; opacity: 0; }
-@keyframes trailPop {
-    0% { opacity: 0; transform: translateY(0) scale(0); }
-    50% { opacity: 1; transform: translateY(-15px) scale(1.2); }
-    100% { opacity: 0; transform: translateY(-30px) scale(0.5); }
-}
-
-/* Spinner */
-.spin-anim { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Print styles */
-@media print {
-    .no-print { display: none !important; }
-    .floating-hearts { display: none !important; }
-    #recentHistorySection { display: none !important; }
-}
-</style>
-{% endblock %}
-
-{% block structured_data %}
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "{% trans 'Love Calculator - Calculate Love Percentage, Compatibility Score' %}",
-  "applicationCategory": "UtilityApplication",
-  "operatingSystem": "Web Browser",
-  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.7", "ratingCount": "1250"},
-  "description": "{% trans 'Fun love calculator to calculate love percentage and compatibility score between two names with step-by-step solutions and relationship insights.' %}",
-  "url": "{{ request.build_absolute_uri }}",
-  "author": {"@type": "Organization", "name": "CalculatorDrive.com"}
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {"@type": "Question", "name": "How does the Love Calculator work?", "acceptedAnswer": {"@type": "Answer", "text": "Our Love Calculator uses a multi-factor algorithm that analyzes the letters in both names. It counts the occurrences of L, O, V, E letters, finds common letters between names, compares name lengths, and analyzes vowel-to-consonant ratios to produce a love percentage between 0-100%."}},
-    {"@type": "Question", "name": "Is the Love Calculator accurate?", "acceptedAnswer": {"@type": "Answer", "text": "The Love Calculator is designed for entertainment and fun. Real compatibility depends on communication, shared values, mutual respect, and emotional connection."}},
-    {"@type": "Question", "name": "What is the FLAMES game?", "acceptedAnswer": {"@type": "Answer", "text": "FLAMES stands for Friends, Love, Affection, Marriage, Enemy, and Siblings. It's a classic pen-and-paper game where common letters between two names are eliminated, and the remaining count determines the relationship type."}},
-    {"@type": "Question", "name": "What does the Zodiac Compatibility feature show?", "acceptedAnswer": {"@type": "Answer", "text": "Our Zodiac Compatibility feature derives a zodiac sign from each name and checks the astrological compatibility between those signs based on traditional element matching."}},
-    {"@type": "Question", "name": "Can I share my love calculator results?", "acceptedAnswer": {"@type": "Answer", "text": "Yes! After calculating your results, you can share on WhatsApp, Facebook, X (Twitter), and Telegram. Your friends will see a rich preview with the names and love percentage directly in their feed."}},
-    {"@type": "Question", "name": "What are the 5 Love Languages?", "acceptedAnswer": {"@type": "Answer", "text": "The Five Love Languages by Dr. Gary Chapman are: Words of Affirmation, Acts of Service, Receiving Gifts, Quality Time, and Physical Touch. Our calculator assigns a love language to each name for fun!"}},
-    {"@type": "Question", "name": "Is my data saved or shared?", "acceptedAnswer": {"@type": "Answer", "text": "No! Your names are processed in real-time and are not stored on our servers. Recent calculations are saved only in your browser's local storage. Your privacy is fully protected."}}
-  ]
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% endblock %}
 
 {% block content %}
-<!-- Floating Hearts Background -->
-<div class="floating-hearts" id="floatingHearts"></div>
-
-<div class="relative z-10 min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+<div class="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
 
-        <!-- Header -->
-        <header class="text-center mb-6 sm:mb-8">
-            <div class="inline-block heartbeat mb-3">
-                <span class="text-5xl sm:text-6xl">💕</span>
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-pink-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
             </div>
-            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-3">
-                <span class="gradient-text">{% trans "Love Calculator" %}</span>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600">{% trans "Love Calculator" %}</span>
             </h1>
             <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
-                {% trans "Calculate love percentage, compatibility, zodiac match, FLAMES & more between two names!" %}
+                {% trans "Discover your love compatibility! Enter two names to get your love percentage, FLAMES analysis, zodiac match, and more." %}
             </p>
-        </header>
+        </div>
 
         <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
-            <!-- ========== LEFT: Input Form ========== -->
-            <div class="lg:col-span-4 no-print">
-                <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-pink-100 p-5 sm:p-6 sticky top-4">
-                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <span class="text-2xl">💝</span>
-                        {% trans "Enter Names" %}
+            <!-- Left Column: Calculator Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                        {% trans "Enter Your Names" %}
                     </h2>
 
-                    <form id="loveCalculatorForm" onsubmit="calculateLove(event)" novalidate>
+                    <form id="calculatorForm" class="space-y-4" data-shared="{% if is_shared %}1{% endif %}">
                         {% csrf_token %}
-
-                        <!-- Calculation Type -->
-                        <div class="mb-4">
-                            <label for="calc-mode-selector" class="block text-sm font-semibold text-gray-700 mb-1.5">
-                                {% trans "Calculation Type" %}
-                            </label>
-                            <select id="calc-mode-selector" name="calc_type" onchange="switchMode(this.value)"
-                                class="w-full px-4 py-2.5 bg-pink-50 border-2 border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-400 focus:border-pink-400 text-gray-800 font-medium transition-all">
-                                <option value="love_percentage">💕 {% trans "Love Percentage" %}</option>
-                                <option value="compatibility">🔗 {% trans "Compatibility Score" %}</option>
-                                <option value="name_analysis">🔍 {% trans "Name Analysis" %}</option>
-                            </select>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Your Name" %}</label>
+                            <input type="text" id="name1" name="name1" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base" placeholder="{% trans 'Enter first name' %}" value="{{ shared_name1 }}" required maxlength="50">
+                        </div>
+                        <div class="text-center text-2xl py-1">💕</div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Partner's Name" %}</label>
+                            <input type="text" id="name2" name="name2" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-base" placeholder="{% trans 'Enter second name' %}" value="{{ shared_name2 }}" required maxlength="50">
                         </div>
 
-                        <!-- Algorithm (love_percentage only) -->
-                        <div id="algorithmWrap" class="mb-4">
-                            <label for="love-algorithm" class="block text-sm font-semibold text-gray-700 mb-1.5">{% trans "Algorithm" %}</label>
-                            <select id="love-algorithm" name="algorithm"
-                                class="w-full px-4 py-2.5 bg-pink-50 border-2 border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-400 focus:border-pink-400 text-gray-800 font-medium transition-all">
-                                <option value="classic">{% trans "Classic LOVE letters" %}</option>
-                                <option value="balanced">{% trans "Balanced (letters + common)" %}</option>
-                            </select>
-                        </div>
-
-                        <!-- His Name -->
-                        <div class="mb-4">
-                            <label for="name1" class="block text-sm font-semibold text-gray-700 mb-1.5">
-                                👦 {% trans "His Name" %} <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" id="name1" name="name1" maxlength="100" required
-                                class="w-full px-4 py-2.5 bg-blue-50 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 text-gray-800 placeholder-gray-400 transition-all"
-                                placeholder="{% trans 'Enter his name' %}">
-                        </div>
-
-                        <!-- Her Name -->
-                        <div class="mb-4">
-                            <label for="name2" class="block text-sm font-semibold text-gray-700 mb-1.5">
-                                👧 {% trans "Her Name" %} <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" id="name2" name="name2" maxlength="100" required
-                                class="w-full px-4 py-2.5 bg-pink-50 border-2 border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-400 focus:border-pink-400 text-gray-800 placeholder-gray-400 transition-all"
-                                placeholder="{% trans 'Enter her name' %}">
-                        </div>
-
-                        <!-- Optional Birthdates -->
-                        <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label for="dob1" class="block text-xs font-semibold text-gray-700 mb-1.5">
-                                    📅 {% trans "His Birthdate (optional)" %}
-                                </label>
-                                <input type="date" id="dob1" name="dob1"
-                                       class="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-300 focus:border-pink-300 text-gray-800 placeholder-gray-400 transition-all text-sm">
-                            </div>
-                            <div>
-                                <label for="dob2" class="block text-xs font-semibold text-gray-700 mb-1.5">
-                                    📅 {% trans "Her Birthdate (optional)" %}
-                                </label>
-                                <input type="date" id="dob2" name="dob2"
-                                       class="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-300 focus:border-pink-300 text-gray-800 placeholder-gray-400 transition-all text-sm">
-                            </div>
-                        </div>
-
-                        <!-- Optional Personality & Likes -->
-                        <div class="mb-4">
-                            <p class="text-xs font-semibold text-gray-700 mb-2">
-                                💫 {% trans "Personality & Likes (optional)" %}
-                            </p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <!-- His preferences -->
-                                <div class="space-y-2">
-                                    <p class="text-xs font-bold text-blue-700 flex items-center gap-1">
-                                        👦 {% trans "His vibe" %}
-                                    </p>
-                                    <select id="energy1" name="energy1"
-                                            class="w-full px-3 py-2 bg-blue-50 border-2 border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-300 text-xs text-gray-800">
-                                        <option value="">{{ _("Energy (auto)") }}</option>
-                                        <option value="introvert">{% trans "Introvert" %}</option>
-                                        <option value="ambivert">{% trans "Ambivert" %}</option>
-                                        <option value="extrovert">{% trans "Extrovert" %}</option>
-                                    </select>
-                                    <select id="style1" name="style1"
-                                            class="w-full px-3 py-2 bg-blue-50 border-2 border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-300 text-xs text-gray-800">
-                                        <option value="">{{ _("Love style (auto)") }}</option>
-                                        <option value="romantic">{% trans "Romantic" %}</option>
-                                        <option value="playful">{% trans "Playful" %}</option>
-                                        <option value="practical">{% trans "Practical" %}</option>
-                                    </select>
-                                    <select id="color1" name="color1"
-                                            class="w-full px-3 py-2 bg-blue-50 border-2 border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-300 text-xs text-gray-800">
-                                        <option value="">{{ _("Favorite color (auto)") }}</option>
-                                        <option value="red">{% trans "Red" %}</option>
-                                        <option value="pink">{% trans "Pink" %}</option>
-                                        <option value="purple">{% trans "Purple" %}</option>
-                                        <option value="blue">{% trans "Blue" %}</option>
-                                        <option value="green">{% trans "Green" %}</option>
-                                        <option value="gold">{% trans "Gold" %}</option>
-                                    </select>
-                                </div>
-                                <!-- Her preferences -->
-                                <div class="space-y-2">
-                                    <p class="text-xs font-bold text-pink-700 flex items-center gap-1">
-                                        👧 {% trans "Her vibe" %}
-                                    </p>
-                                    <select id="energy2" name="energy2"
-                                            class="w-full px-3 py-2 bg-pink-50 border-2 border-pink-100 rounded-xl focus:ring-2 focus:ring-pink-300 focus:border-pink-300 text-xs text-gray-800">
-                                        <option value="">{{ _("Energy (auto)") }}</option>
-                                        <option value="introvert">{% trans "Introvert" %}</option>
-                                        <option value="ambivert">{% trans "Ambivert" %}</option>
-                                        <option value="extrovert">{% trans "Extrovert" %}</option>
-                                    </select>
-                                    <select id="style2" name="style2"
-                                            class="w-full px-3 py-2 bg-pink-50 border-2 border-pink-100 rounded-xl focus:ring-2 focus:ring-pink-300 focus:border-pink-300 text-xs text-gray-800">
-                                        <option value="">{{ _("Love style (auto)") }}</option>
-                                        <option value="romantic">{% trans "Romantic" %}</option>
-                                        <option value="playful">{% trans "Playful" %}</option>
-                                        <option value="practical">{% trans "Practical" %}</option>
-                                    </select>
-                                    <select id="color2" name="color2"
-                                            class="w-full px-3 py-2 bg-pink-50 border-2 border-pink-100 rounded-xl focus:ring-2 focus:ring-pink-300 focus:border-pink-300 text-xs text-gray-800">
-                                        <option value="">{{ _("Favorite color (auto)") }}</option>
-                                        <option value="red">{% trans "Red" %}</option>
-                                        <option value="pink">{% trans "Pink" %}</option>
-                                        <option value="purple">{% trans "Purple" %}</option>
-                                        <option value="blue">{% trans "Blue" %}</option>
-                                        <option value="green">{% trans "Green" %}</option>
-                                        <option value="gold">{% trans "Gold" %}</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Calculate Button -->
-                        <button type="submit" id="calculateBtn"
-                            class="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none">
-                            <span id="btnIcon" class="text-xl">💕</span>
-                            <span id="btnText" class="text-base">{% trans "Calculate Love" %}</span>
+                        <!-- Toggle More Details -->
+                        <button type="button" id="toggleDetails" class="w-full text-sm text-pink-600 hover:text-pink-800 font-medium py-2 flex items-center justify-center gap-1 transition-colors">
+                            <span id="toggleText">{% trans "+ More Details (Optional)" %}</span>
+                            <svg id="toggleIcon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
 
-                        <div id="errorMessage" class="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm hidden"></div>
+                        <!-- Optional Details Section -->
+                        <div id="optionalDetails" class="hidden space-y-3 border-t border-gray-200 pt-3">
+                            <p class="text-xs text-gray-500 text-center">{% trans "Fill in more details for a deeper compatibility analysis!" %}</p>
+                            <!-- Ages -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Your Age" %}</label><input type="number" id="age1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-pink-400 focus:border-pink-400" placeholder="25" min="1" max="120"></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Partner's Age" %}</label><input type="number" id="age2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-pink-400 focus:border-pink-400" placeholder="25" min="1" max="120"></div>
+                            </div>
+                            <!-- Colors -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🎨 {% trans "Your Color" %}</label><select id="color1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="red">❤️ Red</option><option value="blue">💙 Blue</option><option value="green">💚 Green</option><option value="yellow">💛 Yellow</option><option value="purple">💜 Purple</option><option value="pink">💗 Pink</option><option value="orange">🧡 Orange</option><option value="black">🖤 Black</option><option value="white">🤍 White</option></select></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🎨 {% trans "Partner's Color" %}</label><select id="color2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="red">❤️ Red</option><option value="blue">💙 Blue</option><option value="green">💚 Green</option><option value="yellow">💛 Yellow</option><option value="purple">💜 Purple</option><option value="pink">💗 Pink</option><option value="orange">🧡 Orange</option><option value="black">🖤 Black</option><option value="white">🤍 White</option></select></div>
+                            </div>
+                            <!-- Foods -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🍕 {% trans "Your Food" %}</label><select id="food1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="pizza">🍕 Pizza</option><option value="sushi">🍣 Sushi</option><option value="pasta">🍝 Pasta</option><option value="burger">🍔 Burger</option><option value="salad">🥗 Salad</option><option value="steak">🥩 Steak</option><option value="tacos">🌮 Tacos</option><option value="chocolate">🍫 Chocolate</option><option value="biryani">🍛 Biryani</option><option value="ice cream">🍦 Ice Cream</option></select></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🍕 {% trans "Partner's Food" %}</label><select id="food2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="pizza">🍕 Pizza</option><option value="sushi">🍣 Sushi</option><option value="pasta">🍝 Pasta</option><option value="burger">🍔 Burger</option><option value="salad">🥗 Salad</option><option value="steak">🥩 Steak</option><option value="tacos">🌮 Tacos</option><option value="chocolate">🍫 Chocolate</option><option value="biryani">🍛 Biryani</option><option value="ice cream">🍦 Ice Cream</option></select></div>
+                            </div>
+                            <!-- Hobbies -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🎯 {% trans "Your Hobby" %}</label><select id="hobby1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="reading">📚 Reading</option><option value="gaming">🎮 Gaming</option><option value="cooking">👨‍🍳 Cooking</option><option value="sports">⚽ Sports</option><option value="music">🎵 Music</option><option value="travel">✈️ Travel</option><option value="art">🎨 Art</option><option value="movies">🎬 Movies</option><option value="dancing">💃 Dancing</option><option value="photography">📷 Photography</option><option value="hiking">🥾 Hiking</option><option value="yoga">🧘 Yoga</option></select></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🎯 {% trans "Partner's Hobby" %}</label><select id="hobby2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="reading">📚 Reading</option><option value="gaming">🎮 Gaming</option><option value="cooking">👨‍🍳 Cooking</option><option value="sports">⚽ Sports</option><option value="music">🎵 Music</option><option value="travel">✈️ Travel</option><option value="art">🎨 Art</option><option value="movies">🎬 Movies</option><option value="dancing">💃 Dancing</option><option value="photography">📷 Photography</option><option value="hiking">🥾 Hiking</option><option value="yoga">🧘 Yoga</option></select></div>
+                            </div>
+                            <!-- Personality -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🧠 {% trans "Your Type" %}</label><select id="personality1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="introvert">🌙 Introvert</option><option value="extrovert">☀️ Extrovert</option><option value="ambivert">🌗 Ambivert</option><option value="romantic">🌹 Romantic</option><option value="practical">🔧 Practical</option><option value="adventurous">🏔️ Adventurous</option><option value="creative">🎭 Creative</option><option value="analytical">🧠 Analytical</option></select></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">🧠 {% trans "Partner's Type" %}</label><select id="personality2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-pink-400"><option value="">{% trans "Select..." %}</option><option value="introvert">🌙 Introvert</option><option value="extrovert">☀️ Extrovert</option><option value="ambivert">🌗 Ambivert</option><option value="romantic">🌹 Romantic</option><option value="practical">🔧 Practical</option><option value="adventurous">🏔️ Adventurous</option><option value="creative">🎭 Creative</option><option value="analytical">🧠 Analytical</option></select></div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                            <span id="calculateBtnText">{% trans "Calculate Love ❤️" %}</span>
+                        </button>
                     </form>
 
-                    <!-- Recent calculations -->
-                    <div id="recentHistorySection" class="hidden mt-4 pt-4 border-t border-pink-100">
-                        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{% trans "Recent" %}</h3>
-                        <div id="recentHistoryList" class="flex flex-wrap gap-1.5"></div>
+                    <!-- Loading State -->
+                    <div id="loadingState" class="mt-6 hidden">
+                        <div class="bg-pink-50 border-2 border-pink-200 rounded-lg p-6 text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto mb-4"></div>
+                            <p class="text-pink-700 font-medium">{% trans "Calculating your love..." %}</p>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="mt-6 hidden">
+                        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <p id="errorMessage" class="text-red-600 text-sm"></p>
+                        </div>
+                    </div>
+
+                    <!-- Share Buttons (shown after calc) -->
+                    <div id="shareSection" class="mt-4 hidden">
+                        <p class="text-sm font-medium text-gray-700 mb-2">{% trans "Share your result:" %}</p>
+                        <div class="flex gap-2">
+                            <button id="shareWhatsApp" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</button>
+                            <button id="shareTwitter" class="flex-1 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors"><i class="fab fa-twitter mr-1"></i>Twitter</button>
+                            <button id="shareCopy" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors"><i class="fas fa-link mr-1"></i>{% trans "Copy" %}</button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ========== RIGHT: Results ========== -->
-            <div class="lg:col-span-8">
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8 space-y-6">
 
                 <!-- Initial State -->
-                <div id="initialState" class="bg-white/60 backdrop-blur border border-pink-100 rounded-2xl p-10 sm:p-12 text-center">
-                    <div class="heartbeat inline-block mb-4">
-                        <span class="text-7xl">💕</span>
-                    </div>
-                    <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-3">{% trans "Calculate Love Percentage" %}</h3>
-                    <p class="text-gray-500 max-w-md mx-auto">{% trans "Enter two names to discover love percentage, zodiac compatibility, FLAMES result, distance closeness & more!" %}</p>
+                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                    <p class="text-gray-600 text-base">{% trans "Enter two names and click Calculate to discover your love compatibility with detailed analysis and charts." %}</p>
                 </div>
 
                 <!-- Results Section -->
-                <section id="resultsSection" class="hidden space-y-5">
+                <div id="results" class="hidden space-y-6">
 
-                    <!-- ===== Result Hero Card ===== -->
-                    <div id="resultHeroCard" class="bg-gradient-to-br from-pink-500 via-rose-500 to-purple-500 text-white rounded-2xl p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden fade-in-up">
-                        <!-- Decorative pattern -->
-                        <div class="absolute inset-0 opacity-10" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fill-opacity=&quot;0.3&quot;%3E%3Cpath d=&quot;M30 6C26 6 23 9 23 12c0 6 7 11 7 11s7-5 7-11c0-3-3-6-7-6z&quot;/%3E%3C/g%3E%3C/svg%3E');"></div>
-
-                        <!-- Progress Ring -->
-                        <div id="progressRingContainer" class="hidden relative w-36 h-36 sm:w-44 sm:h-44 mx-auto mb-3 pulse-glow">
-                            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="7"/>
-                                <circle id="progressRingFill" cx="50" cy="50" r="45" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283"/>
-                            </svg>
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <span id="resultValue" class="text-4xl sm:text-5xl font-extrabold">0</span>
-                                <span id="resultPercentSign" class="text-2xl sm:text-3xl font-bold ml-0.5 hidden">%</span>
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-br from-pink-600 to-purple-700 rounded-xl p-6 sm:p-8 shadow-xl text-white">
+                        <div class="text-center">
+                            <p class="text-sm sm:text-base opacity-90 mb-1"><span id="resultName1">-</span> &amp; <span id="resultName2">-</span></p>
+                            <p id="loveValue" class="text-5xl sm:text-6xl font-bold mb-2">0%</p>
+                            <p class="text-sm opacity-90">{% trans "Love Compatibility" %}</p>
+                            <div id="categoryBadge" class="inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2">
+                                <span id="categoryTextBadge">-</span>
                             </div>
                         </div>
-                        <div id="resultValuePlain" class="text-5xl sm:text-6xl font-extrabold mb-1"></div>
-                        <div class="text-pink-100 text-lg font-medium" id="resultUnit"></div>
-                        <div id="categoryDisplay" class="mt-3"></div>
+                    </div>
 
-                        <!-- Romantic Tip -->
-                        <div id="romanticTipCard" class="hidden mt-5 p-4 bg-white/15 backdrop-blur-sm rounded-xl text-left border border-white/20">
-                            <p class="text-xs font-bold text-pink-200 uppercase tracking-wider mb-1">💡 {% trans "Tip" %}</p>
-                            <p id="romanticTipText" class="text-white text-sm leading-relaxed"></p>
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "FLAMES" %}</p>
+                            <p id="flamesEmoji" class="text-2xl mb-0.5">-</p>
+                            <p id="flamesLabel" class="text-xs font-bold text-gray-900">-</p>
                         </div>
-
-                        <!-- Action Buttons -->
-                        <div id="resultActionBar" class="hidden mt-5 flex flex-wrap items-center justify-center gap-2 no-print">
-                            <button type="button" id="copyResultBtn" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-all backdrop-blur-sm">
-                                📋 <span>{% trans "Copy" %}</span>
-                            </button>
-                            <button type="button" id="tryAgainBtn" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-all backdrop-blur-sm">
-                                🔄 <span>{% trans "Try Again" %}</span>
-                            </button>
-                            <button type="button" id="printResultBtn" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-all backdrop-blur-sm">
-                                🖨️ <span>{% trans "Print" %}</span>
-                            </button>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Zodiac Match" %}</p>
+                            <p id="zodiacScore" class="text-sm font-bold text-gray-900">-</p>
+                            <p id="zodiacSigns" class="text-xs text-gray-500">-</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Numerology" %}</p>
+                            <p id="numerologyScore" class="text-sm font-bold text-gray-900">-</p>
+                            <p id="numerologyNumbers" class="text-xs text-gray-500">-</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center">
+                            <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Love Language" %}</p>
+                            <p id="loveLangScore" class="text-sm font-bold text-gray-900">-</p>
+                            <p id="loveLangMatch" class="text-xs text-gray-500">-</p>
                         </div>
                     </div>
 
-                    <!-- ===== Distance & Closeness Visualization ===== -->
-                    <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-pink-100 p-5 fade-in-up" id="distanceSection">
-                        <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                            📏 {% trans "Distance & Closeness" %}
-                        </h3>
-                        <div class="relative h-20 mx-4 sm:mx-8">
-                            <!-- Track -->
-                            <div class="absolute top-1/2 left-0 right-0 h-1.5 bg-pink-100 rounded-full -translate-y-1/2"></div>
-                            <!-- Fill -->
-                            <div class="distance-fill-bar absolute top-1/2 left-0 h-1.5 bg-gradient-to-r from-blue-400 via-pink-400 to-pink-500 rounded-full -translate-y-1/2" id="distanceFill" style="width: 0%"></div>
-                            <!-- Love trail container -->
-                            <div class="love-trail" id="loveTrail" style="left: 50%; width: 0;"></div>
-                            <!-- Boy -->
-                            <div class="distance-person absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center" id="distBoy" style="left: 10%">
-                                <span class="text-3xl sm:text-4xl drop-shadow-md">👦</span>
-                                <span id="distBoyName" class="text-[10px] font-bold text-blue-600 mt-0.5 max-w-[60px] truncate"></span>
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Love Gauge" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]"><canvas id="loveGaugeChart"></canvas></div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Compatibility Radar" %}</h3>
+                            <div class="relative h-[250px] min-h-[250px]"><canvas id="compatibilityRadarChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- FLAMES Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "FLAMES Analysis" %}</h3>
+                        <div class="relative h-[300px] min-h-[300px]"><canvas id="flamesChart"></canvas></div>
+                    </div>
+
+                    <!-- FLAMES Detail Card -->
+                    <div id="flamesDetailCard" class="rounded-xl p-6 border-2 shadow-lg">
+                        <div class="flex items-center gap-4">
+                            <span id="flamesDetailEmoji" class="text-4xl">-</span>
+                            <div>
+                                <h4 id="flamesDetailLabel" class="text-xl font-bold">-</h4>
+                                <p id="flamesDetailDesc" class="text-sm opacity-80 mt-1">-</p>
                             </div>
-                            <!-- Girl -->
-                            <div class="distance-person absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center" id="distGirl" style="left: 90%">
-                                <span class="text-3xl sm:text-4xl drop-shadow-md">👧</span>
-                                <span id="distGirlName" class="text-[10px] font-bold text-pink-600 mt-0.5 max-w-[60px] truncate"></span>
+                        </div>
+                    </div>
+
+                    <!-- Love Scale -->
+                    <div class="bg-gradient-to-br from-gray-50 to-pink-50 rounded-xl p-4 sm:p-6 border-2 border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">{% trans "Love Scale" %}</h3>
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between text-xs text-gray-600 mb-2 px-1">
+                                <span>{% trans "Not Likely" %}</span><span>{% trans "Could Work" %}</span><span>{% trans "Good" %}</span><span>{% trans "Great" %}</span><span>{% trans "Soulmates" %}</span>
                             </div>
-                            <!-- Heart in center -->
-                            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 opacity-0 transition-opacity duration-1000" id="centerHeart">
-                                <span class="text-2xl heartbeat">❤️</span>
+                            <div class="relative h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                                <div class="absolute inset-0 flex">
+                                    <div class="flex-1 bg-red-400"></div><div class="flex-1 bg-yellow-400"></div><div class="flex-1 bg-blue-400"></div><div class="flex-1 bg-purple-400"></div><div class="flex-1 bg-pink-500"></div>
+                                </div>
+                                <div id="loveIndicator" class="absolute top-0 w-1.5 h-full bg-gray-900 shadow-lg transform -translate-x-1/2 transition-all duration-500 z-10 left-0"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] text-gray-500 mt-1 px-1">
+                                <span>0-20%</span><span>20-40%</span><span>40-60%</span><span>60-80%</span><span>80-100%</span>
                             </div>
                         </div>
-                        <div class="text-center mt-2">
-                            <span class="text-sm text-gray-600">{% trans "Closeness Level:" %}</span>
-                            <span class="text-lg font-extrabold text-pink-600 ml-1" id="distValue">-</span>
-                            <span class="text-sm text-gray-500">/10</span>
-                        </div>
-                        <p id="ageInfo" class="text-xs text-gray-500 text-center mt-1"></p>
+                        <p id="categoryDescription" class="text-center text-sm text-gray-600 mt-4"></p>
                     </div>
 
-                    <!-- ===== Feature Cards Grid ===== -->
-                    <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        <!-- FLAMES Card -->
-                        <div class="feature-card-hover bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-orange-100 p-4 text-center fade-in-up">
-                            <div class="text-3xl mb-2" id="flameEmoji">🔥</div>
-                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{% trans "FLAMES" %}</div>
-                            <div class="text-lg font-extrabold text-orange-600" id="flameValue">-</div>
-                            <div class="text-[10px] text-gray-400 mt-0.5">{% trans "Classic FLAMES game" %}</div>
+                    <!-- Zodiac & Love Language Details -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-3">{% trans "Zodiac Compatibility" %}</h3>
+                            <p id="zodiacDetail" class="text-sm text-gray-700 mb-2">-</p>
+                            <p id="zodiacElementDesc" class="text-sm text-gray-500 italic">-</p>
                         </div>
-                        <!-- Zodiac Card -->
-                        <div class="feature-card-hover bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-purple-100 p-4 text-center fade-in-up">
-                            <div class="text-3xl mb-2">♈</div>
-                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{% trans "Zodiac Match" %}</div>
-                            <div class="text-lg font-extrabold text-purple-600" id="zodiacValue">-</div>
-                            <div class="text-[10px] text-gray-400 mt-0.5" id="zodiacNames">-</div>
-                        </div>
-                        <!-- Love Language 1 Card -->
-                        <div class="feature-card-hover bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-blue-100 p-4 text-center fade-in-up">
-                            <div class="text-3xl mb-2">👦</div>
-                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" id="langTitle1">{% trans "His Love Language" %}</div>
-                            <div class="text-sm font-bold text-blue-600 leading-tight" id="langValue1">-</div>
-                        </div>
-                        <!-- Love Language 2 Card -->
-                        <div class="feature-card-hover bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-pink-100 p-4 text-center fade-in-up">
-                            <div class="text-3xl mb-2">👧</div>
-                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" id="langTitle2">{% trans "Her Love Language" %}</div>
-                            <div class="text-sm font-bold text-pink-600 leading-tight" id="langValue2">-</div>
+                        <div class="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 mb-3">{% trans "Love Languages" %}</h3>
+                            <p id="loveLangDetail" class="text-sm text-gray-700 mb-2">-</p>
+                            <p id="loveLangDesc" class="text-sm text-gray-500 italic">-</p>
                         </div>
                     </div>
 
-                    <!-- ===== Relationship Advice ===== -->
-                    <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-pink-100 p-5 fade-in-up" id="adviceSection">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-2xl">💬</span>
-                            <span class="text-base font-bold text-gray-900">{% trans "Relationship Advice" %}</span>
-                        </div>
-                        <p id="adviceText" class="text-gray-600 text-sm leading-relaxed"></p>
+                    <!-- Numerology Detail -->
+                    <div class="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">{% trans "Numerology Reading" %}</h3>
+                        <p id="numerologyDetail" class="text-sm text-gray-700 mb-2">-</p>
+                        <p id="numerologyDesc" class="text-sm text-gray-500 italic">-</p>
                     </div>
 
-                    <!-- ===== Details Cards ===== -->
-                    <div id="detailsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
-
-                    <!-- ===== Social Share ===== -->
-                    <div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-pink-100 p-5 no-print fade-in-up" id="shareSection">
-                        <div class="text-center mb-2">
-                            <span class="text-base font-bold text-gray-900">📤 {% trans "Share Your Result" %}</span>
-                        </div>
-                        <p class="text-xs text-gray-500 text-center mb-3">{% trans "Share on social media — your friends will see the names & result directly!" %}</p>
-                        <div class="flex flex-wrap gap-2 justify-center">
-                            <a class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105 bg-green-500 hover:bg-green-600 shadow-sm" id="shareWA" href="#" target="_blank" rel="noopener">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492l4.625-1.469A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818c-2.168 0-4.17-.686-5.813-1.852l-.417-.296-2.742.872.876-2.706-.319-.432A9.78 9.78 0 012.182 12C2.182 6.582 6.582 2.182 12 2.182S21.818 6.582 21.818 12 17.418 21.818 12 21.818z"/></svg>
-                                WhatsApp
-                            </a>
-                            <a class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105 bg-blue-600 hover:bg-blue-700 shadow-sm" id="shareFB" href="#" target="_blank" rel="noopener">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                                Facebook
-                            </a>
-                            <a class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105 bg-black hover:bg-gray-800 shadow-sm" id="shareTW" href="#" target="_blank" rel="noopener">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                                X (Twitter)
-                            </a>
-                            <a class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105 bg-sky-500 hover:bg-sky-600 shadow-sm" id="shareTG" href="#" target="_blank" rel="noopener">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0h-.056zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                Telegram
-                            </a>
-                            <button class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-sm" id="shareCopy" type="button">
-                                📋 {% trans "Copy Link" %}
-                            </button>
-                        </div>
-                        <div id="sharePreview" class="hidden mt-4 p-3 bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-xl">
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{% trans "Share Preview" %}</p>
-                            <p id="sharePreviewText" class="text-sm text-gray-700 break-all"></p>
-                        </div>
+                    <!-- NEW: Optional Feature Results -->
+                    <!-- Age Compatibility -->
+                    <div id="ageCompatCard" class="hidden bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">🎂 {% trans "Age Compatibility" %}</h3>
+                        <div class="flex items-center gap-4 mb-3"><div class="flex-1 bg-gray-100 rounded-lg p-3 text-center"><p class="text-xs text-gray-500">{% trans "You" %}</p><p id="ageVal1" class="text-xl font-bold text-gray-900">-</p></div><div class="text-2xl">↔</div><div class="flex-1 bg-gray-100 rounded-lg p-3 text-center"><p class="text-xs text-gray-500">{% trans "Partner" %}</p><p id="ageVal2" class="text-xl font-bold text-gray-900">-</p></div></div>
+                        <div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="text-gray-600">{% trans "Compatibility" %}</span><span id="ageScoreText" class="font-bold">-</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div id="ageScoreBar" class="h-2.5 rounded-full bg-pink-500 transition-all duration-700" style="width:0%"></div></div></div>
+                        <p id="ageDesc" class="text-sm text-gray-600 italic">-</p>
+                    </div>
+                    <!-- Color Chemistry -->
+                    <div id="colorChemCard" class="hidden bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">🎨 {% trans "Color Chemistry" %}</h3>
+                        <div class="flex items-center gap-4 mb-3"><div class="flex-1 rounded-lg p-3 text-center" id="colorBox1"><p id="colorEmoji1" class="text-2xl">-</p><p id="colorName1" class="text-xs font-bold mt-1">-</p><p id="colorMeaning1" class="text-[10px] text-gray-500">-</p></div><div class="text-2xl">💕</div><div class="flex-1 rounded-lg p-3 text-center" id="colorBox2"><p id="colorEmoji2" class="text-2xl">-</p><p id="colorName2" class="text-xs font-bold mt-1">-</p><p id="colorMeaning2" class="text-[10px] text-gray-500">-</p></div></div>
+                        <div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="text-gray-600">{% trans "Chemistry" %}</span><span id="colorScoreText" class="font-bold">-</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div id="colorScoreBar" class="h-2.5 rounded-full bg-purple-500 transition-all duration-700" style="width:0%"></div></div></div>
+                        <p id="colorDesc" class="text-sm text-gray-600 italic">-</p>
+                    </div>
+                    <!-- Food Pairing -->
+                    <div id="foodPairCard" class="hidden bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">🍽️ {% trans "Food Pairing" %}</h3>
+                        <div class="flex items-center gap-4 mb-3"><div class="flex-1 bg-orange-50 rounded-lg p-3 text-center"><p id="foodEmoji1" class="text-2xl">-</p><p id="foodName1" class="text-xs font-bold mt-1">-</p><p id="foodType1" class="text-[10px] text-gray-500">-</p></div><div class="text-2xl">🤝</div><div class="flex-1 bg-orange-50 rounded-lg p-3 text-center"><p id="foodEmoji2" class="text-2xl">-</p><p id="foodName2" class="text-xs font-bold mt-1">-</p><p id="foodType2" class="text-[10px] text-gray-500">-</p></div></div>
+                        <div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="text-gray-600">{% trans "Taste Match" %}</span><span id="foodScoreText" class="font-bold">-</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div id="foodScoreBar" class="h-2.5 rounded-full bg-orange-500 transition-all duration-700" style="width:0%"></div></div></div>
+                        <p id="foodDesc" class="text-sm text-gray-600 italic">-</p>
+                    </div>
+                    <!-- Hobby Match -->
+                    <div id="hobbyMatchCard" class="hidden bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">🎯 {% trans "Hobby Match" %}</h3>
+                        <div class="flex items-center gap-4 mb-3"><div class="flex-1 bg-green-50 rounded-lg p-3 text-center"><p id="hobbyEmoji1" class="text-2xl">-</p><p id="hobbyName1" class="text-xs font-bold mt-1">-</p><p id="hobbyType1" class="text-[10px] text-gray-500">-</p></div><div class="text-2xl">🔗</div><div class="flex-1 bg-green-50 rounded-lg p-3 text-center"><p id="hobbyEmoji2" class="text-2xl">-</p><p id="hobbyName2" class="text-xs font-bold mt-1">-</p><p id="hobbyType2" class="text-[10px] text-gray-500">-</p></div></div>
+                        <div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="text-gray-600">{% trans "Match" %}</span><span id="hobbyScoreText" class="font-bold">-</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div id="hobbyScoreBar" class="h-2.5 rounded-full bg-green-500 transition-all duration-700" style="width:0%"></div></div></div>
+                        <p id="hobbyDesc" class="text-sm text-gray-600 italic">-</p>
+                    </div>
+                    <!-- Personality Match -->
+                    <div id="personalityCard" class="hidden bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">🧠 {% trans "Personality Match" %}</h3>
+                        <div class="flex items-center gap-4 mb-3"><div class="flex-1 bg-indigo-50 rounded-lg p-3 text-center"><p id="persEmoji1" class="text-2xl">-</p><p id="persType1" class="text-xs font-bold mt-1">-</p><p id="persDesc1" class="text-[10px] text-gray-500">-</p></div><div class="text-2xl">⚡</div><div class="flex-1 bg-indigo-50 rounded-lg p-3 text-center"><p id="persEmoji2" class="text-2xl">-</p><p id="persType2" class="text-xs font-bold mt-1">-</p><p id="persDesc2" class="text-[10px] text-gray-500">-</p></div></div>
+                        <div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="text-gray-600">{% trans "Synergy" %}</span><span id="persScoreText" class="font-bold">-</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div id="persScoreBar" class="h-2.5 rounded-full bg-indigo-500 transition-all duration-700" style="width:0%"></div></div></div>
+                        <p id="persMatchDesc" class="text-sm text-gray-600 italic">-</p>
+                    </div>
+                    <!-- Relationship Tips -->
+                    <div id="tipsCard" class="bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl p-6 border-2 border-pink-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">💡 {% trans "Relationship Tips" %}</h3>
+                        <ul id="tipsList" class="space-y-2 text-sm text-gray-700"></ul>
+                    </div>
+                    <!-- Ideal Date Ideas -->
+                    <div id="dateIdeasCard" class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">💝 {% trans "Ideal Date Ideas" %}</h3>
+                        <ul id="dateIdeasList" class="space-y-2 text-sm text-gray-700"></ul>
                     </div>
 
-                    <!-- ===== CTA Banner (for visitors from shared links) ===== -->
-                    <div class="bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white rounded-2xl p-6 text-center shadow-lg fade-in-up no-print" id="ctaBanner">
-                        <h3 class="text-lg sm:text-xl font-bold mb-2">💕 {% trans "Want to check YOUR love compatibility?" %}</h3>
-                        <p class="text-pink-100 text-sm mb-4">{% trans "Enter your names above and find out your love percentage, zodiac match, FLAMES & more!" %}</p>
-                        <button type="button" onclick="document.getElementById('name1').focus(); document.getElementById('loveCalculatorForm').scrollIntoView({behavior:'smooth'});"
-                            class="inline-flex items-center gap-2 px-6 py-3 bg-white text-pink-600 font-bold rounded-xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all">
-                            💝 {% trans "Try Your Names Now!" %}
-                        </button>
+                    <!-- PREMIUM FEATURES -->
+                    <!-- Love Story -->
+                    <div id="loveStoryCard" class="bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 rounded-xl p-6 border-2 border-rose-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">📖 {% trans "Your Love Story" %}</h3>
+                        <p id="storyTitle" class="text-sm font-semibold text-pink-700 mb-3 italic"></p>
+                        <p id="storyContent" class="text-sm text-gray-700 leading-relaxed"></p>
                     </div>
 
-                    <!-- ===== Chart ===== -->
-                    <div id="chartsSection" class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-md border border-pink-100 p-5 fade-in-up">
-                        <h3 class="text-base font-bold text-gray-900 mb-4">📊 {% trans "Visualization" %}</h3>
-                        <div style="position: relative; height: 280px;">
-                            <canvas id="loveChart"></canvas>
+                    <!-- Couple Nicknames -->
+                    <div id="nicknameCard" class="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">💌 {% trans "Couple Nicknames" %}</h3>
+                        <div id="nicknameList" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <!-- Celebrity Match -->
+                    <div id="celebMatchCard" class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 border-2 border-yellow-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">🌟 {% trans "Celebrity Couple Match" %}</h3>
+                        <div class="flex items-center gap-4"><span id="celebEmoji" class="text-4xl"></span><div><p id="celebCouple" class="text-base font-bold text-gray-900"></p><p id="celebDesc" class="text-sm text-gray-600 mt-1"></p><p id="celebSimilarity" class="text-xs font-semibold text-yellow-700 mt-1"></p></div></div>
+                    </div>
+
+                    <!-- Emotional Weather -->
+                    <div id="weatherCard" class="rounded-xl p-6 border-2 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">🌤️ {% trans "Love Weather Forecast" %}</h3>
+                        <div class="flex items-center gap-6"><div class="text-center"><span id="weatherIcon" class="text-5xl block animate-bounce"></span><p id="weatherTemp" class="text-2xl font-bold mt-1"></p></div><div class="flex-1"><p id="weatherCondition" class="text-base font-bold"></p><p id="weatherForecast" class="text-sm text-gray-600 mt-1"></p><p id="weatherAdvice" class="text-xs text-gray-500 italic mt-2"></p></div></div>
+                    </div>
+
+                    <!-- Relationship Timeline -->
+                    <div id="timelineCard" class="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">📅 {% trans "Relationship Timeline" %}</h3>
+                        <div id="timelineList" class="relative pl-6 border-l-2 border-pink-300 space-y-6"></div>
+                    </div>
+
+                    <!-- Love Recipe -->
+                    <div id="recipeCard" class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-6 border-2 border-orange-200 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">👨‍🍳 {% trans "Love Recipe" %}</h3>
+                        <p id="recipeName" class="text-sm font-semibold text-orange-700 mb-3 italic"></p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><h4 class="text-sm font-bold text-gray-800 mb-2">🧂 {% trans "Ingredients" %}</h4><ul id="recipeIngredients" class="space-y-1 text-sm text-gray-700"></ul></div><div><h4 class="text-sm font-bold text-gray-800 mb-2">📖 {% trans "Instructions" %}</h4><ol id="recipeInstructions" class="space-y-1 text-sm text-gray-700"></ol></div></div>
+                        <p id="recipeServing" class="text-center text-sm font-semibold text-orange-600 mt-4"></p>
+                    </div>
+                </div>
+
+                <!-- Comprehensive User Guide -->
+                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <svg class="w-7 h-7 mr-3 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        {% trans "Complete User Guide" %}
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is the Love Calculator?" %}</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed">{% blocktrans %}Our Love Calculator uses a multi-factor algorithm combining the classic LOVES letter-counting method, character frequency analysis, numerology, zodiac compatibility, and love language matching to generate a comprehensive compatibility score. It's a fun, entertaining way to explore the chemistry between two people!{% endblocktrans %}</p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use" %}</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                <li>{% trans "Enter your name in the first field" %}</li>
+                                <li>{% trans "Enter your partner's or crush's name in the second field" %}</li>
+                                <li>{% trans "Click 'Calculate Love' to see your results" %}</li>
+                                <li>{% trans "Explore the detailed charts and analysis below" %}</li>
+                                <li>{% trans "Share your result with friends using the share buttons" %}</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding FLAMES" %}</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r"><h4 class="font-semibold text-yellow-900 mb-1">{% trans "F — Friendship" %}</h4><p class="text-sm text-yellow-800">{% trans "A strong friendship forms the foundation of your bond." %}</p></div>
+                                <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r"><h4 class="font-semibold text-red-900 mb-1">{% trans "L — Love" %}</h4><p class="text-sm text-red-800">{% trans "Deep romantic love exists between you." %}</p></div>
+                                <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r"><h4 class="font-semibold text-pink-900 mb-1">{% trans "A — Affection" %}</h4><p class="text-sm text-pink-800">{% trans "Warm affection and care define your relationship." %}</p></div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r"><h4 class="font-semibold text-purple-900 mb-1">{% trans "M — Marriage" %}</h4><p class="text-sm text-purple-800">{% trans "Strong compatibility for a lifelong commitment." %}</p></div>
+                                <div class="border-l-4 border-gray-500 pl-4 py-2 bg-gray-50 rounded-r"><h4 class="font-semibold text-gray-900 mb-1">{% trans "E — Enemy" %}</h4><p class="text-sm text-gray-800">{% trans "Some friction, but opposites can attract with effort!" %}</p></div>
+                                <div class="border-l-4 border-cyan-500 pl-4 py-2 bg-cyan-50 rounded-r"><h4 class="font-semibold text-cyan-900 mb-1">{% trans "S — Siblings" %}</h4><p class="text-sm text-cyan-800">{% trans "A comfortable, familiar, sibling-like bond." %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Zodiac Elements" %}</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-red-50 p-3 rounded-lg"><h4 class="font-semibold text-red-900 text-sm">🔥 {% trans "Fire Signs" %}</h4><p class="text-xs text-red-800">{% trans "Aries, Leo, Sagittarius — Passionate and energetic" %}</p></div>
+                                <div class="bg-green-50 p-3 rounded-lg"><h4 class="font-semibold text-green-900 text-sm">🌍 {% trans "Earth Signs" %}</h4><p class="text-xs text-green-800">{% trans "Taurus, Virgo, Capricorn — Grounded and stable" %}</p></div>
+                                <div class="bg-blue-50 p-3 rounded-lg"><h4 class="font-semibold text-blue-900 text-sm">💨 {% trans "Air Signs" %}</h4><p class="text-xs text-blue-800">{% trans "Gemini, Libra, Aquarius — Intellectual and social" %}</p></div>
+                                <div class="bg-cyan-50 p-3 rounded-lg"><h4 class="font-semibold text-cyan-900 text-sm">💧 {% trans "Water Signs" %}</h4><p class="text-xs text-cyan-800">{% trans "Cancer, Scorpio, Pisces — Emotional and intuitive" %}</p></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "The Five Love Languages" %}</h3>
+                            <div class="space-y-2 text-sm text-gray-700">
+                                <p><strong>{% trans "Words of Affirmation" %}</strong> — {% trans "Verbal compliments, words of appreciation and encouragement." %}</p>
+                                <p><strong>{% trans "Acts of Service" %}</strong> — {% trans "Actions that show you care — cooking, helping, supporting." %}</p>
+                                <p><strong>{% trans "Receiving Gifts" %}</strong> — {% trans "Thoughtful presents that show you are known and loved." %}</p>
+                                <p><strong>{% trans "Quality Time" %}</strong> — {% trans "Undivided attention and meaningful shared experiences." %}</p>
+                                <p><strong>{% trans "Physical Touch" %}</strong> — {% trans "Hugs, holding hands, and physical closeness." %}</p>
+                            </div>
+                        </div>
+                        <div class="bg-pink-50 border-l-4 border-pink-500 p-4 rounded-r">
+                            <h3 class="text-lg font-semibold text-pink-900 mb-3">{% trans "Disclaimer" %}</h3>
+                            <ul class="space-y-2 text-sm text-pink-800">
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "This calculator is for entertainment purposes only. Real relationships require communication, effort, and mutual respect." %}</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>{% trans "Results are generated algorithmically based on names and should not be taken as relationship advice." %}</span></li>
+                            </ul>
+                        </div>
+
+                        <!-- FAQ Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Frequently Asked Questions" %}</h3>
+                            <div class="space-y-3">
+                                <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-semibold text-gray-900 text-sm mb-1">{% trans "Is this calculator accurate?" %}</h4><p class="text-sm text-gray-700">{% trans "This is an entertainment tool using name-based algorithms. It's meant to be fun, not a scientific measure of compatibility." %}</p></div>
+                                <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-semibold text-gray-900 text-sm mb-1">{% trans "Why do I get the same result every time?" %}</h4><p class="text-sm text-gray-700">{% trans "Our algorithm is deterministic — the same two names will always produce the same result, ensuring consistency and shareability." %}</p></div>
+                                <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-semibold text-gray-900 text-sm mb-1">{% trans "What is the FLAMES game?" %}</h4><p class="text-sm text-gray-700">{% trans "FLAMES is a classic relationship game. Common characters between names are removed, and the remaining count is used to cycle through F-L-A-M-E-S letters until one remains." %}</p></div>
+                                <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-semibold text-gray-900 text-sm mb-1">{% trans "Can I share my results?" %}</h4><p class="text-sm text-gray-700">{% trans "Yes! After calculating, use the WhatsApp, Twitter, or Copy Link buttons to share your results with friends." %}</p></div>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- ===== Step-by-Step ===== -->
-                    <div class="fade-in-up">
-                        <h3 class="text-base font-bold text-gray-900 mb-3">📝 {% trans "Step-by-Step Solution" %}</h3>
-                        <div class="bg-gradient-to-r from-pink-50 to-rose-50 border-l-4 border-pink-500 rounded-xl p-4 sm:p-6" id="stepByStep"></div>
-                    </div>
-                </section>
+                </div>
             </div>
         </div>
-
-        <!-- ===== User Guide ===== -->
-        <div class="bg-white/80 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border-pink-100 shadow-lg mt-8">
-            <h2 class="text-2xl font-extrabold text-gray-900 mb-6 flex items-center gap-3">
-                📖 {% trans "Complete User Guide" %}
-            </h2>
-
-            <div class="space-y-6">
-                <div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-3">{% trans "What is Love Calculator?" %}</h3>
-                    <p class="text-gray-600 text-sm leading-relaxed">
-                        {% trans "The Love Calculator is a fun and entertaining tool that calculates a love percentage or compatibility score between two names. It uses various algorithms to analyze name compatibility, including counting letters in 'LOVE', finding common letters, comparing name lengths, and analyzing vowel/consonant ratios. While this is primarily for entertainment purposes, it can be a fun way to explore name relationships and compatibility." %}
-                    </p>
-                </div>
-
-                <div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-3">{% trans "How to Use" %}</h3>
-                    <ol class="list-decimal list-inside space-y-2 text-gray-600 text-sm">
-                        <li>{% trans "Select a calculation type from the dropdown." %}</li>
-                        <li>{% trans "Enter both names in the input fields." %}</li>
-                        <li>{% trans "Click 'Calculate Love' to see results." %}</li>
-                        <li>{% trans "Explore all features: FLAMES, zodiac, distance, love language." %}</li>
-                        <li>{% trans "Share your results on social media with one click!" %}</li>
-                    </ol>
-                </div>
-
-                <div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-3">{% trans "Love Percentage Categories" %}</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-                            <thead class="bg-pink-50">
-                                <tr>
-                                    <th class="py-2.5 px-3 text-left border-b font-bold text-gray-700">{% trans "Range" %}</th>
-                                    <th class="py-2.5 px-3 text-center border-b font-bold text-gray-700">{% trans "Category" %}</th>
-                                    <th class="py-2.5 px-3 text-left border-b font-bold text-gray-700">{% trans "Meaning" %}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="border-b hover:bg-pink-50 transition"><td class="py-2 px-3 font-medium">90-100%</td><td class="text-center text-pink-600 font-bold">{% trans "Excellent Match!" %}</td><td class="py-2 px-3">{% trans "Perfect compatibility" %}</td></tr>
-                                <tr class="border-b hover:bg-pink-50 transition"><td class="py-2 px-3 font-medium">75-89%</td><td class="text-center text-rose-600 font-semibold">{% trans "Very Good Match!" %}</td><td class="py-2 px-3">{% trans "Great potential" %}</td></tr>
-                                <tr class="border-b hover:bg-pink-50 transition"><td class="py-2 px-3 font-medium">60-74%</td><td class="text-center text-orange-500">{% trans "Good Match!" %}</td><td class="py-2 px-3">{% trans "Worth exploring" %}</td></tr>
-                                <tr class="border-b hover:bg-pink-50 transition"><td class="py-2 px-3 font-medium">40-59%</td><td class="text-center text-yellow-600">{% trans "Fair Match" %}</td><td class="py-2 px-3">{% trans "May need effort" %}</td></tr>
-                                <tr class="hover:bg-pink-50 transition"><td class="py-2 px-3 font-medium">0-39%</td><td class="text-center text-gray-500">{% trans "Needs Work" %}</td><td class="py-2 px-3">{% trans "Love can overcome" %}</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="bg-pink-50 border-l-4 border-pink-500 p-4 rounded-r-xl">
-                    <ul class="space-y-1.5 text-sm text-pink-800">
-                        <li>⚠️ {% trans "This calculator is for entertainment purposes only." %}</li>
-                        <li>💕 {% trans "Real relationships are built on communication, trust, and mutual respect." %}</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 
 <script>
-let currentMode = 'love_percentage', loveChart = null, lastShareText = '', lastShareSummary = '', lastShareUrl = '';
-const RK = 'love_calc_recent', RM = 5;
-const SHARED_NAME1 = '{{ share_name1|escapejs }}';
-const SHARED_NAME2 = '{{ share_name2|escapejs }}';
-const IS_SHARED_LINK = {{ is_shared_link|yesno:"true,false" }};
+let loveGaugeChart = null, compatibilityRadarChart = null, flamesChartInstance = null;
+function checkChartJS() { return typeof Chart !== 'undefined'; }
 
-// ===== Floating Hearts =====
-(function() {
-    const c = document.getElementById('floatingHearts');
-    const h = ['💕','❤️','💖','💗','💓','💘','💝','🌹','💜','💙'];
-    for (let i = 0; i < 18; i++) {
-        const s = document.createElement('span');
-        s.className = 'fh';
-        s.textContent = h[i % h.length];
-        s.style.left = Math.random() * 100 + '%';
-        s.style.animationDuration = (10 + Math.random() * 15) + 's';
-        s.style.animationDelay = Math.random() * 12 + 's';
-        s.style.fontSize = (0.8 + Math.random() * 1.4) + 'rem';
-        c.appendChild(s);
-    }
-})();
-
-// ===== Utilities =====
-function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-function fmtNum(n) { return n.toLocaleString('en-US', { maximumFractionDigits: 0 }); }
-
-function animVal(el, from, to, ms) {
-    if (from === to) { el.textContent = to; return; }
-    const s = performance.now();
-    function tick(n) {
-        const t = Math.min((n - s) / ms, 1);
-        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        el.textContent = Math.round(from + (to - from) * e);
-        if (t < 1) requestAnimationFrame(tick); else el.textContent = to;
-    }
-    requestAnimationFrame(tick);
-}
-
-function animRing(pct, ms) {
-    const r = document.getElementById('progressRingFill');
-    if (!r) return;
-    const c = 2 * Math.PI * 45;
-    r.style.transition = `stroke-dashoffset ${ms}ms ease-out`;
-    r.style.strokeDashoffset = c - (pct / 100) * c;
-}
-
-// ===== Result hero color (backend-driven, similar concept to BMI) =====
-function updateResultHeroColor(categoryColor) {
-    const card = document.getElementById('resultHeroCard');
-    if (!card) return;
-
-    const base =
-        'bg-gradient-to-br text-white rounded-2xl p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden fade-in-up';
-
-    // Map simple color keys (from backend) to gradient tails
-    const gradients = {
-        pink: 'from-pink-500 via-rose-500 to-purple-500',
-        rose: 'from-rose-500 via-pink-500 to-red-500',
-        orange: 'from-orange-400 via-pink-500 to-rose-500',
-        yellow: 'from-yellow-400 via-orange-400 to-pink-500',
-        gray: 'from-gray-500 via-gray-600 to-gray-700',
-    };
-
-    const key = categoryColor || 'pink';
-    const gradient = gradients[key] || gradients.pink;
-    card.className = `${base} ${gradient}`;
-}
-
-// ===== Mode Switching =====
-function switchMode(m) {
-    currentMode = m;
-    document.getElementById('calc-mode-selector').value = m;
-    document.getElementById('algorithmWrap').classList.toggle('hidden', m !== 'love_percentage');
-    document.getElementById('resultsSection').classList.add('hidden');
-    document.getElementById('initialState').classList.remove('hidden');
-}
-
-// ===== Recent History =====
-function pushRecent(n1, n2, mode) {
-    try {
-        let l = JSON.parse(localStorage.getItem(RK) || '[]');
-        l.unshift({ n1, n2, mode });
-        l = l.slice(0, RM);
-        localStorage.setItem(RK, JSON.stringify(l));
-        renderRecent();
-    } catch (e) {}
-}
-
-function renderRecent() {
-    const c = document.getElementById('recentHistoryList'), s = document.getElementById('recentHistorySection');
-    try {
-        const l = JSON.parse(localStorage.getItem(RK) || '[]');
-        if (!l.length) { s.classList.add('hidden'); return; }
-        s.classList.remove('hidden');
-        c.innerHTML = l.map(i => `<button type="button" class="px-3 py-1 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-full text-xs font-semibold transition-all hover:scale-105" data-n1="${escHtml(i.n1)}" data-n2="${escHtml(i.n2)}" data-m="${escHtml(i.mode)}">${escHtml(i.n1)} & ${escHtml(i.n2)}</button>`).join('');
-        c.querySelectorAll('button').forEach(b => b.onclick = function() {
-            switchMode(this.dataset.m || 'love_percentage');
-            document.getElementById('name1').value = this.dataset.n1;
-            document.getElementById('name2').value = this.dataset.n2;
-            document.getElementById('loveCalculatorForm').scrollIntoView({ behavior: 'smooth' });
-        });
-    } catch (e) { s.classList.add('hidden'); }
-}
-
-// ===== Build Shareable URL =====
-function buildShareUrl(name1, name2) {
-    // Extract the base love-calculator path, whether on /love-calculator/ or /love-calculator/John/Mary/
-    const origin = window.location.origin;
-    const path = window.location.pathname;
-    const baseMatch = path.match(/(.*\/love-calculator\/)/);
-    const basePath = baseMatch ? baseMatch[1] : path.replace(/\/$/, '') + '/';
-    return `${origin}${basePath}${encodeURIComponent(name1)}/${encodeURIComponent(name2)}/`;
-}
-
-// ===== Sharing =====
-function updateSharing(text, shareableUrl) {
-    const e = encodeURIComponent(text), u = encodeURIComponent(shareableUrl);
-    lastShareUrl = shareableUrl;
-    document.getElementById('shareWA').href = `https://wa.me/?text=${e}%20${u}`;
-    document.getElementById('shareFB').href = `https://www.facebook.com/sharer/sharer.php?u=${u}&quote=${e}`;
-    document.getElementById('shareTW').href = `https://twitter.com/intent/tweet?text=${e}&url=${u}`;
-    document.getElementById('shareTG').href = `https://t.me/share/url?url=${u}&text=${e}`;
-
-    // Show share preview
-    const preview = document.getElementById('sharePreview');
-    const previewText = document.getElementById('sharePreviewText');
-    if (preview && previewText) {
-        previewText.textContent = shareableUrl;
-        preview.classList.remove('hidden');
-    }
-}
-
-// ===== Distance Animation =====
-function animateDistance(closeness, name1, name2) {
-    const boy = document.getElementById('distBoy'), girl = document.getElementById('distGirl');
-    const fill = document.getElementById('distanceFill'), heart = document.getElementById('centerHeart');
-    document.getElementById('distBoyName').textContent = name1;
-    document.getElementById('distGirlName').textContent = name2;
-
-    // Gap decreases as closeness increases (1=far apart, 10=very close)
-    const gap = 80 - ((closeness - 1) / 9) * 60;
-    const boyPos = 50 - gap / 2, girlPos = 50 + gap / 2;
-
-    setTimeout(() => {
-        boy.style.left = boyPos + '%';
-        girl.style.left = girlPos + '%';
-        fill.style.width = (closeness / 10 * 100) + '%';
-        if (closeness >= 7) {
-            heart.style.opacity = '1';
-        } else {
-            heart.style.opacity = '0';
-        }
-    }, 200);
-
-    document.getElementById('distValue').textContent = closeness;
-
-    // Spawn love trail hearts
-    if (closeness >= 5) {
-        const trail = document.getElementById('loveTrail');
-        trail.innerHTML = '';
-        const hearts = ['💕', '💗', '❤️', '✨'];
-        for (let i = 0; i < Math.min(closeness, 8); i++) {
-            setTimeout(() => {
-                const sp = document.createElement('span');
-                sp.textContent = hearts[i % hearts.length];
-                sp.style.left = (Math.random() * 60 - 30) + 'px';
-                sp.style.animationDelay = (i * 0.15) + 's';
-                trail.appendChild(sp);
-            }, 500 + i * 200);
-        }
-    }
-}
-
-// ===== Main Calculate =====
-async function calculateLove(e) {
-    e.preventDefault();
-    const btn = document.getElementById('calculateBtn'), errEl = document.getElementById('errorMessage');
-    const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
-    errEl.classList.add('hidden');
-
-    const n1 = document.getElementById('name1').value.trim();
-    const n2 = document.getElementById('name2').value.trim();
-    if (!n1 || !n2) { errEl.textContent = "{{ _('Please fill in both names.')|escapejs }}"; errEl.classList.remove('hidden'); return; }
-
-    let req = { calc_type: currentMode, name1: n1, name2: n2 };
-    const dob1 = document.getElementById('dob1')?.value;
-    const dob2 = document.getElementById('dob2')?.value;
-    if (dob1) req.dob1 = dob1;
-    if (dob2) req.dob2 = dob2;
-    const energy1 = document.getElementById('energy1')?.value;
-    const energy2 = document.getElementById('energy2')?.value;
-    const style1 = document.getElementById('style1')?.value;
-    const style2 = document.getElementById('style2')?.value;
-    const color1 = document.getElementById('color1')?.value;
-    const color2 = document.getElementById('color2')?.value;
-    if (energy1) req.energy1 = energy1;
-    if (energy2) req.energy2 = energy2;
-    if (style1) req.style1 = style1;
-    if (style2) req.style2 = style2;
-    if (color1) req.color1 = color1;
-    if (color2) req.color2 = color2;
-    if (currentMode === 'love_percentage') req.algorithm = document.getElementById('love-algorithm').value;
-
-    btn.disabled = true;
-    document.getElementById('btnText').textContent = "{{ _('Calculating...')|escapejs }}";
-    document.getElementById('btnIcon').innerHTML = '<span class="spin-anim inline-block">💫</span>';
-
-    try {
-        const res = await fetch(window.location.href, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf.value },
-            body: JSON.stringify(req)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = await res.json();
-        if (!d.success) { errEl.textContent = d.error || "{{ _('An error occurred.')|escapejs }}"; errEl.classList.remove('hidden'); return; }
-
-        // Show results
-        document.getElementById('initialState').classList.add('hidden');
-        const rs = document.getElementById('resultsSection');
-        rs.classList.remove('hidden');
-
-        // Score display
-        const isPct = d.calc_type === 'love_percentage' || d.calc_type === 'compatibility';
-        const val = isPct ? (d.love_percentage ?? d.compatibility) : null;
-
-        document.getElementById('progressRingContainer').classList.toggle('hidden', !isPct);
-        document.getElementById('resultValuePlain').classList.toggle('hidden', isPct);
-        document.getElementById('resultPercentSign').classList.toggle('hidden', !isPct);
-
-        if (isPct && val != null) {
-            const rv = document.getElementById('resultValue');
-            rv.textContent = '0';
-            const rf = document.getElementById('progressRingFill');
-            if (rf) { rf.style.transition = 'none'; rf.style.strokeDashoffset = '283'; rf.offsetHeight; rf.style.transition = ''; }
-            animVal(rv, 0, val, 1200);
-            animRing(val, 1200);
-        }
-
-        if (!isPct) document.getElementById('resultValuePlain').textContent = d.calc_type === 'name_analysis' ? d.analysis.common_letters.length : '';
-        document.getElementById('resultUnit').textContent = isPct ? '%' : (d.calc_type === 'name_analysis' ? "{{ _('common letters')|escapejs }}" : '');
-        const catDisplay = document.getElementById('categoryDisplay');
-        if (catDisplay && d.message) {
-            const colorInfo = d.color_info || {};
-            const pillClasses = colorInfo.tailwind_classes ||
-                'bg-white/20 text-white border-white/30';
-            catDisplay.innerHTML =
-                `<div class="inline-block px-5 py-2 rounded-xl mt-2 font-bold text-lg border ${pillClasses} bg-opacity-90 backdrop-blur-sm">${escHtml(d.message)}</div>`;
-        } else if (catDisplay) {
-            catDisplay.innerHTML = '';
-        }
-
-        // Update hero gradient based on backend category_color
-        if (d.category_color) {
-            updateResultHeroColor(d.category_color);
-        } else {
-            updateResultHeroColor('pink');
-        }
-
-        // Romantic tip
-        const tc = document.getElementById('romanticTipCard');
-        if (d.romantic_tip) { document.getElementById('romanticTipText').textContent = d.romantic_tip; tc.classList.remove('hidden'); }
-        else tc.classList.add('hidden');
-
-        document.getElementById('resultActionBar').classList.remove('hidden');
-
-        // Distance & Closeness
-        animateDistance(d.distance_meter || 5, d.name1, d.name2);
-        const ageInfoEl = document.getElementById('ageInfo');
-        if (ageInfoEl) {
-            if (typeof d.age_1 === 'number' && typeof d.age_2 === 'number') {
-                const gapText = (typeof d.age_gap === 'number') ? ` (gap ${d.age_gap} {{ _('years')|escapejs }})` : '';
-                ageInfoEl.textContent = `{{ _('Ages')|escapejs }}: ${d.age_1} & ${d.age_2}${gapText}`;
-            } else {
-                ageInfoEl.textContent = '';
-            }
-        }
-
-        // Feature cards
-        document.getElementById('flameEmoji').textContent = d.flame_emoji || '🔥';
-        document.getElementById('flameValue').textContent = d.flame_result || '-';
-        const realCompat = (typeof d.real_zodiac_compatibility === 'number') ? d.real_zodiac_compatibility : null;
-        document.getElementById('zodiacValue').textContent = ((realCompat !== null ? realCompat : d.zodiac_compatibility) || 0) + '%';
-
-        const z1d = d.zodiac_1_display || {};
-        const z2d = d.zodiac_2_display || {};
-        const rz1d = d.real_zodiac_1_display || null;
-        const rz2d = d.real_zodiac_2_display || null;
-        const zodiacNamesEl = document.getElementById('zodiacNames');
-        if (zodiacNamesEl) {
-            if (rz1d && rz2d) {
-                zodiacNamesEl.textContent = `${rz1d.emoji || '⭐'} ${rz1d.name || ''} × ${rz2d.emoji || '⭐'} ${rz2d.name || ''}`;
-            } else {
-                zodiacNamesEl.textContent = `${z1d.emoji || '⭐'} ${z1d.name || ''} × ${z2d.emoji || '⭐'} ${z2d.name || ''}`;
-            }
-        }
-
-        document.getElementById('langTitle1').textContent = `👦 ${escHtml(d.name1)}`;
-        document.getElementById('langValue1').textContent = d.love_language_1 || '-';
-        document.getElementById('langTitle2').textContent = `👧 ${escHtml(d.name2)}`;
-        document.getElementById('langValue2').textContent = d.love_language_2 || '-';
-
-        // Advice
-        document.getElementById('adviceText').textContent = d.relationship_advice || '';
-        document.getElementById('adviceSection').classList.toggle('hidden', !d.relationship_advice);
-
-        // Sharing
-        lastShareText = d.share_text || d.share_summary || '';
-        lastShareSummary = d.share_summary || '';
-        const shareableUrl = buildShareUrl(d.name1, d.name2);
-        updateSharing(lastShareText, shareableUrl);
-
-        // Details section
-        const ds = document.getElementById('detailsSection');
-        if (d.calc_type === 'love_percentage') {
-            let base = `
-                <div class="feature-card-hover bg-blue-50 rounded-xl p-4 border border-blue-200 text-center">
-                    <span class="text-3xl">👦</span>
-                    <p class="text-xl font-extrabold text-blue-600 mt-2">${escHtml(d.name1)}</p>
-                    <p class="text-xs text-gray-500">{% trans "Name 1" %}</p>
-                </div>
-                <div class="feature-card-hover bg-pink-50 rounded-xl p-4 border border-pink-200 text-center flex items-center justify-center">
-                    <span class="text-4xl heartbeat">❤️</span>
-                </div>
-                <div class="feature-card-hover bg-pink-50 rounded-xl p-4 border border-pink-200 text-center">
-                    <span class="text-3xl">👧</span>
-                    <p class="text-xl font-extrabold text-pink-600 mt-2">${escHtml(d.name2)}</p>
-                    <p class="text-xs text-gray-500">{% trans "Name 2" %}</p>
-                </div>`;
-            if (typeof d.personality_match === 'number' && d.couple_color_info) {
-                base += `
-                <div class="feature-card-hover bg-white rounded-xl p-4 border ${escHtml(d.couple_color_info.tailwind_classes || '')} text-center col-span-1 md:col-span-2 lg:col-span-3">
-                    <p class="text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">{% trans "Personality Match" %}</p>
-                    <p class="text-2xl font-extrabold text-gray-900 mb-1">${d.personality_match}%</p>
-                    <p class="text-xs text-gray-600">{% trans "Couple color" %}: ${escHtml(d.couple_color_info.name || '')}</p>
-                </div>`;
-            }
-            ds.innerHTML = base;
-        } else if (d.calc_type === 'compatibility') {
-            ds.innerHTML = `
-                <div class="feature-card-hover bg-blue-50 rounded-xl p-4 border border-blue-200 text-center">
-                    <span class="text-2xl">🔤</span>
-                    <p class="text-2xl font-extrabold text-blue-600 mt-1">${fmtNum(d.common_score)}%</p>
-                    <p class="text-xs text-gray-500">{% trans "Common Letters" %}</p>
-                </div>
-                <div class="feature-card-hover bg-green-50 rounded-xl p-4 border border-green-200 text-center">
-                    <span class="text-2xl">📏</span>
-                    <p class="text-2xl font-extrabold text-green-600 mt-1">${fmtNum(d.length_score)}%</p>
-                    <p class="text-xs text-gray-500">{% trans "Length Similarity" %}</p>
-                </div>
-                <div class="feature-card-hover bg-amber-50 rounded-xl p-4 border border-amber-200 text-center">
-                    <span class="text-2xl">🔊</span>
-                    <p class="text-2xl font-extrabold text-amber-600 mt-1">${fmtNum(d.vowel_score)}%</p>
-                    <p class="text-xs text-gray-500">{% trans "Vowel Ratio" %}</p>
-                </div>`;
-        } else if (d.calc_type === 'name_analysis') {
-            const a = d.analysis;
-            ds.innerHTML = `
-                <div class="feature-card-hover bg-blue-50 rounded-xl p-4 border border-blue-200 text-center">
-                    <span class="text-2xl">📝</span>
-                    <p class="text-2xl font-extrabold text-blue-600 mt-1">${a.name1_length}</p>
-                    <p class="text-xs text-gray-500">{% trans "Name 1 Length" %}</p>
-                </div>
-                <div class="feature-card-hover bg-pink-50 rounded-xl p-4 border border-pink-200 text-center">
-                    <span class="text-2xl">📝</span>
-                    <p class="text-2xl font-extrabold text-pink-600 mt-1">${a.name2_length}</p>
-                    <p class="text-xs text-gray-500">{% trans "Name 2 Length" %}</p>
-                </div>
-                <div class="feature-card-hover bg-purple-50 rounded-xl p-4 border border-purple-200 text-center">
-                    <span class="text-2xl">🔊</span>
-                    <p class="text-2xl font-extrabold text-purple-600 mt-1">${a.vowel_count_name1 + a.vowel_count_name2}</p>
-                    <p class="text-xs text-gray-500">{% trans "Total Vowels" %}</p>
-                </div>`;
-        }
-
-        pushRecent(d.name1, d.name2, d.calc_type);
-        rs.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Chart
-        if (d.chart_data) {
-            const ce = document.getElementById('loveChart');
-            if (ce) {
-                if (loveChart) loveChart.destroy();
-                let cfg = d.chart_data.love_percentage_chart || d.chart_data.compatibility_chart;
-                if (cfg) {
-                    loveChart = new Chart(ce.getContext('2d'), cfg);
-                    document.getElementById('chartsSection').classList.remove('hidden');
-                } else {
-                    document.getElementById('chartsSection').classList.add('hidden');
-                }
-            }
-        } else {
-            document.getElementById('chartsSection').classList.add('hidden');
-        }
-
-        // Steps
-        const se = document.getElementById('stepByStep');
-        if (se && d.step_by_step?.length > 0) {
-            let sn = 0;
-            se.innerHTML = d.step_by_step.map(s => {
-                let txt, tp;
-                if (typeof s === 'object' && s !== null && 'text' in s) { txt = (s.text || '').trim(); tp = s.type || 'text'; }
-                else { txt = (typeof s === 'string' ? s : '').trim(); tp = null; }
-                if (!txt && tp !== 'blank') return '<div class="my-3"></div>';
-                if (tp === 'blank' || !txt) return '<div class="my-3"></div>';
-                const escaped = escHtml(txt);
-                if (tp === 'step') {
-                    sn++;
-                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-xl border-l-4 border-pink-500 shadow-sm">
-                        <div class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-full flex items-center justify-center font-bold text-sm shadow">${sn}</div>
-                        <div class="flex-1"><p class="text-gray-800 leading-relaxed font-medium">${escaped}</p></div>
-                    </div>`;
-                }
-                if (tp === 'formula') return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto shadow-inner"><code>${escaped}</code></div>`;
-                if (tp === 'result') return `<div class="mb-4 p-4 bg-gradient-to-r from-pink-100 to-rose-100 border-l-4 border-pink-500 rounded-xl shadow-sm">
-                    <div class="flex items-center gap-2 mb-1"><span class="text-lg">💕</span><span class="font-bold text-pink-800">{% trans "Result" %}</span></div>
-                    <p class="text-gray-800 font-semibold">${escaped}</p>
-                </div>`;
-                return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-100"><p class="text-gray-700 text-sm leading-relaxed">${escaped}</p></div>`;
-            }).join('');
-        }
-
-    } catch (err) {
-        console.error(err);
-        errEl.textContent = "{{ _('An error occurred. Please try again.')|escapejs }}";
-        errEl.classList.remove('hidden');
-    } finally {
-        btn.disabled = false;
-        document.getElementById('btnText').textContent = "{{ _('Calculate Love')|escapejs }}";
-        document.getElementById('btnIcon').textContent = '💕';
-    }
-}
-
-// ===== Init =====
 document.addEventListener('DOMContentLoaded', function() {
-    switchMode('love_percentage');
-    renderRecent();
+    const form = document.getElementById('calculatorForm');
+    const initialState = document.getElementById('initialState');
+    const loadingState = document.getElementById('loadingState');
 
-        document.getElementById('copyResultBtn').onclick = function() {
-        const url = lastShareUrl || window.location.href;
-        const t = (lastShareSummary || '') + '\n' + url;
-        navigator.clipboard.writeText(t).then(() => {
-            const sp = this.querySelector('span');
-            if (sp) { const o = sp.textContent; sp.textContent = "✅ {{ _('Copied!')|escapejs }}"; setTimeout(() => sp.textContent = o, 1500); }
+    // Toggle optional details
+    document.getElementById('toggleDetails').addEventListener('click', function() {
+        const d = document.getElementById('optionalDetails');
+        const t = document.getElementById('toggleText');
+        const i = document.getElementById('toggleIcon');
+        d.classList.toggle('hidden');
+        if (d.classList.contains('hidden')) { t.textContent = "{% trans '+ More Details (Optional)' %}"; i.style.transform = ''; }
+        else { t.textContent = "{% trans '− Hide Details' %}"; i.style.transform = 'rotate(180deg)'; }
+    });
+    const errorState = document.getElementById('errorState');
+    const results = document.getElementById('results');
+    const resultCard = document.getElementById('resultCard');
+    let lastData = null;
+
+    // Auto-calculate if shared URL
+    if (form.dataset.shared === '1') {
+        setTimeout(() => form.dispatchEvent(new Event('submit', {cancelable: true})), 500);
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (initialState) initialState.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+        if (errorState) errorState.classList.add('hidden');
+        if (loadingState) loadingState.classList.remove('hidden');
+        document.getElementById('shareSection').classList.add('hidden');
+
+        const gv = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+        const formData = { name1: gv('name1'), name2: gv('name2'), age1: gv('age1'), age2: gv('age2'), color1: gv('color1'), color2: gv('color2'), food1: gv('food1'), food2: gv('food2'), hobby1: gv('hobby1'), hobby2: gv('hobby2'), personality1: gv('personality1'), personality2: gv('personality2') };
+        const submitBtn = document.getElementById('calculateBtnText');
+        const origText = submitBtn.textContent;
+        submitBtn.textContent = "{% trans 'Calculating...' %}";
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                body: JSON.stringify(formData)
+            });
+            const data = await response.json();
+            loadingState.classList.add('hidden');
+            submitBtn.textContent = origText;
+            if (!data.success) { document.getElementById('errorMessage').textContent = data.error; errorState.classList.remove('hidden'); return; }
+            lastData = data;
+            displayResults(data);
+        } catch (err) {
+            loadingState.classList.add('hidden');
+            submitBtn.textContent = origText;
+            document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}";
+            errorState.classList.remove('hidden');
+        }
+    });
+
+    function displayResults(data) {
+        document.getElementById('loveValue').textContent = data.love_percentage + '%';
+        document.getElementById('resultName1').textContent = data.name1;
+        document.getElementById('resultName2').textContent = data.name2;
+        document.getElementById('categoryTextBadge').textContent = data.category;
+        const cb = document.getElementById('categoryBadge');
+        if (cb && data.color_info) cb.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
+
+        const gradients = { red:'from-red-600 to-red-700', yellow:'from-yellow-500 to-yellow-600', blue:'from-blue-600 to-blue-700', purple:'from-purple-600 to-purple-700', pink:'from-pink-600 to-purple-700' };
+        resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (gradients[data.category_color] || 'from-pink-600 to-purple-700');
+
+        // Stats cards
+        document.getElementById('flamesEmoji').textContent = data.flames.emoji;
+        document.getElementById('flamesLabel').textContent = data.flames.label;
+        document.getElementById('zodiacScore').textContent = data.zodiac.score + '%';
+        document.getElementById('zodiacSigns').textContent = data.zodiac.sign1 + ' & ' + data.zodiac.sign2;
+        document.getElementById('numerologyScore').textContent = data.numerology.score + '%';
+        document.getElementById('numerologyNumbers').textContent = data.numerology.number1 + ' & ' + data.numerology.number2;
+        document.getElementById('loveLangScore').textContent = data.love_languages.match_score + '%';
+        document.getElementById('loveLangMatch').textContent = data.love_languages.language1.split(' ')[0];
+
+        // Scale
+        document.getElementById('loveIndicator').style.left = data.scale_position + '%';
+        document.getElementById('categoryDescription').textContent = data.description;
+
+        // FLAMES detail card
+        const fc = document.getElementById('flamesDetailCard');
+        fc.style.backgroundColor = data.flames.color + '15';
+        fc.style.borderColor = data.flames.color;
+        document.getElementById('flamesDetailEmoji').textContent = data.flames.emoji;
+        document.getElementById('flamesDetailLabel').textContent = data.flames.label;
+        document.getElementById('flamesDetailLabel').style.color = data.flames.color;
+        document.getElementById('flamesDetailDesc').textContent = data.flames.description;
+
+        // Zodiac & Love Language details
+        document.getElementById('zodiacDetail').textContent = data.name1 + ': ' + data.zodiac.sign1 + ' (' + data.zodiac.element1 + ') • ' + data.name2 + ': ' + data.zodiac.sign2 + ' (' + data.zodiac.element2 + ')';
+        document.getElementById('zodiacElementDesc').textContent = data.zodiac.element_description;
+        document.getElementById('loveLangDetail').textContent = data.name1 + ': ' + data.love_languages.language1 + ' • ' + data.name2 + ': ' + data.love_languages.language2;
+        document.getElementById('loveLangDesc').textContent = data.love_languages.match_description;
+        document.getElementById('numerologyDetail').textContent = data.name1 + ': Life Path ' + data.numerology.number1 + ' • ' + data.name2 + ': Life Path ' + data.numerology.number2 + ' • Combined: ' + data.numerology.combined;
+        document.getElementById('numerologyDesc').textContent = data.numerology.description;
+
+        // Charts
+        if (data.chart_data && checkChartJS()) {
+            if (data.chart_data.gauge_chart) createGaugeChart(data.chart_data.gauge_chart);
+            if (data.chart_data.radar_chart) createRadarChart(data.chart_data.radar_chart);
+            if (data.chart_data.flames_chart) createFlamesChart(data.chart_data.flames_chart);
+        }
+
+        // === NEW OPTIONAL RESULTS ===
+        function showOptCard(id, d, fn) { const el = document.getElementById(id); if (d) { fn(d); el.classList.remove('hidden'); } else { el.classList.add('hidden'); } }
+        showOptCard('ageCompatCard', data.age_compatibility, d => {
+            document.getElementById('ageVal1').textContent = d.age1; document.getElementById('ageVal2').textContent = d.age2;
+            document.getElementById('ageScoreText').textContent = d.score + '%'; document.getElementById('ageScoreBar').style.width = d.score + '%';
+            document.getElementById('ageDesc').textContent = d.description;
         });
-    };
-
-    document.getElementById('tryAgainBtn').onclick = function() {
-        document.getElementById('resultsSection').classList.add('hidden');
-        document.getElementById('initialState').classList.remove('hidden');
-        document.getElementById('loveCalculatorForm').scrollIntoView({ behavior: 'smooth' });
-    };
-
-    document.getElementById('printResultBtn').onclick = () => window.print();
-
-        document.getElementById('shareCopy').onclick = function() {
-        const url = lastShareUrl || window.location.href;
-        const t = lastShareText + '\n' + url;
-        navigator.clipboard.writeText(t).then(() => {
-            this.innerHTML = "✅ {{ _('Link Copied!')|escapejs }}";
-            setTimeout(() => this.innerHTML = "📋 {{ _('Copy Link')|escapejs }}", 2000);
+        showOptCard('colorChemCard', data.color_chemistry, d => {
+            document.getElementById('colorEmoji1').textContent = d.color1.emoji; document.getElementById('colorName1').textContent = d.color1.name;
+            document.getElementById('colorMeaning1').textContent = d.color1.meaning; document.getElementById('colorBox1').style.backgroundColor = d.color1.hex + '20';
+            document.getElementById('colorEmoji2').textContent = d.color2.emoji; document.getElementById('colorName2').textContent = d.color2.name;
+            document.getElementById('colorMeaning2').textContent = d.color2.meaning; document.getElementById('colorBox2').style.backgroundColor = d.color2.hex + '20';
+            document.getElementById('colorScoreText').textContent = d.score + '%'; document.getElementById('colorScoreBar').style.width = d.score + '%'; document.getElementById('colorDesc').textContent = d.description;
         });
-    };
+        showOptCard('foodPairCard', data.food_pairing, d => {
+            document.getElementById('foodEmoji1').textContent = d.food1.emoji; document.getElementById('foodName1').textContent = d.food1.name; document.getElementById('foodType1').textContent = d.food1.type;
+            document.getElementById('foodEmoji2').textContent = d.food2.emoji; document.getElementById('foodName2').textContent = d.food2.name; document.getElementById('foodType2').textContent = d.food2.type;
+            document.getElementById('foodScoreText').textContent = d.score + '%'; document.getElementById('foodScoreBar').style.width = d.score + '%'; document.getElementById('foodDesc').textContent = d.description;
+        });
+        showOptCard('hobbyMatchCard', data.hobby_match, d => {
+            document.getElementById('hobbyEmoji1').textContent = d.hobby1.emoji; document.getElementById('hobbyName1').textContent = d.hobby1.name; document.getElementById('hobbyType1').textContent = d.hobby1.type;
+            document.getElementById('hobbyEmoji2').textContent = d.hobby2.emoji; document.getElementById('hobbyName2').textContent = d.hobby2.name; document.getElementById('hobbyType2').textContent = d.hobby2.type;
+            document.getElementById('hobbyScoreText').textContent = d.score + '%'; document.getElementById('hobbyScoreBar').style.width = d.score + '%'; document.getElementById('hobbyDesc').textContent = d.description;
+        });
+        showOptCard('personalityCard', data.personality_match, d => {
+            document.getElementById('persEmoji1').textContent = d.personality1.emoji; document.getElementById('persType1').textContent = d.personality1.type; document.getElementById('persDesc1').textContent = d.personality1.desc;
+            document.getElementById('persEmoji2').textContent = d.personality2.emoji; document.getElementById('persType2').textContent = d.personality2.type; document.getElementById('persDesc2').textContent = d.personality2.desc;
+            document.getElementById('persScoreText').textContent = d.score + '%'; document.getElementById('persScoreBar').style.width = d.score + '%'; document.getElementById('persMatchDesc').textContent = d.description;
+        });
+        // Tips
+        const tipsList = document.getElementById('tipsList'); tipsList.innerHTML = '';
+        if (data.relationship_tips) data.relationship_tips.forEach(t => { const li = document.createElement('li'); li.className = 'flex items-start gap-2'; li.innerHTML = '<span class="text-pink-500 mt-0.5">💡</span><span>' + t + '</span>'; tipsList.appendChild(li); });
+        // Date Ideas
+        const dateList = document.getElementById('dateIdeasList'); dateList.innerHTML = '';
+        if (data.ideal_date) data.ideal_date.forEach(d => { const li = document.createElement('li'); li.className = 'flex items-start gap-2'; li.innerHTML = '<span>' + d + '</span>'; dateList.appendChild(li); });
 
-    // Auto-calculate on shared link
-    if (IS_SHARED_LINK && SHARED_NAME1 && SHARED_NAME2) {
-        document.getElementById('name1').value = SHARED_NAME1;
-        document.getElementById('name2').value = SHARED_NAME2;
-        // Brief delay so page renders first, then auto-calculate
-        setTimeout(() => {
-            const fakeEvent = { preventDefault: function(){} };
-            calculateLove(fakeEvent);
-        }, 600);
+        // === PREMIUM FEATURES ===
+        // Love Story
+        if (data.love_story) {
+            document.getElementById('storyTitle').textContent = data.love_story.title;
+            document.getElementById('storyContent').textContent = data.love_story.story;
+        }
+        // Couple Nicknames
+        if (data.couple_nickname) {
+            const nl = document.getElementById('nicknameList'); nl.innerHTML = '';
+            data.couple_nickname.forEach(nn => { const s = document.createElement('span'); s.className = 'inline-block px-4 py-2 bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 font-bold rounded-full text-sm border border-pink-200 shadow-sm hover:scale-105 transition-transform cursor-default'; s.textContent = nn; nl.appendChild(s); });
+        }
+        // Celebrity Match
+        if (data.celebrity_match) {
+            document.getElementById('celebEmoji').textContent = data.celebrity_match.emoji;
+            document.getElementById('celebCouple').textContent = data.celebrity_match.couple;
+            document.getElementById('celebDesc').textContent = data.celebrity_match.description;
+            document.getElementById('celebSimilarity').textContent = data.celebrity_match.similarity + '% match similarity';
+        }
+        // Emotional Weather
+        if (data.emotional_weather) {
+            const w = data.emotional_weather;
+            document.getElementById('weatherIcon').textContent = w.icon;
+            document.getElementById('weatherTemp').textContent = w.temp;
+            document.getElementById('weatherTemp').style.color = w.color;
+            document.getElementById('weatherCondition').textContent = w.condition;
+            document.getElementById('weatherCondition').style.color = w.color;
+            document.getElementById('weatherForecast').textContent = w.forecast;
+            document.getElementById('weatherAdvice').textContent = w.advice;
+            document.getElementById('weatherCard').style.backgroundColor = w.color + '10';
+            document.getElementById('weatherCard').style.borderColor = w.color;
+        }
+        // Relationship Timeline
+        if (data.relationship_timeline && data.relationship_timeline.length) {
+            const tl = document.getElementById('timelineList'); tl.innerHTML = '';
+            data.relationship_timeline.forEach((m, i) => {
+                const div = document.createElement('div');
+                div.className = 'relative';
+                div.style.animationDelay = (i * 0.1) + 's';
+                div.innerHTML = '<div class="absolute -left-[25px] w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow"></div>' +
+                    '<div class="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow">' +
+                    '<div class="flex items-center justify-between mb-1"><span class="font-bold text-sm text-gray-900">' + m.icon + ' ' + m.title + '</span><span class="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-medium">' + m.time + '</span></div>' +
+                    '<p class="text-xs text-gray-600">' + m.desc + '</p></div>';
+                tl.appendChild(div);
+            });
+        }
+        // Love Recipe
+        if (data.love_recipe) {
+            document.getElementById('recipeName').textContent = data.love_recipe.dish_name;
+            const ri = document.getElementById('recipeIngredients'); ri.innerHTML = '';
+            data.love_recipe.ingredients.forEach(ing => { const li = document.createElement('li'); li.textContent = ing; ri.appendChild(li); });
+            const rs = document.getElementById('recipeInstructions'); rs.innerHTML = '';
+            data.love_recipe.instructions.forEach(ins => { const li = document.createElement('li'); li.textContent = ins; rs.appendChild(li); });
+            document.getElementById('recipeServing').textContent = data.love_recipe.serving;
+        }
+
+        // Share — include detailed data for rich social sharing
+        const baseUrl = window.location.origin + data.share_url;
+        const shareText = `💕 ${data.name1} & ${data.name2}: ${data.love_percentage}% Love Compatibility!\n${data.flames.emoji} FLAMES: ${data.flames.label}\n⭐ Category: ${data.category}\n${data.description}\n\nTest your love compatibility too! 👇`;
+        const shortShareText = `${data.name1} & ${data.name2}: ${data.love_percentage}% Love! ${data.flames.emoji} ${data.category} 💕`;
+        document.getElementById('shareWhatsApp').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(shareText + '\n' + baseUrl));
+        document.getElementById('shareTwitter').onclick = () => window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shortShareText) + '&url=' + encodeURIComponent(baseUrl));
+        document.getElementById('shareCopy').onclick = () => { navigator.clipboard.writeText(shareText + '\n' + baseUrl); document.getElementById('shareCopy').innerHTML = '<i class="fas fa-check mr-1"></i>Copied!'; setTimeout(() => document.getElementById('shareCopy').innerHTML = '<i class="fas fa-link mr-1"></i>Copy', 2000); };
+        document.getElementById('shareSection').classList.remove('hidden');
+
+        results.classList.remove('hidden');
+        setTimeout(() => results.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    }
+
+    function createGaugeChart(cd) {
+        const ctx = document.getElementById('loveGaugeChart');
+        if (!ctx || !cd.center_text) return;
+        if (loveGaugeChart) loveGaugeChart.destroy();
+        const ct = cd.center_text;
+        loveGaugeChart = new Chart(ctx, { type: cd.type, data: cd.data, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { animateRotate: true, duration: 1500 } },
+            plugins: [{ id: 'centerText', afterDraw(chart) { const c = chart.ctx, cx = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2, cy = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2; c.save(); c.font = 'bold 36px Inter, Arial'; c.fillStyle = ct.color; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(ct.value + '%', cx, cy - 10); c.font = '14px Inter, Arial'; c.fillStyle = '#6b7280'; c.fillText(ct.label, cx, cy + 20); c.restore(); } }]
+        });
+    }
+
+    function createRadarChart(cd) {
+        const ctx = document.getElementById('compatibilityRadarChart');
+        if (!ctx) return;
+        if (compatibilityRadarChart) compatibilityRadarChart.destroy();
+        compatibilityRadarChart = new Chart(ctx, { type: cd.type, data: cd.data, options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, pointLabels: { font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } }, animation: { duration: 1500 } } });
+    }
+
+    function createFlamesChart(cd) {
+        const ctx = document.getElementById('flamesChart');
+        if (!ctx) return;
+        if (flamesChartInstance) flamesChartInstance.destroy();
+        flamesChartInstance = new Chart(ctx, { type: cd.type, data: cd.data, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100, grid: { color: '#f3f4f6' } }, y: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' } } } }, animation: { duration: 1500 } } });
     }
 });
 </script>
