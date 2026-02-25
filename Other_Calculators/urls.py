@@ -82,6 +82,7 @@ urlpatterns = [
     path('time-card-calculator/', TimeCardCalculator.as_view(), name='time_card_calculator'),
     path('time-zone-calculator/', TimeZoneCalculator.as_view(), name='time_zone_calculator'),
     path('love-calculator/', LoveCalculator.as_view(), name='love_calculator'),
+    path('love-calculator/<str:name1>/<str:name2>/', LoveCalculator.as_view(), name='love_calculator_shared'),
     path('gdp-calculator/', GdpCalculator.as_view(), name='gdp_calculator'),
     path('gas-mileage-calculator/', GasMileageCalculator.as_view(), name='gas_mileage_calculator'),
     path('horsepower-calculator/', HorsepowerCalculator.as_view(), name='horsepower_calculator'),
