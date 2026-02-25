@@ -1077,9 +1077,38 @@ async function calculateLove(e) {
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf.value },
             body: JSON.stringify(req)
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = await res.json();
-        if (!d.success) { errEl.textContent = d.error || "{{ _('An error occurred.')|escapejs }}"; errEl.classList.remove('hidden'); return; }
+
+        let d = null;
+        try {
+            d = await res.json();
+        } catch (parseErr) {
+            // If response is not JSON (e.g. HTML error page), leave d as null
+        }
+
+        if (!res.ok) {
+            let msg = (d && d.error) ? d.error : '';
+            if (!msg) {
+                if (res.status === 403) {
+                    msg = "{{ _('Security error. Please refresh the page and try again.')|escapejs }}";
+                } else if (res.status === 400) {
+                    msg = "{{ _('Invalid data sent. Please check the names and try again.')|escapejs }}";
+                } else if (res.status >= 500) {
+                    msg = "{{ _('Server error. Please try again in a moment.')|escapejs }}";
+                } else {
+                    msg = "{{ _('An error occurred.')|escapejs }}";
+                }
+            }
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        if (!d || !d.success) {
+            const msg = d && d.error ? d.error : "{{ _('An error occurred.')|escapejs }}";
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+            return;
+        }
 
         // Show results
         document.getElementById('initialState').classList.add('hidden');
