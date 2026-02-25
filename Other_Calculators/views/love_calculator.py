@@ -4,9 +4,11 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
+from datetime import date
 import json
 import math
 import random
+import string
 import numpy as np
 from sympy import symbols, Eq, simplify, latex
 
@@ -37,6 +39,15 @@ class LoveCalculator(View):
         'good': (60, 74, _('Good Match!')),
         'fair': (40, 59, _('Fair Match')),
         'poor': (0, 39, _('Needs Work')),
+    }
+
+    # Category → simple color key (used for UI, similar idea to BMI colors)
+    CATEGORY_COLORS = {
+        'excellent': 'pink',
+        'very_good': 'rose',
+        'good': 'orange',
+        'fair': 'yellow',
+        'poor': 'gray',
     }
 
     # Romantic tips by category
@@ -124,6 +135,11 @@ class LoveCalculator(View):
         ],
     }
 
+    # Personality options (for optional user inputs)
+    PERSONALITY_ENERGY_LEVELS = ['introvert', 'ambivert', 'extrovert']
+    PERSONALITY_STYLES = ['romantic', 'playful', 'practical']
+    FAVORITE_COLORS = ['red', 'pink', 'purple', 'blue', 'green', 'gold']
+
     # ---------- Helper methods ----------
 
     def _get_romantic_tip(self, category_key):
@@ -160,6 +176,59 @@ class LoveCalculator(View):
         name_sum = sum(ord(c) - 96 for c in n if c.isalpha())
         idx = name_sum % 12
         return self.ZODIAC_SIGNS[idx]
+
+    def _parse_birthdate(self, dob_str):
+        """Parse birthdate string (YYYY-MM-DD). Return date or None if invalid."""
+        if not dob_str:
+            return None
+        try:
+            parts = [int(p) for p in dob_str.split('-')]
+            if len(parts) != 3:
+                return None
+            year, month, day = parts
+            return date(year, month, day)
+        except Exception:
+            return None
+
+    def _calculate_age(self, birthdate, today=None):
+        """Calculate age in years from a birthdate."""
+        if not birthdate:
+            return None
+        if today is None:
+            today = date.today()
+        years = today.year - birthdate.year
+        if (today.month, today.day) < (birthdate.month, birthdate.day):
+            years -= 1
+        return max(years, 0)
+
+    def _get_zodiac_from_date(self, birthdate):
+        """Real zodiac sign from birthdate (Western astrology)."""
+        if not birthdate:
+            return None
+        m, d = birthdate.month, birthdate.day
+        # (month, day, sign)
+        zodiac_ranges = [
+            ((3, 21), (4, 19), 'aries'),
+            ((4, 20), (5, 20), 'taurus'),
+            ((5, 21), (6, 20), 'gemini'),
+            ((6, 21), (7, 22), 'cancer'),
+            ((7, 23), (8, 22), 'leo'),
+            ((8, 23), (9, 22), 'virgo'),
+            ((9, 23), (10, 22), 'libra'),
+            ((10, 23), (11, 21), 'scorpio'),
+            ((11, 22), (12, 21), 'sagittarius'),
+            ((12, 22), (1, 19), 'capricorn'),
+            ((1, 20), (2, 18), 'aquarius'),
+            ((2, 19), (3, 20), 'pisces'),
+        ]
+
+        for (start_m, start_d), (end_m, end_d), sign in zodiac_ranges:
+            if (m, d) >= (start_m, start_d) and (m, d) <= (end_m, end_d):
+                return sign
+            # Capricorn wrap-around (Dec 22–Jan 19)
+            if start_m == 12 and ((m, d) >= (12, 22) or (m, d) <= (1, 19)):
+                return 'capricorn'
+        return None
 
     def _get_zodiac_display(self, sign):
         """Get display emoji and name for a zodiac sign."""
@@ -207,11 +276,12 @@ class LoveCalculator(View):
         }
         return mapping.get(flame, '🔥')
 
-    def _build_emotional_features(self, name1, name2, category_key):
+    def _build_emotional_features(self, name1, name2, category_key, dob1=None, dob2=None):
         """Build all emotional feature data for responses."""
         distance = self._calculate_distance_meter(name1, name2)
         lang1 = self._get_love_language(name1)
         lang2 = self._get_love_language(name2)
+        # Fun name-based zodiac (always available)
         zodiac1 = self._get_zodiac_from_name(name1)
         zodiac2 = self._get_zodiac_from_name(name2)
         zodiac1_display = self._get_zodiac_display(zodiac1)
@@ -220,6 +290,23 @@ class LoveCalculator(View):
         flame_result = self._calculate_flame(name1, name2)
         flame_emoji = self._get_flame_emoji(flame_result)
         advice = self._get_relationship_advice(category_key)
+
+        # Optional real DOB-based zodiac and ages
+        birthdate1 = self._parse_birthdate(dob1) if dob1 else None
+        birthdate2 = self._parse_birthdate(dob2) if dob2 else None
+        age1 = self._calculate_age(birthdate1) if birthdate1 else None
+        age2 = self._calculate_age(birthdate2) if birthdate2 else None
+        age_gap = None
+        if age1 is not None and age2 is not None:
+            age_gap = abs(age1 - age2)
+
+        real_zodiac1 = self._get_zodiac_from_date(birthdate1) if birthdate1 else None
+        real_zodiac2 = self._get_zodiac_from_date(birthdate2) if birthdate2 else None
+        real_zodiac1_display = self._get_zodiac_display(real_zodiac1) if real_zodiac1 else None
+        real_zodiac2_display = self._get_zodiac_display(real_zodiac2) if real_zodiac2 else None
+        real_zodiac_compat = None
+        if real_zodiac1 and real_zodiac2:
+            real_zodiac_compat = self._get_zodiac_compatibility(real_zodiac1, real_zodiac2)
 
         return {
             'distance_meter': distance,
@@ -233,11 +320,138 @@ class LoveCalculator(View):
             'flame_result': flame_result,
             'flame_emoji': flame_emoji,
             'relationship_advice': advice,
+            'age_1': age1,
+            'age_2': age2,
+            'age_gap': age_gap,
+            'real_zodiac_1': real_zodiac1,
+            'real_zodiac_1_display': real_zodiac1_display,
+            'real_zodiac_2': real_zodiac2,
+            'real_zodiac_2_display': real_zodiac2_display,
+            'real_zodiac_compatibility': real_zodiac_compat,
         }
 
     def _format_unit(self, unit):
         """Format unit name for display"""
         return unit
+
+    # ---------- Personality & "couple color" helpers ----------
+
+    def _calculate_personality_match(self, energy1, energy2, style1, style2, color1, color2):
+        """
+        Calculate a simple personality/likes match score (0-100).
+        All inputs are optional strings; unknown/missing values reduce weight.
+        """
+        score = 0.0
+        weight_total = 0.0
+
+        # Energy match (introvert / ambivert / extrovert)
+        if energy1 in self.PERSONALITY_ENERGY_LEVELS and energy2 in self.PERSONALITY_ENERGY_LEVELS:
+            weight_total += 40.0
+            if energy1 == energy2:
+                score += 40.0
+            else:
+                # Adjacent energies get medium score
+                idx1 = self.PERSONALITY_ENERGY_LEVELS.index(energy1)
+                idx2 = self.PERSONALITY_ENERGY_LEVELS.index(energy2)
+                if abs(idx1 - idx2) == 1:
+                    score += 28.0
+                else:
+                    score += 16.0
+
+        # Style match (romantic / playful / practical)
+        if style1 in self.PERSONALITY_STYLES and style2 in self.PERSONALITY_STYLES:
+            weight_total += 40.0
+            if style1 == style2:
+                score += 40.0
+            else:
+                # Different styles still get some credit
+                score += 24.0
+
+        # Favorite color "vibe" match
+        if color1 in self.FAVORITE_COLORS and color2 in self.FAVORITE_COLORS:
+            weight_total += 20.0
+            if color1 == color2:
+                score += 20.0
+            else:
+                # Warm vs cool color grouping
+                warm = {'red', 'pink', 'gold'}
+                cool = {'blue', 'green', 'purple'}
+                if (color1 in warm and color2 in warm) or (color1 in cool and color2 in cool):
+                    score += 14.0
+                else:
+                    score += 8.0
+
+        if weight_total == 0:
+            return None
+
+        normalized = max(0.0, min(100.0, (score / weight_total) * 100.0))
+        return int(round(normalized))
+
+    def _get_couple_color(self, color1, color2):
+        """
+        Derive a simple "couple color" key from two favorite colors.
+        Used for a fun combined vibe; falls back gracefully.
+        """
+        if color1 in self.FAVORITE_COLORS and color2 in self.FAVORITE_COLORS:
+            if color1 == color2:
+                return color1
+
+            pair = {color1, color2}
+            # Simple palette mapping
+            if 'red' in pair and 'pink' in pair:
+                return 'red'
+            if 'pink' in pair and 'purple' in pair:
+                return 'purple'
+            if 'blue' in pair and 'green' in pair:
+                return 'green'
+            if 'red' in pair and 'gold' in pair:
+                return 'gold'
+            if 'purple' in pair and 'blue' in pair:
+                return 'purple'
+            if 'green' in pair and 'gold' in pair:
+                return 'green'
+
+            # Default mixed vibe
+            return 'purple'
+
+        # If only one color is valid, use it
+        if color1 in self.FAVORITE_COLORS:
+            return color1
+        if color2 in self.FAVORITE_COLORS:
+            return color2
+        return None
+
+    def _get_couple_color_info(self, couple_color_key):
+        """Map couple color key to display name and tailwind classes."""
+        if not couple_color_key:
+            return None
+        mapping = {
+            'red': {
+                'name': _('Passionate Red'),
+                'tailwind_classes': 'bg-red-100 text-red-800 border-red-300',
+            },
+            'pink': {
+                'name': _('Romantic Pink'),
+                'tailwind_classes': 'bg-pink-100 text-pink-800 border-pink-300',
+            },
+            'purple': {
+                'name': _('Dreamy Purple'),
+                'tailwind_classes': 'bg-purple-100 text-purple-800 border-purple-300',
+            },
+            'blue': {
+                'name': _('Calm Blue'),
+                'tailwind_classes': 'bg-blue-100 text-blue-800 border-blue-300',
+            },
+            'green': {
+                'name': _('Balanced Green'),
+                'tailwind_classes': 'bg-green-100 text-green-800 border-green-300',
+            },
+            'gold': {
+                'name': _('Golden Glow'),
+                'tailwind_classes': 'bg-amber-100 text-amber-800 border-amber-300',
+            },
+        }
+        return mapping.get(couple_color_key)
 
     # ---------- Views ----------
 
@@ -366,6 +580,14 @@ class LoveCalculator(View):
 
             name1 = data.get('name1', '').strip()
             name2 = data.get('name2', '').strip()
+            dob1 = data.get('dob1')
+            dob2 = data.get('dob2')
+            energy1 = data.get('energy1')
+            energy2 = data.get('energy2')
+            style1 = data.get('style1')
+            style2 = data.get('style2')
+            color1 = data.get('color1')
+            color2 = data.get('color2')
 
             if not name1 or not name2:
                 return JsonResponse({
@@ -419,36 +641,64 @@ class LoveCalculator(View):
                 100.0
             ))
 
-            # Combine methods for final percentage (algorithm choice)
+            # Legacy LOVE-based percentage (kept for transparency in steps)
             algorithm = data.get('algorithm', 'classic')
             if algorithm == 'balanced':
-                final_percentage = float(np.add(
+                legacy_base = float(np.add(
                     np.multiply(letter_percentage, 0.5),
                     np.multiply(common_percentage, 0.5)
                 ))
             else:
-                final_percentage = float(np.add(
+                legacy_base = float(np.add(
                     np.multiply(letter_percentage, 0.4),
                     np.multiply(common_percentage, 0.6)
                 ))
 
-            # Length similarity factor
             length_factor = float(np.multiply(
                 np.divide(min(len(name1_lower), len(name2_lower)), max(len(name1_lower), len(name2_lower))),
                 10.0
             )) if max(len(name1_lower), len(name2_lower)) > 0 else 0
 
-            final_percentage = float(np.add(final_percentage, length_factor))
-            final_percentage = max(0, min(100, final_percentage))
-            love_percentage = int(round(final_percentage))
+            legacy_final = float(np.add(legacy_base, length_factor))
+            legacy_final = max(0, min(100, legacy_final))
+
+            # Advanced NumPy-based similarity components
+            advanced_components = self._advanced_love_components(name1, name2)
+            advanced_score = advanced_components['advanced_score']
+
+            # Blend legacy and advanced scores so we preserve classic feel
+            blended_final = float((legacy_final + advanced_score) / 2.0)
+            blended_final = max(0.0, min(100.0, blended_final))
+            love_percentage = int(round(blended_final))
 
             # Get category
             category = self._get_love_category(love_percentage)
+            color_info = self._get_color_info(category['name'])
 
             # Build emotional features
-            emotional = self._build_emotional_features(name1, name2, category['name'])
+            emotional = self._build_emotional_features(name1, name2, category['name'], dob1=dob1, dob2=dob2)
 
-            steps = self._prepare_love_percentage_steps(name1, name2, combined, l_count, o_count, v_count, e_count, love_score, letter_percentage, common_letters, common_percentage, final_percentage, love_percentage)
+            # Personality / likes match & couple color
+            personality_match = self._calculate_personality_match(energy1, energy2, style1, style2, color1, color2)
+            couple_color_key = self._get_couple_color(color1, color2)
+            couple_color_info = self._get_couple_color_info(couple_color_key)
+
+            steps = self._prepare_love_percentage_steps(
+                name1,
+                name2,
+                combined,
+                l_count,
+                o_count,
+                v_count,
+                e_count,
+                love_score,
+                letter_percentage,
+                common_letters,
+                common_percentage,
+                legacy_final,
+                love_percentage,
+                advanced_components=advanced_components,
+            )
             chart_data = self._prepare_love_percentage_chart_data(love_percentage, category)
             romantic_tip = self._get_romantic_tip(category['name'])
 
@@ -463,10 +713,16 @@ class LoveCalculator(View):
                 'love_percentage': love_percentage,
                 'category': category['name'],
                 'message': category['message'],
+                'category_color': category.get('color'),
+                'color_info': color_info,
+                'personality_match': personality_match,
+                'couple_color': couple_color_key,
+                'couple_color_info': couple_color_info,
                 'romantic_tip': romantic_tip,
                 'share_summary': share_summary,
                 'share_text': share_text,
                 'step_by_step': steps,
+                'advanced_components': advanced_components,
                 'chart_data': chart_data,
             }
             response_data.update(emotional)
@@ -495,6 +751,14 @@ class LoveCalculator(View):
 
             name1 = data.get('name1', '').strip()
             name2 = data.get('name2', '').strip()
+            dob1 = data.get('dob1')
+            dob2 = data.get('dob2')
+            energy1 = data.get('energy1')
+            energy2 = data.get('energy2')
+            style1 = data.get('style1')
+            style2 = data.get('style2')
+            color1 = data.get('color1')
+            color2 = data.get('color2')
 
             if not name1 or not name2:
                 return JsonResponse({
@@ -549,9 +813,15 @@ class LoveCalculator(View):
             compatibility = int(round(compatibility))
 
             category = self._get_love_category(compatibility)
+            color_info = self._get_color_info(category['name'])
 
             # Build emotional features
-            emotional = self._build_emotional_features(name1, name2, category['name'])
+            emotional = self._build_emotional_features(name1, name2, category['name'], dob1=dob1, dob2=dob2)
+
+            # Personality / likes match & couple color
+            personality_match = self._calculate_personality_match(energy1, energy2, style1, style2, color1, color2)
+            couple_color_key = self._get_couple_color(color1, color2)
+            couple_color_info = self._get_couple_color_info(couple_color_key)
 
             steps = self._prepare_compatibility_steps(name1, name2, common_letters, common_score, length_score, vowel_score, compatibility)
             chart_data = self._prepare_compatibility_chart_data(compatibility, common_score, length_score, vowel_score)
@@ -571,6 +841,11 @@ class LoveCalculator(View):
                 'vowel_score': round(vowel_score, 1),
                 'category': category['name'],
                 'message': category['message'],
+                'category_color': category.get('color'),
+                'color_info': color_info,
+                'personality_match': personality_match,
+                'couple_color': couple_color_key,
+                'couple_color_info': couple_color_info,
                 'romantic_tip': romantic_tip,
                 'share_summary': share_summary,
                 'share_text': share_text,
@@ -603,6 +878,14 @@ class LoveCalculator(View):
 
             name1 = data.get('name1', '').strip()
             name2 = data.get('name2', '').strip()
+            dob1 = data.get('dob1')
+            dob2 = data.get('dob2')
+            energy1 = data.get('energy1')
+            energy2 = data.get('energy2')
+            style1 = data.get('style1')
+            style2 = data.get('style2')
+            color1 = data.get('color1')
+            color2 = data.get('color2')
 
             if not name1 or not name2:
                 return JsonResponse({
@@ -635,7 +918,12 @@ class LoveCalculator(View):
             analysis['unique_letters_name2'] = sorted(list(set2 - set1))
 
             # Build emotional features
-            emotional = self._build_emotional_features(name1, name2, 'good')
+            emotional = self._build_emotional_features(name1, name2, 'good', dob1=dob1, dob2=dob2)
+
+            # Personality / likes match & couple color (uses "good" baseline)
+            personality_match = self._calculate_personality_match(energy1, energy2, style1, style2, color1, color2)
+            couple_color_key = self._get_couple_color(color1, color2)
+            couple_color_info = self._get_couple_color_info(couple_color_key)
 
             steps = self._prepare_name_analysis_steps(name1, name2, analysis)
 
@@ -652,6 +940,11 @@ class LoveCalculator(View):
                 'share_text': share_text,
                 'step_by_step': steps,
             }
+            response_data.update({
+                'personality_match': personality_match,
+                'couple_color': couple_color_key,
+                'couple_color_info': couple_color_info,
+            })
             response_data.update(emotional)
             return JsonResponse(response_data)
 
@@ -667,8 +960,142 @@ class LoveCalculator(View):
         """Get love category based on percentage"""
         for key, (min_val, max_val, message) in sorted(self.LOVE_CATEGORIES.items(), key=lambda x: x[1][0], reverse=True):
             if percentage >= min_val:
-                return {'name': key, 'message': message}
-        return {'name': 'poor', 'message': _('Needs Work')}
+                return {
+                    'name': key,
+                    'message': message,
+                    'color': self.CATEGORY_COLORS.get(key, 'pink'),
+                }
+        return {
+            'name': 'poor',
+            'message': _('Needs Work'),
+            'color': self.CATEGORY_COLORS.get('poor', 'gray'),
+        }
+
+    def _get_color_info(self, category_key):
+        """
+        Map a love category key to concrete color information for the frontend,
+        similar in spirit to BMI's backend-controlled color mapping.
+        """
+        color_key = self.CATEGORY_COLORS.get(category_key, 'pink')
+        color_map = {
+            'pink': {
+                'hex': '#ec4899',
+                'rgb': 'rgb(236, 72, 153)',
+                'tailwind_classes': 'bg-pink-100 text-pink-800 border-pink-300',
+            },
+            'rose': {
+                'hex': '#f43f5e',
+                'rgb': 'rgb(244, 63, 94)',
+                'tailwind_classes': 'bg-rose-100 text-rose-800 border-rose-300',
+            },
+            'orange': {
+                'hex': '#f97316',
+                'rgb': 'rgb(249, 115, 22)',
+                'tailwind_classes': 'bg-orange-100 text-orange-800 border-orange-300',
+            },
+            'yellow': {
+                'hex': '#facc15',
+                'rgb': 'rgb(250, 204, 21)',
+                'tailwind_classes': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            },
+            'gray': {
+                'hex': '#6b7280',
+                'rgb': 'rgb(107, 114, 128)',
+                'tailwind_classes': 'bg-gray-100 text-gray-800 border-gray-300',
+            },
+        }
+        return color_map.get(color_key, color_map['pink'])
+
+    # ---------- Advanced NumPy-based similarity ----------
+
+    def _name_vector(self, name):
+        """Return normalized 26-dim letter frequency vector for a name."""
+        n = name.lower()
+        vec = np.zeros(26, dtype=float)
+        for ch in n:
+            if 'a' <= ch <= 'z':
+                idx = ord(ch) - ord('a')
+                vec[idx] += 1.0
+        total = vec.sum()
+        if total > 0:
+            vec /= total
+        return vec
+
+    def _cosine_similarity(self, u, v):
+        """Cosine similarity between two NumPy vectors."""
+        dot = float(np.dot(u, v))
+        norm_u = float(np.linalg.norm(u))
+        norm_v = float(np.linalg.norm(v))
+        if norm_u == 0.0 or norm_v == 0.0:
+            return 0.0
+        return dot / (norm_u * norm_v)
+
+    def _jaccard_letters(self, name1, name2):
+        """Jaccard similarity based on unique letters."""
+        n1 = {c for c in name1.lower() if c.isalpha()}
+        n2 = {c for c in name2.lower() if c.isalpha()}
+        if not n1 and not n2:
+            return 0.0
+        inter = len(n1 & n2)
+        union = len(n1 | n2)
+        if union == 0:
+            return 0.0
+        return inter / union
+
+    def _vowel_fraction(self, name):
+        """Fraction of characters that are vowels, computed with NumPy arrays."""
+        chars = np.array(list(name.lower()))
+        if chars.size == 0:
+            return 0.0
+        vowels = np.array(list("aeiou"))
+        is_vowel = np.isin(chars, vowels)
+        return float(is_vowel.sum() / chars.size)
+
+    def _advanced_love_components(self, name1, name2):
+        """
+        Compute advanced similarity components using NumPy:
+        - cosine similarity of letter vectors
+        - Jaccard similarity on letter sets
+        - length similarity
+        - vowel/consonant balance similarity
+        Returns all components plus a weighted final score (0-100).
+        """
+        vec1 = self._name_vector(name1)
+        vec2 = self._name_vector(name2)
+
+        cos_score = self._cosine_similarity(vec1, vec2) * 100.0
+        jac_score = self._jaccard_letters(name1, name2) * 100.0
+
+        letters1 = [c for c in name1.lower() if c.isalpha()]
+        letters2 = [c for c in name2.lower() if c.isalpha()]
+        len1 = len(letters1)
+        len2 = len(letters2)
+        if max(len1, len2) > 0:
+            length_score = float(np.divide(min(len1, len2), max(len1, len2)) * 100.0)
+        else:
+            length_score = 0.0
+
+        v1 = self._vowel_fraction(name1)
+        v2 = self._vowel_fraction(name2)
+        vowel_score = float((1.0 - abs(v1 - v2)) * 100.0)
+
+        # Weights must sum to 1.0
+        w_cos, w_jac, w_len, w_vowel = 0.35, 0.35, 0.20, 0.10
+        advanced_score = (
+            w_cos * cos_score
+            + w_jac * jac_score
+            + w_len * length_score
+            + w_vowel * vowel_score
+        )
+        advanced_score = max(0.0, min(100.0, advanced_score))
+
+        return {
+            'cosine_score': cos_score,
+            'jaccard_score': jac_score,
+            'length_score': length_score,
+            'vowel_score': vowel_score,
+            'advanced_score': advanced_score,
+        }
 
     def _step(self, text, step_type='text'):
         """Return a step dict with text and type for language-agnostic frontend rendering."""
@@ -676,8 +1103,8 @@ class LoveCalculator(View):
 
     # ---------- Step-by-step solutions ----------
 
-    def _prepare_love_percentage_steps(self, name1, name2, combined, l_count, o_count, v_count, e_count, love_score, letter_percentage, common_letters, common_percentage, final_percentage, love_percentage):
-        """Prepare step-by-step solution for love percentage calculation"""
+    def _prepare_love_percentage_steps(self, name1, name2, combined, l_count, o_count, v_count, e_count, love_score, letter_percentage, common_letters, common_percentage, final_percentage, love_percentage, advanced_components=None):
+        """Prepare step-by-step solution for love percentage calculation (legacy + advanced NumPy-based)."""
         steps = []
         steps.append(self._step(_('Step 1: Identify the given names'), 'step'))
         steps.append(self._step(_('Name 1: {name}').format(name=name1), 'text'))
@@ -711,6 +1138,48 @@ class LoveCalculator(View):
         steps.append(self._step('', 'blank'))
         steps.append(self._step(_('Step 7: Final Result'), 'step'))
         steps.append(self._step(_('Love Percentage: {percent}%').format(percent=love_percentage), 'result'))
+        # Advanced NumPy-based explanation (optional)
+        if advanced_components:
+            steps.append(self._step('', 'blank'))
+            steps.append(self._step(_('Advanced analysis with NumPy'), 'step'))
+            steps.append(self._step(
+                _('We also compute similarity using letter frequency vectors and set-based metrics.'), 'text'
+            ))
+            steps.append(self._step(
+                _('Cosine similarity score (0–100) based on 26-letter vectors: {val}%').format(
+                    val=round(advanced_components.get('cosine_score', 0.0), 1)
+                ),
+                'text',
+            ))
+            steps.append(self._step(
+                _('Jaccard similarity score (0–100) based on unique letter sets: {val}%').format(
+                    val=round(advanced_components.get('jaccard_score', 0.0), 1)
+                ),
+                'text',
+            ))
+            steps.append(self._step(
+                _('Length similarity score (0–100) using min/ max name lengths: {val}%').format(
+                    val=round(advanced_components.get('length_score', 0.0), 1)
+                ),
+                'text',
+            ))
+            steps.append(self._step(
+                _('Vowel balance score (0–100) comparing vowel/consonant ratios: {val}%').format(
+                    val=round(advanced_components.get('vowel_score', 0.0), 1)
+                ),
+                'text',
+            ))
+            steps.append(self._step('', 'blank'))
+            steps.append(self._step(_('Advanced combined score'), 'step'))
+            steps.append(self._step(
+                _('Advanced Score = 0.35×Cosine + 0.35×Jaccard + 0.20×Length + 0.10×Vowel'), 'formula'
+            ))
+            steps.append(self._step(
+                _('Advanced Score ≈ {val}% (blended with classic score for final result)').format(
+                    val=round(advanced_components.get('advanced_score', 0.0), 1)
+                ),
+                'result',
+            ))
         return steps
 
     def _prepare_compatibility_steps(self, name1, name2, common_letters, common_score, length_score, vowel_score, compatibility):
