@@ -234,54 +234,55 @@ class TimeZoneCalculator(View):
         }
 
     def _prepare_convert_steps(self, time_str, from_timezone, to_timezone, from_offset, to_offset, time_seconds, utc_seconds, result_seconds, time_diff_hours, result_formatted):
+        from_off_str = ('UTC+' + str(int(from_offset))) if from_offset >= 0 else ('UTC' + str(int(from_offset)))
+        to_off_str = ('UTC+' + str(int(to_offset))) if to_offset >= 0 else ('UTC' + str(int(to_offset)))
         steps = []
         steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Time: {time}')).format(time=time_str))
-        steps.append(str(_('From Timezone: {tz} (UTC{offset:+d})')).format(tz=from_timezone, offset=int(from_offset)))
-        steps.append(str(_('To Timezone: {tz} (UTC{offset:+d})')).format(tz=to_timezone, offset=int(to_offset)))
+        steps.append(str(_('Time')) + ': ' + str(time_str))
+        steps.append(str(_('From Timezone')) + ': ' + str(from_timezone) + ' (' + from_off_str + ')')
+        steps.append(str(_('To Timezone')) + ': ' + str(to_timezone) + ' (' + to_off_str + ')')
         steps.append('')
         steps.append(str(_('Step 2: Convert to seconds')))
-        steps.append(str(_('Time: {time} = {seconds} seconds')).format(time=time_str, seconds=time_seconds))
+        steps.append(str(_('Time')) + ': ' + str(time_str) + ' = ' + str(time_seconds) + ' ' + str(_('seconds')))
         steps.append('')
         steps.append(str(_('Step 3: Convert to UTC')))
-        steps.append(str(_('UTC Time = Source Time - Source Offset')))
-        steps.append(str(_('UTC Time = {time} - ({offset} × 3600)')).format(time=time_seconds, offset=int(from_offset)))
-        steps.append(str(_('UTC Time = {utc} seconds = {utc_formatted}')).format(utc=utc_seconds, utc_formatted=self._format_time(utc_seconds)))
+        steps.append(str(_('UTC Time')) + ' = ' + str(_('Source Time')) + ' - ' + str(_('Source Offset')))
+        steps.append(str(_('UTC Time')) + ' = ' + str(time_seconds) + ' - (' + str(int(from_offset)) + ' × 3600)')
+        steps.append(str(_('UTC Time')) + ' = ' + str(utc_seconds) + ' ' + str(_('seconds')) + ' = ' + self._format_time(utc_seconds))
         steps.append('')
         steps.append(str(_('Step 4: Convert from UTC to target timezone')))
-        steps.append(str(_('Target Time = UTC Time + Target Offset')))
-        steps.append(str(_('Target Time = {utc} + ({offset} × 3600)')).format(utc=utc_seconds, offset=int(to_offset)))
-        steps.append(str(_('Target Time = {result} seconds = {result_formatted}')).format(result=result_seconds, result_formatted=result_formatted))
+        steps.append(str(_('Target Time')) + ' = ' + str(_('UTC Time')) + ' + ' + str(_('Target Offset')))
+        steps.append(str(_('Target Time')) + ' = ' + str(utc_seconds) + ' + (' + str(int(to_offset)) + ' × 3600)')
+        steps.append(str(_('Target Time')) + ' = ' + str(result_seconds) + ' ' + str(_('seconds')) + ' = ' + str(result_formatted))
         steps.append('')
         steps.append(str(_('Step 5: Time difference')))
-        steps.append(str(_('Time Difference = {diff} hours')).format(diff=time_diff_hours))
+        steps.append(str(_('Time Difference')) + ' = ' + str(time_diff_hours) + ' ' + str(_('hours')))
         return steps
 
     def _prepare_difference_steps(self, timezone1, timezone2, offset1, offset2, difference_hours, difference_minutes, difference_seconds, diff_formatted):
+        off1_str = ('UTC+' + str(int(offset1))) if offset1 >= 0 else ('UTC' + str(int(offset1)))
+        off2_str = ('UTC+' + str(int(offset2))) if offset2 >= 0 else ('UTC' + str(int(offset2)))
         steps = []
         steps.append(str(_('Step 1: Identify the given timezones')))
-        steps.append(str(_('Timezone 1: {tz1} (UTC{offset1:+d})')).format(tz1=timezone1, offset1=int(offset1)))
-        steps.append(str(_('Timezone 2: {tz2} (UTC{offset2:+d})')).format(tz2=timezone2, offset2=int(offset2)))
+        steps.append(str(_('Timezone 1')) + ': ' + str(timezone1) + ' (' + off1_str + ')')
+        steps.append(str(_('Timezone 2')) + ': ' + str(timezone2) + ' (' + off2_str + ')')
         steps.append('')
         steps.append(str(_('Step 2: Calculate difference')))
-        steps.append(str(_('Difference = Offset 2 - Offset 1')))
-        steps.append(str(_('Difference = {offset2} - {offset1} = {diff} hours')).format(offset2=int(offset2), offset1=int(offset1), diff=difference_hours))
+        steps.append(str(_('Difference')) + ' = ' + str(_('Offset 2')) + ' - ' + str(_('Offset 1')))
+        steps.append(str(_('Difference')) + ' = ' + str(int(offset2)) + ' - ' + str(int(offset1)) + ' = ' + str(difference_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 3: Convert to different units')))
-        steps.append(str(_('Difference = {hours} hours')).format(hours=difference_hours))
-        steps.append(str(_('Difference = {minutes} minutes')).format(minutes=difference_minutes))
-        steps.append(str(_('Difference = {seconds} seconds')).format(seconds=difference_seconds))
+        steps.append(str(_('Difference')) + ' = ' + str(difference_hours) + ' ' + str(_('hours')))
+        steps.append(str(_('Difference')) + ' = ' + str(difference_minutes) + ' ' + str(_('minutes')))
+        steps.append(str(_('Difference')) + ' = ' + str(difference_seconds) + ' ' + str(_('seconds')))
         return steps
 
     def _prepare_current_steps(self, current_times):
         steps = []
         steps.append(str(_('Step 1: Current time in different timezones')))
         for tz_info in current_times:
-            steps.append(str(_('{tz}: {time} (UTC{offset:+d})')).format(
-                tz=tz_info['timezone'],
-                time=tz_info['time'],
-                offset=int(tz_info['offset'])
-            ))
+            off_str = ('UTC+' + str(int(tz_info['offset']))) if tz_info['offset'] >= 0 else ('UTC' + str(int(tz_info['offset'])))
+            steps.append(str(tz_info['timezone']) + ': ' + str(tz_info['time']) + ' (' + off_str + ')')
         return steps
 
     def _prepare_convert_chart_data(self, time_seconds, result_seconds, from_timezone, to_timezone):

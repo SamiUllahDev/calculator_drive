@@ -122,7 +122,7 @@ class HoursCalculator(View):
                 raise ValueError(str(_('Invalid time values')))
             return hours, minutes, seconds
         except (ValueError, IndexError, TypeError):
-            raise ValueError(str(_('Invalid time format: {time}')).format(time=time_str))
+            raise ValueError(str(_('Invalid time format')) + ': ' + str(time_str))
 
     def _time_to_hours(self, hours, minutes, seconds):
         return float(hours) + minutes * self.MINUTES_TO_HOURS + seconds * self.SECONDS_TO_HOURS
@@ -301,7 +301,7 @@ class HoursCalculator(View):
                 start_h, start_m, start_s = self._parse_time(start_time)
                 end_h, end_m, end_s = self._parse_time(end_time)
             except ValueError as e:
-                return {'success': False, 'error': str(_('Invalid time format in period {num}: {error}')).format(num=i + 1, error=str(e))}
+                return {'success': False, 'error': str(_('Invalid time format in period')) + ' ' + str(i + 1) + ': ' + str(e)}
             start_hours = self._time_to_hours(start_h, start_m, start_s)
             end_hours = self._time_to_hours(end_h, end_m, end_s)
             if end_hours < start_hours and not next_day:
@@ -310,7 +310,7 @@ class HoursCalculator(View):
                 end_hours += 24.0
             period_hours = end_hours - start_hours
             if period_hours < 0:
-                return {'success': False, 'error': str(_('Invalid time period {num}: end time must be after start time.')).format(num=i + 1)}
+                return {'success': False, 'error': str(_('Invalid time period')) + ' ' + str(i + 1) + ': ' + str(_('end time must be after start time.'))}
             processed_periods.append({'start_time': start_time, 'end_time': end_time, 'hours': round(period_hours, 2)})
             total_hours += period_hours
         total_minutes = total_hours * self.HOURS_TO_MINUTES
@@ -392,124 +392,126 @@ class HoursCalculator(View):
     def _prepare_time_difference_steps(self, start_time, end_time, next_day, start_hours, end_hours, difference_hours, diff_h, diff_m, diff_s, diff_minutes, diff_seconds, diff_days):
         steps = []
         steps.append(str(_('Step 1: Identify the given times')))
-        steps.append(str(_('Start Time: {time}')).format(time=start_time))
-        steps.append(str(_('End Time: {time}')).format(time=end_time))
+        steps.append(str(_('Start Time')) + ': ' + str(start_time))
+        steps.append(str(_('End Time')) + ': ' + str(end_time))
         if next_day:
             steps.append(str(_('Note: End time is on the next day')))
         steps.append('')
         steps.append(str(_('Step 2: Convert to decimal hours')))
-        steps.append(str(_('Start Time: {hours} hours')).format(hours=start_hours))
-        steps.append(str(_('End Time: {hours} hours')).format(hours=end_hours))
+        steps.append(str(_('Start Time')) + ': ' + str(start_hours) + ' ' + str(_('hours')))
+        steps.append(str(_('End Time')) + ': ' + str(end_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 3: Calculate difference')))
-        steps.append(str(_('Difference = End Time - Start Time')))
-        steps.append(str(_('Difference = {end} - {start} = {diff} hours')).format(end=end_hours, start=start_hours, diff=difference_hours))
+        steps.append(str(_('Difference')) + ' = ' + str(_('End Time')) + ' - ' + str(_('Start Time')))
+        steps.append(str(_('Difference')) + ' = ' + str(end_hours) + ' - ' + str(start_hours) + ' = ' + str(difference_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 4: Convert to other units')))
-        steps.append(str(_('Time Format: {h:02d}:{m:02d}:{s:02d}')).format(h=diff_h, m=diff_m, s=diff_s))
-        steps.append(str(_('Minutes: {min} minutes')).format(min=diff_minutes))
-        steps.append(str(_('Seconds: {sec} seconds')).format(sec=diff_seconds))
-        steps.append(str(_('Days: {days} days')).format(days=diff_days))
+        steps.append(str(_('Time Format')) + ': ' + f'{diff_h:02d}:{diff_m:02d}:{diff_s:02d}')
+        steps.append(str(_('Minutes')) + ': ' + str(diff_minutes) + ' ' + str(_('minutes')))
+        steps.append(str(_('Seconds')) + ': ' + str(diff_seconds) + ' ' + str(_('seconds')))
+        steps.append(str(_('Days')) + ': ' + str(diff_days) + ' ' + str(_('days')))
         return steps
 
     def _prepare_add_subtract_steps(self, time_str, hours_to_add, operation, time_hours, result_hours, result_h, result_m, result_s, days):
+        op_label = str(_('add')) if operation == 'add' else str(_('subtract'))
+        op_label_cap = str(_('Add')) if operation == 'add' else str(_('Subtract'))
         steps = []
         steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Time: {time}')).format(time=time_str))
-        steps.append(str(_('Hours to {op}: {hours}')).format(op=str(_('add')) if operation == 'add' else str(_('subtract')), hours=hours_to_add))
+        steps.append(str(_('Time')) + ': ' + str(time_str))
+        steps.append(str(_('Hours to')) + ' ' + op_label + ': ' + str(hours_to_add))
         steps.append('')
         steps.append(str(_('Step 2: Convert time to decimal hours')))
-        steps.append(str(_('Time = {hours} hours')).format(hours=time_hours))
+        steps.append(str(_('Time')) + ' = ' + str(time_hours) + ' ' + str(_('hours')))
         steps.append('')
-        steps.append(str(_('Step 3: {op} hours')).format(op=str(_('Add')) if operation == 'add' else str(_('Subtract'))))
+        steps.append(str(_('Step 3')) + ': ' + op_label_cap + ' ' + str(_('hours')))
         if operation == 'add':
-            steps.append(str(_('Result = {time} + {hours} = {result} hours')).format(time=time_hours, hours=hours_to_add, result=result_hours))
+            steps.append(str(_('Result')) + ' = ' + str(time_hours) + ' + ' + str(hours_to_add) + ' = ' + str(result_hours) + ' ' + str(_('hours')))
         else:
-            steps.append(str(_('Result = {time} - {hours} = {result} hours')).format(time=time_hours, hours=hours_to_add, result=result_hours))
+            steps.append(str(_('Result')) + ' = ' + str(time_hours) + ' - ' + str(hours_to_add) + ' = ' + str(result_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 4: Convert to time format')))
+        result_time_str = f'{result_h:02d}:{result_m:02d}:{result_s:02d}'
         if days != 0:
-            steps.append(str(_('Result: {h:02d}:{m:02d}:{s:02d} ({days} day(s) {op})')).format(h=result_h, m=result_m, s=result_s, days=abs(days), op=str(_('later')) if days > 0 else str(_('earlier'))))
+            day_label = str(_('later')) if days > 0 else str(_('earlier'))
+            steps.append(str(_('Result')) + ': ' + result_time_str + ' (' + str(abs(days)) + ' ' + str(_('day(s)')) + ' ' + day_label + ')')
         else:
-            steps.append(str(_('Result: {h:02d}:{m:02d}:{s:02d}')).format(h=result_h, m=result_m, s=result_s))
+            steps.append(str(_('Result')) + ': ' + result_time_str)
         return steps
 
     def _prepare_convert_steps(self, value, from_unit, to_unit, result, hours_value):
         steps = []
         unit_names = {'hours': str(_('hours')), 'minutes': str(_('minutes')), 'seconds': str(_('seconds')), 'days': str(_('days'))}
         steps.append(str(_('Step 1: Identify the given value')))
-        steps.append(str(_('Time: {value} {unit}')).format(value=value, unit=unit_names.get(from_unit, from_unit)))
+        steps.append(str(_('Time')) + ': ' + str(value) + ' ' + unit_names.get(from_unit, from_unit))
         steps.append('')
         if from_unit != 'hours':
             steps.append(str(_('Step 2: Convert to hours')))
             if from_unit == 'minutes':
-                steps.append(str(_('Hours = Minutes / 60')))
-                steps.append(str(_('Hours = {min} / 60 = {hours} hours')).format(min=value, hours=hours_value))
+                steps.append(str(_('Hours')) + ' = ' + str(_('Minutes')) + ' / 60')
+                steps.append(str(_('Hours')) + ' = ' + str(value) + ' / 60 = ' + str(hours_value) + ' ' + str(_('hours')))
             elif from_unit == 'seconds':
-                steps.append(str(_('Hours = Seconds / 3600')))
-                steps.append(str(_('Hours = {sec} / 3600 = {hours} hours')).format(sec=value, hours=hours_value))
+                steps.append(str(_('Hours')) + ' = ' + str(_('Seconds')) + ' / 3600')
+                steps.append(str(_('Hours')) + ' = ' + str(value) + ' / 3600 = ' + str(hours_value) + ' ' + str(_('hours')))
             elif from_unit == 'days':
-                steps.append(str(_('Hours = Days × 24')))
-                steps.append(str(_('Hours = {days} × 24 = {hours} hours')).format(days=value, hours=hours_value))
+                steps.append(str(_('Hours')) + ' = ' + str(_('Days')) + ' × 24')
+                steps.append(str(_('Hours')) + ' = ' + str(value) + ' × 24 = ' + str(hours_value) + ' ' + str(_('hours')))
             steps.append('')
         if to_unit != 'hours':
-            steps.append(str(_('Step 3: Convert from hours to {unit}')).format(unit=unit_names.get(to_unit, to_unit)))
+            steps.append(str(_('Step 3: Convert from hours to')) + ' ' + unit_names.get(to_unit, to_unit))
             if to_unit == 'minutes':
-                steps.append(str(_('Minutes = Hours × 60')))
-                steps.append(str(_('Minutes = {hours} × 60 = {result} minutes')).format(hours=hours_value, result=result))
+                steps.append(str(_('Minutes')) + ' = ' + str(_('Hours')) + ' × 60')
+                steps.append(str(_('Minutes')) + ' = ' + str(hours_value) + ' × 60 = ' + str(result) + ' ' + str(_('minutes')))
             elif to_unit == 'seconds':
-                steps.append(str(_('Seconds = Hours × 3600')))
-                steps.append(str(_('Seconds = {hours} × 3600 = {result} seconds')).format(hours=hours_value, result=result))
+                steps.append(str(_('Seconds')) + ' = ' + str(_('Hours')) + ' × 3600')
+                steps.append(str(_('Seconds')) + ' = ' + str(hours_value) + ' × 3600 = ' + str(result) + ' ' + str(_('seconds')))
             elif to_unit == 'days':
-                steps.append(str(_('Days = Hours / 24')))
-                steps.append(str(_('Days = {hours} / 24 = {result} days')).format(hours=hours_value, result=result))
+                steps.append(str(_('Days')) + ' = ' + str(_('Hours')) + ' / 24')
+                steps.append(str(_('Days')) + ' = ' + str(hours_value) + ' / 24 = ' + str(result) + ' ' + str(_('days')))
         else:
             steps.append(str(_('Step 2: Result')))
-            steps.append(str(_('Time = {result} hours')).format(result=result))
+            steps.append(str(_('Time')) + ' = ' + str(result) + ' ' + str(_('hours')))
         return steps
 
     def _prepare_total_hours_steps(self, processed_periods, total_hours, total_h, total_m, total_s, total_minutes, total_seconds, total_days):
         steps = []
         steps.append(str(_('Step 1: Identify all time periods')))
         for i, period in enumerate(processed_periods, 1):
-            steps.append(str(_('Period {num}: {start} to {end} = {hours} hours')).format(
-                num=i, start=period['start_time'], end=period['end_time'], hours=period['hours']
-            ))
+            steps.append(str(_('Period')) + ' ' + str(i) + ': ' + str(period['start_time']) + ' ' + str(_('to')) + ' ' + str(period['end_time']) + ' = ' + str(period['hours']) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 2: Calculate total hours')))
         hours_list = [str(p['hours']) for p in processed_periods]
-        steps.append(str(_('Total = {hours}')).format(hours=' + '.join(hours_list)))
-        steps.append(str(_('Total = {total} hours')).format(total=total_hours))
+        steps.append(str(_('Total')) + ' = ' + ' + '.join(hours_list))
+        steps.append(str(_('Total')) + ' = ' + str(total_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 3: Convert to other units')))
-        steps.append(str(_('Time Format: {h:02d}:{m:02d}:{s:02d}')).format(h=total_h, m=total_m, s=total_s))
-        steps.append(str(_('Minutes: {min} minutes')).format(min=total_minutes))
-        steps.append(str(_('Seconds: {sec} seconds')).format(sec=total_seconds))
-        steps.append(str(_('Days: {days} days')).format(days=total_days))
+        steps.append(str(_('Time Format')) + ': ' + f'{total_h:02d}:{total_m:02d}:{total_s:02d}')
+        steps.append(str(_('Minutes')) + ': ' + str(total_minutes) + ' ' + str(_('minutes')))
+        steps.append(str(_('Seconds')) + ': ' + str(total_seconds) + ' ' + str(_('seconds')))
+        steps.append(str(_('Days')) + ': ' + str(total_days) + ' ' + str(_('days')))
         return steps
 
     def _prepare_hours_worked_steps(self, start_time, end_time, next_day, break_minutes, start_hours, end_hours, total_hours, break_hours, hours_worked, worked_h, worked_m, worked_s):
         steps = []
         steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Start Time: {time}')).format(time=start_time))
-        steps.append(str(_('End Time: {time}')).format(time=end_time))
+        steps.append(str(_('Start Time')) + ': ' + str(start_time))
+        steps.append(str(_('End Time')) + ': ' + str(end_time))
         if next_day:
             steps.append(str(_('Note: End time is on the next day')))
-        steps.append(str(_('Break Time: {min} minutes')).format(min=break_minutes))
+        steps.append(str(_('Break Time')) + ': ' + str(break_minutes) + ' ' + str(_('minutes')))
         steps.append('')
         steps.append(str(_('Step 2: Calculate total time')))
-        steps.append(str(_('Total Time = End Time - Start Time')))
-        steps.append(str(_('Total Time = {end} - {start} = {total} hours')).format(end=end_hours, start=start_hours, total=total_hours))
+        steps.append(str(_('Total Time')) + ' = ' + str(_('End Time')) + ' - ' + str(_('Start Time')))
+        steps.append(str(_('Total Time')) + ' = ' + str(end_hours) + ' - ' + str(start_hours) + ' = ' + str(total_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 3: Convert break time to hours')))
-        steps.append(str(_('Break Time = {min} minutes / 60 = {hours} hours')).format(min=break_minutes, hours=break_hours))
+        steps.append(str(_('Break Time')) + ' = ' + str(break_minutes) + ' ' + str(_('minutes')) + ' / 60 = ' + str(break_hours) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 4: Calculate hours worked')))
-        steps.append(str(_('Hours Worked = Total Time - Break Time')))
-        steps.append(str(_('Hours Worked = {total} - {break_time} = {worked} hours')).format(total=total_hours, break_time=break_hours, worked=hours_worked))
+        steps.append(str(_('Hours Worked')) + ' = ' + str(_('Total Time')) + ' - ' + str(_('Break Time')))
+        steps.append(str(_('Hours Worked')) + ' = ' + str(total_hours) + ' - ' + str(break_hours) + ' = ' + str(hours_worked) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 5: Convert to time format')))
-        steps.append(str(_('Hours Worked: {h:02d}:{m:02d}:{s:02d}')).format(h=worked_h, m=worked_m, s=worked_s))
+        steps.append(str(_('Hours Worked')) + ': ' + f'{worked_h:02d}:{worked_m:02d}:{worked_s:02d}')
         return steps
 
     def _prepare_time_difference_chart_data(self, start_hours, end_hours, difference_hours):
@@ -535,7 +537,7 @@ class HoursCalculator(View):
         return {'time_difference_chart': chart_config}
 
     def _prepare_total_hours_chart_data(self, processed_periods, total_hours):
-        labels = [str(_('Period {n}')).format(n=i + 1) for i in range(len(processed_periods))] + [str(_('Total'))]
+        labels = [str(_('Period')) + ' ' + str(i + 1) for i in range(len(processed_periods))] + [str(_('Total'))]
         data_values = [p['hours'] for p in processed_periods] + [total_hours]
         chart_config = {
             'type': 'bar',

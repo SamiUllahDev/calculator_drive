@@ -76,26 +76,12 @@ class HeightCalculator(View):
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
+                'error': str(_('An error occurred')) + ': ' + str(e)
             }, status=500)
     
     def _convert_height(self, data):
         """Convert height between different units"""
         try:
-            if 'value' not in data or data.get('value') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Height value is required.')
-                }, status=400)
-            
-            try:
-                value = float(data.get('value', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter a numeric value.')
-                }, status=400)
-            
             from_unit = data.get('from_unit', 'feet_inches')
             to_unit = data.get('to_unit', 'cm')
             
@@ -110,32 +96,49 @@ class HeightCalculator(View):
                     }, status=400)
                 total_inches = float(np.add(np.multiply(feet, self.FEET_TO_INCHES), inches))
                 value_cm = float(np.multiply(total_inches, self.INCHES_TO_CM))
-            elif from_unit == 'inches':
-                if value < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Height must be non-negative.')
-                    }, status=400)
-                value_cm = float(np.multiply(value, self.INCHES_TO_CM))
-            elif from_unit == 'cm':
-                if value < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Height must be non-negative.')
-                    }, status=400)
-                value_cm = value
-            elif from_unit == 'meters':
-                if value < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Height must be non-negative.')
-                    }, status=400)
-                value_cm = float(np.multiply(value, self.METERS_TO_CM))
+                value = value_cm  # for step-by-step reference
             else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid from unit.')
-                }, status=400)
+                # value is required for non-feet_inches units
+                if 'value' not in data or data.get('value') is None:
+                    return JsonResponse({
+                        'success': False,
+                        'error': _('Height value is required.')
+                    }, status=400)
+                
+                try:
+                    value = float(data.get('value', 0))
+                except (ValueError, TypeError):
+                    return JsonResponse({
+                        'success': False,
+                        'error': _('Invalid input type. Please enter a numeric value.')
+                    }, status=400)
+                
+                if from_unit == 'inches':
+                    if value < 0:
+                        return JsonResponse({
+                            'success': False,
+                            'error': _('Height must be non-negative.')
+                        }, status=400)
+                    value_cm = float(np.multiply(value, self.INCHES_TO_CM))
+                elif from_unit == 'cm':
+                    if value < 0:
+                        return JsonResponse({
+                            'success': False,
+                            'error': _('Height must be non-negative.')
+                        }, status=400)
+                    value_cm = value
+                elif from_unit == 'meters':
+                    if value < 0:
+                        return JsonResponse({
+                            'success': False,
+                            'error': _('Height must be non-negative.')
+                        }, status=400)
+                    value_cm = float(np.multiply(value, self.METERS_TO_CM))
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'error': _('Invalid from unit.')
+                    }, status=400)
             
             # Validate reasonable height range (0.5m to 3m)
             if value_cm < 50 or value_cm > 300:
@@ -195,12 +198,12 @@ class HeightCalculator(View):
         except (ValueError, TypeError) as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
+                'error': str(_('Invalid input')) + ': ' + str(e)
             }, status=400)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Error converting height: {error}').format(error=str(e))
+                'error': str(_('Error converting height')) + ': ' + str(e)
             }, status=500)
     
     def _predict_height(self, data):
@@ -308,12 +311,12 @@ class HeightCalculator(View):
         except (ValueError, TypeError) as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
+                'error': str(_('Invalid input')) + ': ' + str(e)
             }, status=400)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Error predicting height: {error}').format(error=str(e))
+                'error': str(_('Error predicting height')) + ': ' + str(e)
             }, status=500)
     
     def _compare_heights(self, data):
@@ -388,12 +391,12 @@ class HeightCalculator(View):
         except (ValueError, TypeError) as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
+                'error': str(_('Invalid input')) + ': ' + str(e)
             }, status=400)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Error comparing heights: {error}').format(error=str(e))
+                'error': str(_('Error comparing heights')) + ': ' + str(e)
             }, status=500)
     
     def _calculate_percentile(self, data):
@@ -489,12 +492,12 @@ class HeightCalculator(View):
         except (ValueError, TypeError) as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
+                'error': str(_('Invalid input')) + ': ' + str(e)
             }, status=400)
         except Exception as e:
             return JsonResponse({
                 'success': False,
-                'error': _('Error calculating percentile: {error}').format(error=str(e))
+                'error': str(_('Error calculating percentile')) + ': ' + str(e)
             }, status=500)
     
     def _convert_to_cm(self, value, unit, feet=None, inches=None):
@@ -533,116 +536,115 @@ class HeightCalculator(View):
     def _prepare_convert_steps(self, value, from_unit, to_unit, result, value_cm, feet, inches):
         """Prepare step-by-step solution for height conversion"""
         steps = []
-        steps.append(_('Step 1: Identify the given value'))
+        steps.append(str(_('Step 1: Identify the given value')))
         if from_unit == 'feet_inches':
-            steps.append(_('Height: {feet} ft {inches} in').format(feet=int(feet), inches=inches))
+            steps.append(str(_('Height')) + ': ' + str(int(feet)) + ' ft ' + str(inches) + ' in')
         else:
-            steps.append(_('Height: {val} {unit}').format(val=value, unit=from_unit))
+            steps.append(str(_('Height')) + ': ' + str(value) + ' ' + str(from_unit))
         steps.append('')
-        steps.append(_('Step 2: Convert to centimeters (base unit)'))
+        steps.append(str(_('Step 2: Convert to centimeters (base unit)')))
         if from_unit == 'feet_inches':
             total_inches = feet * 12 + inches
-            steps.append(_('Total inches = {feet} ft × 12 + {inches} in = {total} in').format(feet=int(feet), inches=inches, total=total_inches))
-            steps.append(_('Centimeters = {inches} in × 2.54 = {cm} cm').format(inches=total_inches, cm=value_cm))
+            steps.append(str(_('Total inches')) + ' = ' + str(int(feet)) + ' ft × 12 + ' + str(inches) + ' in = ' + str(total_inches) + ' in')
+            steps.append(str(_('Centimeters')) + ' = ' + str(total_inches) + ' in × 2.54 = ' + str(value_cm) + ' cm')
         elif from_unit == 'inches':
-            steps.append(_('Centimeters = {inches} in × 2.54 = {cm} cm').format(inches=value, cm=value_cm))
+            steps.append(str(_('Centimeters')) + ' = ' + str(value) + ' in × 2.54 = ' + str(value_cm) + ' cm')
         elif from_unit == 'cm':
-            steps.append(_('Height in centimeters: {cm} cm').format(cm=value_cm))
+            steps.append(str(_('Height in centimeters')) + ': ' + str(value_cm) + ' cm')
         elif from_unit == 'meters':
-            steps.append(_('Centimeters = {m} m × 100 = {cm} cm').format(m=value, cm=value_cm))
+            steps.append(str(_('Centimeters')) + ' = ' + str(value) + ' m × 100 = ' + str(value_cm) + ' cm')
         steps.append('')
-        steps.append(_('Step 3: Convert to desired unit'))
+        steps.append(str(_('Step 3: Convert to desired unit')))
         if to_unit == 'feet_inches':
             total_inches = value_cm * self.CM_TO_INCHES
             result_feet = result['feet']
             result_inches = result['inches']
-            steps.append(_('Inches = {cm} cm × (1/2.54) = {inches} in').format(cm=value_cm, inches=total_inches))
-            steps.append(_('Feet = {inches} in / 12 = {feet} ft').format(inches=total_inches, feet=result_feet))
-            steps.append(_('Remaining inches = {inches} in').format(inches=result_inches))
-            steps.append(_('Result: {feet} ft {inches} in').format(feet=result_feet, inches=result_inches))
+            steps.append(str(_('Inches')) + ' = ' + str(value_cm) + ' cm × (1/2.54) = ' + str(total_inches) + ' in')
+            steps.append(str(_('Feet')) + ' = ' + str(total_inches) + ' in / 12 = ' + str(result_feet) + ' ft')
+            steps.append(str(_('Remaining inches')) + ' = ' + str(result_inches) + ' in')
+            steps.append(str(_('Result')) + ': ' + str(result_feet) + ' ft ' + str(result_inches) + ' in')
         elif to_unit == 'inches':
-            steps.append(_('Inches = {cm} cm × (1/2.54) = {result} in').format(cm=value_cm, result=result))
+            steps.append(str(_('Inches')) + ' = ' + str(value_cm) + ' cm × (1/2.54) = ' + str(result) + ' in')
         elif to_unit == 'cm':
-            steps.append(_('Result: {result} cm').format(result=result))
+            steps.append(str(_('Result')) + ': ' + str(result) + ' cm')
         elif to_unit == 'meters':
-            steps.append(_('Meters = {cm} cm / 100 = {result} m').format(cm=value_cm, result=result))
+            steps.append(str(_('Meters')) + ' = ' + str(value_cm) + ' cm / 100 = ' + str(result) + ' m')
         return steps
     
     def _prepare_predict_steps(self, father_cm, mother_cm, child_gender, predicted_cm, range_low, range_high, result_unit, result, range_low_result, range_high_result):
         """Prepare step-by-step solution for height prediction"""
         steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Father\'s height: {height} cm').format(height=father_cm))
-        steps.append(_('Mother\'s height: {height} cm').format(height=mother_cm))
-        steps.append(_('Child\'s gender: {gender}').format(gender=_('Male') if child_gender == 'male' else _('Female')))
+        steps.append(str(_('Step 1: Identify the given values')))
+        steps.append(str(_('Father\'s height')) + ': ' + str(father_cm) + ' cm')
+        steps.append(str(_('Mother\'s height')) + ': ' + str(mother_cm) + ' cm')
+        steps.append(str(_('Child\'s gender')) + ': ' + (str(_('Male')) if child_gender == 'male' else str(_('Female'))))
         steps.append('')
-        steps.append(_('Step 2: Apply the mid-parental height formula'))
+        steps.append(str(_('Step 2: Apply the mid-parental height formula')))
         if child_gender == 'male':
-            steps.append(_('Formula for boys: (Father\'s height + Mother\'s height + 13 cm) / 2'))
-            steps.append(_('Predicted height = ({father} + {mother} + 13) / 2').format(father=father_cm, mother=mother_cm))
+            steps.append(str(_('Formula for boys: (Father\'s height + Mother\'s height + 13 cm) / 2')))
+            steps.append(str(_('Predicted height')) + ' = (' + str(father_cm) + ' + ' + str(mother_cm) + ' + 13) / 2')
         else:
-            steps.append(_('Formula for girls: (Father\'s height + Mother\'s height - 13 cm) / 2'))
-            steps.append(_('Predicted height = ({father} + {mother} - 13) / 2').format(father=father_cm, mother=mother_cm))
-        steps.append(_('Predicted height = {height} cm').format(height=predicted_cm))
+            steps.append(str(_('Formula for girls: (Father\'s height + Mother\'s height - 13 cm) / 2')))
+            steps.append(str(_('Predicted height')) + ' = (' + str(father_cm) + ' + ' + str(mother_cm) + ' - 13) / 2')
+        steps.append(str(_('Predicted height')) + ' = ' + str(predicted_cm) + ' cm')
         steps.append('')
-        steps.append(_('Step 3: Calculate prediction range'))
-        steps.append(_('Range: ±8.5 cm from predicted height'))
-        steps.append(_('Low range: {low} cm').format(low=range_low))
-        steps.append(_('High range: {high} cm').format(high=range_high))
+        steps.append(str(_('Step 3: Calculate prediction range')))
+        steps.append(str(_('Range: ±8.5 cm from predicted height')))
+        steps.append(str(_('Low range')) + ': ' + str(range_low) + ' cm')
+        steps.append(str(_('High range')) + ': ' + str(range_high) + ' cm')
         steps.append('')
-        steps.append(_('Step 4: Convert to desired unit'))
+        steps.append(str(_('Step 4: Convert to desired unit')))
         if result_unit == 'feet_inches':
-            steps.append(_('Predicted height: {feet} ft {inches} in').format(feet=result['feet'], inches=result['inches']))
-            steps.append(_('Range: {low_ft} ft {low_in} in to {high_ft} ft {high_in} in').format(
-                low_ft=range_low_result['feet'], low_in=range_low_result['inches'],
-                high_ft=range_high_result['feet'], high_in=range_high_result['inches']
-            ))
+            steps.append(str(_('Predicted height')) + ': ' + str(result['feet']) + ' ft ' + str(result['inches']) + ' in')
+            steps.append(str(_('Range')) + ': ' + str(range_low_result['feet']) + ' ft ' + str(range_low_result['inches']) + ' in ' + str(_('to')) + ' ' + str(range_high_result['feet']) + ' ft ' + str(range_high_result['inches']) + ' in')
         else:
-            steps.append(_('Predicted height: {result} {unit}').format(result=result, unit=result_unit))
-            steps.append(_('Range: {low} to {high} {unit}').format(low=range_low_result, high=range_high_result, unit=result_unit))
+            steps.append(str(_('Predicted height')) + ': ' + str(result) + ' ' + str(result_unit))
+            steps.append(str(_('Range')) + ': ' + str(range_low_result) + ' ' + str(_('to')) + ' ' + str(range_high_result) + ' ' + str(result_unit))
         return steps
     
     def _prepare_compare_steps(self, height1_cm, height2_cm, difference_cm, difference_percent):
         """Prepare step-by-step solution for height comparison"""
         steps = []
-        steps.append(_('Step 1: Identify the given heights'))
-        steps.append(_('Height 1: {height} cm').format(height=height1_cm))
-        steps.append(_('Height 2: {height} cm').format(height=height2_cm))
+        steps.append(str(_('Step 1: Identify the given heights')))
+        steps.append(str(_('Height 1')) + ': ' + str(height1_cm) + ' cm')
+        steps.append(str(_('Height 2')) + ': ' + str(height2_cm) + ' cm')
         steps.append('')
-        steps.append(_('Step 2: Calculate difference'))
-        steps.append(_('Difference = Height 1 - Height 2'))
-        steps.append(_('Difference = {h1} - {h2} = {diff} cm').format(h1=height1_cm, h2=height2_cm, diff=difference_cm))
+        steps.append(str(_('Step 2: Calculate difference')))
+        steps.append(str(_('Difference')) + ' = ' + str(_('Height 1')) + ' - ' + str(_('Height 2')))
+        steps.append(str(_('Difference')) + ' = ' + str(height1_cm) + ' - ' + str(height2_cm) + ' = ' + str(difference_cm) + ' cm')
         steps.append('')
-        steps.append(_('Step 3: Calculate percentage difference'))
-        steps.append(_('Percentage = (Difference / Height 2) × 100'))
-        steps.append(_('Percentage = ({diff} / {h2}) × 100 = {percent}%').format(diff=difference_cm, h2=height2_cm, percent=difference_percent))
+        steps.append(str(_('Step 3: Calculate percentage difference')))
+        steps.append(str(_('Percentage')) + ' = (' + str(_('Difference')) + ' / ' + str(_('Height 2')) + ') × 100')
+        steps.append(str(_('Percentage')) + ' = (' + str(difference_cm) + ' / ' + str(height2_cm) + ') × 100 = ' + str(difference_percent) + '%')
         if difference_cm > 0:
-            steps.append(_('Height 1 is {diff} cm ({percent}%) taller than Height 2').format(diff=abs(difference_cm), percent=abs(difference_percent)))
+            steps.append(str(_('Height 1')) + ' ' + str(_('is')) + ' ' + str(abs(difference_cm)) + ' cm (' + str(abs(difference_percent)) + '%) ' + str(_('taller than')) + ' ' + str(_('Height 2')))
         elif difference_cm < 0:
-            steps.append(_('Height 1 is {diff} cm ({percent}%) shorter than Height 2').format(diff=abs(difference_cm), percent=abs(difference_percent)))
+            steps.append(str(_('Height 1')) + ' ' + str(_('is')) + ' ' + str(abs(difference_cm)) + ' cm (' + str(abs(difference_percent)) + '%) ' + str(_('shorter than')) + ' ' + str(_('Height 2')))
         else:
-            steps.append(_('Both heights are equal'))
+            steps.append(str(_('Both heights are equal')))
         return steps
     
     def _prepare_percentile_steps(self, height_cm, age, gender, avg_height, std_dev, z_score, percentile):
         """Prepare step-by-step solution for percentile calculation"""
+        gender_label = str(_('Male')) if gender == 'male' else str(_('Female'))
+        gender_plural = str(_('males')) if gender == 'male' else str(_('females'))
         steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Height: {height} cm').format(height=height_cm))
-        steps.append(_('Age: {age} years').format(age=age))
-        steps.append(_('Gender: {gender}').format(gender=_('Male') if gender == 'male' else _('Female')))
+        steps.append(str(_('Step 1: Identify the given values')))
+        steps.append(str(_('Height')) + ': ' + str(height_cm) + ' cm')
+        steps.append(str(_('Age')) + ': ' + str(age) + ' ' + str(_('years')))
+        steps.append(str(_('Gender')) + ': ' + gender_label)
         steps.append('')
-        steps.append(_('Step 2: Determine average height for age and gender'))
-        steps.append(_('Average height for {gender} at age {age}: {avg} cm').format(gender=_('males') if gender == 'male' else _('females'), age=age, avg=avg_height))
-        steps.append(_('Standard deviation: {std} cm').format(std=std_dev))
+        steps.append(str(_('Step 2: Determine average height for age and gender')))
+        steps.append(str(_('Average height for')) + ' ' + gender_plural + ' ' + str(_('at age')) + ' ' + str(age) + ': ' + str(avg_height) + ' cm')
+        steps.append(str(_('Standard deviation')) + ': ' + str(std_dev) + ' cm')
         steps.append('')
-        steps.append(_('Step 3: Calculate z-score'))
-        steps.append(_('Z-score = (Height - Average) / Standard Deviation'))
-        steps.append(_('Z-score = ({height} - {avg}) / {std} = {z}').format(height=height_cm, avg=avg_height, std=std_dev, z=z_score))
+        steps.append(str(_('Step 3: Calculate z-score')))
+        steps.append(str(_('Z-score')) + ' = (' + str(_('Height')) + ' - ' + str(_('Average')) + ') / ' + str(_('Standard Deviation')))
+        steps.append(str(_('Z-score')) + ' = (' + str(height_cm) + ' - ' + str(avg_height) + ') / ' + str(std_dev) + ' = ' + str(z_score))
         steps.append('')
-        steps.append(_('Step 4: Determine percentile'))
-        steps.append(_('Percentile: {percent}%').format(percent=percentile))
-        steps.append(_('This means the height is greater than {percent}% of {gender} of the same age').format(percent=percentile, gender=_('males') if gender == 'male' else _('females')))
+        steps.append(str(_('Step 4: Determine percentile')))
+        steps.append(str(_('Percentile')) + ': ' + str(percentile) + '%')
+        steps.append(str(_('This means the height is greater than')) + ' ' + str(percentile) + '% ' + str(_('of')) + ' ' + gender_plural + ' ' + str(_('of the same age')))
         return steps
     
     # Chart data preparation methods

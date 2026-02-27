@@ -326,81 +326,81 @@ class DayOfTheWeekCalculator(View):
     def _prepare_find_day_steps(self, target_date, day_of_week, weekday_index):
         """Prepare step-by-step for finding day of week"""
         steps = []
-        steps.append(_('Step 1: Identify the date'))
-        steps.append(_('Target Date: {date}').format(date=target_date.strftime('%B %d, %Y')))
+        steps.append(str(_('Step 1: Identify the date')))
+        steps.append(str(_('Target Date')) + ': ' + target_date.strftime('%B %d, %Y'))
         steps.append('')
-        steps.append(_('Step 2: Calculate the day of week'))
-        steps.append(_('Using Python datetime.weekday() method'))
-        steps.append(_('Weekday Index: {index} (0=Monday, 6=Sunday)').format(index=weekday_index))
+        steps.append(str(_('Step 2: Calculate the day of week')))
+        steps.append(str(_('Using Python datetime.weekday() method')))
+        steps.append(str(_('Weekday Index')) + ': ' + str(weekday_index) + ' (0=Monday, 6=Sunday)')
         steps.append('')
-        steps.append(_('Step 3: Determine the day name'))
-        steps.append(_('Day of Week: {day}').format(day=day_of_week))
+        steps.append(str(_('Step 3: Determine the day name')))
+        steps.append(str(_('Day of Week')) + ': ' + str(day_of_week))
         if weekday_index >= 5:
-            steps.append(_('Note: This is a weekend day (Saturday or Sunday)'))
+            steps.append(str(_('Note: This is a weekend day (Saturday or Sunday)')))
         else:
-            steps.append(_('Note: This is a weekday (Monday through Friday)'))
+            steps.append(str(_('Note: This is a weekday (Monday through Friday)')))
         return steps
     
     def _prepare_next_occurrence_steps(self, from_date, weekday_name, next_date, days_until):
         """Prepare step-by-step for next occurrence"""
         steps = []
-        steps.append(_('Step 1: Identify the starting date'))
-        steps.append(_('From Date: {date}').format(date=from_date.strftime('%B %d, %Y')))
-        steps.append(_('Target Weekday: {day}').format(day=weekday_name))
+        steps.append(str(_('Step 1: Identify the starting date')))
+        steps.append(str(_('From Date')) + ': ' + from_date.strftime('%B %d, %Y'))
+        steps.append(str(_('Target Weekday')) + ': ' + str(weekday_name))
         steps.append('')
-        steps.append(_('Step 2: Calculate days until next occurrence'))
-        steps.append(_('Current weekday: {day}').format(day=str(self.WEEKDAYS[from_date.weekday()])))
-        steps.append(_('Days until next {target}: {days}').format(target=weekday_name, days=days_until))
+        steps.append(str(_('Step 2: Calculate days until next occurrence')))
+        steps.append(str(_('Current weekday')) + ': ' + str(self.WEEKDAYS[from_date.weekday()]))
+        steps.append(str(_('Days until next')) + ' ' + str(weekday_name) + ': ' + str(days_until))
         steps.append('')
-        steps.append(_('Step 3: Calculate the next date'))
-        steps.append(_('Next {day}: {date}').format(day=weekday_name, date=next_date.strftime('%B %d, %Y')))
+        steps.append(str(_('Step 3: Calculate the next date')))
+        steps.append(str(_('Next')) + ' ' + str(weekday_name) + ': ' + next_date.strftime('%B %d, %Y'))
         return steps
     
     def _prepare_previous_occurrence_steps(self, from_date, weekday_name, previous_date, days_ago):
         """Prepare step-by-step for previous occurrence"""
         steps = []
-        steps.append(_('Step 1: Identify the starting date'))
-        steps.append(_('From Date: {date}').format(date=from_date.strftime('%B %d, %Y')))
-        steps.append(_('Target Weekday: {day}').format(day=weekday_name))
+        steps.append(str(_('Step 1: Identify the starting date')))
+        steps.append(str(_('From Date')) + ': ' + from_date.strftime('%B %d, %Y'))
+        steps.append(str(_('Target Weekday')) + ': ' + str(weekday_name))
         steps.append('')
-        steps.append(_('Step 2: Calculate days since previous occurrence'))
-        steps.append(_('Current weekday: {day}').format(day=str(self.WEEKDAYS[from_date.weekday()])))
-        steps.append(_('Days since last {target}: {days}').format(target=weekday_name, days=days_ago))
+        steps.append(str(_('Step 2: Calculate days since previous occurrence')))
+        steps.append(str(_('Current weekday')) + ': ' + str(self.WEEKDAYS[from_date.weekday()]))
+        steps.append(str(_('Days since last')) + ' ' + str(weekday_name) + ': ' + str(days_ago))
         steps.append('')
-        steps.append(_('Step 3: Calculate the previous date'))
-        steps.append(_('Previous {day}: {date}').format(day=weekday_name, date=previous_date.strftime('%B %d, %Y')))
+        steps.append(str(_('Step 3: Calculate the previous date')))
+        steps.append(str(_('Previous')) + ' ' + str(weekday_name) + ': ' + previous_date.strftime('%B %d, %Y'))
         return steps
     
     def _prepare_count_weekdays_steps(self, start_date, end_date, weekday_name, count):
         """Prepare step-by-step for counting weekdays"""
         steps = []
-        steps.append(_('Step 1: Identify the date range'))
-        steps.append(_('Start Date: {date}').format(date=start_date.strftime('%B %d, %Y')))
-        steps.append(_('End Date: {date}').format(date=end_date.strftime('%B %d, %Y')))
-        steps.append(_('Target Weekday: {day}').format(day=weekday_name))
+        steps.append(str(_('Step 1: Identify the date range')))
+        steps.append(str(_('Start Date')) + ': ' + start_date.strftime('%B %d, %Y'))
+        steps.append(str(_('End Date')) + ': ' + end_date.strftime('%B %d, %Y'))
+        steps.append(str(_('Target Weekday')) + ': ' + str(weekday_name))
         steps.append('')
-        steps.append(_('Step 2: Count occurrences'))
-        steps.append(_('Iterate through each date in the range'))
-        steps.append(_('Check if each date falls on {day}').format(day=weekday_name))
+        steps.append(str(_('Step 2: Count occurrences')))
+        steps.append(str(_('Iterate through each date in the range')))
+        steps.append(str(_('Check if each date falls on')) + ' ' + str(weekday_name))
         steps.append('')
-        steps.append(_('Step 3: Result'))
-        steps.append(_('Total occurrences of {day}: {count}').format(day=weekday_name, count=count))
+        steps.append(str(_('Step 3: Result')))
+        steps.append(str(_('Total occurrences of')) + ' ' + str(weekday_name) + ': ' + str(count))
         return steps
     
     def _prepare_find_all_steps(self, start_date, end_date, weekday_name, count):
         """Prepare step-by-step for finding all occurrences"""
         steps = []
-        steps.append(_('Step 1: Identify the date range'))
-        steps.append(_('Start Date: {date}').format(date=start_date.strftime('%B %d, %Y')))
-        steps.append(_('End Date: {date}').format(date=end_date.strftime('%B %d, %Y')))
-        steps.append(_('Target Weekday: {day}').format(day=weekday_name))
+        steps.append(str(_('Step 1: Identify the date range')))
+        steps.append(str(_('Start Date')) + ': ' + start_date.strftime('%B %d, %Y'))
+        steps.append(str(_('End Date')) + ': ' + end_date.strftime('%B %d, %Y'))
+        steps.append(str(_('Target Weekday')) + ': ' + str(weekday_name))
         steps.append('')
-        steps.append(_('Step 2: Find all occurrences'))
-        steps.append(_('Iterate through each date in the range'))
-        steps.append(_('Collect all dates that fall on {day}').format(day=weekday_name))
+        steps.append(str(_('Step 2: Find all occurrences')))
+        steps.append(str(_('Iterate through each date in the range')))
+        steps.append(str(_('Collect all dates that fall on')) + ' ' + str(weekday_name))
         steps.append('')
-        steps.append(_('Step 3: Result'))
-        steps.append(_('Found {count} occurrences of {day}').format(count=count, day=weekday_name))
+        steps.append(str(_('Step 3: Result')))
+        steps.append(str(_('Found')) + ' ' + str(count) + ' ' + str(_('occurrences of')) + ' ' + str(weekday_name))
         return steps
     
     def _prepare_count_weekdays_chart_data(self, count, weekday_name):
@@ -410,7 +410,7 @@ class DayOfTheWeekCalculator(View):
             'type': 'doughnut',
             'data': {
                 'labels': [
-                    str(_('Occurrences of {day}')).format(day=weekday_name),
+                    str(_('Occurrences of')) + ' ' + str(weekday_name),
                     str(_('Other Days'))
                 ],
                 'datasets': [{

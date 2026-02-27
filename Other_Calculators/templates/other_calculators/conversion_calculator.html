@@ -1,676 +1,863 @@
 {% extends "core/base.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "Unit Converter - Conversion Calculator" %} | Free Online{% endblock %}
-{% block meta_description %}{% trans "Free unit converter to convert between length, weight, volume, temperature, area, speed, time, data, pressure, and energy units. Convert between hundreds of units including metric and imperial. Perfect for everyday conversions." %}{% endblock %}
-{% block meta_keywords %}{% trans "unit converter, conversion calculator, unit conversion, length converter, weight converter, temperature converter, volume converter, area converter, speed converter, time converter, metric converter, imperial converter, unit conversion tool, measurement converter, online unit converter, universal converter, convert units, unit converter online, free unit converter" %}{% endblock %}
+{% block title %}{% trans "Conversion Calculator - Universal Unit Converter" %} | {% trans "Free Online" %}{% endblock %}
+{% block meta_description %}{% trans "Free universal conversion calculator. Convert length, weight, temperature, volume, area, speed, time, digital storage, pressure, and energy units instantly with step-by-step solutions." %}{% endblock %}
+{% block meta_keywords %}{% trans "conversion calculator, unit converter, length converter, weight converter, temperature converter, volume converter, area converter, speed converter, time converter, digital storage converter, pressure converter, energy converter, metric to imperial, km to miles, kg to lbs, celsius to fahrenheit, online converter" %}{% endblock %}
 
-{% block og_title %}{% trans "Unit Converter - Conversion Calculator" %}{% endblock %}
-{% block og_description %}{% trans "Free unit converter to convert between length, weight, volume, temperature, area, speed, time, data, pressure, and energy units. Convert between hundreds of units including metric and imperial." %}{% endblock %}
-{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/conversion-calculator-og.jpg{% endblock %}
+{% block og_title %}{% trans "Conversion Calculator - Universal Unit Converter" %}{% endblock %}
+{% block og_description %}{% trans "Free universal conversion calculator. Convert length, weight, temperature, volume, area, speed, time, digital storage, pressure, and energy units instantly." %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
 
 {% block twitter_title %}{% trans "Conversion Calculator - Universal Unit Converter" %}{% endblock %}
-{% block twitter_description %}{% trans "Convert between hundreds of units. Free online converter with step-by-step solutions." %}{% endblock %}
-{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/conversion-calculator-twitter.jpg{% endblock %}
+{% block twitter_description %}{% trans "Free universal conversion calculator. Convert between hundreds of units across 10 categories with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
 <link rel="canonical" href="{{ request.build_absolute_uri }}">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .professional-card {
+        transition: all 0.3s ease;
+    }
+    .professional-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .category-btn { transition: all 0.2s ease; }
+    .category-btn.active { transform: scale(1.03); box-shadow: 0 4px 15px rgba(0,0,0,0.15); }
+    .success-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background-color: #d1fae5;
+        color: #065f46;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .error-message {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        margin-top: 0.5rem;
+        display: none;
+    }
+</style>
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "{% trans 'Conversion Calculator - Universal Unit Converter' %}",
+  "@type": "WebApplication",
+  "name": "{% trans 'Conversion Calculator' %}",
+  "description": "{% trans 'Convert between units of length, weight, temperature, volume, area, speed, time, digital storage, pressure, and energy instantly with step-by-step solutions.' %}",
   "applicationCategory": "UtilityApplication",
   "operatingSystem": "Web Browser",
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "4520"},
-  "description": "{% trans 'Free online conversion calculator for length, weight, volume, temperature, area, speed, time, data, pressure, and energy units with step-by-step solutions.' %}",
-  "url": "{{ request.build_absolute_uri }}",
-  "author": {"@type": "Organization", "name": "Calculators.com"}
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "2800"},
+  "featureList": ["{% trans 'Length conversion' %}", "{% trans 'Weight conversion' %}", "{% trans 'Temperature conversion' %}", "{% trans 'Volume conversion' %}", "{% trans 'Step-by-step solutions' %}", "{% trans 'Visual comparison charts' %}"]
 }
 </script>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
+<div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Header -->
-        <header class="text-center mb-6 sm:mb-8">
-            <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
-                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-6">
+            <ol class="flex items-center space-x-2 text-sm text-gray-600">
+                <li><a href="/" class="hover:text-indigo-600">{% trans "Home" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li><a href="{% url 'other_calculators:index' %}" class="hover:text-indigo-600">{% trans "Other Calculators" %}</a></li>
+                <li><span class="mx-2">/</span></li>
+                <li class="text-gray-900 font-medium">{% trans "Conversion Calculator" %}</li>
+            </ol>
+        </nav>
+
+        <!-- Header Section -->
+        <div class="text-center mb-6 sm:mb-8">
+            <div class="inline-block p-3 sm:p-4 bg-indigo-100 rounded-full mb-4">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
                 </svg>
             </div>
             <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{% trans "Conversion Calculator" %}</span>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{% trans "Conversion Calculator" %}</span>
             </h1>
             <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto px-4">
-                {% trans "Convert between hundreds of units including length, weight, volume, temperature, area, speed, time, data, pressure, and energy." %}
+                {% trans "Convert between units instantly. Supports length, weight, temperature, volume, area, speed, time, digital storage, pressure, and energy." %}
             </p>
-        </header>
+        </div>
 
-        <!-- Main Grid -->
+        <!-- Category Selector (Horizontal Scrollable) -->
+        <div class="mb-6">
+            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" id="categorySelector">
+                <!-- Categories populated by JS -->
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-            
-            <!-- Input Form -->
+
+            <!-- Left Column: Converter Form -->
             <div class="lg:col-span-4">
                 <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6 sticky top-4">
-                    <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        {% trans "Your Input" %}
-                    </h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                            <span id="formTitle">{% trans "Length Conversion" %}</span>
+                        </h2>
+                        <div class="tooltip-container relative">
+                            <button type="button" class="text-gray-400 hover:text-indigo-600 transition" title="{% trans 'Click for help' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
-                    <form id="conversionForm" onsubmit="calculateConversion(event)" novalidate>
+                    <form id="calculatorForm" class="space-y-4">
                         {% csrf_token %}
-                        
-                        <div class="space-y-4">
-                            <!-- Conversion Type -->
-                            <div>
-                                <label for="conversion-type-selector" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {% trans "Conversion Type" %}
-                                </label>
-                                <select id="conversion-type-selector" name="conversion_type" onchange="switchType(this.value)" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
-                                    <option value="length">{% trans "Length" %}</option>
-                                    <option value="weight">{% trans "Weight" %}</option>
-                                    <option value="volume">{% trans "Volume" %}</option>
-                                    <option value="temperature">{% trans "Temperature" %}</option>
-                                    <option value="area">{% trans "Area" %}</option>
-                                    <option value="speed">{% trans "Speed" %}</option>
-                                    <option value="time">{% trans "Time" %}</option>
-                                    <option value="data">{% trans "Data" %}</option>
-                                    <option value="pressure">{% trans "Pressure" %}</option>
-                                    <option value="energy">{% trans "Energy" %}</option>
-                                </select>
-                            </div>
 
-                            <!-- Value Input -->
-                            <div>
-                                <label for="value" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {% trans "Value" %} <span class="text-red-500">*</span>
-                                </label>
-                                <input type="number" id="value" name="value" step="any" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white" placeholder="0.00" required>
+                        <!-- From Value -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                {% trans "Value" %}
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="fromValue" name="value" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                                       value="1" step="any" required>
+                                <span id="fromSymbolBadge" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm font-medium">m</span>
                             </div>
+                        </div>
 
-                            <!-- From Unit -->
-                            <div>
-                                <label for="from_unit" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {% trans "From Unit" %}
-                                </label>
-                                <select id="from_unit" name="from_unit" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
-                                </select>
-                            </div>
+                        <!-- From Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "From" %}</label>
+                            <select id="fromUnit" name="from_unit" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base bg-white" required>
+                            </select>
+                        </div>
 
-                            <!-- Swap Button -->
-                            <div class="flex justify-center">
-                                <button type="button" onclick="swapUnits()" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" title="{% trans 'Swap units' %}">
-                                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <!-- To Unit -->
-                            <div>
-                                <label for="to_unit" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {% trans "To Unit" %}
-                                </label>
-                                <select id="to_unit" name="to_unit" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white">
-                                </select>
-                            </div>
-
-                            <!-- Submit Button -->
-                            <button type="submit" id="calculateBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                                <svg id="loadingSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <!-- Swap Button -->
+                        <div class="flex justify-center">
+                            <button type="button" id="swapBtn" class="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full transition-all duration-300 hover:rotate-180 border-2 border-indigo-200 hover:border-indigo-400 shadow-sm" title="{% trans 'Swap units' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
                                 </svg>
-                                <svg id="convertIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                                </svg>
-                                <span id="calculateBtnText">{% trans "Convert" %}</span>
-                            </button>
-
-                            <button type="button" id="resetBtn" class="w-full bg-white border-2 border-gray-300 text-gray-700 font-semibold py-2.5 px-6 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
-                                {% trans "Reset" %}
                             </button>
                         </div>
 
-                        <!-- Error State -->
-                        <div id="errorState" class="mt-4 hidden">
-                            <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                                <p id="errorMessage" class="text-red-600 text-sm"></p>
-                            </div>
+                        <!-- To Unit -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "To" %}</label>
+                            <select id="toUnit" name="to_unit" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base bg-white" required>
+                            </select>
                         </div>
+
+                        <!-- Error Message -->
+                        <div id="errorMessage" class="error-message"></div>
+
+                        <!-- Convert Button -->
+                        <button type="submit" id="convertBtn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="convertBtnText">{% trans "Convert" %}</span>
+                        </button>
                     </form>
+
+                    <!-- Trust Badges -->
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <p class="text-xs text-gray-500 text-center">
+                            <span class="success-badge mr-2">✓ {% trans "Accurate" %}</span>
+                            <span class="success-badge mr-2">✓ {% trans "Instant" %}</span>
+                            <span class="success-badge">✓ {% trans "Free" %}</span>
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Right Column: Initial State, Results & Guide -->
-            <div class="lg:col-span-8 space-y-6">
-                <section id="resultsSection" class="hidden space-y-6">
-                    
-                    <!-- Result Display -->
-                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 sm:p-8 text-center shadow-lg">
+            <!-- Right Column: Results & Guide -->
+            <div class="lg:col-span-8">
+
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden space-y-6">
+
+                    <!-- Main Result Card -->
+                    <div id="resultCard" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg p-6 sm:p-8 text-center fade-in shadow-lg professional-card">
                         <div class="flex items-center justify-center gap-2 mb-2">
-                            <svg class="w-5 h-5 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 text-indigo-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <p class="text-blue-100 text-sm font-medium">{% trans "Conversion Result" %}</p>
+                            <p class="text-indigo-100 text-sm font-medium">{% trans "Conversion Result" %}</p>
                         </div>
-                        <div class="text-4xl sm:text-5xl font-bold mb-2" id="resultValue">0</div>
-                        <div class="text-blue-100 text-lg" id="resultUnit"></div>
-                        <div class="mt-4 pt-4 border-t border-blue-400">
-                            <p class="text-blue-100 text-sm">
-                                <span id="originalValueDisplay"></span> <span id="originalUnitDisplay"></span> = 
-                                <span id="convertedValueDisplay"></span> <span id="convertedUnitDisplay"></span>
-                            </p>
+                        <div class="flex items-center justify-center gap-3 flex-wrap">
+                            <div class="text-right">
+                                <p id="displayValue" class="text-3xl sm:text-4xl font-bold">1</p>
+                                <p id="displayFromUnit" class="text-sm opacity-80 mt-1">{% trans "meter" %}</p>
+                            </div>
+                            <svg class="w-8 h-8 opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                            </svg>
+                            <div class="text-left">
+                                <p id="displayResult" class="text-3xl sm:text-4xl font-bold">3.2808</p>
+                                <p id="displayToUnit" class="text-sm opacity-80 mt-1">{% trans "foot" %}</p>
+                            </div>
+                        </div>
+                        <div id="formulaBadge" class="inline-block mt-4 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium shadow-md">
+                            <span id="formulaText">1 m = 3.2808 ft</span>
                         </div>
                     </div>
 
-                    <!-- Conversion Details -->
-                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Conversion Details" %}</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <p class="text-sm text-gray-600 mb-1">{% trans "From" %}</p>
-                                <p class="text-xl font-bold text-gray-900" id="detailFromValue"></p>
-                                <p class="text-sm text-gray-600" id="detailFromUnit"></p>
-                            </div>
-                            <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-                                <p class="text-sm text-gray-600 mb-1">{% trans "To" %}</p>
-                                <p class="text-xl font-bold text-gray-900" id="detailToValue"></p>
-                                <p class="text-sm text-gray-600" id="detailToUnit"></p>
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 fade-in">
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm hover:shadow-md transition professional-card">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "Category" %}</p>
+                                <p id="statCategory" class="text-sm font-bold text-gray-900">{% trans "Length" %}</p>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Chart -->
-                    <div id="chartsSection" class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Visualization" %}</h3>
-                        <div style="position: relative; height: 300px;">
-                            <canvas id="comparisonChart"></canvas>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm hover:shadow-md transition professional-card">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "From" %}</p>
+                                <p id="statFrom" class="text-sm font-bold text-gray-900">{% trans "Meter" %}</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm col-span-2 sm:col-span-1 hover:shadow-md transition professional-card">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 font-medium mb-1">{% trans "To" %}</p>
+                                <p id="statTo" class="text-sm font-bold text-gray-900">{% trans "Foot" %}</p>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Step-by-Step Solution -->
-                    <div class="mb-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3>
-                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-lg p-4 sm:p-6" id="stepByStep"></div>
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm fade-in">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            {% trans "Step-by-Step Solution" %}
+                        </h3>
+                        <div id="stepsContainer" class="space-y-3">
+                            <!-- Steps populated by JS -->
+                        </div>
                     </div>
-                </section>
 
-                <!-- Initial State -->
-                <div id="initialState" class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
-                    <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                    </svg>
-                    <p class="text-gray-600 text-base">{% trans "Enter a value and select units to see the conversion result with detailed step-by-step solution." %}</p>
+                    <!-- Chart -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm fade-in">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+                            <svg class="w-5 h-5 inline mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            {% trans "Conversion Comparison" %}
+                        </h3>
+                        <div class="relative h-[280px] min-h-[280px]">
+                            <canvas id="conversionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- All Conversions Table -->
+                    <div class="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm fade-in">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            {% trans "All Conversions" %}
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg">
+                                <thead class="bg-indigo-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Unit" %}</th>
+                                        <th class="px-4 py-3 text-right text-xs sm:text-sm font-semibold text-gray-700 uppercase">{% trans "Value" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allConversionsBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
 
-                <!-- Complete User Guide -->
-                <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg">
+                <!-- Initial State -->
+                <div id="initialState" class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-900 mb-2">{% trans "Convert Units Instantly" %}</h3>
+                    <p class="text-gray-500">{% trans "Select a category, enter a value, choose your units, then click Convert to see instant results with detailed step-by-step solutions and charts." %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comprehensive User Guide - Always Visible Below Results -->
+        <div class="bg-white rounded-xl p-6 sm:p-8 border-2 border-gray-200 shadow-lg mt-8">
             <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                <svg class="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-7 h-7 mr-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                 </svg>
                 {% trans "Complete User Guide" %}
             </h2>
 
             <div class="space-y-6">
+                <!-- What is a Conversion Calculator -->
                 <div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is Unit Conversion?" %}</h3>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "What is a Conversion Calculator?" %}</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed mb-3">
+                        {% blocktrans %}A conversion calculator is a tool that allows you to convert values between different units of measurement. Whether you need to convert kilometers to miles, Celsius to Fahrenheit, or kilograms to pounds, this universal converter handles it all with precision.{% endblocktrans %}
+                    </p>
+                    <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                        <p class="text-center font-mono text-lg font-bold text-gray-900">{% trans "Result = Value × (From Factor ÷ To Factor)" %}</p>
+                    </div>
                     <p class="text-gray-700 text-sm leading-relaxed">
-                        {% trans "Unit conversion is the process of converting a measurement from one unit to another while maintaining the same quantity. This calculator supports conversions across 10 major categories with hundreds of units, using internationally recognized conversion factors for accuracy." %}
+                        {% blocktrans %}This calculator supports 10 categories of conversions with hundreds of unit combinations, providing instant results with step-by-step explanations and visual comparisons.{% endblocktrans %}
                     </p>
                 </div>
 
+                <!-- Supported Categories -->
                 <div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
-                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
-                        <li>{% trans "Select the conversion type from the dropdown (Length, Weight, Volume, Temperature, Area, Speed, Time, Data, Pressure, or Energy)." %}</li>
-                        <li>{% trans "Enter the value you want to convert." %}</li>
-                        <li>{% trans "Select the unit you are converting from." %}</li>
-                        <li>{% trans "Select the unit you want to convert to." %}</li>
-                        <li>{% trans "Click 'Convert' to see the result with step-by-step solution." %}</li>
-                        <li>{% trans "Use Reset to clear and hide results." %}</li>
-                    </ol>
-                </div>
-
-                <div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Conversion Categories" %}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Supported Categories" %}</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
-                            <h4 class="font-semibold text-blue-900 mb-1">{% trans "Length" %}</h4>
-                            <p class="text-sm text-blue-800">{% trans "Meters, kilometers, miles, yards, feet, inches, nautical miles" %}</p>
+                            <h4 class="font-semibold text-blue-900 mb-1">📏 {% trans "Length" %}</h4>
+                            <p class="text-sm text-blue-800">{% trans "Meter, Kilometer, Mile, Foot, Inch, Yard, Nautical Mile, Light Year, and more." %}</p>
                         </div>
                         <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
-                            <h4 class="font-semibold text-green-900 mb-1">{% trans "Weight/Mass" %}</h4>
-                            <p class="text-sm text-green-800">{% trans "Kilograms, grams, pounds, ounces, tons, stones" %}</p>
-                        </div>
-                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
-                            <h4 class="font-semibold text-yellow-900 mb-1">{% trans "Volume" %}</h4>
-                            <p class="text-sm text-yellow-800">{% trans "Liters, gallons, cubic meters, cubic feet, cubic yards" %}</p>
-                        </div>
-                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
-                            <h4 class="font-semibold text-purple-900 mb-1">{% trans "Temperature" %}</h4>
-                            <p class="text-sm text-purple-800">{% trans "Celsius, Fahrenheit, Kelvin" %}</p>
+                            <h4 class="font-semibold text-green-900 mb-1">⚖️ {% trans "Weight / Mass" %}</h4>
+                            <p class="text-sm text-green-800">{% trans "Kilogram, Pound, Ounce, Gram, Stone, Metric Ton, Carat, and more." %}</p>
                         </div>
                         <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
-                            <h4 class="font-semibold text-red-900 mb-1">{% trans "Area" %}</h4>
-                            <p class="text-sm text-red-800">{% trans "Square meters, square feet, acres, hectares" %}</p>
+                            <h4 class="font-semibold text-red-900 mb-1">🌡️ {% trans "Temperature" %}</h4>
+                            <p class="text-sm text-red-800">{% trans "Celsius, Fahrenheit, Kelvin, and Rankine with precise formula-based conversion." %}</p>
                         </div>
-                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
-                            <h4 class="font-semibold text-indigo-900 mb-1">{% trans "Speed" %}</h4>
-                            <p class="text-sm text-indigo-800">{% trans "km/h, mph, m/s, knots, Mach" %}</p>
+                        <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 rounded-r">
+                            <h4 class="font-semibold text-purple-900 mb-1">🧪 {% trans "Volume" %}</h4>
+                            <p class="text-sm text-purple-800">{% trans "Liter, Gallon, Quart, Pint, Cup, Fluid Ounce, Cubic Meter, and more." %}</p>
                         </div>
-                        <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
-                            <h4 class="font-semibold text-pink-900 mb-1">{% trans "Time" %}</h4>
-                            <p class="text-sm text-pink-800">{% trans "Seconds, minutes, hours, days, weeks, months, years" %}</p>
-                        </div>
-                        <div class="border-l-4 border-teal-500 pl-4 py-2 bg-teal-50 rounded-r">
-                            <h4 class="font-semibold text-teal-900 mb-1">{% trans "Data" %}</h4>
-                            <p class="text-sm text-teal-800">{% trans "Bytes, KB, MB, GB, TB, PB, bits" %}</p>
-                        </div>
-                        <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
-                            <h4 class="font-semibold text-orange-900 mb-1">{% trans "Pressure" %}</h4>
-                            <p class="text-sm text-orange-800">{% trans "Pascals, PSI, bar, atmosphere, torr" %}</p>
+                        <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r">
+                            <h4 class="font-semibold text-yellow-900 mb-1">📐 {% trans "Area" %}</h4>
+                            <p class="text-sm text-yellow-800">{% trans "Square Meter, Hectare, Acre, Square Foot, Square Mile, and more." %}</p>
                         </div>
                         <div class="border-l-4 border-cyan-500 pl-4 py-2 bg-cyan-50 rounded-r">
-                            <h4 class="font-semibold text-cyan-900 mb-1">{% trans "Energy" %}</h4>
-                            <p class="text-sm text-cyan-800">{% trans "Joules, BTU, kWh, calories, foot-pounds" %}</p>
+                            <h4 class="font-semibold text-cyan-900 mb-1">🏎️ {% trans "Speed" %}</h4>
+                            <p class="text-sm text-cyan-800">{% trans "m/s, km/h, mph, Knots, Mach, Speed of Light." %}</p>
+                        </div>
+                        <div class="border-l-4 border-pink-500 pl-4 py-2 bg-pink-50 rounded-r">
+                            <h4 class="font-semibold text-pink-900 mb-1">⏱️ {% trans "Time" %}</h4>
+                            <p class="text-sm text-pink-800">{% trans "Second, Minute, Hour, Day, Week, Month, Year, Decade, Century." %}</p>
+                        </div>
+                        <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50 rounded-r">
+                            <h4 class="font-semibold text-indigo-900 mb-1">💾 {% trans "Digital Storage" %}</h4>
+                            <p class="text-sm text-indigo-800">{% trans "Byte, KB, MB, GB, TB, PB, Bit, KiB, MiB, GiB, and more." %}</p>
+                        </div>
+                        <div class="border-l-4 border-teal-500 pl-4 py-2 bg-teal-50 rounded-r">
+                            <h4 class="font-semibold text-teal-900 mb-1">🔧 {% trans "Pressure" %}</h4>
+                            <p class="text-sm text-teal-800">{% trans "Pascal, Bar, PSI, Atmosphere, Torr, mmHg, and more." %}</p>
+                        </div>
+                        <div class="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 rounded-r">
+                            <h4 class="font-semibold text-orange-900 mb-1">⚡ {% trans "Energy" %}</h4>
+                            <p class="text-sm text-orange-800">{% trans "Joule, Calorie, kWh, BTU, Electronvolt, Erg, and more." %}</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
-                    <h3 class="text-lg font-semibold text-blue-900 mb-3">{% trans "Important Notes" %}</h3>
-                    <ul class="space-y-2 text-sm text-blue-800">
-                        <li>{% trans "All conversions use internationally recognized conversion factors and are accurate to 10 decimal places." %}</li>
-                        <li>{% trans "Temperature conversions use precise formulas: Celsius to Fahrenheit: F = C × 9/5 + 32." %}</li>
-                        <li>{% trans "Data conversions use binary (1024) base for bytes, kilobytes, megabytes, etc." %}</li>
-                        <li>{% trans "Negative values are only allowed for temperature conversions." %}</li>
+                <!-- How to Use Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "How to Use This Calculator" %}</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                        <li>{% trans "Select a conversion category from the tabs at the top (e.g., Length, Weight, Temperature)." %}</li>
+                        <li>{% trans "Enter the value you want to convert in the input field." %}</li>
+                        <li>{% trans "Choose the source unit from the 'From' dropdown." %}</li>
+                        <li>{% trans "Choose the target unit from the 'To' dropdown." %}</li>
+                        <li>{% trans "Click 'Convert' to see results instantly." %}</li>
+                        <li>{% trans "Use the swap button (↕) to quickly reverse the conversion." %}</li>
+                        <li>{% trans "Review the step-by-step solution, comparison chart, and all conversions table." %}</li>
+                    </ol>
+                </div>
+
+                <!-- Understanding Results Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Understanding Your Results" %}</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Result Card" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "The main result card shows the converted value prominently with a formula badge showing the conversion ratio between units." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Step-by-Step Solution" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "Each conversion includes a detailed breakdown showing how the value is converted through the base unit, making it easy to understand and verify the calculation." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Comparison Chart" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "A bar chart visually compares the converted values across the most common units in the selected category." %}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "All Conversions Table" %}</h4>
+                            <p class="text-gray-700 text-sm">
+                                {% trans "A comprehensive table shows your input value converted to every available unit in the selected category for quick reference." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common Conversion Formulas -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Common Conversion Formulas" %}</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <p class="font-semibold text-gray-900 mb-2">{% trans "Temperature" %}</p>
+                            <p class="font-mono text-sm">°F = (°C × 9/5) + 32</p>
+                            <p class="font-mono text-sm">K = °C + 273.15</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <p class="font-semibold text-gray-900 mb-2">{% trans "Length" %}</p>
+                            <p class="font-mono text-sm">1 mile = 1.60934 km</p>
+                            <p class="font-mono text-sm">1 inch = 2.54 cm</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <p class="font-semibold text-gray-900 mb-2">{% trans "Weight" %}</p>
+                            <p class="font-mono text-sm">1 lb = 0.4536 kg</p>
+                            <p class="font-mono text-sm">1 oz = 28.3495 g</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <p class="font-semibold text-gray-900 mb-2">{% trans "Volume" %}</p>
+                            <p class="font-mono text-sm">1 gal = 3.78541 L</p>
+                            <p class="font-mono text-sm">1 fl oz = 29.5735 mL</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frequently Asked Questions Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">{% trans "Frequently Asked Questions" %}</h3>
+                    <div class="space-y-4">
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "How accurate are the conversions?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "All conversions use internationally recognized conversion factors and are computed using high-precision numerical libraries. Results are scientifically accurate for educational and practical use." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Why is temperature conversion different from other conversions?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Most unit conversions use simple multiplication factors. Temperature scales (Celsius, Fahrenheit, Kelvin, Rankine) use offset-based formulas because their zero points differ. For example, °F = (°C × 9/5) + 32 involves both multiplication and addition." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "What is the difference between KB and KiB?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "KB (Kilobyte) uses the SI standard where 1 KB = 1,000 bytes. KiB (Kibibyte) uses the binary standard where 1 KiB = 1,024 bytes. The binary prefixes (Ki, Mi, Gi) were introduced by the IEC to remove ambiguity in digital storage measurements." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "Can I convert between categories?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "No, conversions are only possible within the same category. For example, you can convert meters to feet (both length), but not meters to kilograms (length vs. weight). Select a category first, then choose units within it." %}</p>
+                        </div>
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "How does the swap button work?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "The swap button (↕) exchanges the 'From' and 'To' units instantly. This is useful when you want to perform the reverse conversion without manually reselecting units." %}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-2">{% trans "What units are supported?" %}</h4>
+                            <p class="text-gray-700 text-sm">{% trans "Over 100 units across 10 categories: Length (12 units), Weight (11 units), Temperature (4 units), Volume (14 units), Area (10 units), Speed (7 units), Time (12 units), Digital Storage (14 units), Pressure (9 units), and Energy (10 units)." %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Important Notes Section -->
+                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r">
+                    <h3 class="text-lg font-semibold text-indigo-900 mb-3">{% trans "Important Notes" %}</h3>
+                    <ul class="space-y-2 text-sm text-indigo-800">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "All conversions use internationally recognized conversion factors for maximum accuracy." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "Temperature conversions use direct formulas rather than simple multiplication factors." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "Digital storage uses both SI (KB, MB) and binary (KiB, MiB) standards. SI units use base-1000, binary units use base-1024." %}</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{% trans "Very large or very small results are automatically displayed in scientific notation for readability." %}</span>
+                        </li>
                     </ul>
                 </div>
-            </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-let currentType = 'length';
-let comparisonChart = null;
+// ============ GLOBALS ============
+let conversionChart = null;
+let categoriesData = {};
+let currentCategory = 'length';
 
-// Unit definitions
-const units = {
-    length: [
-        {value: 'meters', label: '{% trans "Meters" %}'},
-        {value: 'kilometers', label: '{% trans "Kilometers" %}'},
-        {value: 'centimeters', label: '{% trans "Centimeters" %}'},
-        {value: 'millimeters', label: '{% trans "Millimeters" %}'},
-        {value: 'miles', label: '{% trans "Miles" %}'},
-        {value: 'yards', label: '{% trans "Yards" %}'},
-        {value: 'feet', label: '{% trans "Feet" %}'},
-        {value: 'inches', label: '{% trans "Inches" %}'},
-        {value: 'nautical_miles', label: '{% trans "Nautical Miles" %}'},
-    ],
-    weight: [
-        {value: 'kilograms', label: '{% trans "Kilograms" %}'},
-        {value: 'grams', label: '{% trans "Grams" %}'},
-        {value: 'milligrams', label: '{% trans "Milligrams" %}'},
-        {value: 'metric_tons', label: '{% trans "Metric Tons" %}'},
-        {value: 'pounds', label: '{% trans "Pounds" %}'},
-        {value: 'ounces', label: '{% trans "Ounces" %}'},
-        {value: 'tons_us', label: '{% trans "US Tons" %}'},
-        {value: 'tons_uk', label: '{% trans "UK Tons" %}'},
-        {value: 'stones', label: '{% trans "Stones" %}'},
-    ],
-    volume: [
-        {value: 'liters', label: '{% trans "Liters" %}'},
-        {value: 'milliliters', label: '{% trans "Milliliters" %}'},
-        {value: 'cubic_meters', label: '{% trans "Cubic Meters" %}'},
-        {value: 'cubic_centimeters', label: '{% trans "Cubic Centimeters" %}'},
-        {value: 'gallons_us', label: '{% trans "US Gallons" %}'},
-        {value: 'gallons_uk', label: '{% trans "UK Gallons" %}'},
-        {value: 'quarts_us', label: '{% trans "US Quarts" %}'},
-        {value: 'pints_us', label: '{% trans "US Pints" %}'},
-        {value: 'cups_us', label: '{% trans "US Cups" %}'},
-        {value: 'fluid_ounces_us', label: '{% trans "US Fluid Ounces" %}'},
-        {value: 'cubic_feet', label: '{% trans "Cubic Feet" %}'},
-        {value: 'cubic_inches', label: '{% trans "Cubic Inches" %}'},
-        {value: 'cubic_yards', label: '{% trans "Cubic Yards" %}'},
-    ],
-    temperature: [
-        {value: 'celsius', label: '{% trans "Celsius (°C)" %}'},
-        {value: 'fahrenheit', label: '{% trans "Fahrenheit (°F)" %}'},
-        {value: 'kelvin', label: '{% trans "Kelvin (K)" %}'},
-    ],
-    area: [
-        {value: 'square_meters', label: '{% trans "Square Meters" %}'},
-        {value: 'square_kilometers', label: '{% trans "Square Kilometers" %}'},
-        {value: 'square_centimeters', label: '{% trans "Square Centimeters" %}'},
-        {value: 'square_millimeters', label: '{% trans "Square Millimeters" %}'},
-        {value: 'square_miles', label: '{% trans "Square Miles" %}'},
-        {value: 'acres', label: '{% trans "Acres" %}'},
-        {value: 'hectares', label: '{% trans "Hectares" %}'},
-        {value: 'square_yards', label: '{% trans "Square Yards" %}'},
-        {value: 'square_feet', label: '{% trans "Square Feet" %}'},
-        {value: 'square_inches', label: '{% trans "Square Inches" %}'},
-    ],
-    speed: [
-        {value: 'meters_per_second', label: '{% trans "Meters per Second" %}'},
-        {value: 'kilometers_per_hour', label: '{% trans "Kilometers per Hour" %}'},
-        {value: 'miles_per_hour', label: '{% trans "Miles per Hour" %}'},
-        {value: 'feet_per_second', label: '{% trans "Feet per Second" %}'},
-        {value: 'knots', label: '{% trans "Knots" %}'},
-        {value: 'mach', label: '{% trans "Mach" %}'},
-    ],
-    time: [
-        {value: 'seconds', label: '{% trans "Seconds" %}'},
-        {value: 'milliseconds', label: '{% trans "Milliseconds" %}'},
-        {value: 'minutes', label: '{% trans "Minutes" %}'},
-        {value: 'hours', label: '{% trans "Hours" %}'},
-        {value: 'days', label: '{% trans "Days" %}'},
-        {value: 'weeks', label: '{% trans "Weeks" %}'},
-        {value: 'months', label: '{% trans "Months" %}'},
-        {value: 'years', label: '{% trans "Years" %}'},
-        {value: 'decades', label: '{% trans "Decades" %}'},
-        {value: 'centuries', label: '{% trans "Centuries" %}'},
-    ],
-    data: [
-        {value: 'bytes', label: '{% trans "Bytes" %}'},
-        {value: 'kilobytes', label: '{% trans "Kilobytes (KB)" %}'},
-        {value: 'megabytes', label: '{% trans "Megabytes (MB)" %}'},
-        {value: 'gigabytes', label: '{% trans "Gigabytes (GB)" %}'},
-        {value: 'terabytes', label: '{% trans "Terabytes (TB)" %}'},
-        {value: 'petabytes', label: '{% trans "Petabytes (PB)" %}'},
-        {value: 'bits', label: '{% trans "Bits" %}'},
-        {value: 'kilobits', label: '{% trans "Kilobits (Kb)" %}'},
-        {value: 'megabits', label: '{% trans "Megabits (Mb)" %}'},
-        {value: 'gigabits', label: '{% trans "Gigabits (Gb)" %}'},
-    ],
-    pressure: [
-        {value: 'pascals', label: '{% trans "Pascals (Pa)" %}'},
-        {value: 'kilopascals', label: '{% trans "Kilopascals (kPa)" %}'},
-        {value: 'megapascals', label: '{% trans "Megapascals (MPa)" %}'},
-        {value: 'psi', label: '{% trans "PSI" %}'},
-        {value: 'bar', label: '{% trans "Bar" %}'},
-        {value: 'atmosphere', label: '{% trans "Atmosphere (atm)" %}'},
-        {value: 'torr', label: '{% trans "Torr" %}'},
-        {value: 'millimeters_hg', label: '{% trans "Millimeters of Mercury" %}'},
-    ],
-    energy: [
-        {value: 'joules', label: '{% trans "Joules (J)" %}'},
-        {value: 'kilojoules', label: '{% trans "Kilojoules (kJ)" %}'},
-        {value: 'calories', label: '{% trans "Calories (cal)" %}'},
-        {value: 'kilocalories', label: '{% trans "Kilocalories (kcal)" %}'},
-        {value: 'btu', label: '{% trans "BTU" %}'},
-        {value: 'kwh', label: '{% trans "Kilowatt-hours (kWh)" %}'},
-        {value: 'foot_pounds', label: '{% trans "Foot-Pounds (ft-lb)" %}'},
-        {value: 'electronvolts', label: '{% trans "Electronvolts (eV)" %}'},
-    ],
-};
+// Parse backend data
+try {
+    categoriesData = JSON.parse('{{ categories_data|escapejs }}');
+} catch(e) {
+    console.error('Error parsing categories data:', e);
+}
 
-function switchType(type) {
-    if (!type || !units[type]) return;
-    
-    currentType = type;
-    const typeSelector = document.getElementById('conversion-type-selector');
-    if (typeSelector) typeSelector.value = type;
-    
-    const unitList = units[type];
-    const fromSelect = document.getElementById('from_unit');
-    const toSelect = document.getElementById('to_unit');
-    
+// ============ HELPER ============
+function showError(message) {
+    const errorEl = document.getElementById('errorMessage');
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+    setTimeout(() => {
+        errorEl.style.display = 'none';
+    }, 5000);
+}
+
+// ============ CATEGORY SELECTOR ============
+function buildCategorySelector() {
+    const container = document.getElementById('categorySelector');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (const [key, cat] of Object.entries(categoriesData)) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'category-btn flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 ' +
+            (key === currentCategory
+                ? 'border-indigo-500 bg-indigo-600 text-white shadow-lg'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50');
+        btn.innerHTML = `<span class="text-base">${cat.icon}</span><span>${cat.label}</span>`;
+        btn.onclick = () => selectCategory(key);
+        container.appendChild(btn);
+    }
+}
+
+function selectCategory(key) {
+    currentCategory = key;
+    const cat = categoriesData[key];
+    if (!cat) return;
+
+    // Update form title
+    const formTitle = document.getElementById('formTitle');
+    if (formTitle) formTitle.textContent = cat.label + ' ' + "{% trans 'Conversion' %}";
+
+    // Populate unit dropdowns
+    populateUnitDropdowns(cat.units, cat.default_from, cat.default_to);
+
+    // Update from symbol badge
+    updateFromSymbol();
+
+    // Re-style category buttons
+    buildCategorySelector();
+
+    // Update gradient color on result card
+    updateResultCardColor(cat.color);
+
+    // Hide results and show initial
+    const results = document.getElementById('resultsSection');
+    const initialState = document.getElementById('initialState');
+    if (results) results.classList.add('hidden');
+    if (initialState) initialState.classList.remove('hidden');
+
+    // Clear error
+    const errorEl = document.getElementById('errorMessage');
+    if (errorEl) errorEl.style.display = 'none';
+}
+
+function populateUnitDropdowns(units, defaultFrom, defaultTo) {
+    const fromSelect = document.getElementById('fromUnit');
+    const toSelect = document.getElementById('toUnit');
     if (!fromSelect || !toSelect) return;
-    
-    fromSelect.innerHTML = unitList.map(u => `<option value="${u.value}">${u.label}</option>`).join('');
-    toSelect.innerHTML = unitList.map(u => `<option value="${u.value}">${u.label}</option>`).join('');
-    
-    if (unitList.length > 0) {
-        fromSelect.value = unitList[0].value;
-        toSelect.value = unitList.length > 1 ? unitList[1].value : unitList[0].value;
+
+    fromSelect.innerHTML = '';
+    toSelect.innerHTML = '';
+
+    for (const [key, unit] of Object.entries(units)) {
+        const opt1 = document.createElement('option');
+        opt1.value = key;
+        opt1.textContent = unit.label;
+        if (key === defaultFrom) opt1.selected = true;
+        fromSelect.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = key;
+        opt2.textContent = unit.label;
+        if (key === defaultTo) opt2.selected = true;
+        toSelect.appendChild(opt2);
     }
 }
 
-function swapUnits() {
-    const from = document.getElementById('from_unit');
-    const to = document.getElementById('to_unit');
-    const value = document.getElementById('value');
-    
-    if (!from || !to) return;
-    
-    const temp = from.value;
-    from.value = to.value;
-    to.value = temp;
-    
-    const resultEl = document.getElementById('resultValue');
-    if (resultEl && resultEl.textContent && resultEl.textContent !== '0') {
-        const result = parseFloat(resultEl.textContent.replace(/,/g, ''));
-        if (!isNaN(result) && result !== 0) {
-            value.value = result;
-            setTimeout(() => calculateConversion({preventDefault: () => {}}), 100);
-        }
+function updateFromSymbol() {
+    const fromUnit = document.getElementById('fromUnit');
+    const badge = document.getElementById('fromSymbolBadge');
+    if (!fromUnit || !badge) return;
+
+    const cat = categoriesData[currentCategory];
+    if (cat && cat.units[fromUnit.value]) {
+        badge.textContent = cat.units[fromUnit.value].symbol;
     }
 }
 
-function formatNumber(num) {
-    if (Math.abs(num) < 0.000001) return num.toExponential(6);
-    if (Math.abs(num) >= 1000000) return num.toExponential(6);
-    return num.toLocaleString('en-US', {maximumFractionDigits: 10});
+function updateResultCardColor(color) {
+    const card = document.getElementById('resultCard');
+    if (!card) return;
+    card.style.background = `linear-gradient(135deg, ${color}, ${adjustColor(color, -30)})`;
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+function adjustColor(hex, amount) {
+    hex = hex.replace('#', '');
+    let r = Math.max(0, Math.min(255, parseInt(hex.substring(0, 2), 16) + amount));
+    let g = Math.max(0, Math.min(255, parseInt(hex.substring(2, 4), 16) + amount));
+    let b = Math.max(0, Math.min(255, parseInt(hex.substring(4, 6), 16) + amount));
+    return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
 }
 
-async function calculateConversion(event) {
-    if (event && event.preventDefault) event.preventDefault();
-    
-    const btn = document.getElementById('calculateBtn');
-    const btnText = document.getElementById('calculateBtnText');
-    const spinner = document.getElementById('loadingSpinner');
-    const icon = document.getElementById('convertIcon');
-    
-    if (!btn) return;
-    
-    hideError();
-    
-    const value = parseFloat(document.getElementById('value').value);
-    const fromUnit = document.getElementById('from_unit').value;
-    const toUnit = document.getElementById('to_unit').value;
-    
-    if (isNaN(value)) {
-        showError('{% trans "Please enter a valid number." %}');
-        return;
+// ============ DOM READY ============
+document.addEventListener('DOMContentLoaded', function() {
+    buildCategorySelector();
+    selectCategory('length');
+
+    const fromUnit = document.getElementById('fromUnit');
+    if (fromUnit) {
+        fromUnit.addEventListener('change', updateFromSymbol);
     }
-    
-    if (currentType !== 'temperature' && value < 0) {
-        showError('{% trans "Value must be positive for this conversion type." %}');
-        return;
-    }
-    
-    if (fromUnit === toUnit) {
-        showError('{% trans "Please select different units." %}');
-        return;
-    }
-    
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (!csrfToken) {
-        showError('{% trans "CSRF token not found. Please refresh." %}');
-        return;
-    }
-    
-    btn.disabled = true;
-    if (btnText) btnText.textContent = '{% trans "Converting..." %}';
-    if (spinner) spinner.classList.remove('hidden');
-    if (icon) icon.classList.add('hidden');
-    
-    try {
-        const response = await fetch(window.location.href, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken.value
-            },
-            body: JSON.stringify({
-                conversion_type: currentType,
-                value: value,
-                from_unit: fromUnit,
-                to_unit: toUnit
-            })
+
+    // Swap button
+    const swapBtn = document.getElementById('swapBtn');
+    if (swapBtn) {
+        swapBtn.addEventListener('click', function() {
+            const from = document.getElementById('fromUnit');
+            const to = document.getElementById('toUnit');
+            if (from && to) {
+                const tmp = from.value;
+                from.value = to.value;
+                to.value = tmp;
+                updateFromSymbol();
+            }
         });
-        
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-            showError(data.error || '{% trans "An error occurred." %}');
+    }
+
+    // Form submission
+    const form = document.getElementById('calculatorForm');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const errorEl = document.getElementById('errorMessage');
+        errorEl.style.display = 'none';
+
+        // Basic client-side validation
+        const valueInput = document.getElementById('fromValue');
+        const fromUnitSelect = document.getElementById('fromUnit');
+        const toUnitSelect = document.getElementById('toUnit');
+
+        if (!valueInput.value || isNaN(parseFloat(valueInput.value))) {
+            showError("{% trans 'Please enter a valid number.' %}");
             return;
         }
-        
-        // Show results
-        document.getElementById('initialState')?.classList.add('hidden');
-        document.getElementById('resultsSection')?.classList.remove('hidden');
-        
-        // Update displays
-        const result = data.result;
-        const formattedResult = formatNumber(result);
-        const formattedValue = formatNumber(value);
-        const fromUnitFormatted = fromUnit.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-        const toUnitFormatted = toUnit.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-        
-        const setText = (id, text) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = text;
+
+        if (!fromUnitSelect.value || !toUnitSelect.value) {
+            showError("{% trans 'Please select both From and To units.' %}");
+            return;
+        }
+
+        const btn = document.getElementById('convertBtn');
+        const btnText = document.getElementById('convertBtnText');
+        btn.disabled = true;
+        btnText.textContent = "{% trans 'Converting...' %}";
+
+        const formData = {
+            category: currentCategory,
+            from_unit: fromUnitSelect.value,
+            to_unit: toUnitSelect.value,
+            value: parseFloat(valueInput.value),
         };
-        
-        setText('resultValue', formattedResult);
-        setText('resultUnit', toUnitFormatted);
-        setText('originalValueDisplay', formattedValue);
-        setText('originalUnitDisplay', fromUnitFormatted);
-        setText('convertedValueDisplay', formattedResult);
-        setText('convertedUnitDisplay', toUnitFormatted);
-        setText('detailFromValue', formattedValue);
-        setText('detailFromUnit', fromUnitFormatted);
-        setText('detailToValue', formattedResult);
-        setText('detailToUnit', toUnitFormatted);
-        
-        // Chart
-        const chartEl = document.getElementById('comparisonChart');
-        const chartSection = document.getElementById('chartsSection');
-        if (data.chart_data?.comparison_chart && chartEl && chartSection) {
-            try {
-                if (comparisonChart) comparisonChart.destroy();
-                comparisonChart = new Chart(chartEl.getContext('2d'), data.chart_data.comparison_chart);
-                chartSection.classList.remove('hidden');
-            } catch (e) {
-                console.error('Chart error:', e);
-                chartSection.classList.add('hidden');
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                showError(data.error || "{% trans 'An error occurred. Please try again.' %}");
+                return;
             }
+
+            // Display results
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            displayResults(data);
+
+        } catch(err) {
+            console.error('Error:', err);
+            showError("{% trans 'An error occurred. Please check your connection and try again.' %}");
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = "{% trans 'Convert' %}";
         }
-        
-        // Step-by-step
-        const stepEl = document.getElementById('stepByStep');
-        if (stepEl && data.step_by_step?.length > 0) {
-            let stepNum = 0;
-            stepEl.innerHTML = data.step_by_step.map(step => {
-                if (!step || !step.trim()) return '<div class="my-3"></div>';
-                
-                const text = escapeHtml(step);
-                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note)/i.test(text);
-                const isFormula = /[=×÷+\-*\/]/.test(text) && text.length < 100;
-                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
-                const isNote = /^(Note|Important|Remember)/i.test(text);
-                
-                if (isStep) {
-                    stepNum++;
-                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
-                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
-                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
-                    </div>`;
-                } else if (isFormula) {
-                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
-                } else if (isResult) {
-                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
-                        <div class="flex items-center gap-2 mb-2">
-                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
-                        </div>
-                        <p class="text-gray-800 font-medium">${text}</p>
-                    </div>`;
-                } else if (isNote) {
-                    return `<div class="mb-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
-                        <div class="flex items-start gap-2">
-                            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <p class="text-yellow-800 text-sm">${text}</p>
-                        </div>
-                    </div>`;
-                } else {
-                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
-                }
-            }).join('');
-        } else if (stepEl) {
-            stepEl.innerHTML = '<div class="p-6 bg-gray-50 rounded-lg text-center"><p class="text-gray-500">{% trans "No step-by-step solution available." %}</p></div>';
-        }
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showError('{% trans "An error occurred. Please try again." %}');
-    } finally {
-        if (btn) btn.disabled = false;
-        if (btnText) btnText.textContent = '{% trans "Convert" %}';
-        if (spinner) spinner.classList.add('hidden');
-        if (icon) icon.classList.remove('hidden');
-    }
-}
-
-
-function showError(message) {
-    var el = document.getElementById('errorState');
-    var msg = document.getElementById('errorMessage');
-    if (el && msg) {
-        msg.textContent = message;
-        el.classList.remove('hidden');
-    }
-}
-
-function hideError() {
-    var el = document.getElementById('errorState');
-    if (el) el.classList.add('hidden');
-}
-
-function handleReset() {
-    hideError();
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('resultsSection').classList.add('hidden');
-    document.getElementById('value').value = '';
-    if (comparisonChart) {
-        comparisonChart.destroy();
-        comparisonChart = null;
-    }
-    var chartSection = document.getElementById('chartsSection');
-    if (chartSection) chartSection.classList.add('hidden');
-}
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    switchType('length');
-    var resetBtn = document.getElementById('resetBtn');
-    if (resetBtn) resetBtn.addEventListener('click', handleReset);
+    });
 });
+
+// ============ DISPLAY RESULTS ============
+function displayResults(data) {
+    try {
+        // Main result card
+        document.getElementById('displayValue').textContent = data.formatted_value;
+        document.getElementById('displayFromUnit').textContent = data.from_label;
+        document.getElementById('displayResult').textContent = data.formatted_result;
+        document.getElementById('displayToUnit').textContent = data.to_label;
+        document.getElementById('formulaText').textContent = data.formula;
+
+        // Update result card color
+        if (data.category_color) {
+            updateResultCardColor(data.category_color);
+        }
+
+        // Stats cards
+        document.getElementById('statCategory').textContent = data.category_label;
+        document.getElementById('statFrom').textContent = data.from_label;
+        document.getElementById('statTo').textContent = data.to_label;
+
+        // Step-by-step solution
+        const stepsContainer = document.getElementById('stepsContainer');
+        if (stepsContainer && data.step_by_step) {
+            stepsContainer.innerHTML = '';
+            data.step_by_step.forEach(function(step, index) {
+                const isLast = index === data.step_by_step.length - 1;
+                const div = document.createElement('div');
+                div.className = isLast
+                    ? 'bg-indigo-50 border-2 border-indigo-300 rounded-lg p-4'
+                    : 'bg-gray-50 border border-gray-200 rounded-lg p-4';
+                div.innerHTML = `
+                    <p class="text-xs font-semibold ${isLast ? 'text-indigo-700' : 'text-gray-500'} mb-1">${step.title}</p>
+                    <p class="text-sm ${isLast ? 'font-bold text-indigo-900' : 'text-gray-800'} font-mono">${step.content}</p>
+                `;
+                stepsContainer.appendChild(div);
+            });
+        }
+
+        // Chart
+        if (data.chart_data && typeof Chart !== 'undefined') {
+            createConversionChart(data.chart_data);
+        }
+
+        // All conversions table
+        const tbody = document.getElementById('allConversionsBody');
+        if (tbody && data.all_conversions) {
+            tbody.innerHTML = '';
+            data.all_conversions.forEach(function(conv) {
+                const tr = document.createElement('tr');
+                tr.className = conv.is_source
+                    ? 'bg-indigo-50 font-semibold'
+                    : 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-xs sm:text-sm text-gray-700">${conv.label}</td>
+                    <td class="px-4 py-3 text-xs sm:text-sm font-medium text-gray-900 text-right font-mono">${conv.formatted} ${conv.symbol}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Smooth scroll to results
+        setTimeout(function() {
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+
+    } catch(error) {
+        console.error('Error displaying results:', error);
+        showError("{% trans 'Error displaying results. Please try again.' %}");
+    }
+}
+
+// ============ CHART ============
+function createConversionChart(chartData) {
+    const ctx = document.getElementById('conversionChart');
+    if (!ctx) return;
+
+    if (conversionChart) {
+        conversionChart.destroy();
+    }
+
+    if (!chartData || !chartData.bar_chart) return;
+
+    const barConfig = chartData.bar_chart;
+    const primaryColor = chartData.primary_color || '#6366f1';
+
+    try {
+        conversionChart = new Chart(ctx, {
+            type: barConfig.type,
+            data: barConfig.data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y !== null ? context.parsed.y.toLocaleString() : '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f3f4f6' },
+                        ticks: { font: { size: 11 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: 'bold' } }
+                    }
+                },
+                animation: { duration: 1200, easing: 'easeOutQuart' }
+            }
+        });
+    } catch(error) {
+        console.error('Error creating chart:', error);
+    }
+}
 </script>
 {% endblock %}

@@ -278,73 +278,69 @@ class TimeCardCalculator(View):
     def _prepare_daily_steps(self, clock_in_str, clock_out_str, clock_in_seconds, clock_out_seconds, total_seconds, break_minutes, break_seconds, worked_seconds, total_hours, break_hours, worked_hours, regular_hours, overtime_hours):
         steps = []
         steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Clock In: {time}')).format(time=clock_in_str))
-        steps.append(str(_('Clock Out: {time}')).format(time=clock_out_str))
-        steps.append(str(_('Break Time: {break_time} minutes')).format(break_time=break_minutes))
+        steps.append(str(_('Clock In')) + ': ' + str(clock_in_str))
+        steps.append(str(_('Clock Out')) + ': ' + str(clock_out_str))
+        steps.append(str(_('Break Time')) + ': ' + str(break_minutes) + ' ' + str(_('minutes')))
         steps.append('')
         steps.append(str(_('Step 2: Convert to seconds')))
-        steps.append(str(_('Clock In: {time} = {seconds} seconds')).format(time=clock_in_str, seconds=clock_in_seconds))
-        steps.append(str(_('Clock Out: {time} = {seconds} seconds')).format(time=clock_out_str, seconds=clock_out_seconds))
+        steps.append(str(_('Clock In')) + ': ' + str(clock_in_str) + ' = ' + str(clock_in_seconds) + ' ' + str(_('seconds')))
+        steps.append(str(_('Clock Out')) + ': ' + str(clock_out_str) + ' = ' + str(clock_out_seconds) + ' ' + str(_('seconds')))
         steps.append('')
         steps.append(str(_('Step 3: Calculate total time')))
-        steps.append(str(_('Total Time = Clock Out - Clock In')))
-        steps.append(str(_('Total Time = {out} - {clock_in} = {total} seconds')).format(out=clock_out_seconds, clock_in=clock_in_seconds, total=total_seconds))
-        steps.append(str(_('Total Time = {hours} hours')).format(hours=round(total_hours, 2)))
+        steps.append(str(_('Total Time')) + ' = ' + str(_('Clock Out')) + ' - ' + str(_('Clock In')))
+        steps.append(str(_('Total Time')) + ' = ' + str(clock_out_seconds) + ' - ' + str(clock_in_seconds) + ' = ' + str(total_seconds) + ' ' + str(_('seconds')))
+        steps.append(str(_('Total Time')) + ' = ' + str(round(total_hours, 2)) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 4: Subtract break time')))
-        steps.append(str(_('Break Time = {break_time} minutes = {seconds} seconds = {hours} hours')).format(break_time=break_minutes, seconds=break_seconds, hours=round(break_hours, 2)))
-        steps.append(str(_('Worked Time = Total Time - Break Time')))
-        steps.append(str(_('Worked Time = {total} - {break_time} = {worked} hours')).format(total=round(total_hours, 2), break_time=round(break_hours, 2), worked=round(worked_hours, 2)))
+        steps.append(str(_('Break Time')) + ' = ' + str(break_minutes) + ' ' + str(_('minutes')) + ' = ' + str(break_seconds) + ' ' + str(_('seconds')) + ' = ' + str(round(break_hours, 2)) + ' ' + str(_('hours')))
+        steps.append(str(_('Worked Time')) + ' = ' + str(_('Total Time')) + ' - ' + str(_('Break Time')))
+        steps.append(str(_('Worked Time')) + ' = ' + str(round(total_hours, 2)) + ' - ' + str(round(break_hours, 2)) + ' = ' + str(round(worked_hours, 2)) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 5: Calculate regular and overtime')))
-        steps.append(str(_('Regular Hours = min(Worked Hours, {threshold}) = {regular} hours')).format(threshold=self.OVERTIME_THRESHOLD, regular=round(regular_hours, 2)))
-        steps.append(str(_('Overtime Hours = max(0, Worked Hours - {threshold}) = {overtime} hours')).format(threshold=self.OVERTIME_THRESHOLD, overtime=round(overtime_hours, 2)))
+        steps.append(str(_('Regular Hours')) + ' = min(' + str(_('Worked Hours')) + ', ' + str(self.OVERTIME_THRESHOLD) + ') = ' + str(round(regular_hours, 2)) + ' ' + str(_('hours')))
+        steps.append(str(_('Overtime Hours')) + ' = max(0, ' + str(_('Worked Hours')) + ' - ' + str(self.OVERTIME_THRESHOLD) + ') = ' + str(round(overtime_hours, 2)) + ' ' + str(_('hours')))
         return steps
 
     def _prepare_weekly_steps(self, daily_breakdown, total_worked_hours, total_regular_hours, total_overtime_hours, weekly_regular, weekly_overtime):
         steps = []
         steps.append(str(_('Step 1: Calculate hours for each day')))
         for breakdown in daily_breakdown:
-            steps.append(str(_('{day}: {hours} hours ({regular} regular, {overtime} overtime)')).format(
-                day=breakdown['day'],
-                hours=breakdown['worked_hours'],
-                regular=breakdown['regular_hours'],
-                overtime=breakdown['overtime_hours']
-            ))
+            steps.append(str(breakdown['day']) + ': ' + str(breakdown['worked_hours']) + ' ' + str(_('hours')) + ' (' + str(breakdown['regular_hours']) + ' ' + str(_('regular')) + ', ' + str(breakdown['overtime_hours']) + ' ' + str(_('overtime')) + ')')
         steps.append('')
         steps.append(str(_('Step 2: Sum daily hours')))
-        steps.append(str(_('Total Worked Hours = {total} hours')).format(total=round(total_worked_hours, 2)))
-        steps.append(str(_('Total Regular Hours = {regular} hours')).format(regular=round(total_regular_hours, 2)))
-        steps.append(str(_('Total Overtime Hours = {overtime} hours')).format(overtime=round(total_overtime_hours, 2)))
+        steps.append(str(_('Total Worked Hours')) + ' = ' + str(round(total_worked_hours, 2)) + ' ' + str(_('hours')))
+        steps.append(str(_('Total Regular Hours')) + ' = ' + str(round(total_regular_hours, 2)) + ' ' + str(_('hours')))
+        steps.append(str(_('Total Overtime Hours')) + ' = ' + str(round(total_overtime_hours, 2)) + ' ' + str(_('hours')))
         steps.append('')
         steps.append(str(_('Step 3: Calculate weekly overtime')))
-        steps.append(str(_('Weekly Regular = min(Total Hours, {threshold}) = {regular} hours')).format(threshold=self.STANDARD_WEEK_HOURS, regular=round(weekly_regular, 2)))
-        steps.append(str(_('Weekly Overtime = max(0, Total Hours - {threshold}) = {overtime} hours')).format(threshold=self.STANDARD_WEEK_HOURS, overtime=round(weekly_overtime, 2)))
+        steps.append(str(_('Weekly Regular')) + ' = min(' + str(_('Total Hours')) + ', ' + str(self.STANDARD_WEEK_HOURS) + ') = ' + str(round(weekly_regular, 2)) + ' ' + str(_('hours')))
+        steps.append(str(_('Weekly Overtime')) + ' = max(0, ' + str(_('Total Hours')) + ' - ' + str(self.STANDARD_WEEK_HOURS) + ') = ' + str(round(weekly_overtime, 2)) + ' ' + str(_('hours')))
         return steps
 
     def _prepare_pay_steps(self, regular_hours, overtime_hours, hourly_rate, overtime_multiplier, regular_pay, overtime_rate, overtime_pay, total_pay, currency):
+        cur = (currency or 'usd').upper()
         steps = []
         steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Regular Hours: {hours}')).format(hours=regular_hours))
-        steps.append(str(_('Overtime Hours: {hours}')).format(hours=overtime_hours))
-        steps.append(str(_('Hourly Rate: {rate} {currency}')).format(rate=hourly_rate, currency=(currency or 'usd').upper()))
-        steps.append(str(_('Overtime Multiplier: {mult}')).format(mult=overtime_multiplier))
+        steps.append(str(_('Regular Hours')) + ': ' + str(regular_hours))
+        steps.append(str(_('Overtime Hours')) + ': ' + str(overtime_hours))
+        steps.append(str(_('Hourly Rate')) + ': ' + str(hourly_rate) + ' ' + cur)
+        steps.append(str(_('Overtime Multiplier')) + ': ' + str(overtime_multiplier))
         steps.append('')
         steps.append(str(_('Step 2: Calculate regular pay')))
-        steps.append(str(_('Regular Pay = Regular Hours × Hourly Rate')))
-        steps.append(str(_('Regular Pay = {hours} × {rate} = {pay} {currency}')).format(hours=regular_hours, rate=hourly_rate, pay=round(regular_pay, 2), currency=(currency or 'usd').upper()))
+        steps.append(str(_('Regular Pay')) + ' = ' + str(_('Regular Hours')) + ' × ' + str(_('Hourly Rate')))
+        steps.append(str(_('Regular Pay')) + ' = ' + str(regular_hours) + ' × ' + str(hourly_rate) + ' = ' + str(round(regular_pay, 2)) + ' ' + cur)
         steps.append('')
         steps.append(str(_('Step 3: Calculate overtime rate')))
-        steps.append(str(_('Overtime Rate = Hourly Rate × Multiplier')))
-        steps.append(str(_('Overtime Rate = {rate} × {mult} = {overtime_rate} {currency}')).format(rate=hourly_rate, mult=overtime_multiplier, overtime_rate=round(overtime_rate, 2), currency=(currency or 'usd').upper()))
+        steps.append(str(_('Overtime Rate')) + ' = ' + str(_('Hourly Rate')) + ' × ' + str(_('Multiplier')))
+        steps.append(str(_('Overtime Rate')) + ' = ' + str(hourly_rate) + ' × ' + str(overtime_multiplier) + ' = ' + str(round(overtime_rate, 2)) + ' ' + cur)
         steps.append('')
         steps.append(str(_('Step 4: Calculate overtime pay')))
-        steps.append(str(_('Overtime Pay = Overtime Hours × Overtime Rate')))
-        steps.append(str(_('Overtime Pay = {hours} × {rate} = {pay} {currency}')).format(hours=overtime_hours, rate=round(overtime_rate, 2), pay=round(overtime_pay, 2), currency=(currency or 'usd').upper()))
+        steps.append(str(_('Overtime Pay')) + ' = ' + str(_('Overtime Hours')) + ' × ' + str(_('Overtime Rate')))
+        steps.append(str(_('Overtime Pay')) + ' = ' + str(overtime_hours) + ' × ' + str(round(overtime_rate, 2)) + ' = ' + str(round(overtime_pay, 2)) + ' ' + cur)
         steps.append('')
         steps.append(str(_('Step 5: Calculate total pay')))
-        steps.append(str(_('Total Pay = Regular Pay + Overtime Pay')))
-        steps.append(str(_('Total Pay = {regular} + {overtime} = {total} {currency}')).format(regular=round(regular_pay, 2), overtime=round(overtime_pay, 2), total=round(total_pay, 2), currency=(currency or 'usd').upper()))
+        steps.append(str(_('Total Pay')) + ' = ' + str(_('Regular Pay')) + ' + ' + str(_('Overtime Pay')))
+        steps.append(str(_('Total Pay')) + ' = ' + str(round(regular_pay, 2)) + ' + ' + str(round(overtime_pay, 2)) + ' = ' + str(round(total_pay, 2)) + ' ' + cur)
         return steps
 
     def _prepare_daily_chart_data(self, regular_hours, overtime_hours, break_hours):
@@ -419,7 +415,7 @@ class TimeCardCalculator(View):
                 'maintainAspectRatio': False,
                 'plugins': {
                     'legend': {'display': True, 'position': 'bottom'},
-                    'title': {'display': True, 'text': str(_('Pay Breakdown (Total: {total})')).format(total=total_pay)}
+                    'title': {'display': True, 'text': str(_('Pay Breakdown')) + ' (' + str(_('Total')) + ': ' + str(total_pay) + ')'}
                 }
             }
         }

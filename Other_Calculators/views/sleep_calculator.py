@@ -251,85 +251,56 @@ class SleepCalculator(View):
     def _prepare_wake_time_steps(self, bed_time, fall_asleep_time, wake_times):
         steps = []
         steps.append(str(_('Step 1: Identify bedtime')))
-        steps.append(str(_('Bedtime: {time}')).format(time=bed_time.strftime('%I:%M %p')))
+        steps.append(str(_('Bedtime')) + ': ' + bed_time.strftime('%I:%M %p'))
         steps.append('')
         steps.append(str(_('Step 2: Account for time to fall asleep')))
-        steps.append(str(_('Average time to fall asleep: {minutes} minutes')).format(minutes=self.FALL_ASLEEP_TIME))
-        steps.append(str(_('Fall asleep time: {time}')).format(time=fall_asleep_time.strftime('%I:%M %p')))
+        steps.append(str(_('Average time to fall asleep')) + ': ' + str(self.FALL_ASLEEP_TIME) + ' ' + str(_('minutes')))
+        steps.append(str(_('Fall asleep time')) + ': ' + fall_asleep_time.strftime('%I:%M %p'))
         steps.append('')
         steps.append(str(_('Step 3: Calculate wake times based on sleep cycles')))
-        steps.append(str(_('Each sleep cycle lasts approximately {minutes} minutes')).format(minutes=self.SLEEP_CYCLE))
+        steps.append(str(_('Each sleep cycle lasts approximately')) + ' ' + str(self.SLEEP_CYCLE) + ' ' + str(_('minutes')))
         for wake_time in wake_times:
-            steps.append(str(_('{cycles} cycles = {hours} hours → Wake at {time} ({quality})')).format(
-                cycles=wake_time['cycles'],
-                hours=wake_time['sleep_hours'],
-                time=wake_time['time'],
-                quality=wake_time['quality']['rating']
-            ))
+            steps.append(str(wake_time['cycles']) + ' ' + str(_('cycles')) + ' = ' + str(wake_time['sleep_hours']) + ' ' + str(_('hours')) + ' → ' + str(_('Wake at')) + ' ' + str(wake_time['time']) + ' (' + str(wake_time['quality']['rating']) + ')')
         steps.append('')
         steps.append(str(_('Step 4: Recommended wake time')))
         recommended = wake_times[1] if len(wake_times) > 1 else wake_times[0]
-        steps.append(str(_('Recommended: {time} ({cycles} cycles, {hours} hours)')).format(
-            time=recommended['time'],
-            cycles=recommended['cycles'],
-            hours=recommended['sleep_hours']
-        ))
+        steps.append(str(_('Recommended')) + ': ' + str(recommended['time']) + ' (' + str(recommended['cycles']) + ' ' + str(_('cycles')) + ', ' + str(recommended['sleep_hours']) + ' ' + str(_('hours')) + ')')
         return steps
 
     def _prepare_bed_time_steps(self, wake_time, bed_times):
         steps = []
         steps.append(str(_('Step 1: Identify desired wake time')))
-        steps.append(str(_('Wake time: {time}')).format(time=wake_time.strftime('%I:%M %p')))
+        steps.append(str(_('Wake time')) + ': ' + wake_time.strftime('%I:%M %p'))
         steps.append('')
         steps.append(str(_('Step 2: Calculate bed times based on sleep cycles')))
-        steps.append(str(_('Each sleep cycle lasts approximately {minutes} minutes')).format(minutes=self.SLEEP_CYCLE))
-        steps.append(str(_('Time to fall asleep: {minutes} minutes')).format(minutes=self.FALL_ASLEEP_TIME))
+        steps.append(str(_('Each sleep cycle lasts approximately')) + ' ' + str(self.SLEEP_CYCLE) + ' ' + str(_('minutes')))
+        steps.append(str(_('Time to fall asleep')) + ': ' + str(self.FALL_ASLEEP_TIME) + ' ' + str(_('minutes')))
         for bed_time in bed_times:
             total_minutes = bed_time['cycles'] * self.SLEEP_CYCLE + self.FALL_ASLEEP_TIME
-            steps.append(str(_('{cycles} cycles = {hours} hours sleep + {fall} min fall asleep = {total} min total → Bed at {time} ({quality})')).format(
-                cycles=bed_time['cycles'],
-                hours=bed_time['sleep_hours'],
-                fall=self.FALL_ASLEEP_TIME,
-                total=total_minutes,
-                time=bed_time['time'],
-                quality=bed_time['quality']['rating']
-            ))
+            steps.append(str(bed_time['cycles']) + ' ' + str(_('cycles')) + ' = ' + str(bed_time['sleep_hours']) + ' ' + str(_('hours')) + ' ' + str(_('sleep')) + ' + ' + str(self.FALL_ASLEEP_TIME) + ' min ' + str(_('fall asleep')) + ' = ' + str(total_minutes) + ' min ' + str(_('total')) + ' → ' + str(_('Bed at')) + ' ' + str(bed_time['time']) + ' (' + str(bed_time['quality']['rating']) + ')')
         steps.append('')
         steps.append(str(_('Step 3: Recommended bed time')))
         recommended = bed_times[1] if len(bed_times) > 1 else bed_times[0]
-        steps.append(str(_('Recommended: {time} ({cycles} cycles, {hours} hours sleep)')).format(
-            time=recommended['time'],
-            cycles=recommended['cycles'],
-            hours=recommended['sleep_hours']
-        ))
+        steps.append(str(_('Recommended')) + ': ' + str(recommended['time']) + ' (' + str(recommended['cycles']) + ' ' + str(_('cycles')) + ', ' + str(recommended['sleep_hours']) + ' ' + str(_('hours')) + ' ' + str(_('sleep')) + ')')
         return steps
 
     def _prepare_sleep_now_steps(self, now, fall_asleep_time, wake_times):
         steps = []
         steps.append(str(_('Step 1: Current time')))
-        steps.append(str(_('Current time: {time}')).format(time=now.strftime('%I:%M %p')))
+        steps.append(str(_('Current time')) + ': ' + now.strftime('%I:%M %p'))
         steps.append('')
         steps.append(str(_('Step 2: Account for time to fall asleep')))
-        steps.append(str(_('Average time to fall asleep: {minutes} minutes')).format(minutes=self.FALL_ASLEEP_TIME))
-        steps.append(str(_('Fall asleep time: {time}')).format(time=fall_asleep_time.strftime('%I:%M %p')))
+        steps.append(str(_('Average time to fall asleep')) + ': ' + str(self.FALL_ASLEEP_TIME) + ' ' + str(_('minutes')))
+        steps.append(str(_('Fall asleep time')) + ': ' + fall_asleep_time.strftime('%I:%M %p'))
         steps.append('')
         steps.append(str(_('Step 3: Calculate wake times based on sleep cycles')))
-        steps.append(str(_('Each sleep cycle lasts approximately {minutes} minutes')).format(minutes=self.SLEEP_CYCLE))
+        steps.append(str(_('Each sleep cycle lasts approximately')) + ' ' + str(self.SLEEP_CYCLE) + ' ' + str(_('minutes')))
         for wake_time in wake_times:
-            steps.append(str(_('{cycles} cycles = {hours} hours → Wake at {time} ({quality})')).format(
-                cycles=wake_time['cycles'],
-                hours=wake_time['sleep_hours'],
-                time=wake_time['time'],
-                quality=wake_time['quality']['rating']
-            ))
+            steps.append(str(wake_time['cycles']) + ' ' + str(_('cycles')) + ' = ' + str(wake_time['sleep_hours']) + ' ' + str(_('hours')) + ' → ' + str(_('Wake at')) + ' ' + str(wake_time['time']) + ' (' + str(wake_time['quality']['rating']) + ')')
         steps.append('')
         steps.append(str(_('Step 4: Recommended wake time')))
         recommended = wake_times[1] if len(wake_times) > 1 else wake_times[0]
-        steps.append(str(_('Recommended: {time} ({cycles} cycles, {hours} hours)')).format(
-            time=recommended['time'],
-            cycles=recommended['cycles'],
-            hours=recommended['sleep_hours']
-        ))
+        steps.append(str(_('Recommended')) + ': ' + str(recommended['time']) + ' (' + str(recommended['cycles']) + ' ' + str(_('cycles')) + ', ' + str(recommended['sleep_hours']) + ' ' + str(_('hours')) + ')')
         return steps
 
     def _prepare_wake_time_chart_data(self, wake_times):
@@ -338,7 +309,7 @@ class SleepCalculator(View):
         chart_config = {
             'type': 'bar',
             'data': {
-                'labels': [str(_('{n} cycles')).format(n=wt['cycles']) for wt in wake_times],
+                'labels': [str(wt['cycles']) + ' ' + str(_('cycles')) for wt in wake_times],
                 'datasets': [{
                     'label': str(_('Sleep Hours')),
                     'data': [wt['sleep_hours'] for wt in wake_times],
@@ -370,7 +341,7 @@ class SleepCalculator(View):
         chart_config = {
             'type': 'bar',
             'data': {
-                'labels': [str(_('{n} cycles')).format(n=bt['cycles']) for bt in bed_times],
+                'labels': [str(bt['cycles']) + ' ' + str(_('cycles')) for bt in bed_times],
                 'datasets': [{
                     'label': str(_('Sleep Hours')),
                     'data': [bt['sleep_hours'] for bt in bed_times],
