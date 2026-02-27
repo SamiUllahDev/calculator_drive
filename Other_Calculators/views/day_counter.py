@@ -13,6 +13,29 @@ from dateutil.relativedelta import relativedelta
 logger = logging.getLogger(__name__)
 
 
+def _safe_format(msg_id, **kwargs):
+    """
+    Safely format a translatable string.
+    
+    Translators sometimes translate the {placeholder} names inside format
+    strings (e.g. {date} → {التاريخ} in Arabic, {days} → {jours} in French).
+    When .format() is called, Python raises KeyError because the translated
+    placeholder name doesn't match the keyword argument.
+    
+    This helper tries the translated string first; on any KeyError / IndexError
+    it falls back to formatting the original English msgid so the calculator
+    still works in every language.
+    """
+    translated = _(msg_id)
+    try:
+        return str(translated).format(**kwargs)
+    except (KeyError, IndexError, ValueError):
+        try:
+            return msg_id.format(**kwargs)
+        except (KeyError, IndexError, ValueError):
+            return str(translated)
+
+
 class SafeJSONEncoder(DjangoJSONEncoder):
     def default(self, o):
         try:
@@ -144,13 +167,13 @@ class DayCounter(View):
             'start_date': str(start_date),
             'end_date': str(end_date),
             'total_days': total_days,
-            'formatted': str(_('{days} days')).format(days=total_days),
+            'formatted': _safe_format('{days} days', days=total_days),
             'breakdown': {
                 'years': rd.years,
                 'months': rd.months,
                 'days': rd.days,
                 'weeks': total_weeks,
-                'weeks_days': str(_('{weeks} weeks, {days} days')).format(weeks=total_weeks, days=remaining_days),
+                'weeks_days': _safe_format('{weeks} weeks, {days} days', weeks=total_weeks, days=remaining_days),
                 'hours': total_hours,
                 'minutes': total_minutes,
                 'seconds': total_seconds,
@@ -184,7 +207,7 @@ class DayCounter(View):
             'past_date': str(past_date),
             'today': str(today),
             'total_days': total_days,
-            'formatted': str(_('{days} days ago')).format(days=total_days),
+            'formatted': _safe_format('{days} days ago', days=total_days),
             'breakdown': {
                 'years': rd.years,
                 'months': rd.months,
@@ -219,7 +242,7 @@ class DayCounter(View):
             'future_date': str(future_date),
             'today': str(today),
             'total_days': total_days,
-            'formatted': str(_('{days} days from now')).format(days=total_days),
+            'formatted': _safe_format('{days} days from now', days=total_days),
             'breakdown': {
                 'years': rd.years,
                 'months': rd.months,
@@ -258,7 +281,7 @@ class DayCounter(View):
             'event_name': event_name,
             'today': str(today),
             'total_days': total_days,
-            'formatted': str(_('{days} days until {event}')).format(days=total_days, event=event_name),
+            'formatted': _safe_format('{days} days until {event}', days=total_days, event=event_name),
             'breakdown': {
                 'years': rd.years,
                 'months': rd.months,
@@ -285,57 +308,57 @@ class DayCounter(View):
         """Prepare step-by-step solution for days between"""
         steps = []
         steps.append(_('Step 1: Identify the dates'))
-        steps.append(_('Start Date: {date}').format(date=start_date.strftime('%B %d, %Y')))
-        steps.append(_('End Date: {date}').format(date=end_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Start Date: {date}', date=start_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('End Date: {date}', date=end_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate total days'))
         steps.append(_('Formula: End Date - Start Date'))
-        steps.append(_('Total Days = {days}').format(days=total_days))
+        steps.append(_safe_format('Total Days = {days}', days=total_days))
         steps.append('')
         steps.append(_('Step 3: Break down into other units'))
-        steps.append(_('Weeks = Total Days ÷ 7 = {weeks}').format(weeks=total_days // 7))
-        steps.append(_('Months = Years × 12 + Months = {months}').format(months=rd.years * 12 + rd.months))
-        steps.append(_('Hours = Days × 24 = {hours}').format(hours=total_days * 24))
+        steps.append(_safe_format('Weeks = Total Days ÷ 7 = {weeks}', weeks=total_days // 7))
+        steps.append(_safe_format('Months = Years × 12 + Months = {months}', months=rd.years * 12 + rd.months))
+        steps.append(_safe_format('Hours = Days × 24 = {hours}', hours=total_days * 24))
         steps.append('')
         steps.append(_('Step 4: Calculate business days'))
-        steps.append(_('Business Days (excluding weekends) = {days}').format(days=business_days))
+        steps.append(_safe_format('Business Days (excluding weekends) = {days}', days=business_days))
         return steps
     
     def _prepare_since_steps(self, past_date, today, total_days):
         """Prepare step-by-step for days since"""
         steps = []
         steps.append(_('Step 1: Identify the dates'))
-        steps.append(_('Past Date: {date}').format(date=past_date.strftime('%B %d, %Y')))
-        steps.append(_('Today: {date}').format(date=today.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Past Date: {date}', date=past_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Today: {date}', date=today.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate the difference'))
         steps.append(_('Days Since = Today - Past Date'))
-        steps.append(_('Days Since = {days} days').format(days=total_days))
+        steps.append(_safe_format('Days Since = {days} days', days=total_days))
         return steps
     
     def _prepare_until_steps(self, today, future_date, total_days):
         """Prepare step-by-step for days until"""
         steps = []
         steps.append(_('Step 1: Identify the dates'))
-        steps.append(_('Today: {date}').format(date=today.strftime('%B %d, %Y')))
-        steps.append(_('Future Date: {date}').format(date=future_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Today: {date}', date=today.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Future Date: {date}', date=future_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate the difference'))
         steps.append(_('Days Until = Future Date - Today'))
-        steps.append(_('Days Until = {days} days').format(days=total_days))
+        steps.append(_safe_format('Days Until = {days} days', days=total_days))
         return steps
     
     def _prepare_countdown_steps(self, today, event_date, event_name, total_days):
         """Prepare step-by-step for countdown"""
         steps = []
         steps.append(_('Step 1: Identify the event'))
-        steps.append(_('Event: {name}').format(name=event_name))
-        steps.append(_('Event Date: {date}').format(date=event_date.strftime('%B %d, %Y')))
-        steps.append(_('Today: {date}').format(date=today.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Event: {name}', name=event_name))
+        steps.append(_safe_format('Event Date: {date}', date=event_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Today: {date}', date=today.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate countdown'))
         steps.append(_('Countdown = Event Date - Today'))
-        steps.append(_('Countdown = {days} days until {event}').format(days=total_days, event=event_name))
+        steps.append(_safe_format('Countdown = {days} days until {event}', days=total_days, event=event_name))
         return steps
     
     def _prepare_between_chart_data(self, total_days, total_weeks, total_months, business_days):
@@ -389,3 +412,4 @@ class DayCounter(View):
             }
         }
         return {'days_chart': chart_config}
+

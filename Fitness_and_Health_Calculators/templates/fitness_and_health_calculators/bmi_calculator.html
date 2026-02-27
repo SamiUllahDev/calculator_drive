@@ -43,17 +43,17 @@
                     <form id="calculatorForm" class="space-y-4">
                         {% csrf_token %}
                         
-                        <!-- Unit System -->
+                        <!-- Unit System (Weight) -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Unit System" %}</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{% trans "Weight Unit" %}</label>
                             <div class="flex gap-4">
                                 <label class="flex items-center cursor-pointer">
                                     <input type="radio" name="unit_system" value="metric" checked class="mr-2">
-                                    <span class="text-sm">{% trans "Metric (cm, kg)" %}</span>
+                                    <span class="text-sm">{% trans "Metric (kg)" %}</span>
                                 </label>
                                 <label class="flex items-center cursor-pointer">
                                     <input type="radio" name="unit_system" value="imperial" class="mr-2">
-                                    <span class="text-sm">{% trans "Imperial (ft, lbs)" %}</span>
+                                    <span class="text-sm">{% trans "Imperial (lbs)" %}</span>
                                 </label>
                             </div>
                         </div>
@@ -74,30 +74,43 @@
                             </div>
                         </div>
 
-                        <!-- Height Metric -->
-                        <div id="heightMetric">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height (cm)" %}</label>
-                            <input type="number" id="height_cm" name="height_cm" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
-                                   value="175" min="50" max="300" step="0.1" required>
-                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 50-300 cm" %}</p>
-                        </div>
-
-                        <!-- Height Imperial -->
-                        <div id="heightImperial" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Height" %}</label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div class="relative">
-                                    <input type="number" id="height_ft" name="height_ft" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
-                                           value="5" min="2" max="8" required>
-                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "ft" %}</span>
-                                </div>
-                                <div class="relative">
-                                    <input type="number" id="height_in" name="height_in" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
-                                           value="10" min="0" max="11" step="0.1">
-                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "in" %}</span>
+                        <!-- Height with Unit Toggle (cm / feet) -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-sm font-medium text-gray-700">{% trans "Height" %}</label>
+                                <div class="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+                                    <button type="button" id="heightUnitFt" class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 bg-blue-600 text-white shadow-sm" onclick="switchHeightUnit('feet')">
+                                        {% trans "Feet" %}
+                                    </button>
+                                    <button type="button" id="heightUnitCm" class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 text-gray-600 hover:text-gray-800" onclick="switchHeightUnit('cm')">
+                                        {% trans "CM" %}
+                                    </button>
                                 </div>
                             </div>
-                            <p class="text-xs text-gray-500 mt-1">{% trans "Range: 2-8 ft, 0-11 in" %}</p>
+
+                            <!-- Height in Feet (Default - Shown) -->
+                            <div id="heightImperial">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="relative">
+                                        <input type="number" id="height_ft" name="height_ft" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                               value="5" min="2" max="8" required>
+                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "ft" %}</span>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="number" id="height_in" name="height_in" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                               value="10" min="0" max="11" step="0.1">
+                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">{% trans "in" %}</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Range: 2-8 ft, 0-11 in" %}</p>
+                            </div>
+
+                            <!-- Height in CM (Hidden by default) -->
+                            <div id="heightMetric" class="hidden">
+                                <input type="number" id="height_cm" name="height_cm" class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" 
+                                       value="175" min="50" max="300" step="0.1">
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Range: 50-300 cm" %}</p>
+                            </div>
                         </div>
 
                         <!-- Weight Metric -->
@@ -523,6 +536,36 @@ let bmiGaugeChart = null;
 let bmiCategoryChart = null;
 let weightRangeChart = null;
 
+// Track the current height unit ('feet' or 'cm'), default is 'feet'
+let currentHeightUnit = 'feet';
+
+// Height unit switcher function (global scope for onclick)
+function switchHeightUnit(unit) {
+    currentHeightUnit = unit;
+    const heightMetric = document.getElementById('heightMetric');
+    const heightImperial = document.getElementById('heightImperial');
+    const heightUnitFt = document.getElementById('heightUnitFt');
+    const heightUnitCm = document.getElementById('heightUnitCm');
+
+    if (unit === 'cm') {
+        heightMetric.classList.remove('hidden');
+        heightImperial.classList.add('hidden');
+        document.getElementById('height_cm').required = true;
+        document.getElementById('height_ft').required = false;
+        // Style toggle buttons
+        heightUnitCm.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 bg-blue-600 text-white shadow-sm';
+        heightUnitFt.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 text-gray-600 hover:text-gray-800';
+    } else {
+        heightMetric.classList.add('hidden');
+        heightImperial.classList.remove('hidden');
+        document.getElementById('height_cm').required = false;
+        document.getElementById('height_ft').required = true;
+        // Style toggle buttons
+        heightUnitFt.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 bg-blue-600 text-white shadow-sm';
+        heightUnitCm.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 text-gray-600 hover:text-gray-800';
+    }
+}
+
 // Check if Chart.js is loaded
 function checkChartJS() {
     if (typeof Chart === 'undefined') {
@@ -538,34 +581,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingState = document.getElementById('loadingState');
     const errorState = document.getElementById('errorState');
     const results = document.getElementById('results');
-    const heightMetric = document.getElementById('heightMetric');
-    const heightImperial = document.getElementById('heightImperial');
     const weightMetric = document.getElementById('weightMetric');
     const weightImperial = document.getElementById('weightImperial');
     const resultCard = document.getElementById('resultCard');
 
-    // Unit system toggle
+    // Weight unit system toggle (only affects weight fields)
     document.querySelectorAll('input[name="unit_system"]').forEach(radio => {
         radio.addEventListener('change', function() {
             if (this.value === 'imperial') {
-                heightMetric.classList.add('hidden');
-                heightImperial.classList.remove('hidden');
                 weightMetric.classList.add('hidden');
                 weightImperial.classList.remove('hidden');
-                document.getElementById('height_cm').required = false;
                 document.getElementById('weight_kg').required = false;
-                document.getElementById('height_ft').required = true;
-                document.getElementById('height_in').required = true;
                 document.getElementById('weight_lbs').required = true;
             } else {
-                heightMetric.classList.remove('hidden');
-                heightImperial.classList.add('hidden');
                 weightMetric.classList.remove('hidden');
                 weightImperial.classList.add('hidden');
-                document.getElementById('height_cm').required = true;
                 document.getElementById('weight_kg').required = true;
-                document.getElementById('height_ft').required = false;
-                document.getElementById('height_in').required = false;
                 document.getElementById('weight_lbs').required = false;
             }
             // Clear results when switching units
@@ -584,22 +615,39 @@ document.addEventListener('DOMContentLoaded', function() {
         if (errorState) errorState.classList.add('hidden');
         if (loadingState) loadingState.classList.remove('hidden');
 
-        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        const weightUnitSystem = document.querySelector('input[name="unit_system"]:checked').value;
+        
+        // Determine height in the format the backend expects
+        let height, unitSystem;
+        
+        if (currentHeightUnit === 'feet') {
+            // Height is in feet/inches - convert to total inches for imperial
+            const heightFt = parseFloat(document.getElementById('height_ft').value);
+            const heightIn = parseFloat(document.getElementById('height_in').value) || 0;
+            height = heightFt * 12 + heightIn; // total inches
+            unitSystem = 'imperial'; // Tell backend height is imperial
+        } else {
+            // Height is in cm - send as metric
+            height = parseFloat(document.getElementById('height_cm').value);
+            unitSystem = 'metric'; // Tell backend height is metric
+        }
+        
+        // Get weight based on weight unit selection
+        let weight;
+        if (weightUnitSystem === 'imperial') {
+            weight = parseFloat(document.getElementById('weight_lbs').value);
+        } else {
+            weight = parseFloat(document.getElementById('weight_kg').value);
+        }
+
         const formData = {
-            unit_system: unitSystem,
+            unit_system: unitSystem, // Based on height unit for BMI calculation
+            weight_unit: weightUnitSystem, // Separate weight unit info
+            height: height,
+            weight: weight,
             age: parseInt(document.getElementById('age').value),
             gender: document.getElementById('gender').value
         };
-
-        if (unitSystem === 'imperial') {
-            const heightFt = parseFloat(document.getElementById('height_ft').value);
-            const heightIn = parseFloat(document.getElementById('height_in').value) || 0;
-            formData.height = heightFt * 12 + heightIn; // Convert to total inches
-            formData.weight = parseFloat(document.getElementById('weight_lbs').value);
-        } else {
-            formData.height = parseFloat(document.getElementById('height_cm').value);
-            formData.weight = parseFloat(document.getElementById('weight_kg').value);
-        }
 
         // Update button state
         const submitBtn = document.getElementById('calculateBtnText');

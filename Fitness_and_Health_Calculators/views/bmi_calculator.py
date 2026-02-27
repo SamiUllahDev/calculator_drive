@@ -40,7 +40,8 @@ class BmiCalculator(View):
             data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
             
             # Get input values
-            unit_system = data.get('unit_system', 'metric')
+            unit_system = data.get('unit_system', 'metric')  # Height unit system
+            weight_unit = data.get('weight_unit', unit_system)  # Weight unit system (separate)
             height = float(data.get('height', 0))
             weight = float(data.get('weight', 0))
             age = int(data.get('age', 20))  # Default to 20 if not provided
@@ -73,16 +74,11 @@ class BmiCalculator(View):
             # Normalize gender
             gender = 'male' if gender in ['male', 'm'] else 'female'
             
-            # Validate reasonable ranges
+            # Validate height based on height unit system
             if unit_system == 'imperial':
                 if height < 24 or height > 120:  # 2-10 feet in inches
                     return JsonResponse({
                         'error': 'Height must be between 24 and 120 inches.',
-                        'success': False
-                    }, status=400)
-                if weight < 20 or weight > 1000:  # 20-1000 lbs
-                    return JsonResponse({
-                        'error': 'Weight must be between 20 and 1000 pounds.',
                         'success': False
                     }, status=400)
             else:
@@ -91,25 +87,37 @@ class BmiCalculator(View):
                         'error': 'Height must be between 50 and 300 cm.',
                         'success': False
                     }, status=400)
+            
+            # Validate weight based on weight unit system
+            if weight_unit == 'imperial':
+                if weight < 20 or weight > 1000:  # 20-1000 lbs
+                    return JsonResponse({
+                        'error': 'Weight must be between 20 and 1000 pounds.',
+                        'success': False
+                    }, status=400)
+            else:
                 if weight < 10 or weight > 500:  # 10-500 kg
                     return JsonResponse({
                         'error': 'Weight must be between 10 and 500 kg.',
                         'success': False
                     }, status=400)
             
-            # Convert to metric using SymPy for high precision conversions
+            # Convert height to meters
             if unit_system == 'imperial':
                 # Height is passed as total inches
                 height_m = float(N(height * self.INCHES_TO_METERS, 10))
-                
-                # Convert pounds to kilograms
-                weight_kg = float(N(weight * self.POUNDS_TO_KG, 10))
             else:
                 # Metric: convert cm to meters if needed
                 if height > 3:  # If height is in cm (likely > 3 meters)
                     height_m = float(N(height * self.CM_TO_METERS, 10))
                 else:
                     height_m = float(height)
+            
+            # Convert weight to kg
+            if weight_unit == 'imperial':
+                # Convert pounds to kilograms
+                weight_kg = float(N(weight * self.POUNDS_TO_KG, 10))
+            else:
                 weight_kg = float(weight)
             
             # Calculate BMI using SymPy for precise symbolic calculation
@@ -158,15 +166,15 @@ class BmiCalculator(View):
             min_weight_kg = float(N(weight_formula_min.subs(h, Float(height_m, 15)), 10))
             max_weight_kg = float(N(weight_formula_max.subs(h, Float(height_m, 15)), 10))
             
-            # Convert back to user's preferred unit if imperial
-            if unit_system == 'imperial':
+            # Convert back to user's preferred weight unit if imperial
+            if weight_unit == 'imperial':
                 min_weight = float(N(min_weight_kg / self.POUNDS_TO_KG, 10))
                 max_weight = float(N(max_weight_kg / self.POUNDS_TO_KG, 10))
-                weight_unit = 'lbs'
+                display_weight_unit = 'lbs'
             else:
                 min_weight = min_weight_kg
                 max_weight = max_weight_kg
-                weight_unit = 'kg'
+                display_weight_unit = 'kg'
             
             # Calculate additional statistics using NumPy for efficient array operations
             bmi_array = np.array([bmi])
@@ -189,9 +197,9 @@ class BmiCalculator(View):
                 bmi=bmi,
                 category_color=category_color,
                 category=category,
-                healthy_weight_range={'min': min_weight, 'max': max_weight, 'unit': weight_unit},
+                healthy_weight_range={'min': min_weight, 'max': max_weight, 'unit': display_weight_unit},
                 current_weight=current_weight_for_chart,
-                weight_unit=weight_unit
+                weight_unit=display_weight_unit
             )
             
             # Prepare color information (backend-controlled)
@@ -212,7 +220,7 @@ class BmiCalculator(View):
                 'healthy_weight_range': {
                     'min': round(min_weight, 1),
                     'max': round(max_weight, 1),
-                    'unit': weight_unit
+                    'unit': display_weight_unit
                 },
                 'height_m': round(height_m, 3),
                 'weight_kg': round(weight_kg, 3),

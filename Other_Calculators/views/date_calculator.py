@@ -13,6 +13,29 @@ from dateutil.relativedelta import relativedelta
 logger = logging.getLogger(__name__)
 
 
+def _safe_format(msg_id, **kwargs):
+    """
+    Safely format a translatable string.
+    
+    Translators sometimes translate the {placeholder} names inside format
+    strings (e.g. {date} → {التاريخ} in Arabic, {years} → {ans} in French).
+    When .format() is called, Python raises KeyError because the translated
+    placeholder name doesn't match the keyword argument.
+    
+    This helper tries the translated string first; on any KeyError / IndexError
+    it falls back to formatting the original English msgid so the calculator
+    still works in every language.
+    """
+    translated = _(msg_id)
+    try:
+        return str(translated).format(**kwargs)
+    except (KeyError, IndexError, ValueError):
+        try:
+            return msg_id.format(**kwargs)
+        except (KeyError, IndexError, ValueError):
+            return str(translated)
+
+
 class SafeJSONEncoder(DjangoJSONEncoder):
     def default(self, o):
         try:
@@ -150,14 +173,14 @@ class DateCalculator(View):
                 'years': rd.years,
                 'months': rd.months,
                 'days': rd.days,
-                'formatted': str(_('{years} years, {months} months, {days} days')).format(
+                'formatted': _safe_format('{years} years, {months} months, {days} days',
                     years=rd.years, months=rd.months, days=rd.days
                 )
             },
             'totals': {
                 'days': total_days,
                 'weeks': total_weeks,
-                'weeks_days': str(_('{weeks} weeks, {days} days')).format(weeks=total_weeks, days=remaining_days),
+                'weeks_days': _safe_format('{weeks} weeks, {days} days', weeks=total_weeks, days=remaining_days),
                 'months': total_months,
                 'hours': total_hours,
                 'minutes': total_minutes,
@@ -239,7 +262,7 @@ class DateCalculator(View):
             'past_date': str(past_date),
             'today': str(today),
             'days_since': total_days,
-            'formatted': str(_('{days} days ago')).format(days=total_days),
+            'formatted': _safe_format('{days} days ago', days=total_days),
             'breakdown': {'years': years, 'months': months, 'weeks': weeks, 'days': total_days},
             'step_by_step': self._prepare_days_since_steps(past_date, today, total_days),
             'chart_data': chart_data,
@@ -270,7 +293,7 @@ class DateCalculator(View):
             'future_date': str(future_date),
             'today': str(today),
             'days_until': total_days,
-            'formatted': str(_('{days} days from now')).format(days=total_days),
+            'formatted': _safe_format('{days} days from now', days=total_days),
             'breakdown': {'years': years, 'months': months, 'weeks': weeks, 'days': total_days},
             'step_by_step': self._prepare_days_until_steps(today, future_date, total_days),
             'chart_data': chart_data,
@@ -317,38 +340,38 @@ class DateCalculator(View):
         """Prepare step-by-step solution for date difference"""
         steps = []
         steps.append(_('Step 1: Identify the dates'))
-        steps.append(_('Start Date: {date}').format(date=start_date.strftime('%B %d, %Y')))
-        steps.append(_('End Date: {date}').format(date=end_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Start Date: {date}', date=start_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('End Date: {date}', date=end_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate the difference'))
         steps.append(_('Using relativedelta to get precise year, month, and day differences'))
-        steps.append(_('Years: {years}').format(years=rd.years))
-        steps.append(_('Months: {months}').format(months=rd.months))
-        steps.append(_('Days: {days}').format(days=rd.days))
+        steps.append(_safe_format('Years: {years}', years=rd.years))
+        steps.append(_safe_format('Months: {months}', months=rd.months))
+        steps.append(_safe_format('Days: {days}', days=rd.days))
         steps.append('')
         steps.append(_('Step 3: Calculate total days'))
         steps.append(_('Formula: End Date - Start Date'))
-        steps.append(_('Total Days = {days}').format(days=total_days))
+        steps.append(_safe_format('Total Days = {days}', days=total_days))
         steps.append('')
         steps.append(_('Step 4: Convert to other units'))
-        steps.append(_('Weeks = Total Days ÷ 7 = {weeks}').format(weeks=total_days // 7))
-        steps.append(_('Months = Years × 12 + Months = {months}').format(months=rd.years * 12 + rd.months))
-        steps.append(_('Hours = Days × 24 = {hours}').format(hours=total_days * 24))
-        steps.append(_('Minutes = Hours × 60 = {minutes}').format(minutes=total_days * 24 * 60))
+        steps.append(_safe_format('Weeks = Total Days ÷ 7 = {weeks}', weeks=total_days // 7))
+        steps.append(_safe_format('Months = Years × 12 + Months = {months}', months=rd.years * 12 + rd.months))
+        steps.append(_safe_format('Hours = Days × 24 = {hours}', hours=total_days * 24))
+        steps.append(_safe_format('Minutes = Hours × 60 = {minutes}', minutes=total_days * 24 * 60))
         steps.append('')
         steps.append(_('Step 5: Calculate business days'))
-        steps.append(_('Business Days (excluding weekends) = {days}').format(days=business_days))
+        steps.append(_safe_format('Business Days (excluding weekends) = {days}', days=business_days))
         return steps
     
     def _prepare_add_subtract_steps(self, base_date, result_date, operation, years, months, weeks, days):
         """Prepare step-by-step solution for add/subtract"""
         steps = []
         steps.append(_('Step 1: Identify the base date'))
-        steps.append(_('Base Date: {date}').format(date=base_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Base Date: {date}', date=base_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Determine the operation'))
-        steps.append(_('Operation: {op}').format(op=_('Add') if operation == 'add' else _('Subtract')))
-        steps.append(_('Time to {op}: {years} years, {months} months, {weeks} weeks, {days} days').format(
+        steps.append(_safe_format('Operation: {op}', op=_('Add') if operation == 'add' else _('Subtract')))
+        steps.append(_safe_format('Time to {op}: {years} years, {months} months, {weeks} weeks, {days} days',
             op=_('add') if operation == 'add' else _('subtract'),
             years=years, months=months, weeks=weeks, days=days
         ))
@@ -358,49 +381,49 @@ class DateCalculator(View):
             steps.append(_('Result Date = Base Date + Time Period'))
         else:
             steps.append(_('Result Date = Base Date - Time Period'))
-        steps.append(_('Result Date = {date}').format(date=result_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Result Date = {date}', date=result_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 4: Determine the day of week'))
         days_of_week = [
             _('Monday'), _('Tuesday'), _('Wednesday'), _('Thursday'),
             _('Friday'), _('Saturday'), _('Sunday')
         ]
-        steps.append(_('Day of Week: {day}').format(day=days_of_week[result_date.weekday()]))
+        steps.append(_safe_format('Day of Week: {day}', day=days_of_week[result_date.weekday()]))
         return steps
     
     def _prepare_days_since_steps(self, past_date, today, total_days):
         """Prepare step-by-step for days since"""
         steps = []
         steps.append(_('Step 1: Identify the dates'))
-        steps.append(_('Past Date: {date}').format(date=past_date.strftime('%B %d, %Y')))
-        steps.append(_('Today: {date}').format(date=today.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Past Date: {date}', date=past_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Today: {date}', date=today.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate the difference'))
         steps.append(_('Days Since = Today - Past Date'))
-        steps.append(_('Days Since = {days} days').format(days=total_days))
+        steps.append(_safe_format('Days Since = {days} days', days=total_days))
         return steps
     
     def _prepare_days_until_steps(self, today, future_date, total_days):
         """Prepare step-by-step for days until"""
         steps = []
         steps.append(_('Step 1: Identify the dates'))
-        steps.append(_('Today: {date}').format(date=today.strftime('%B %d, %Y')))
-        steps.append(_('Future Date: {date}').format(date=future_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Today: {date}', date=today.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Future Date: {date}', date=future_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate the difference'))
         steps.append(_('Days Until = Future Date - Today'))
-        steps.append(_('Days Until = {days} days').format(days=total_days))
+        steps.append(_safe_format('Days Until = {days} days', days=total_days))
         return steps
     
     def _prepare_weekday_steps(self, target_date, day_of_week):
         """Prepare step-by-step for weekday calculation"""
         steps = []
         steps.append(_('Step 1: Identify the date'))
-        steps.append(_('Target Date: {date}').format(date=target_date.strftime('%B %d, %Y')))
+        steps.append(_safe_format('Target Date: {date}', date=target_date.strftime('%B %d, %Y')))
         steps.append('')
         steps.append(_('Step 2: Calculate the day of week'))
         steps.append(_('Using Python datetime.weekday() method'))
-        steps.append(_('Day of Week: {day}').format(day=day_of_week))
+        steps.append(_safe_format('Day of Week: {day}', day=day_of_week))
         return steps
     
     def _prepare_difference_chart_data(self, total_days, total_weeks, total_months, business_days):
@@ -454,3 +477,4 @@ class DateCalculator(View):
             }
         }
         return {'days_chart': chart_config}
+

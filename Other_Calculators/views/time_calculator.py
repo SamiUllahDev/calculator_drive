@@ -12,6 +12,29 @@ import re
 logger = logging.getLogger(__name__)
 
 
+def _safe_format(msg_id, **kwargs):
+    """
+    Safely format a translatable string.
+    
+    Translators sometimes translate the {placeholder} names inside format
+    strings (e.g. {time1} → {heure1} in French, {hours} → {ساعات} in Arabic).
+    When .format() is called, Python raises KeyError because the translated
+    placeholder name doesn't match the keyword argument.
+    
+    This helper tries the translated string first; on any KeyError / IndexError
+    it falls back to formatting the original English msgid so the calculator
+    still works in every language.
+    """
+    translated = _(msg_id)
+    try:
+        return str(translated).format(**kwargs)
+    except (KeyError, IndexError, ValueError):
+        try:
+            return msg_id.format(**kwargs)
+        except (KeyError, IndexError, ValueError):
+            return str(translated)
+
+
 class SafeJSONEncoder(DjangoJSONEncoder):
     def default(self, o):
         try:
@@ -246,7 +269,7 @@ class TimeCalculator(View):
             }
         except Exception as e:
             logger.exception("Time calculator add_subtract failed: %s", e)
-            return {'success': False, 'error': str(_('Error calculating add/subtract: {error}')).format(error=str(e))}
+            return {'success': False, 'error': _safe_format('Error calculating add/subtract: {error}', error=str(e))}
     
     def _convert_time(self, data):
         """Convert time between units"""
@@ -323,96 +346,96 @@ class TimeCalculator(View):
         """Prepare step-by-step solution for time difference"""
         steps = []
         steps.append(_('Step 1: Identify the given times'))
-        steps.append(_('Time 1: {time1}').format(time1=time1_str))
-        steps.append(_('Time 2: {time2}').format(time2=time2_str))
+        steps.append(_safe_format('Time 1: {time1}', time1=time1_str))
+        steps.append(_safe_format('Time 2: {time2}', time2=time2_str))
         steps.append('')
         steps.append(_('Step 2: Convert to seconds'))
-        steps.append(_('Time 1: {time1} = {seconds1} seconds').format(time1=time1_str, seconds1=time1_seconds))
-        steps.append(_('Time 2: {time2} = {seconds2} seconds').format(time2=time2_str, seconds2=time2_seconds))
+        steps.append(_safe_format('Time 1: {time1} = {seconds1} seconds', time1=time1_str, seconds1=time1_seconds))
+        steps.append(_safe_format('Time 2: {time2} = {seconds2} seconds', time2=time2_str, seconds2=time2_seconds))
         steps.append('')
         steps.append(_('Step 3: Calculate difference'))
         steps.append(_('Difference = |Time 2 - Time 1|'))
-        steps.append(_('Difference = |{time2} - {time1}|').format(time2=time2_seconds, time1=time1_seconds))
-        steps.append(_('Difference = {diff} seconds').format(diff=difference_seconds))
+        steps.append(_safe_format('Difference = |{time2} - {time1}|', time2=time2_seconds, time1=time1_seconds))
+        steps.append(_safe_format('Difference = {diff} seconds', diff=difference_seconds))
         steps.append('')
         steps.append(_('Step 4: Convert to hours, minutes, seconds'))
-        steps.append(_('Hours = {diff} ÷ 3600 = {hours}').format(diff=difference_seconds, hours=hours))
-        steps.append(_('Minutes = ({diff} % 3600) ÷ 60 = {minutes}').format(diff=difference_seconds, minutes=minutes))
-        steps.append(_('Seconds = {diff} % 60 = {seconds}').format(diff=difference_seconds, seconds=seconds))
+        steps.append(_safe_format('Hours = {diff} ÷ 3600 = {hours}', diff=difference_seconds, hours=hours))
+        steps.append(_safe_format('Minutes = ({diff} % 3600) ÷ 60 = {minutes}', diff=difference_seconds, minutes=minutes))
+        steps.append(_safe_format('Seconds = {diff} % 60 = {seconds}', diff=difference_seconds, seconds=seconds))
         steps.append('')
         steps.append(_('Step 5: Result'))
-        steps.append(_('Difference = {result}').format(result=result_formatted))
+        steps.append(_safe_format('Difference = {result}', result=result_formatted))
         return steps
     
     def _prepare_add_subtract_steps(self, time_str, operation, amount, amount_unit, time_seconds, amount_seconds, result_seconds, hours, minutes, seconds, result_formatted):
         """Prepare step-by-step solution for add/subtract"""
         steps = []
         steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Time: {time}').format(time=time_str))
-        steps.append(_('Amount: {amount} {unit}').format(amount=amount, unit=self._format_unit(amount_unit)))
-        steps.append(_('Operation: {op}').format(op=operation.title()))
+        steps.append(_safe_format('Time: {time}', time=time_str))
+        steps.append(_safe_format('Amount: {amount} {unit}', amount=amount, unit=self._format_unit(amount_unit)))
+        steps.append(_safe_format('Operation: {op}', op=operation.title()))
         steps.append('')
         steps.append(_('Step 2: Convert to seconds'))
-        steps.append(_('Time: {time} = {seconds} seconds').format(time=time_str, seconds=time_seconds))
-        steps.append(_('Amount: {amount} {unit} = {seconds} seconds').format(amount=amount, unit=self._format_unit(amount_unit), seconds=amount_seconds))
+        steps.append(_safe_format('Time: {time} = {seconds} seconds', time=time_str, seconds=time_seconds))
+        steps.append(_safe_format('Amount: {amount} {unit} = {seconds} seconds', amount=amount, unit=self._format_unit(amount_unit), seconds=amount_seconds))
         steps.append('')
-        steps.append(_('Step 3: Perform {op}').format(op=operation))
+        steps.append(_safe_format('Step 3: Perform {op}', op=operation))
         if operation == 'add':
             steps.append(_('Result = Time + Amount'))
-            steps.append(_('Result = {time} + {amount} = {result} seconds').format(time=time_seconds, amount=amount_seconds, result=result_seconds))
+            steps.append(_safe_format('Result = {time} + {amount} = {result} seconds', time=time_seconds, amount=amount_seconds, result=result_seconds))
         else:
             steps.append(_('Result = Time - Amount'))
-            steps.append(_('Result = {time} - {amount} = {result} seconds').format(time=time_seconds, amount=amount_seconds, result=result_seconds))
+            steps.append(_safe_format('Result = {time} - {amount} = {result} seconds', time=time_seconds, amount=amount_seconds, result=result_seconds))
         steps.append('')
         steps.append(_('Step 4: Convert to hours, minutes, seconds'))
-        steps.append(_('Hours = {result} ÷ 3600 = {hours}').format(result=result_seconds, hours=hours))
-        steps.append(_('Minutes = ({result} % 3600) ÷ 60 = {minutes}').format(result=result_seconds, minutes=minutes))
-        steps.append(_('Seconds = {result} % 60 = {seconds}').format(result=result_seconds, seconds=seconds))
+        steps.append(_safe_format('Hours = {result} ÷ 3600 = {hours}', result=result_seconds, hours=hours))
+        steps.append(_safe_format('Minutes = ({result} % 3600) ÷ 60 = {minutes}', result=result_seconds, minutes=minutes))
+        steps.append(_safe_format('Seconds = {result} % 60 = {seconds}', result=result_seconds, seconds=seconds))
         steps.append('')
         steps.append(_('Step 5: Result'))
-        steps.append(_('Result = {result}').format(result=result_formatted))
+        steps.append(_safe_format('Result = {result}', result=result_formatted))
         return steps
     
     def _prepare_convert_steps(self, time_value, from_unit, time_seconds, result, to_unit):
         """Prepare step-by-step solution for time conversion"""
         steps = []
         steps.append(_('Step 1: Identify the given value'))
-        steps.append(_('Time: {time} {unit}').format(time=time_value, unit=self._format_unit(from_unit)))
+        steps.append(_safe_format('Time: {time} {unit}', time=time_value, unit=self._format_unit(from_unit)))
         steps.append('')
         steps.append(_('Step 2: Convert to base unit (seconds)'))
-        steps.append(_('Time in seconds = {time} × {factor} = {seconds} seconds').format(time=time_value, factor=self.TIME_CONVERSIONS[from_unit], seconds=time_seconds))
+        steps.append(_safe_format('Time in seconds = {time} × {factor} = {seconds} seconds', time=time_value, factor=self.TIME_CONVERSIONS[from_unit], seconds=time_seconds))
         steps.append('')
         steps.append(_('Step 3: Convert to target unit'))
-        steps.append(_('Time in {unit} = {seconds} ÷ {factor} = {result} {unit}').format(unit=self._format_unit(to_unit), seconds=time_seconds, factor=self.TIME_CONVERSIONS[to_unit], result=round(result, 6)))
+        steps.append(_safe_format('Time in {unit} = {seconds} ÷ {factor} = {result} {unit}', unit=self._format_unit(to_unit), seconds=time_seconds, factor=self.TIME_CONVERSIONS[to_unit], result=round(result, 6)))
         return steps
     
     def _prepare_duration_steps(self, start_time_str, end_time_str, start_seconds, end_seconds, duration_seconds, hours, minutes, seconds, result_formatted):
         """Prepare step-by-step solution for duration calculation"""
         steps = []
         steps.append(_('Step 1: Identify the given times'))
-        steps.append(_('Start Time: {start}').format(start=start_time_str))
-        steps.append(_('End Time: {end}').format(end=end_time_str))
+        steps.append(_safe_format('Start Time: {start}', start=start_time_str))
+        steps.append(_safe_format('End Time: {end}', end=end_time_str))
         steps.append('')
         steps.append(_('Step 2: Convert to seconds'))
-        steps.append(_('Start Time: {start} = {seconds} seconds').format(start=start_time_str, seconds=start_seconds))
-        steps.append(_('End Time: {end} = {seconds} seconds').format(end=end_time_str, seconds=end_seconds))
+        steps.append(_safe_format('Start Time: {start} = {seconds} seconds', start=start_time_str, seconds=start_seconds))
+        steps.append(_safe_format('End Time: {end} = {seconds} seconds', end=end_time_str, seconds=end_seconds))
         steps.append('')
         if end_seconds < start_seconds:
             steps.append(_('Step 3: Calculate duration (crosses midnight)'))
             steps.append(_('Duration = (86400 - Start) + End'))
-            steps.append(_('Duration = (86400 - {start}) + {end} = {duration} seconds').format(start=start_seconds, end=end_seconds, duration=duration_seconds))
+            steps.append(_safe_format('Duration = (86400 - {start}) + {end} = {duration} seconds', start=start_seconds, end=end_seconds, duration=duration_seconds))
         else:
             steps.append(_('Step 3: Calculate duration'))
             steps.append(_('Duration = End - Start'))
-            steps.append(_('Duration = {end} - {start} = {duration} seconds').format(end=end_seconds, start=start_seconds, duration=duration_seconds))
+            steps.append(_safe_format('Duration = {end} - {start} = {duration} seconds', end=end_seconds, start=start_seconds, duration=duration_seconds))
         steps.append('')
         steps.append(_('Step 4: Convert to hours, minutes, seconds'))
-        steps.append(_('Hours = {duration} ÷ 3600 = {hours}').format(duration=duration_seconds, hours=hours))
-        steps.append(_('Minutes = ({duration} % 3600) ÷ 60 = {minutes}').format(duration=duration_seconds, minutes=minutes))
-        steps.append(_('Seconds = {duration} % 60 = {seconds}').format(duration=duration_seconds, seconds=seconds))
+        steps.append(_safe_format('Hours = {duration} ÷ 3600 = {hours}', duration=duration_seconds, hours=hours))
+        steps.append(_safe_format('Minutes = ({duration} % 3600) ÷ 60 = {minutes}', duration=duration_seconds, minutes=minutes))
+        steps.append(_safe_format('Seconds = {duration} % 60 = {seconds}', duration=duration_seconds, seconds=seconds))
         steps.append('')
         steps.append(_('Step 5: Result'))
-        steps.append(_('Duration = {result}').format(result=result_formatted))
+        steps.append(_safe_format('Duration = {result}', result=result_formatted))
         return steps
     
     # Chart data preparation methods
