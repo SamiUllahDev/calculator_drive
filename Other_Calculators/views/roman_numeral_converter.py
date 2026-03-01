@@ -5,9 +5,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
-import re
 import numpy as np
-from sympy import Integer, Symbol, Add
+from sympy import Integer, Symbol, simplify, N, Float
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -15,573 +14,521 @@ class RomanNumeralConverter(View):
     """
     Class-based view for Roman Numeral Converter with full functionality
 
-    Uses NumPy for efficient array-based value lookups and aggregation.
-    Uses SymPy for symbolic representation of the conversion formula.
-
-    Features:
-    - Bidirectional conversion (decimal ↔ Roman, range 1–3999)
-    - Standard subtractive notation (IV, IX, XL, XC, CD, CM)
-    - Step-by-step conversion breakdown
-    - Chart.js bar-chart visualization (backend-controlled)
-    - Full i18n support via gettext_lazy
+    Uses NumPy for efficient array-based operations and batch processing.
+    Uses SymPy for precise integer arithmetic and symbolic validation.
     """
     template_name = 'other_calculators/roman_numeral_converter.html'
 
-    # ── Roman numeral single-symbol values ──────────────────────────
-    ROMAN_VALUES = {
-        'I': 1,
-        'V': 5,
-        'X': 10,
-        'L': 50,
-        'C': 100,
-        'D': 500,
-        'M': 1000,
-    }
-
-    # ── Subtractive notation pairs ──────────────────────────────────
-    SUBTRACTIVE_VALUES = {
-        'IV': 4,
-        'IX': 9,
-        'XL': 40,
-        'XC': 90,
-        'CD': 400,
-        'CM': 900,
-    }
-
-    # ── Ordered map for decimal → Roman conversion ──────────────────
-    DECIMAL_TO_ROMAN = [
-        (1000, 'M'),
-        (900, 'CM'),
-        (500, 'D'),
-        (400, 'CD'),
-        (100, 'C'),
-        (90, 'XC'),
-        (50, 'L'),
-        (40, 'XL'),
-        (10, 'X'),
-        (9, 'IX'),
-        (5, 'V'),
-        (4, 'IV'),
-        (1, 'I'),
+    # Roman numeral mapping (descending order for greedy algorithm)
+    ROMAN_VALUES = [
+        (1000, 'M'), (900, 'CM'), (500, 'D'), (400, 'CD'),
+        (100, 'C'), (90, 'XC'), (50, 'L'), (40, 'XL'),
+        (10, 'X'), (9, 'IX'), (5, 'V'), (4, 'IV'), (1, 'I')
     ]
 
-    # NumPy array of the decimal keys for fast look-ups
-    _DECIMAL_KEYS = np.array([v for v, _ in DECIMAL_TO_ROMAN])
+    # Valid Roman numeral characters and their values
+    ROMAN_CHAR_VALUES = {
+        'I': 1, 'V': 5, 'X': 10, 'L': 50,
+        'C': 100, 'D': 500, 'M': 1000
+    }
 
-    # ================================================================
-    # HTTP handlers
-    # ================================================================
+    # Subtractive pairs for validation
+    VALID_SUBTRACTIVE = {'IV', 'IX', 'XL', 'XC', 'CD', 'CM'}
+
+    # Max repetitions allowed for each character
+    MAX_REPETITIONS = {
+        'I': 3, 'V': 1, 'X': 3, 'L': 1,
+        'C': 3, 'D': 1, 'M': 3
+    }
+
+    # Standard range for Roman numerals
+    MIN_VALUE = Integer(1)
+    MAX_VALUE = Integer(3999)
 
     def get(self, request):
-        """Handle GET request – render the empty converter page."""
+        """Handle GET request"""
         context = {
             'calculator_name': _('Roman Numeral Converter'),
-            'page_title': _('Roman Numeral Converter - Convert Numbers to Roman Numerals'),
+            'page_title': _('Roman Numeral Converter - Convert Between Roman and Arabic Numbers'),
         }
         return render(request, self.template_name, context)
 
     def post(self, request):
-        """Handle POST request – perform the requested conversion."""
+        """Handle POST request for conversions using NumPy and SymPy"""
         try:
-            data = (
-                json.loads(request.body)
-                if request.content_type == 'application/json'
-                else request.POST
-            )
-            conversion_type = data.get('conversion_type', 'decimal_to_roman')
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
 
-            if conversion_type == 'decimal_to_roman':
-                return self._convert_decimal_to_roman(data)
-            elif conversion_type == 'roman_to_decimal':
-                return self._convert_roman_to_decimal(data)
-            else:
+            conversion_type = data.get('conversion_type', 'to_roman')  # 'to_roman' or 'to_arabic'
+            input_value = data.get('input_value', '').strip()
+
+            if not input_value:
                 return JsonResponse({
-                    'success': False,
-                    'error': str(_('Invalid conversion type.'))
+                    'error': str(_('Please enter a value to convert.')),
+                    'success': False
                 }, status=400)
 
-        except json.JSONDecodeError:
+            if conversion_type == 'to_roman':
+                return self._convert_to_roman(input_value)
+            elif conversion_type == 'to_arabic':
+                return self._convert_to_arabic(input_value)
+            else:
+                return JsonResponse({
+                    'error': str(_('Invalid conversion type.')),
+                    'success': False
+                }, status=400)
+
+        except (ValueError, KeyError, TypeError) as e:
             return JsonResponse({
                 'success': False,
-                'error': str(_('Invalid JSON data.'))
+                'error': str(_('Invalid input:')) + ' ' + str(e)
             }, status=400)
-        except Exception:
+        except Exception as e:
             return JsonResponse({
                 'success': False,
                 'error': str(_('An error occurred during conversion.'))
             }, status=500)
 
-    # ================================================================
-    # DECIMAL → ROMAN
-    # ================================================================
-
-    def _convert_decimal_to_roman(self, data):
-        """Validate input and convert a decimal number to a Roman numeral."""
+    def _convert_to_roman(self, input_value):
+        """Convert Arabic number to Roman numeral using SymPy and NumPy"""
         try:
-            # --- presence check ---
-            raw = data.get('decimal')
-            if raw is None or raw == '':
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Please enter a decimal number.'))
-                }, status=400)
-
-            # --- type check ---
-            try:
-                decimal = int(float(raw))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Invalid input. Please enter a valid integer.'))
-                }, status=400)
-
-            # --- range check (NumPy for consistency with project style) ---
-            val = np.array([decimal])
-            if np.any(val < 1):
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Number must be at least 1.'))
-                }, status=400)
-            if np.any(val > 3999):
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Number cannot exceed 3999 (standard Roman numeral limit).'))
-                }, status=400)
-
-            # --- conversion ---
-            roman, steps = self._decimal_to_roman_with_steps(decimal)
-
-            # --- chart data ---
-            chart_data = self._prepare_decimal_chart(decimal, roman)
-
-            # --- color info ---
-            color_info = self._get_color_info(decimal)
-
+            number = int(input_value)
+        except ValueError:
             return JsonResponse({
-                'success': True,
-                'conversion_type': 'decimal_to_roman',
-                'decimal': decimal,
-                'roman': roman,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-                'color_info': color_info,
-            })
-
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(_('Invalid input: %(error)s') % {'error': str(e)})
+                'error': str(_('Please enter a valid integer number.')),
+                'success': False
             }, status=400)
-        except Exception:
+
+        # Validate range using SymPy Integer for precision
+        sym_number = Integer(number)
+        if sym_number < self.MIN_VALUE or sym_number > self.MAX_VALUE:
             return JsonResponse({
-                'success': False,
-                'error': str(_('Error converting to Roman numeral.'))
-            }, status=500)
+                'error': str(_('Number must be between')) + f' {self.MIN_VALUE} ' + str(_('and')) + f' {self.MAX_VALUE}.',
+                'success': False
+            }, status=400)
 
-    # ================================================================
-    # ROMAN → DECIMAL
-    # ================================================================
+        # Convert to Roman using greedy algorithm
+        roman_result = self._int_to_roman(number)
 
-    def _convert_roman_to_decimal(self, data):
-        """Validate input and convert a Roman numeral to a decimal number."""
-        try:
-            raw = data.get('roman')
-            if not raw:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Please enter a Roman numeral.'))
-                }, status=400)
+        # Cross-verify with NumPy-based reverse conversion
+        verify_value = self._roman_to_int_numpy(roman_result)
+        if verify_value != number:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Conversion discrepancy: input={number}, roman={roman_result}, verify={verify_value}")
 
-            roman = raw.strip().upper()
-            if not roman:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Roman numeral cannot be empty.'))
-                }, status=400)
+        # Build breakdown of how the number is composed
+        breakdown = self._get_conversion_breakdown(number)
 
-            if not self._is_valid_roman(roman):
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_(
-                        'Invalid Roman numeral format. '
-                        'Only I, V, X, L, C, D, M are allowed with standard rules.'
-                    ))
-                }, status=400)
+        # Calculate place values using NumPy
+        place_values = self._get_place_values(number)
 
-            decimal, steps = self._roman_to_decimal_with_steps(roman)
+        # Prepare chart data (backend-controlled)
+        chart_data = self._prepare_chart_data(number, breakdown)
 
-            if decimal is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(_('Invalid Roman numeral.'))
-                }, status=400)
+        # Get numeral analysis
+        analysis = self._analyze_roman_numeral(roman_result, number)
 
-            chart_data = self._prepare_roman_chart(roman, decimal)
-            color_info = self._get_color_info(decimal)
+        return JsonResponse({
+            'success': True,
+            'input_value': number,
+            'result': roman_result,
+            'conversion_type': 'to_roman',
+            'breakdown': breakdown,
+            'place_values': place_values,
+            'chart_data': chart_data,
+            'analysis': analysis,
+            'fun_facts': self._get_fun_facts(number),
+        })
 
+    def _convert_to_arabic(self, input_value):
+        """Convert Roman numeral to Arabic number using SymPy and NumPy"""
+        roman_input = input_value.upper().strip()
+
+        # Validate Roman numeral string
+        validation_error = self._validate_roman_numeral(roman_input)
+        if validation_error:
             return JsonResponse({
-                'success': True,
-                'conversion_type': 'roman_to_decimal',
-                'roman': roman,
-                'decimal': decimal,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-                'color_info': color_info,
+                'error': validation_error,
+                'success': False
+            }, status=400)
+
+        # Convert using NumPy-based approach
+        arabic_result = self._roman_to_int_numpy(roman_input)
+
+        # Verify with SymPy by converting back
+        sym_result = Integer(arabic_result)
+        verify_roman = self._int_to_roman(int(sym_result))
+
+        if verify_roman != roman_input:
+            # The input is a valid but non-standard form
+            is_standard = False
+            standard_form = verify_roman
+        else:
+            is_standard = True
+            standard_form = roman_input
+
+        # Build breakdown
+        breakdown = self._get_roman_breakdown(roman_input)
+
+        # Place values
+        place_values = self._get_place_values(arabic_result)
+
+        # Chart data
+        chart_data = self._prepare_chart_data(arabic_result, self._get_conversion_breakdown(arabic_result))
+
+        # Analysis
+        analysis = self._analyze_roman_numeral(roman_input, arabic_result)
+
+        return JsonResponse({
+            'success': True,
+            'input_value': roman_input,
+            'result': arabic_result,
+            'conversion_type': 'to_arabic',
+            'is_standard_form': is_standard,
+            'standard_form': standard_form,
+            'breakdown': breakdown,
+            'place_values': place_values,
+            'chart_data': chart_data,
+            'analysis': analysis,
+            'fun_facts': self._get_fun_facts(arabic_result),
+        })
+
+    def _int_to_roman(self, number):
+        """Convert integer to Roman numeral string using greedy algorithm"""
+        result = []
+        remaining = number
+        for value, numeral in self.ROMAN_VALUES:
+            while remaining >= value:
+                result.append(numeral)
+                remaining -= value
+        return ''.join(result)
+
+    def _roman_to_int_numpy(self, roman):
+        """Convert Roman numeral to integer using NumPy for efficient computation"""
+        if not roman:
+            return 0
+
+        # Create NumPy array of values
+        values = np.array([self.ROMAN_CHAR_VALUES.get(c, 0) for c in roman])
+
+        if len(values) == 0:
+            return 0
+
+        # Use NumPy vectorized operations for subtractive notation
+        # If a value is less than the next value, subtract it; otherwise add it
+        shifted = np.roll(values, -1)
+        shifted[-1] = 0  # Last element has nothing after it
+
+        # Where current < next, subtract (subtractive notation)
+        signs = np.where(values < shifted, -1, 1)
+
+        # Total = sum of signed values
+        total = int(np.sum(values * signs))
+
+        return total
+
+    def _validate_roman_numeral(self, roman):
+        """Validate a Roman numeral string and return error message or None"""
+        if not roman:
+            return str(_('Please enter a Roman numeral.'))
+
+        # Check for invalid characters
+        for char in roman:
+            if char not in self.ROMAN_CHAR_VALUES:
+                return str(_('Invalid character')) + f' "{char}". ' + str(_('Valid Roman numerals are: I, V, X, L, C, D, M.'))
+
+        # Check for too many consecutive repetitions
+        count = 1
+        for i in range(1, len(roman)):
+            if roman[i] == roman[i - 1]:
+                count += 1
+                max_allowed = self.MAX_REPETITIONS.get(roman[i], 1)
+                if count > max_allowed:
+                    return str(_('Character')) + f' "{roman[i]}" ' + str(_('cannot be repeated more than')) + f' {max_allowed} ' + str(_('time(s).'))
+            else:
+                count = 1
+
+        # Check that value is within range
+        value = self._roman_to_int_numpy(roman)
+        if value < int(self.MIN_VALUE) or value > int(self.MAX_VALUE):
+            return str(_('Roman numeral must represent a value between')) + f' {self.MIN_VALUE} ' + str(_('and')) + f' {self.MAX_VALUE}.'
+
+        return None
+
+    def _get_conversion_breakdown(self, number):
+        """Get step-by-step breakdown of integer to Roman conversion"""
+        breakdown = []
+        remaining = number
+        for value, numeral in self.ROMAN_VALUES:
+            if remaining >= value:
+                count = remaining // value
+                breakdown.append({
+                    'value': value,
+                    'numeral': numeral,
+                    'count': count,
+                    'subtotal': value * count,
+                    'description': f'{numeral} × {count} = {value * count}'
+                })
+                remaining -= value * count
+        return breakdown
+
+    def _get_roman_breakdown(self, roman):
+        """Get step-by-step breakdown of Roman to integer conversion"""
+        breakdown = []
+        values = [self.ROMAN_CHAR_VALUES[c] for c in roman]
+
+        i = 0
+        while i < len(roman):
+            if i + 1 < len(roman) and values[i] < values[i + 1]:
+                # Subtractive pair
+                pair = roman[i:i + 2]
+                pair_value = values[i + 1] - values[i]
+                breakdown.append({
+                    'numeral': pair,
+                    'value': pair_value,
+                    'type': 'subtractive',
+                    'description': f'{pair} = {values[i + 1]} - {values[i]} = {pair_value}'
+                })
+                i += 2
+            else:
+                # Additive
+                breakdown.append({
+                    'numeral': roman[i],
+                    'value': values[i],
+                    'type': 'additive',
+                    'description': f'{roman[i]} = {values[i]}'
+                })
+                i += 1
+        return breakdown
+
+    def _get_place_values(self, number):
+        """Decompose number into place values using NumPy"""
+        if number == 0:
+            return []
+
+        num_array = np.array([number])
+
+        # Extract thousands, hundreds, tens, ones
+        thousands = int((num_array // 1000)[0])
+        hundreds = int(((num_array % 1000) // 100)[0])
+        tens = int(((num_array % 100) // 10)[0])
+        ones = int((num_array % 10)[0])
+
+        place_values = []
+        if thousands > 0:
+            place_values.append({
+                'place': str(_('Thousands')),
+                'digit': thousands,
+                'value': thousands * 1000,
+                'roman': self._int_to_roman(thousands * 1000)
+            })
+        if hundreds > 0:
+            place_values.append({
+                'place': str(_('Hundreds')),
+                'digit': hundreds,
+                'value': hundreds * 100,
+                'roman': self._int_to_roman(hundreds * 100)
+            })
+        if tens > 0:
+            place_values.append({
+                'place': str(_('Tens')),
+                'digit': tens,
+                'value': tens * 10,
+                'roman': self._int_to_roman(tens * 10)
+            })
+        if ones > 0:
+            place_values.append({
+                'place': str(_('Ones')),
+                'digit': ones,
+                'value': ones,
+                'roman': self._int_to_roman(ones)
             })
 
-        except Exception:
-            return JsonResponse({
-                'success': False,
-                'error': str(_('Error converting to decimal.'))
-            }, status=500)
+        return place_values
 
-    # ================================================================
-    # Conversion logic
-    # ================================================================
+    def _analyze_roman_numeral(self, roman, arabic):
+        """Analyze properties of the numeral"""
+        # Character frequency using NumPy
+        chars = list(roman)
+        unique_chars = list(set(chars))
+        char_counts = {c: chars.count(c) for c in unique_chars}
 
-    def _decimal_to_roman_with_steps(self, decimal):
-        """Return (roman_string, steps_list) using SymPy symbolic addition."""
-        steps = []
+        # Numeral length
+        length = len(roman)
 
-        # Step 1 – original number
-        steps.append({
-            'title': str(_('Step 1: Start with the decimal number')),
-            'content': str(_('Decimal: %(decimal)s') % {'decimal': f'{decimal:,}'})
-        })
+        # Is it a palindrome?
+        is_palindrome = roman == roman[::-1]
 
-        roman = ''
-        remaining = decimal
-        components = []
+        # Uses subtractive notation?
+        uses_subtractive = any(pair in roman for pair in self.VALID_SUBTRACTIVE)
 
-        # Use SymPy Integer for symbolic representation
-        sym_remaining = Integer(decimal)
-        sym_parts = []
+        # Number properties using SymPy
+        sym_num = Integer(arabic)
+        is_even = bool(sym_num % 2 == 0)
+        is_prime = bool(sym_num.is_prime) if arabic > 1 else False
 
-        for value, symbol in self.DECIMAL_TO_ROMAN:
-            count = remaining // value
-            if count > 0:
-                part = symbol * count
-                roman += part
-                part_value = value * count
-                components.append({
-                    'value': part_value,
-                    'symbol': part,
-                    'label': f'{part} ({part_value:,})'
-                })
-                sym_parts.append(Integer(part_value))
-                remaining %= value
+        # Nearest round numbers
+        nearest_hundred = int(round(arabic / 100) * 100) if arabic >= 50 else arabic
+        nearest_ten = int(round(arabic / 10) * 10)
 
-        # SymPy cross-check: sum of parts must equal original
-        if sym_parts:
-            sym_total = Add(*sym_parts)
-            assert int(sym_total) == decimal, (
-                f"SymPy verification failed: {sym_total} != {decimal}"
-            )
+        return {
+            'length': length,
+            'unique_characters': len(unique_chars),
+            'character_frequency': char_counts,
+            'is_palindrome': is_palindrome,
+            'uses_subtractive': uses_subtractive,
+            'is_even': is_even,
+            'is_prime': is_prime,
+            'nearest_ten': nearest_ten,
+            'nearest_hundred': nearest_hundred,
+            'roman_nearest_ten': self._int_to_roman(nearest_ten) if 1 <= nearest_ten <= 3999 else str(_('N/A')),
+            'roman_nearest_hundred': self._int_to_roman(nearest_hundred) if 1 <= nearest_hundred <= 3999 else str(_('N/A')),
+        }
 
-        # NumPy cross-check
-        if components:
-            np_total = int(np.sum(np.array([c['value'] for c in components])))
-            assert np_total == decimal, (
-                f"NumPy verification failed: {np_total} != {decimal}"
-            )
+    def _get_fun_facts(self, number):
+        """Get interesting facts about the number"""
+        facts = []
 
-        # Step 2 – breakdown
-        step2_lines = [f"{c['symbol']} = {c['value']:,}" for c in components]
-        steps.append({
-            'title': str(_('Step 2: Break down into Roman numeral components')),
-            'content': ' , '.join(step2_lines)
-        })
+        if number == 1:
+            facts.append(str(_('I is the simplest Roman numeral.')))
+        if number == 4:
+            facts.append(str(_('IV uses subtractive notation (5 - 1) instead of IIII.')))
+        if number == 9:
+            facts.append(str(_('IX uses subtractive notation (10 - 1) instead of VIIII.')))
+        if number == 42:
+            facts.append(str(_('XLII — "The Answer to the Ultimate Question of Life, the Universe, and Everything."')))
+        if number == 100:
+            facts.append(str(_('C stands for "centum," the Latin word for 100.')))
+        if number == 500:
+            facts.append(str(_('D stands for the right half of the symbol Φ (phi), which was used for 1000.')))
+        if number == 1000:
+            facts.append(str(_('M stands for "mille," the Latin word for 1000.')))
+        if number == 666:
+            facts.append(str(_('DCLXVI uses each of D, C, L, X, V, I exactly once in descending order.')))
+        if number == 1776:
+            facts.append(str(_('MDCCLXXVI — The year of the United States Declaration of Independence.')))
+        if number == 2024:
+            facts.append(str(_('MMXXIV — The current year in Roman numerals.')))
+        if number == 3999:
+            facts.append(str(_('MMMCMXCIX is the largest standard Roman numeral (3999).')))
 
-        # Step 3 – combine
-        steps.append({
-            'title': str(_('Step 3: Combine all components')),
-            'content': str(_('Roman Numeral: %(roman)s') % {'roman': roman})
-        })
+        # General facts
+        sym_num = Integer(number)
+        if number > 1 and sym_num.is_prime:
+            facts.append(str(number) + ' ' + str(_('is a prime number.')))
+        if number > 0 and int(number ** 0.5) ** 2 == number:
+            facts.append(str(number) + ' ' + str(_('is a perfect square')) + f' ({int(number ** 0.5)}²).')
 
-        # Result
-        steps.append({
-            'title': str(_('Result')),
-            'content': f'{decimal:,} = {roman}'
-        })
+        roman = self._int_to_roman(number)
+        if len(roman) == 1:
+            facts.append(roman + ' ' + str(_('is one of the 7 basic Roman numeral symbols.')))
+        if len(roman) >= 10:
+            facts.append(str(_('This number requires')) + f' {len(roman)} ' + str(_('Roman numeral characters — quite long!')))
 
-        return roman, steps
+        return facts
 
-    def _roman_to_decimal_with_steps(self, roman):
-        """Return (decimal_int, steps_list)."""
-        steps = []
+    def _prepare_chart_data(self, number, breakdown):
+        """Prepare chart data for visualization (backend-controlled)"""
+        # Place value distribution chart
+        place_colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd']
+        place_labels = []
+        place_data = []
 
-        steps.append({
-            'title': str(_('Step 1: Start with the Roman numeral')),
-            'content': str(_('Roman: %(roman)s') % {'roman': roman})
-        })
+        thousands = number // 1000
+        hundreds = (number % 1000) // 100
+        tens = (number % 100) // 10
+        ones = number % 10
 
-        decimal = 0
-        i = 0
-        parts = []
+        if thousands > 0:
+            place_labels.append(str(_('Thousands')))
+            place_data.append(thousands * 1000)
+        if hundreds > 0:
+            place_labels.append(str(_('Hundreds')))
+            place_data.append(hundreds * 100)
+        if tens > 0:
+            place_labels.append(str(_('Tens')))
+            place_data.append(tens * 10)
+        if ones > 0:
+            place_labels.append(str(_('Ones')))
+            place_data.append(ones)
 
-        while i < len(roman):
-            # Try two-character subtractive pair first
-            if i + 1 < len(roman):
-                two_char = roman[i:i + 2]
-                value = self.SUBTRACTIVE_VALUES.get(two_char)
-                if value:
-                    decimal += value
-                    parts.append({'symbol': two_char, 'value': value, 'type': 'subtractive'})
-                    i += 2
-                    continue
+        place_value_chart = {
+            'type': 'doughnut',
+            'data': {
+                'labels': place_labels,
+                'datasets': [{
+                    'data': place_data,
+                    'backgroundColor': place_colors[:len(place_data)],
+                    'borderWidth': 2,
+                    'borderColor': '#ffffff',
+                    'cutout': '60%'
+                }]
+            },
+            'center_text': {
+                'value': number,
+                'label': self._int_to_roman(number),
+                'color': '#6366f1'
+            }
+        }
 
-            # Single character
-            char = roman[i]
-            value = self.ROMAN_VALUES.get(char)
-            if value:
-                decimal += value
-                parts.append({'symbol': char, 'value': value, 'type': 'additive'})
-                i += 1
+        # Breakdown bar chart
+        breakdown_labels = [item['numeral'] for item in breakdown]
+        breakdown_data = [item['subtotal'] for item in breakdown]
+        bar_colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe',
+                      '#ede9fe', '#f5f3ff', '#6366f1', '#8b5cf6', '#a78bfa']
+
+        breakdown_chart = {
+            'type': 'bar',
+            'data': {
+                'labels': breakdown_labels,
+                'datasets': [{
+                    'label': str(_('Value')),
+                    'data': breakdown_data,
+                    'backgroundColor': bar_colors[:len(breakdown_data)],
+                    'borderColor': '#6366f1',
+                    'borderWidth': 1,
+                    'borderRadius': 8
+                }]
+            }
+        }
+
+        # Comparison chart: show nearby numbers
+        nearby_numbers = []
+        nearby_labels = []
+        nearby_roman = []
+        for offset in [-5, -2, -1, 0, 1, 2, 5]:
+            n = number + offset
+            if 1 <= n <= 3999:
+                nearby_numbers.append(n)
+                nearby_labels.append(self._int_to_roman(n))
+                nearby_roman.append(self._int_to_roman(n))
+
+        # Color the current number differently
+        nearby_colors = []
+        for n in nearby_numbers:
+            if n == number:
+                nearby_colors.append('#6366f1')
             else:
-                return None, []
+                nearby_colors.append('#e0e7ff')
 
-        # NumPy cross-check
-        np_values = np.array([p['value'] for p in parts])
-        np_total = int(np.sum(np_values))
-        if np_total != decimal:
-            return None, []
-
-        # Step 2 – per-symbol breakdown
-        step2_lines = []
-        for p in parts:
-            note = str(_('(subtractive)')) if p['type'] == 'subtractive' else ''
-            step2_lines.append(f"{p['symbol']} = {p['value']:,} {note}".strip())
-        steps.append({
-            'title': str(_('Step 2: Process each symbol from left to right')),
-            'content': ' , '.join(step2_lines)
-        })
-
-        # Step 3 – sum
-        sum_expr = ' + '.join([f"{p['value']:,}" for p in parts])
-        steps.append({
-            'title': str(_('Step 3: Sum all values')),
-            'content': f'{sum_expr} = {decimal:,}'
-        })
-
-        # Result
-        steps.append({
-            'title': str(_('Result')),
-            'content': f'{roman} = {decimal:,}'
-        })
-
-        return decimal, steps
-
-    # ================================================================
-    # Validation
-    # ================================================================
-
-    def _is_valid_roman(self, roman):
-        """Validate a Roman numeral string against standard rules."""
-        valid_chars = set('IVXLCDM')
-        if not all(c in valid_chars for c in roman):
-            return False
-
-        # No more than 3 consecutive identical symbols (V, L, D may not repeat)
-        if re.search(r'(I{4,}|V{2,}|X{4,}|L{2,}|C{4,}|D{2,}|M{4,})', roman):
-            return False
-
-        # Invalid subtractive patterns
-        invalid_patterns = [
-            'IL', 'IC', 'ID', 'IM',
-            'VX', 'VL', 'VC', 'VD', 'VM',
-            'XD', 'XM',
-            'LC', 'LD', 'LM',
-            'DM',
-        ]
-        for pat in invalid_patterns:
-            if pat in roman:
-                return False
-
-        return True
-
-    # ================================================================
-    # Chart data helpers (backend-controlled, like BMI calculator)
-    # ================================================================
-
-    def _get_color_info(self, decimal):
-        """Return colour information based on numeric magnitude."""
-        # Partition 1-3999 into four visual tiers
-        thresholds = np.array([1000, 2000, 3000])
-        tier = int(np.searchsorted(thresholds, decimal))
-
-        color_map = [
-            {  # 1–999
-                'hex': '#6366f1',
-                'rgb': 'rgb(99, 102, 241)',
-                'gradient': 'from-indigo-600 to-indigo-700',
-                'name': 'indigo',
+        comparison_chart = {
+            'type': 'bar',
+            'data': {
+                'labels': nearby_labels,
+                'datasets': [{
+                    'label': str(_('Value')),
+                    'data': nearby_numbers,
+                    'backgroundColor': nearby_colors,
+                    'borderColor': '#6366f1',
+                    'borderWidth': 1,
+                    'borderRadius': 6
+                }]
             },
-            {  # 1000–1999
-                'hex': '#8b5cf6',
-                'rgb': 'rgb(139, 92, 246)',
-                'gradient': 'from-violet-600 to-violet-700',
-                'name': 'violet',
-            },
-            {  # 2000–2999
-                'hex': '#a855f7',
-                'rgb': 'rgb(168, 85, 247)',
-                'gradient': 'from-purple-600 to-purple-700',
-                'name': 'purple',
-            },
-            {  # 3000–3999
-                'hex': '#ec4899',
-                'rgb': 'rgb(236, 72, 153)',
-                'gradient': 'from-pink-600 to-pink-700',
-                'name': 'pink',
-            },
-        ]
-        return color_map[tier]
+            'nearby_roman': nearby_roman
+        }
 
-    def _prepare_decimal_chart(self, decimal, roman):
-        """Prepare Chart.js config for a decimal → Roman result."""
-        try:
-            breakdown = []
-            remaining = decimal
-
-            for value, symbol in self.DECIMAL_TO_ROMAN:
-                count = remaining // value
-                if count > 0:
-                    breakdown.append({
-                        'value': value * count,
-                        'symbol': symbol * count,
-                        'label': f'{symbol * count} ({value * count:,})'
-                    })
-                    remaining %= value
-
-            labels = [item['label'] for item in breakdown] + [str(_('Total'))]
-            values = [item['value'] for item in breakdown] + [decimal]
-            bg_colors = (
-                ['rgba(99, 102, 241, 0.7)'] * len(breakdown)
-                + ['rgba(16, 185, 129, 0.8)']
-            )
-            border_colors = (
-                ['#6366f1'] * len(breakdown)
-                + ['#10b981']
-            )
-
-            # Gauge-style doughnut (like BMI gauge)
-            max_val = 3999.0
-            pct = min((decimal / max_val) * 100, 100)
-            color_info = self._get_color_info(decimal)
-
-            gauge_chart = {
-                'type': 'doughnut',
-                'data': {
-                    'labels': [str(_('Value')), str(_('Remaining'))],
-                    'datasets': [{
-                        'data': [round(pct, 2), round(100 - pct, 2)],
-                        'backgroundColor': [color_info['hex'], '#e5e7eb'],
-                        'borderWidth': 0,
-                        'cutout': '75%'
-                    }]
-                },
-                'center_text': {
-                    'value': decimal,
-                    'label': roman,
-                    'color': color_info['hex']
-                }
-            }
-
-            bar_chart = {
-                'type': 'bar',
-                'data': {
-                    'labels': labels,
-                    'datasets': [{
-                        'label': str(_('Value')),
-                        'data': values,
-                        'backgroundColor': bg_colors,
-                        'borderColor': border_colors,
-                        'borderWidth': 2,
-                        'borderRadius': 8,
-                    }]
-                },
-            }
-
-            return {
-                'gauge_chart': gauge_chart,
-                'bar_chart': bar_chart,
-            }
-        except Exception:
-            return None
-
-    def _prepare_roman_chart(self, roman, decimal):
-        """Prepare Chart.js config for a Roman → decimal result."""
-        try:
-            breakdown = []
-            i = 0
-
-            while i < len(roman):
-                if i + 1 < len(roman):
-                    two_char = roman[i:i + 2]
-                    value = self.SUBTRACTIVE_VALUES.get(two_char)
-                    if value:
-                        breakdown.append({'symbol': two_char, 'value': value})
-                        i += 2
-                        continue
-
-                char = roman[i]
-                value = self.ROMAN_VALUES.get(char)
-                if value:
-                    breakdown.append({'symbol': char, 'value': value})
-                    i += 1
-
-            labels = [item['symbol'] for item in breakdown] + [str(_('Total'))]
-            values = [item['value'] for item in breakdown] + [decimal]
-            bg_colors = (
-                ['rgba(99, 102, 241, 0.7)'] * len(breakdown)
-                + ['rgba(16, 185, 129, 0.8)']
-            )
-            border_colors = (
-                ['#6366f1'] * len(breakdown)
-                + ['#10b981']
-            )
-
-            # Gauge
-            max_val = 3999.0
-            pct = min((decimal / max_val) * 100, 100)
-            color_info = self._get_color_info(decimal)
-
-            gauge_chart = {
-                'type': 'doughnut',
-                'data': {
-                    'labels': [str(_('Value')), str(_('Remaining'))],
-                    'datasets': [{
-                        'data': [round(pct, 2), round(100 - pct, 2)],
-                        'backgroundColor': [color_info['hex'], '#e5e7eb'],
-                        'borderWidth': 0,
-                        'cutout': '75%'
-                    }]
-                },
-                'center_text': {
-                    'value': decimal,
-                    'label': roman,
-                    'color': color_info['hex']
-                }
-            }
-
-            bar_chart = {
-                'type': 'bar',
-                'data': {
-                    'labels': labels,
-                    'datasets': [{
-                        'label': str(_('Value')),
-                        'data': values,
-                        'backgroundColor': bg_colors,
-                        'borderColor': border_colors,
-                        'borderWidth': 2,
-                        'borderRadius': 8,
-                    }]
-                },
-            }
-
-            return {
-                'gauge_chart': gauge_chart,
-                'bar_chart': bar_chart,
-            }
-        except Exception:
-            return None
+        return {
+            'place_value_chart': place_value_chart,
+            'breakdown_chart': breakdown_chart,
+            'comparison_chart': comparison_chart,
+        }

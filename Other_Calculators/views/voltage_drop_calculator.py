@@ -12,574 +12,317 @@ import numpy as np
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class VoltageDropCalculator(View):
     """
-    Professional Voltage Drop Calculator with Comprehensive Features
-    
-    This calculator provides voltage drop calculations with:
-    - Calculate voltage drop from current and resistance
-    - Calculate wire size needed for acceptable voltage drop
-    - Calculate maximum current for given voltage drop
-    - Calculate maximum wire length for given voltage drop
-    - Support for DC and AC (single-phase and three-phase)
-    
-    Features:
-    - Supports multiple calculation modes
-    - Handles various wire materials and sizes
-    - Provides step-by-step solutions
-    - Interactive visualizations
+    Voltage Drop Calculator — voltage drop, wire size, max current, max length.
+
+    Supports DC, single-phase AC, and three-phase AC circuits.
+    Uses NumPy for vectorised arithmetic.
     """
     template_name = 'other_calculators/voltage_drop_calculator.html'
-    
-    # Wire resistivity (Ohm-cmil/ft) at 75°C
+
+    # Wire resistivity (Ω-cmil/ft) at 75 °C
     WIRE_RESISTIVITY = {
-        'copper': 12.9,  # Ohm-cmil/ft
-        'aluminum': 21.2,  # Ohm-cmil/ft
+        'copper': 12.9,
+        'aluminum': 21.2,
     }
-    
-    # Standard AWG wire sizes (circular mils)
+
+    # Standard AWG sizes → circular mils
     AWG_SIZES = {
-        '14': 4107,
-        '12': 6530,
-        '10': 10380,
-        '8': 16510,
-        '6': 26240,
-        '4': 41740,
-        '3': 52620,
-        '2': 66360,
-        '1': 83690,
-        '1/0': 105600,
-        '2/0': 133100,
-        '3/0': 167800,
-        '4/0': 211600,
+        '14': 4107, '12': 6530, '10': 10380, '8': 16510,
+        '6': 26240, '4': 41740, '3': 52620, '2': 66360,
+        '1': 83690, '1/0': 105600, '2/0': 133100,
+        '3/0': 167800, '4/0': 211600,
     }
-    
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Voltage Drop Calculator'),
-        }
-        return render(request, self.template_name, context)
-    
+            'page_title': _('Voltage Drop Calculator - Calculate Wire Voltage Loss Online Free'),
+        })
+
+    # ── POST router ──────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'voltage_drop')
-            
-            if calc_type == 'voltage_drop':
-                return self._calculate_voltage_drop(data)
-            elif calc_type == 'wire_size':
-                return self._calculate_wire_size(data)
-            elif calc_type == 'max_current':
-                return self._calculate_max_current(data)
-            elif calc_type == 'max_length':
-                return self._calculate_max_length(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            calc = data.get('calc_type', 'voltage_drop')
+            dispatch = {
+                'voltage_drop': self._calc_voltage_drop,
+                'wire_size': self._calc_wire_size,
+                'max_current': self._calc_max_current,
+                'max_length': self._calc_max_length,
+            }
+            handler = dispatch.get(calc)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_voltage_drop(self, data):
-        """Calculate voltage drop from current, resistance, and circuit type"""
-        try:
-            if 'current' not in data or data.get('current') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Current is required.')
-                }, status=400)
-            
-            try:
-                current = float(data.get('current', 0))  # Amperes
-                voltage = float(data.get('voltage', 120))  # Volts
-                length = float(data.get('length', 100))  # feet
-                wire_size = data.get('wire_size', '12')  # AWG
-                wire_material = data.get('wire_material', 'copper')
-                circuit_type = data.get('circuit_type', 'dc')  # dc, single_phase, three_phase
-                power_factor = float(data.get('power_factor', 1.0))  # For AC
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Validation
-            if current <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Current must be greater than zero.')
-                }, status=400)
-            
-            if voltage <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Voltage must be greater than zero.')
-                }, status=400)
-            
-            if length <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Length must be greater than zero.')
-                }, status=400)
-            
-            if wire_material not in self.WIRE_RESISTIVITY:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid wire material.')
-                }, status=400)
-            
-            if wire_size not in self.AWG_SIZES:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid wire size.')
-                }, status=400)
-            
-            # Calculate resistance
-            resistivity = self.WIRE_RESISTIVITY[wire_material]
-            circular_mils = self.AWG_SIZES[wire_size]
-            resistance = (resistivity * length) / circular_mils  # Ohms
-            
-            # Calculate voltage drop based on circuit type
-            if circuit_type == 'dc':
-                voltage_drop = current * resistance * 2  # Round trip
-            elif circuit_type == 'single_phase':
-                voltage_drop = current * resistance * 2 * power_factor
-            elif circuit_type == 'three_phase':
-                voltage_drop = current * resistance * 1.732 * power_factor  # √3 for three-phase
-            else:
-                voltage_drop = current * resistance * 2
-            
-            # Calculate percentage drop
-            voltage_drop_percent = (voltage_drop / voltage) * 100
-            
-            # Calculate voltage at load
-            voltage_at_load = voltage - voltage_drop
-            
-            # Calculate power loss
-            power_loss = current * voltage_drop  # Watts
-            
-            steps = self._prepare_voltage_drop_steps(current, voltage, length, wire_size, wire_material, circuit_type, power_factor, resistivity, circular_mils, resistance, voltage_drop, voltage_drop_percent, voltage_at_load, power_loss)
-            chart_data = self._prepare_voltage_drop_chart_data(voltage, voltage_drop, voltage_at_load)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'voltage_drop',
-                'current': current,
-                'voltage': voltage,
-                'length': length,
-                'wire_size': wire_size,
-                'wire_material': wire_material,
-                'circuit_type': circuit_type,
-                'resistance': round(resistance, 4),
-                'voltage_drop': round(voltage_drop, 2),
-                'voltage_drop_percent': round(voltage_drop_percent, 2),
-                'voltage_at_load': round(voltage_at_load, 2),
-                'power_loss': round(power_loss, 2),
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating voltage drop: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_wire_size(self, data):
-        """Calculate wire size needed for acceptable voltage drop"""
-        try:
-            if 'current' not in data or data.get('current') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Current is required.')
-                }, status=400)
-            
-            if 'max_voltage_drop' not in data or data.get('max_voltage_drop') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Maximum voltage drop is required.')
-                }, status=400)
-            
-            try:
-                current = float(data.get('current', 0))
-                voltage = float(data.get('voltage', 120))
-                length = float(data.get('length', 100))
-                max_voltage_drop = float(data.get('max_voltage_drop', 3))  # Volts or percentage
-                max_voltage_drop_type = data.get('max_voltage_drop_type', 'volts')  # volts or percent
-                wire_material = data.get('wire_material', 'copper')
-                circuit_type = data.get('circuit_type', 'dc')
-                power_factor = float(data.get('power_factor', 1.0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Convert percentage to volts if needed
-            if max_voltage_drop_type == 'percent':
-                max_voltage_drop_volts = (max_voltage_drop / 100) * voltage
-            else:
-                max_voltage_drop_volts = max_voltage_drop
-            
-            # Calculate required resistance
-            if circuit_type == 'dc':
-                max_resistance = max_voltage_drop_volts / (current * 2)
-            elif circuit_type == 'single_phase':
-                max_resistance = max_voltage_drop_volts / (current * 2 * power_factor)
-            elif circuit_type == 'three_phase':
-                max_resistance = max_voltage_drop_volts / (current * 1.732 * power_factor)
-            else:
-                max_resistance = max_voltage_drop_volts / (current * 2)
-            
-            # Calculate required circular mils
-            resistivity = self.WIRE_RESISTIVITY[wire_material]
-            required_circular_mils = (resistivity * length) / max_resistance
-            
-            # Find appropriate wire size
-            recommended_size = None
-            for size, cmils in sorted(self.AWG_SIZES.items(), key=lambda x: x[1], reverse=True):
-                if cmils >= required_circular_mils:
-                    recommended_size = size
-                    break
-            
-            if not recommended_size:
-                recommended_size = '4/0'  # Largest available
-            
-            steps = self._prepare_wire_size_steps(current, voltage, length, max_voltage_drop, max_voltage_drop_type, max_voltage_drop_volts, wire_material, circuit_type, power_factor, resistivity, max_resistance, required_circular_mils, recommended_size)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'wire_size',
-                'current': current,
-                'voltage': voltage,
-                'length': length,
-                'max_voltage_drop': max_voltage_drop,
-                'max_voltage_drop_type': max_voltage_drop_type,
-                'wire_material': wire_material,
-                'circuit_type': circuit_type,
-                'required_circular_mils': round(required_circular_mils, 0),
-                'recommended_wire_size': recommended_size,
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating wire size: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_max_current(self, data):
-        """Calculate maximum current for given voltage drop"""
-        try:
-            if 'voltage_drop' not in data or data.get('voltage_drop') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Voltage drop is required.')
-                }, status=400)
-            
-            try:
-                voltage_drop = float(data.get('voltage_drop', 0))
-                voltage = float(data.get('voltage', 120))
-                length = float(data.get('length', 100))
-                wire_size = data.get('wire_size', '12')
-                wire_material = data.get('wire_material', 'copper')
-                circuit_type = data.get('circuit_type', 'dc')
-                power_factor = float(data.get('power_factor', 1.0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Calculate resistance
-            resistivity = self.WIRE_RESISTIVITY[wire_material]
-            circular_mils = self.AWG_SIZES[wire_size]
-            resistance = (resistivity * length) / circular_mils
-            
-            # Calculate maximum current
-            if circuit_type == 'dc':
-                max_current = voltage_drop / (resistance * 2)
-            elif circuit_type == 'single_phase':
-                max_current = voltage_drop / (resistance * 2 * power_factor)
-            elif circuit_type == 'three_phase':
-                max_current = voltage_drop / (resistance * 1.732 * power_factor)
-            else:
-                max_current = voltage_drop / (resistance * 2)
-            
-            voltage_drop_percent = (voltage_drop / voltage) * 100
-            
-            steps = self._prepare_max_current_steps(voltage_drop, voltage, length, wire_size, wire_material, circuit_type, power_factor, resistivity, circular_mils, resistance, max_current, voltage_drop_percent)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'max_current',
-                'voltage_drop': voltage_drop,
-                'voltage': voltage,
-                'length': length,
-                'wire_size': wire_size,
-                'wire_material': wire_material,
-                'circuit_type': circuit_type,
-                'resistance': round(resistance, 4),
-                'max_current': round(max_current, 2),
-                'voltage_drop_percent': round(voltage_drop_percent, 2),
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating max current: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_max_length(self, data):
-        """Calculate maximum wire length for given voltage drop"""
-        try:
-            if 'voltage_drop' not in data or data.get('voltage_drop') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Voltage drop is required.')
-                }, status=400)
-            
-            try:
-                voltage_drop = float(data.get('voltage_drop', 0))
-                voltage = float(data.get('voltage', 120))
-                current = float(data.get('current', 0))
-                wire_size = data.get('wire_size', '12')
-                wire_material = data.get('wire_material', 'copper')
-                circuit_type = data.get('circuit_type', 'dc')
-                power_factor = float(data.get('power_factor', 1.0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Calculate maximum length
-            resistivity = self.WIRE_RESISTIVITY[wire_material]
-            circular_mils = self.AWG_SIZES[wire_size]
-            
-            if circuit_type == 'dc':
-                max_length = (voltage_drop * circular_mils) / (current * resistivity * 2)
-            elif circuit_type == 'single_phase':
-                max_length = (voltage_drop * circular_mils) / (current * resistivity * 2 * power_factor)
-            elif circuit_type == 'three_phase':
-                max_length = (voltage_drop * circular_mils) / (current * resistivity * 1.732 * power_factor)
-            else:
-                max_length = (voltage_drop * circular_mils) / (current * resistivity * 2)
-            
-            voltage_drop_percent = (voltage_drop / voltage) * 100
-            
-            steps = self._prepare_max_length_steps(voltage_drop, voltage, current, wire_size, wire_material, circuit_type, power_factor, resistivity, circular_mils, max_length, voltage_drop_percent)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'max_length',
-                'voltage_drop': voltage_drop,
-                'voltage': voltage,
-                'current': current,
-                'wire_size': wire_size,
-                'wire_material': wire_material,
-                'circuit_type': circuit_type,
-                'max_length': round(max_length, 2),
-                'voltage_drop_percent': round(voltage_drop_percent, 2),
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating max length: {error}').format(error=str(e))
-            }, status=500)
-    
-    # Step-by-step solution preparation methods
-    def _prepare_voltage_drop_steps(self, current, voltage, length, wire_size, wire_material, circuit_type, power_factor, resistivity, circular_mils, resistance, voltage_drop, voltage_drop_percent, voltage_at_load, power_loss):
-        """Prepare step-by-step solution for voltage drop calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Current: {current} A').format(current=current))
-        steps.append(_('Voltage: {voltage} V').format(voltage=voltage))
-        steps.append(_('Length: {length} ft').format(length=length))
-        steps.append(_('Wire Size: {size} AWG').format(size=wire_size))
-        steps.append(_('Wire Material: {material}').format(material=wire_material))
-        steps.append(_('Circuit Type: {type}').format(type=circuit_type))
-        if circuit_type != 'dc':
-            steps.append(_('Power Factor: {pf}').format(pf=power_factor))
-        steps.append('')
-        steps.append(_('Step 2: Calculate wire resistance'))
-        steps.append(_('Resistivity: {resistivity} Ω-cmil/ft').format(resistivity=resistivity))
-        steps.append(_('Circular Mils: {cmils} cmil').format(cmils=circular_mils))
-        steps.append(_('Resistance = (Resistivity × Length) / Circular Mils'))
-        steps.append(_('Resistance = ({resistivity} × {length}) / {cmils}').format(resistivity=resistivity, length=length, cmils=circular_mils))
-        steps.append(_('Resistance = {resistance} Ω').format(resistance=round(resistance, 4)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate voltage drop'))
-        if circuit_type == 'dc':
-            steps.append(_('Voltage Drop = Current × Resistance × 2'))
-            steps.append(_('Voltage Drop = {current} × {resistance} × 2').format(current=current, resistance=round(resistance, 4)))
-        elif circuit_type == 'single_phase':
-            steps.append(_('Voltage Drop = Current × Resistance × 2 × Power Factor'))
-            steps.append(_('Voltage Drop = {current} × {resistance} × 2 × {pf}').format(current=current, resistance=round(resistance, 4), pf=power_factor))
-        elif circuit_type == 'three_phase':
-            steps.append(_('Voltage Drop = Current × Resistance × √3 × Power Factor'))
-            steps.append(_('Voltage Drop = {current} × {resistance} × 1.732 × {pf}').format(current=current, resistance=round(resistance, 4), pf=power_factor))
-        steps.append(_('Voltage Drop = {drop} V').format(drop=round(voltage_drop, 2)))
-        steps.append('')
-        steps.append(_('Step 4: Calculate percentage drop'))
-        steps.append(_('Voltage Drop % = (Voltage Drop / Voltage) × 100'))
-        steps.append(_('Voltage Drop % = ({drop} / {voltage}) × 100 = {percent}%').format(drop=round(voltage_drop, 2), voltage=voltage, percent=round(voltage_drop_percent, 2)))
-        steps.append('')
-        steps.append(_('Step 5: Calculate voltage at load'))
-        steps.append(_('Voltage at Load = Source Voltage - Voltage Drop'))
-        steps.append(_('Voltage at Load = {voltage} - {drop} = {load} V').format(voltage=voltage, drop=round(voltage_drop, 2), load=round(voltage_at_load, 2)))
-        steps.append('')
-        steps.append(_('Step 6: Calculate power loss'))
-        steps.append(_('Power Loss = Current × Voltage Drop'))
-        steps.append(_('Power Loss = {current} × {drop} = {loss} W').format(current=current, drop=round(voltage_drop, 2), loss=round(power_loss, 2)))
-        return steps
-    
-    def _prepare_wire_size_steps(self, current, voltage, length, max_voltage_drop, max_voltage_drop_type, max_voltage_drop_volts, wire_material, circuit_type, power_factor, resistivity, max_resistance, required_circular_mils, recommended_size):
-        """Prepare step-by-step solution for wire size calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Current: {current} A').format(current=current))
-        steps.append(_('Voltage: {voltage} V').format(voltage=voltage))
-        steps.append(_('Length: {length} ft').format(length=length))
-        steps.append(_('Max Voltage Drop: {drop} {type}').format(drop=max_voltage_drop, type=max_voltage_drop_type))
-        steps.append('')
-        steps.append(_('Step 2: Convert max voltage drop to volts'))
-        if max_voltage_drop_type == 'percent':
-            steps.append(_('Max Voltage Drop = ({drop}% / 100) × {voltage} = {volts} V').format(drop=max_voltage_drop, voltage=voltage, volts=round(max_voltage_drop_volts, 2)))
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(_('Invalid input:')) + ' ' + str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _fnum(self, v, dp=2):
+        if v is None:
+            return '0'
+        return f'{v:,.{dp}f}'
+
+    def _safe_pos(self, v, name):
+        if v is None or v == '':
+            raise ValueError(str(_('{name} is required.').format(name=name)))
+        v = float(v)
+        if v <= 0:
+            raise ValueError(str(_('{name} must be greater than zero.').format(name=name)))
+        if v > 1e9:
+            raise ValueError(str(_('{name} is too large.').format(name=name)))
+        return v
+
+    def _safe(self, v, name):
+        if v is None or v == '':
+            raise ValueError(str(_('{name} is required.').format(name=name)))
+        v = float(v)
+        if v < 0:
+            raise ValueError(str(_('{name} must be non-negative.').format(name=name)))
+        return v
+
+    def _validate_material(self, m):
+        if m not in self.WIRE_RESISTIVITY:
+            raise ValueError(str(_('Invalid wire material.')))
+        return m
+
+    def _validate_awg(self, s):
+        if s not in self.AWG_SIZES:
+            raise ValueError(str(_('Invalid wire size.')))
+        return s
+
+    def _circuit_factor(self, ct, pf):
+        """Return the multiplier for the circuit type."""
+        if ct == 'dc':
+            return 2.0
+        elif ct == 'single_phase':
+            return 2.0 * pf
+        elif ct == 'three_phase':
+            return 1.732 * pf
         else:
-            steps.append(_('Max Voltage Drop = {volts} V').format(volts=round(max_voltage_drop_volts, 2)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate maximum resistance'))
-        if circuit_type == 'dc':
-            steps.append(_('Max Resistance = Max Voltage Drop / (Current × 2)'))
-            steps.append(_('Max Resistance = {drop} / ({current} × 2) = {resistance} Ω').format(drop=round(max_voltage_drop_volts, 2), current=current, resistance=round(max_resistance, 4)))
-        elif circuit_type == 'single_phase':
-            steps.append(_('Max Resistance = Max Voltage Drop / (Current × 2 × Power Factor)'))
-            steps.append(_('Max Resistance = {drop} / ({current} × 2 × {pf}) = {resistance} Ω').format(drop=round(max_voltage_drop_volts, 2), current=current, pf=power_factor, resistance=round(max_resistance, 4)))
-        elif circuit_type == 'three_phase':
-            steps.append(_('Max Resistance = Max Voltage Drop / (Current × √3 × Power Factor)'))
-            steps.append(_('Max Resistance = {drop} / ({current} × 1.732 × {pf}) = {resistance} Ω').format(drop=round(max_voltage_drop_volts, 2), current=current, pf=power_factor, resistance=round(max_resistance, 4)))
-        steps.append('')
-        steps.append(_('Step 4: Calculate required circular mils'))
-        steps.append(_('Required CM = (Resistivity × Length) / Max Resistance'))
-        steps.append(_('Required CM = ({resistivity} × {length}) / {resistance} = {cmils} cmil').format(resistivity=resistivity, length=length, resistance=round(max_resistance, 4), cmils=round(required_circular_mils, 0)))
-        steps.append('')
-        steps.append(_('Step 5: Select appropriate wire size'))
-        steps.append(_('Recommended Wire Size: {size} AWG').format(size=recommended_size))
-        return steps
-    
-    def _prepare_max_current_steps(self, voltage_drop, voltage, length, wire_size, wire_material, circuit_type, power_factor, resistivity, circular_mils, resistance, max_current, voltage_drop_percent):
-        """Prepare step-by-step solution for max current calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Voltage Drop: {drop} V').format(drop=voltage_drop))
-        steps.append(_('Voltage: {voltage} V').format(voltage=voltage))
-        steps.append(_('Length: {length} ft').format(length=length))
-        steps.append(_('Wire Size: {size} AWG').format(size=wire_size))
-        steps.append('')
-        steps.append(_('Step 2: Calculate wire resistance'))
-        steps.append(_('Resistance = ({resistivity} × {length}) / {cmils} = {resistance} Ω').format(resistivity=resistivity, length=length, cmils=circular_mils, resistance=round(resistance, 4)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate maximum current'))
-        if circuit_type == 'dc':
-            steps.append(_('Max Current = Voltage Drop / (Resistance × 2)'))
-            steps.append(_('Max Current = {drop} / ({resistance} × 2) = {current} A').format(drop=voltage_drop, resistance=round(resistance, 4), current=round(max_current, 2)))
-        elif circuit_type == 'single_phase':
-            steps.append(_('Max Current = Voltage Drop / (Resistance × 2 × Power Factor)'))
-            steps.append(_('Max Current = {drop} / ({resistance} × 2 × {pf}) = {current} A').format(drop=voltage_drop, resistance=round(resistance, 4), pf=power_factor, current=round(max_current, 2)))
-        elif circuit_type == 'three_phase':
-            steps.append(_('Max Current = Voltage Drop / (Resistance × √3 × Power Factor)'))
-            steps.append(_('Max Current = {drop} / ({resistance} × 1.732 × {pf}) = {current} A').format(drop=voltage_drop, resistance=round(resistance, 4), pf=power_factor, current=round(max_current, 2)))
-        steps.append('')
-        steps.append(_('Step 4: Calculate percentage drop'))
-        steps.append(_('Voltage Drop % = ({drop} / {voltage}) × 100 = {percent}%').format(drop=voltage_drop, voltage=voltage, percent=round(voltage_drop_percent, 2)))
-        return steps
-    
-    def _prepare_max_length_steps(self, voltage_drop, voltage, current, wire_size, wire_material, circuit_type, power_factor, resistivity, circular_mils, max_length, voltage_drop_percent):
-        """Prepare step-by-step solution for max length calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Voltage Drop: {drop} V').format(drop=voltage_drop))
-        steps.append(_('Voltage: {voltage} V').format(voltage=voltage))
-        steps.append(_('Current: {current} A').format(current=current))
-        steps.append(_('Wire Size: {size} AWG').format(size=wire_size))
-        steps.append('')
-        steps.append(_('Step 2: Calculate maximum length'))
-        if circuit_type == 'dc':
-            steps.append(_('Max Length = (Voltage Drop × Circular Mils) / (Current × Resistivity × 2)'))
-            steps.append(_('Max Length = ({drop} × {cmils}) / ({current} × {resistivity} × 2)').format(drop=voltage_drop, cmils=circular_mils, current=current, resistivity=resistivity))
-        elif circuit_type == 'single_phase':
-            steps.append(_('Max Length = (Voltage Drop × Circular Mils) / (Current × Resistivity × 2 × Power Factor)'))
-            steps.append(_('Max Length = ({drop} × {cmils}) / ({current} × {resistivity} × 2 × {pf})').format(drop=voltage_drop, cmils=circular_mils, current=current, resistivity=resistivity, pf=power_factor))
-        elif circuit_type == 'three_phase':
-            steps.append(_('Max Length = (Voltage Drop × Circular Mils) / (Current × Resistivity × √3 × Power Factor)'))
-            steps.append(_('Max Length = ({drop} × {cmils}) / ({current} × {resistivity} × 1.732 × {pf})').format(drop=voltage_drop, cmils=circular_mils, current=current, resistivity=resistivity, pf=power_factor))
-        steps.append(_('Max Length = {length} ft').format(length=round(max_length, 2)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate percentage drop'))
-        steps.append(_('Voltage Drop % = ({drop} / {voltage}) × 100 = {percent}%').format(drop=voltage_drop, voltage=voltage, percent=round(voltage_drop_percent, 2)))
-        return steps
-    
-    # Chart data preparation methods
-    def _prepare_voltage_drop_chart_data(self, voltage, voltage_drop, voltage_at_load):
-        """Prepare chart data for voltage drop visualization"""
-        try:
-            chart_config = {
+            return 2.0
+
+    def _resistance(self, material, awg, length):
+        rho = self.WIRE_RESISTIVITY[material]
+        cmils = self.AWG_SIZES[awg]
+        return float(np.divide(np.multiply(rho, length), cmils))
+
+    # ── VOLTAGE DROP ──────────────────────────────────────────────────
+    def _calc_voltage_drop(self, d):
+        current = self._safe_pos(d.get('current'), str(_('Current')))
+        voltage = self._safe_pos(d.get('voltage'), str(_('Voltage')))
+        length = self._safe_pos(d.get('length'), str(_('Length')))
+        awg = self._validate_awg(d.get('wire_size', '12'))
+        mat = self._validate_material(d.get('wire_material', 'copper'))
+        ct = d.get('circuit_type', 'single_phase')
+        pf = float(d.get('power_factor', 1.0))
+
+        R = self._resistance(mat, awg, length)
+        factor = self._circuit_factor(ct, pf)
+        vd = float(np.multiply(np.multiply(current, R), factor))
+        vd_pct = float(np.divide(vd, voltage) * 100)
+        v_load = float(np.subtract(voltage, vd))
+        p_loss = float(np.multiply(current, vd))
+
+        rho = self.WIRE_RESISTIVITY[mat]
+        cmils = self.AWG_SIZES[awg]
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Current")}: {current} A',
+            f'  • {_("Voltage")}: {voltage} V',
+            f'  • {_("Wire Length")}: {length} ft',
+            f'  • {_("Wire Size")}: {awg} AWG ({mat})',
+            f'  • {_("Circuit Type")}: {ct}' + (f', PF = {pf}' if ct != 'dc' else ''),
+            '',
+            str(_('Step 2: Calculate wire resistance')),
+            f'  R = (ρ × L) / A = ({rho} × {length}) / {cmils}',
+            f'  R = {self._fnum(R, 4)} Ω',
+            '',
+            str(_('Step 3: Calculate voltage drop')),
+            f'  VD = I × R × {self._fnum(factor, 3)}',
+            f'  VD = {current} × {self._fnum(R, 4)} × {self._fnum(factor, 3)}',
+            f'  VD = {self._fnum(vd)} V ({self._fnum(vd_pct)}%)',
+            '',
+            str(_('Step 4: Voltage at load')),
+            f'  V_load = {voltage} − {self._fnum(vd)} = {self._fnum(v_load)} V',
+            '',
+            str(_('Step 5: Power loss')),
+            f'  P_loss = {current} × {self._fnum(vd)} = {self._fnum(p_loss)} W',
+        ]
+
+        chart = {
+            'voltage_drop_chart': {
                 'type': 'bar',
                 'data': {
-                    'labels': [_('Source Voltage'), _('Voltage Drop'), _('Voltage at Load')],
+                    'labels': [str(_('Source Voltage')), str(_('Voltage Drop')), str(_('Voltage at Load'))],
                     'datasets': [{
-                        'label': _('Voltage (V)'),
-                        'data': [voltage, voltage_drop, voltage_at_load],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(239, 68, 68, 0.8)',
-                            'rgba(16, 185, 129, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#ef4444',
-                            '#10b981'
-                        ],
-                        'borderWidth': 2
+                        'label': str(_('Voltage (V)')),
+                        'data': [voltage, round(vd, 2), round(v_load, 2)],
+                        'backgroundColor': ['rgba(59,130,246,0.8)', 'rgba(239,68,68,0.8)', 'rgba(16,185,129,0.8)'],
+                        'borderColor': ['#3b82f6', '#ef4444', '#10b981'],
+                        'borderWidth': 2, 'borderRadius': 8,
                     }]
                 },
                 'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Voltage Distribution')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Voltage (V)')
-                            }
-                        }
-                    }
-                }
+                    'responsive': True, 'maintainAspectRatio': False,
+                    'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': str(_('Voltage Distribution'))}},
+                    'scales': {'y': {'beginAtZero': True, 'title': {'display': True, 'text': str(_('Voltage (V)'))}}},
+                },
             }
-            return {'voltage_drop_chart': chart_config}
-        except Exception as e:
-            return None
+        }
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'voltage_drop',
+            'voltage_drop': round(vd, 2),
+            'voltage_drop_percent': round(vd_pct, 2),
+            'voltage_at_load': round(v_load, 2),
+            'power_loss': round(p_loss, 2),
+            'resistance': round(R, 4),
+            'step_by_step': steps,
+            'chart_data': chart,
+        })
+
+    # ── WIRE SIZE ─────────────────────────────────────────────────────
+    def _calc_wire_size(self, d):
+        current = self._safe_pos(d.get('current'), str(_('Current')))
+        voltage = self._safe_pos(d.get('voltage'), str(_('Voltage')))
+        length = self._safe_pos(d.get('length'), str(_('Length')))
+        max_vd = self._safe_pos(d.get('max_voltage_drop'), str(_('Max Voltage Drop')))
+        vd_type = d.get('max_voltage_drop_type', 'volts')
+        mat = self._validate_material(d.get('wire_material', 'copper'))
+        ct = d.get('circuit_type', 'single_phase')
+        pf = float(d.get('power_factor', 1.0))
+
+        max_vd_v = (max_vd / 100) * voltage if vd_type == 'percent' else max_vd
+        factor = self._circuit_factor(ct, pf)
+        max_R = float(np.divide(max_vd_v, np.multiply(current, factor)))
+        rho = self.WIRE_RESISTIVITY[mat]
+        req_cmils = float(np.divide(np.multiply(rho, length), max_R))
+
+        recommended = '4/0'
+        for size, cmils in sorted(self.AWG_SIZES.items(), key=lambda x: x[1], reverse=True):
+            if cmils >= req_cmils:
+                recommended = size
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Current")}: {current} A',
+            f'  • {_("Voltage")}: {voltage} V',
+            f'  • {_("Wire Length")}: {length} ft',
+            f'  • {_("Max Voltage Drop")}: {max_vd} {vd_type}',
+            f'  • {_("Wire Material")}: {mat}',
+            '',
+            str(_('Step 2: Convert max voltage drop to volts')),
+            f'  {_("Max VD")} = {self._fnum(max_vd_v)} V',
+            '',
+            str(_('Step 3: Calculate maximum resistance')),
+            f'  R_max = VD_max / (I × factor)',
+            f'  R_max = {self._fnum(max_vd_v)} / ({current} × {self._fnum(factor, 3)})',
+            f'  R_max = {self._fnum(max_R, 4)} Ω',
+            '',
+            str(_('Step 4: Calculate required circular mils')),
+            f'  CM = (ρ × L) / R_max = ({rho} × {length}) / {self._fnum(max_R, 4)}',
+            f'  CM = {self._fnum(req_cmils, 0)} cmil',
+            '',
+            str(_('Step 5: Select wire size')),
+            f'  {_("Recommended")}: {recommended} AWG',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'wire_size',
+            'recommended_wire_size': recommended,
+            'required_circular_mils': round(req_cmils),
+            'step_by_step': steps,
+        })
+
+    # ── MAX CURRENT ───────────────────────────────────────────────────
+    def _calc_max_current(self, d):
+        vd = self._safe_pos(d.get('voltage_drop'), str(_('Voltage Drop')))
+        voltage = self._safe_pos(d.get('voltage'), str(_('Voltage')))
+        length = self._safe_pos(d.get('length'), str(_('Length')))
+        awg = self._validate_awg(d.get('wire_size', '12'))
+        mat = self._validate_material(d.get('wire_material', 'copper'))
+        ct = d.get('circuit_type', 'single_phase')
+        pf = float(d.get('power_factor', 1.0))
+
+        R = self._resistance(mat, awg, length)
+        factor = self._circuit_factor(ct, pf)
+        max_I = float(np.divide(vd, np.multiply(R, factor)))
+        vd_pct = float(np.divide(vd, voltage) * 100)
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Voltage Drop")}: {vd} V',
+            f'  • {_("Voltage")}: {voltage} V',
+            f'  • {_("Wire Length")}: {length} ft',
+            f'  • {_("Wire Size")}: {awg} AWG ({mat})',
+            '',
+            str(_('Step 2: Calculate wire resistance')),
+            f'  R = {self._fnum(R, 4)} Ω',
+            '',
+            str(_('Step 3: Calculate maximum current')),
+            f'  I_max = VD / (R × factor)',
+            f'  I_max = {vd} / ({self._fnum(R, 4)} × {self._fnum(factor, 3)})',
+            f'  I_max = {self._fnum(max_I)} A',
+            '',
+            str(_('Step 4: Voltage drop percentage')),
+            f'  VD% = ({vd} / {voltage}) × 100 = {self._fnum(vd_pct)}%',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'max_current',
+            'max_current': round(max_I, 2),
+            'voltage_drop': round(vd, 2),
+            'voltage_drop_percent': round(vd_pct, 2),
+            'step_by_step': steps,
+        })
+
+    # ── MAX LENGTH ────────────────────────────────────────────────────
+    def _calc_max_length(self, d):
+        vd = self._safe_pos(d.get('voltage_drop'), str(_('Voltage Drop')))
+        voltage = self._safe_pos(d.get('voltage'), str(_('Voltage')))
+        current = self._safe_pos(d.get('current'), str(_('Current')))
+        awg = self._validate_awg(d.get('wire_size', '12'))
+        mat = self._validate_material(d.get('wire_material', 'copper'))
+        ct = d.get('circuit_type', 'single_phase')
+        pf = float(d.get('power_factor', 1.0))
+
+        rho = self.WIRE_RESISTIVITY[mat]
+        cmils = self.AWG_SIZES[awg]
+        factor = self._circuit_factor(ct, pf)
+        max_L = float(np.divide(np.multiply(vd, cmils), np.multiply(np.multiply(current, rho), factor)))
+        vd_pct = float(np.divide(vd, voltage) * 100)
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Voltage Drop")}: {vd} V',
+            f'  • {_("Voltage")}: {voltage} V',
+            f'  • {_("Current")}: {current} A',
+            f'  • {_("Wire Size")}: {awg} AWG ({mat})',
+            '',
+            str(_('Step 2: Calculate maximum length')),
+            f'  L_max = (VD × CM) / (I × ρ × factor)',
+            f'  L_max = ({vd} × {cmils}) / ({current} × {rho} × {self._fnum(factor, 3)})',
+            f'  L_max = {self._fnum(max_L)} ft',
+            '',
+            str(_('Step 3: Voltage drop percentage')),
+            f'  VD% = ({vd} / {voltage}) × 100 = {self._fnum(vd_pct)}%',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'max_length',
+            'max_length': round(max_L, 2),
+            'voltage_drop': round(vd, 2),
+            'voltage_drop_percent': round(vd_pct, 2),
+            'step_by_step': steps,
+        })

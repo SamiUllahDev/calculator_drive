@@ -70,6 +70,8 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('ads.txt', ads_txt, name='ads_txt'),
     path('robots.txt', robots_txt, name='robots_txt'),
+    # TinyMCE image upload (outside i18n so admin can always reach it)
+    path('blog/tinymce/upload/', __import__('blog.views', fromlist=['tinymce_image_upload']).tinymce_image_upload, name='tinymce_image_upload'),
 ]
 
 # URLs that should have language prefix (e.g., /ar/, /fr/, but NOT /en/ for default)

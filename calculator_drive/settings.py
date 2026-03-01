@@ -58,12 +58,13 @@ INSTALLED_APPS = [
     'user',
     'google_adsense',
     'django_extensions',
-
+    'tinymce',
 ]
 
 SITE_ID = 1
 
 MIDDLEWARE = [
+    'core.middleware.CanonicalDomainMiddleware',  # Must be first: www→non-www, http→https redirects
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # Language switching
@@ -90,6 +91,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'user.context_processors.notifications_processor',
+                'core.context_processors.seo_context',
             ],
         },
     },
@@ -264,41 +266,104 @@ EMAIL_HOST_PASSWORD = 'ifaw nvpq jnpq aihb'  # Gmail App Password
 DEFAULT_FROM_EMAIL = 'noreply@CalculatorDrive.com'
 SERVER_EMAIL = 'noreply@CalculatorDrive.com'
 
-# TinyMCE Configuration for Blog Editor
+# TinyMCE Configuration for Blog Editor (SEO-optimized)
 TINYMCE_DEFAULT_CONFIG = {
-    'mode': 'textareas',
     'theme': 'silver',
-    'height': 300,
+    'height': 600,
     'width': '100%',
-    'plugins': [
-        'advlist autolink lists link image charmap print preview anchor',
-        'searchreplace visualblocks code fullscreen',
-        'insertdatetime media table paste code help wordcount',
-        'emoticons textcolor colorpicker',
-    ],
-    'toolbar': 'undo redo | formatselect | bold italic backcolor | \
-               alignleft aligncenter alignright alignjustify | \
-               bullist numlist outdent indent | link image emoticons | \
-               code fullscreen',
-    'formats': {
-        'alignleft': {'selector': 'p,h1,h2,h3,h4,h5,h6,td,th,div,ul,ol,li', 'styles': {'textAlign': 'left'}},
-        'aligncenter': {'selector': 'p,h1,h2,h3,h4,h5,h6,td,th,div,ul,ol,li', 'styles': {'textAlign': 'center'}},
-        'alignright': {'selector': 'p,h1,h2,h3,h4,h5,h6,td,th,div,ul,ol,li', 'styles': {'textAlign': 'right'}},
-        'alignjustify': {'selector': 'p,h1,h2,h3,h4,h5,h6,td,th,div,ul,ol,li', 'styles': {'textAlign': 'justify'}},
-    },
+    'plugins': (
+        'advlist autolink lists link image charmap anchor '
+        'searchreplace visualblocks code fullscreen '
+        'insertdatetime media table help wordcount '
+        'emoticons codesample quickbars'
+    ),
+    'toolbar1': (
+        'undo redo | blocks | bold italic underline strikethrough | '
+        'forecolor backcolor removeformat'
+    ),
+    'toolbar2': (
+        'alignleft aligncenter alignright alignjustify | '
+        'bullist numlist outdent indent | '
+        'link image media table | codesample blockquote | '
+        'anchor | searchreplace | code fullscreen | help'
+    ),
+    'block_formats': 'Paragraph=p; Heading 2=h2; Heading 3=h3; Heading 4=h4; Heading 5=h5; Heading 6=h6; Preformatted=pre',
+    'menubar': 'file edit view insert format tools table help',
+    'statusbar': True,
+    'branding': False,
+    'promotion': False,
+    'browser_spellcheck': True,
+    'contextmenu': 'link image table',
+    # Image upload config
+    'images_upload_url': '/blog/tinymce/upload/',
+    'images_upload_credentials': True,
+    'automatic_uploads': True,
+    'image_advtab': True,
+    'image_caption': True,
+    'image_title': True,
+    # SEO-friendly settings
+    'relative_urls': False,
+    'remove_script_host': True,
+    'convert_urls': True,
+    'entity_encoding': 'raw',
+    # Clean paste from Word/Google Docs
+    'paste_data_images': True,
+    'paste_as_text': False,
+    'smart_paste': True,
+    # Content styling
+    'content_css': 'default',
+    'content_style': (
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, '
+        '"Helvetica Neue", Arial, sans-serif; font-size: 16px; line-height: 1.7; '
+        'color: #374151; max-width: 800px; margin: 0 auto; padding: 16px; } '
+        'h2 { font-size: 1.75em; margin-top: 1.5em; color: #111827; } '
+        'h3 { font-size: 1.4em; margin-top: 1.3em; color: #1f2937; } '
+        'h4 { font-size: 1.15em; margin-top: 1.2em; color: #374151; } '
+        'img { max-width: 100%; height: auto; border-radius: 8px; } '
+        'figure { margin: 1.5em 0; text-align: center; } '
+        'figcaption { color: #6b7280; font-size: 0.875em; margin-top: 0.5em; } '
+        'a { color: #2563eb; } '
+        'blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; '
+        'color: #4b5563; font-style: italic; margin: 1.5em 0; } '
+        'pre { background: #1e293b; color: #e2e8f0; padding: 1em; '
+        'border-radius: 8px; overflow-x: auto; } '
+        'code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; '
+        'font-size: 0.9em; } '
+        'table { border-collapse: collapse; width: 100%; } '
+        'th, td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; } '
+        'th { background: #f9fafb; font-weight: 600; }'
+    ),
+    # Link settings
+    'default_link_target': '_blank',
+    'link_default_protocol': 'https',
+    'link_assume_external_targets': True,
+    # Table settings
+    'table_default_styles': {'border-collapse': 'collapse', 'width': '100%'},
+    'table_responsive_width': True,
+    # Quick toolbar on image select
+    'quickbars_selection_toolbar': 'bold italic | quicklink h2 h3 blockquote',
+    'quickbars_insert_toolbar': 'image media table hr',
 }
 
+# Simplified TinyMCE for comments (no images, no links = no spam)
 TINYMCE_COMMENT_CONFIG = {
-    'mode': 'textareas',
-    'theme': 'silver',
-    'height': 200,
-    'width': '100%',
-    'plugins': [
-        'advlist autolink lists link image charmap print preview anchor',
-        'searchreplace visualblocks code fullscreen',
-        'insertdatetime media table paste code help wordcount',
-    ],
-    'toolbar': 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | link image | code',
+    'plugins': 'autolink lists charmap emoticons wordcount',
+    'toolbar': 'bold italic strikethrough | bullist numlist | blockquote | emoticons | removeformat',
+    'menubar': False,
+    'statusbar': True,
+    'height': 180,
+    'branding': False,
+    'promotion': False,
+    'browser_spellcheck': True,
+    'paste_data_images': False,
+    'relative_urls': False,
+    'remove_script_host': True,
+    'block_formats': 'Paragraph=p; Quote=blockquote',
+    'content_style': (
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, '
+        '"Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.6; '
+        'color: #374151; padding: 8px; }'
+    ),
 }
 
 # Google AdSense Configuration

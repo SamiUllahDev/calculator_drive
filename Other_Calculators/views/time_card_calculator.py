@@ -1,422 +1,498 @@
 from django.views import View
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
-from django.core.serializers.json import DjangoJSONEncoder
 import json
-import logging
-from datetime import datetime, timedelta
-
-logger = logging.getLogger(__name__)
-
-
-class SafeJSONEncoder(DjangoJSONEncoder):
-    def default(self, o):
-        try:
-            return super().default(o)
-        except TypeError:
-            return str(o) if o is not None else None
+import math
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class TimeCardCalculator(View):
     """
-    Time Card Calculator: daily hours, weekly hours, pay from hours.
-    BMI-style upgrade.
+    Time Card Calculator — 4 calculation types.
+
+    Calculation types
+        • weekly       → full week timecard (up to 7 days) with overtime
+        • daily        → single day with breaks and overtime
+        • payroll      → calculate pay from hours + rate
+        • overtime     → overtime analysis with thresholds
     """
     template_name = 'other_calculators/time_card_calculator.html'
 
-    STANDARD_WEEK_HOURS = 40.0
-    OVERTIME_THRESHOLD = 8.0
-
-    def _get_data(self, request):
-        if request.content_type and 'application/json' in request.content_type:
-            try:
-                body = request.body
-                if not body:
-                    return {}
-                return json.loads(body)
-            except (json.JSONDecodeError, ValueError, TypeError):
-                return {}
-        if request.body:
-            try:
-                return json.loads(request.body)
-            except (json.JSONDecodeError, ValueError, TypeError):
-                pass
-        data = {}
-        for k in request.POST:
-            v = request.POST.getlist(k)
-            data[k] = v[0] if len(v) == 1 else v
-        return data
-
-    def _val(self, data, key, default=None):
-        v = data.get(key, default)
-        return (v[0] if isinstance(v, list) and v else v) if v is not None else default
-
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        context = {'calculator_name': str(_('Time Card Calculator'))}
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, {
+            'calculator_name': _('Time Card Calculator'),
+        })
 
+    # ── POST ──────────────────────────────────────────────────────────
     def post(self, request):
         try:
-            data = self._get_data(request)
-            if not data:
-                return HttpResponse(
-                    json.dumps({'success': False, 'error': str(_('Invalid request data.'))}, cls=SafeJSONEncoder),
-                    content_type='application/json',
-                    status=400
-                )
-            calc_type = self._val(data, 'calc_type', 'daily')
-            if calc_type == 'daily':
-                result = self._calculate_daily(data)
-            elif calc_type == 'weekly':
-                result = self._calculate_weekly(data)
-            elif calc_type == 'pay':
-                result = self._calculate_pay(data)
-            else:
-                return HttpResponse(
-                    json.dumps({'success': False, 'error': str(_('Invalid calculation type.'))}, cls=SafeJSONEncoder),
-                    content_type='application/json',
-                    status=400
-                )
-            if isinstance(result, dict) and not result.get('success'):
-                return HttpResponse(
-                    json.dumps(result, cls=SafeJSONEncoder),
-                    content_type='application/json',
-                    status=400
-                )
-            return HttpResponse(json.dumps(result, cls=SafeJSONEncoder), content_type='application/json')
-        except Exception as e:
-            logger.exception("Time card calculator failed: %s", e)
-            from django.conf import settings
-            err_msg = str(_('An error occurred during calculation.'))
-            if getattr(settings, 'DEBUG', False):
-                err_msg += ' [' + str(e).replace('"', "'") + ']'
-            return HttpResponse(
-                json.dumps({'success': False, 'error': err_msg}, cls=SafeJSONEncoder),
-                content_type='application/json',
-                status=500
-            )
-
-    def _parse_time(self, time_str):
-        try:
-            if ':' in str(time_str):
-                parts = str(time_str).split(':')
-                if len(parts) == 2:
-                    hours = int(parts[0])
-                    minutes = int(parts[1])
-                    seconds = 0
-                elif len(parts) == 3:
-                    hours = int(parts[0])
-                    minutes = int(parts[1])
-                    seconds = int(parts[2])
-                else:
-                    return None
-                return hours * 3600 + minutes * 60 + seconds
-            return float(time_str)
-        except Exception:
-            return None
-
-    def _seconds_to_hours(self, seconds):
-        return float(seconds / 3600.0)
-
-    def _format_time(self, seconds):
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-
-    def _calculate_daily(self, data):
-        clock_in_str = self._val(data, 'clock_in', '')
-        clock_out_str = self._val(data, 'clock_out', '')
-        if not clock_in_str:
-            return {'success': False, 'error': str(_('Clock in time is required.'))}
-        if not clock_out_str:
-            return {'success': False, 'error': str(_('Clock out time is required.'))}
-        try:
-            break_minutes = float(self._val(data, 'break_minutes', 0) or 0)
-        except (ValueError, TypeError):
-            break_minutes = 0.0
-        clock_in_seconds = self._parse_time(clock_in_str)
-        clock_out_seconds = self._parse_time(clock_out_str)
-        if clock_in_seconds is None or clock_out_seconds is None:
-            return {'success': False, 'error': str(_('Invalid time format. Use HH:MM or HH:MM:SS format.'))}
-        if clock_out_seconds < clock_in_seconds:
-            clock_out_seconds += 86400
-        total_seconds = clock_out_seconds - clock_in_seconds
-        break_seconds = break_minutes * 60
-        worked_seconds = total_seconds - break_seconds
-        if worked_seconds < 0:
-            return {'success': False, 'error': str(_('Break time cannot exceed total time.'))}
-        total_hours = self._seconds_to_hours(total_seconds)
-        break_hours = self._seconds_to_hours(break_seconds)
-        worked_hours = self._seconds_to_hours(worked_seconds)
-        regular_hours = min(worked_hours, self.OVERTIME_THRESHOLD)
-        overtime_hours = max(0.0, worked_hours - self.OVERTIME_THRESHOLD)
-        steps = self._prepare_daily_steps(
-            clock_in_str, clock_out_str, clock_in_seconds, clock_out_seconds, total_seconds,
-            break_minutes, break_seconds, worked_seconds, total_hours, break_hours, worked_hours,
-            regular_hours, overtime_hours
-        )
-        chart_data = self._prepare_daily_chart_data(regular_hours, overtime_hours, break_hours)
-        return {
-            'success': True,
-            'calc_type': 'daily',
-            'clock_in': clock_in_str,
-            'clock_out': clock_out_str,
-            'break_minutes': break_minutes,
-            'total_hours': round(total_hours, 2),
-            'break_hours': round(break_hours, 2),
-            'worked_hours': round(worked_hours, 2),
-            'regular_hours': round(regular_hours, 2),
-            'overtime_hours': round(overtime_hours, 2),
-            'total_formatted': self._format_time(total_seconds),
-            'worked_formatted': self._format_time(worked_seconds),
-            'step_by_step': steps,
-            'chart_data': chart_data,
-        }
-
-    def _calculate_weekly(self, data):
-        days_raw = data.get('days')
-        if not days_raw:
-            return {'success': False, 'error': str(_('At least one day is required.'))}
-        days = days_raw if isinstance(days_raw, list) else []
-        if len(days) == 0:
-            return {'success': False, 'error': str(_('At least one day is required.'))}
-        total_worked_hours = 0.0
-        total_regular_hours = 0.0
-        total_overtime_hours = 0.0
-        daily_breakdown = []
-        for day_data in days:
-            clock_in_str = day_data.get('clock_in', '') if isinstance(day_data, dict) else ''
-            clock_out_str = day_data.get('clock_out', '') if isinstance(day_data, dict) else ''
-            try:
-                break_minutes = float(day_data.get('break_minutes', 0) or 0) if isinstance(day_data, dict) else 0
-            except (ValueError, TypeError):
-                break_minutes = 0
-            clock_in_seconds = self._parse_time(clock_in_str)
-            clock_out_seconds = self._parse_time(clock_out_str)
-            if clock_in_seconds is None or clock_out_seconds is None:
-                continue
-            if clock_out_seconds < clock_in_seconds:
-                clock_out_seconds += 86400
-            total_seconds = clock_out_seconds - clock_in_seconds
-            break_seconds = break_minutes * 60
-            worked_seconds = total_seconds - break_seconds
-            if worked_seconds < 0:
-                continue
-            worked_hours = self._seconds_to_hours(worked_seconds)
-            regular_hours = min(worked_hours, self.OVERTIME_THRESHOLD)
-            overtime_hours = max(0.0, worked_hours - self.OVERTIME_THRESHOLD)
-            total_worked_hours += worked_hours
-            total_regular_hours += regular_hours
-            total_overtime_hours += overtime_hours
-            daily_breakdown.append({
-                'day': day_data.get('day', '') if isinstance(day_data, dict) else '',
-                'worked_hours': round(worked_hours, 2),
-                'regular_hours': round(regular_hours, 2),
-                'overtime_hours': round(overtime_hours, 2),
-            })
-        if not daily_breakdown:
-            return {'success': False, 'error': str(_('At least one day with valid clock in/out is required.'))}
-        weekly_regular = min(total_worked_hours, self.STANDARD_WEEK_HOURS)
-        weekly_overtime = max(0.0, total_worked_hours - self.STANDARD_WEEK_HOURS)
-        steps = self._prepare_weekly_steps(daily_breakdown, total_worked_hours, total_regular_hours, total_overtime_hours, weekly_regular, weekly_overtime)
-        chart_data = self._prepare_weekly_chart_data(daily_breakdown, total_worked_hours, weekly_regular, weekly_overtime)
-        return {
-            'success': True,
-            'calc_type': 'weekly',
-            'total_worked_hours': round(total_worked_hours, 2),
-            'total_regular_hours': round(total_regular_hours, 2),
-            'total_overtime_hours': round(total_overtime_hours, 2),
-            'weekly_regular': round(weekly_regular, 2),
-            'weekly_overtime': round(weekly_overtime, 2),
-            'daily_breakdown': daily_breakdown,
-            'step_by_step': steps,
-            'chart_data': chart_data,
-        }
-
-    def _calculate_pay(self, data):
-        regular_raw = self._val(data, 'regular_hours')
-        if regular_raw is None or regular_raw == '':
-            return {'success': False, 'error': str(_('Regular hours is required.'))}
-        try:
-            regular_hours = float(regular_raw)
-            overtime_hours = float(self._val(data, 'overtime_hours') or 0)
-            hourly_rate = float(self._val(data, 'hourly_rate') or 0)
-            overtime_multiplier = float(self._val(data, 'overtime_multiplier') or 1.5)
-        except (ValueError, TypeError):
-            return {'success': False, 'error': str(_('Invalid input type. Please enter numeric values.'))}
-        currency = self._val(data, 'currency', 'usd') or 'usd'
-        if regular_hours < 0 or overtime_hours < 0:
-            return {'success': False, 'error': str(_('Hours must be non-negative.'))}
-        if hourly_rate < 0:
-            return {'success': False, 'error': str(_('Hourly rate must be non-negative.'))}
-        regular_pay = regular_hours * hourly_rate
-        overtime_rate = hourly_rate * overtime_multiplier
-        overtime_pay = overtime_hours * overtime_rate
-        total_pay = regular_pay + overtime_pay
-        steps = self._prepare_pay_steps(regular_hours, overtime_hours, hourly_rate, overtime_multiplier, regular_pay, overtime_rate, overtime_pay, total_pay, currency)
-        chart_data = self._prepare_pay_chart_data(regular_pay, overtime_pay, total_pay)
-        return {
-            'success': True,
-            'calc_type': 'pay',
-            'regular_hours': regular_hours,
-            'overtime_hours': overtime_hours,
-            'hourly_rate': hourly_rate,
-            'overtime_multiplier': overtime_multiplier,
-            'regular_pay': round(regular_pay, 2),
-            'overtime_pay': round(overtime_pay, 2),
-            'total_pay': round(total_pay, 2),
-            'currency': currency,
-            'step_by_step': steps,
-            'chart_data': chart_data,
-        }
-
-    def _prepare_daily_steps(self, clock_in_str, clock_out_str, clock_in_seconds, clock_out_seconds, total_seconds, break_minutes, break_seconds, worked_seconds, total_hours, break_hours, worked_hours, regular_hours, overtime_hours):
-        steps = []
-        steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Clock In')) + ': ' + str(clock_in_str))
-        steps.append(str(_('Clock Out')) + ': ' + str(clock_out_str))
-        steps.append(str(_('Break Time')) + ': ' + str(break_minutes) + ' ' + str(_('minutes')))
-        steps.append('')
-        steps.append(str(_('Step 2: Convert to seconds')))
-        steps.append(str(_('Clock In')) + ': ' + str(clock_in_str) + ' = ' + str(clock_in_seconds) + ' ' + str(_('seconds')))
-        steps.append(str(_('Clock Out')) + ': ' + str(clock_out_str) + ' = ' + str(clock_out_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 3: Calculate total time')))
-        steps.append(str(_('Total Time')) + ' = ' + str(_('Clock Out')) + ' - ' + str(_('Clock In')))
-        steps.append(str(_('Total Time')) + ' = ' + str(clock_out_seconds) + ' - ' + str(clock_in_seconds) + ' = ' + str(total_seconds) + ' ' + str(_('seconds')))
-        steps.append(str(_('Total Time')) + ' = ' + str(round(total_hours, 2)) + ' ' + str(_('hours')))
-        steps.append('')
-        steps.append(str(_('Step 4: Subtract break time')))
-        steps.append(str(_('Break Time')) + ' = ' + str(break_minutes) + ' ' + str(_('minutes')) + ' = ' + str(break_seconds) + ' ' + str(_('seconds')) + ' = ' + str(round(break_hours, 2)) + ' ' + str(_('hours')))
-        steps.append(str(_('Worked Time')) + ' = ' + str(_('Total Time')) + ' - ' + str(_('Break Time')))
-        steps.append(str(_('Worked Time')) + ' = ' + str(round(total_hours, 2)) + ' - ' + str(round(break_hours, 2)) + ' = ' + str(round(worked_hours, 2)) + ' ' + str(_('hours')))
-        steps.append('')
-        steps.append(str(_('Step 5: Calculate regular and overtime')))
-        steps.append(str(_('Regular Hours')) + ' = min(' + str(_('Worked Hours')) + ', ' + str(self.OVERTIME_THRESHOLD) + ') = ' + str(round(regular_hours, 2)) + ' ' + str(_('hours')))
-        steps.append(str(_('Overtime Hours')) + ' = max(0, ' + str(_('Worked Hours')) + ' - ' + str(self.OVERTIME_THRESHOLD) + ') = ' + str(round(overtime_hours, 2)) + ' ' + str(_('hours')))
-        return steps
-
-    def _prepare_weekly_steps(self, daily_breakdown, total_worked_hours, total_regular_hours, total_overtime_hours, weekly_regular, weekly_overtime):
-        steps = []
-        steps.append(str(_('Step 1: Calculate hours for each day')))
-        for breakdown in daily_breakdown:
-            steps.append(str(breakdown['day']) + ': ' + str(breakdown['worked_hours']) + ' ' + str(_('hours')) + ' (' + str(breakdown['regular_hours']) + ' ' + str(_('regular')) + ', ' + str(breakdown['overtime_hours']) + ' ' + str(_('overtime')) + ')')
-        steps.append('')
-        steps.append(str(_('Step 2: Sum daily hours')))
-        steps.append(str(_('Total Worked Hours')) + ' = ' + str(round(total_worked_hours, 2)) + ' ' + str(_('hours')))
-        steps.append(str(_('Total Regular Hours')) + ' = ' + str(round(total_regular_hours, 2)) + ' ' + str(_('hours')))
-        steps.append(str(_('Total Overtime Hours')) + ' = ' + str(round(total_overtime_hours, 2)) + ' ' + str(_('hours')))
-        steps.append('')
-        steps.append(str(_('Step 3: Calculate weekly overtime')))
-        steps.append(str(_('Weekly Regular')) + ' = min(' + str(_('Total Hours')) + ', ' + str(self.STANDARD_WEEK_HOURS) + ') = ' + str(round(weekly_regular, 2)) + ' ' + str(_('hours')))
-        steps.append(str(_('Weekly Overtime')) + ' = max(0, ' + str(_('Total Hours')) + ' - ' + str(self.STANDARD_WEEK_HOURS) + ') = ' + str(round(weekly_overtime, 2)) + ' ' + str(_('hours')))
-        return steps
-
-    def _prepare_pay_steps(self, regular_hours, overtime_hours, hourly_rate, overtime_multiplier, regular_pay, overtime_rate, overtime_pay, total_pay, currency):
-        cur = (currency or 'usd').upper()
-        steps = []
-        steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Regular Hours')) + ': ' + str(regular_hours))
-        steps.append(str(_('Overtime Hours')) + ': ' + str(overtime_hours))
-        steps.append(str(_('Hourly Rate')) + ': ' + str(hourly_rate) + ' ' + cur)
-        steps.append(str(_('Overtime Multiplier')) + ': ' + str(overtime_multiplier))
-        steps.append('')
-        steps.append(str(_('Step 2: Calculate regular pay')))
-        steps.append(str(_('Regular Pay')) + ' = ' + str(_('Regular Hours')) + ' × ' + str(_('Hourly Rate')))
-        steps.append(str(_('Regular Pay')) + ' = ' + str(regular_hours) + ' × ' + str(hourly_rate) + ' = ' + str(round(regular_pay, 2)) + ' ' + cur)
-        steps.append('')
-        steps.append(str(_('Step 3: Calculate overtime rate')))
-        steps.append(str(_('Overtime Rate')) + ' = ' + str(_('Hourly Rate')) + ' × ' + str(_('Multiplier')))
-        steps.append(str(_('Overtime Rate')) + ' = ' + str(hourly_rate) + ' × ' + str(overtime_multiplier) + ' = ' + str(round(overtime_rate, 2)) + ' ' + cur)
-        steps.append('')
-        steps.append(str(_('Step 4: Calculate overtime pay')))
-        steps.append(str(_('Overtime Pay')) + ' = ' + str(_('Overtime Hours')) + ' × ' + str(_('Overtime Rate')))
-        steps.append(str(_('Overtime Pay')) + ' = ' + str(overtime_hours) + ' × ' + str(round(overtime_rate, 2)) + ' = ' + str(round(overtime_pay, 2)) + ' ' + cur)
-        steps.append('')
-        steps.append(str(_('Step 5: Calculate total pay')))
-        steps.append(str(_('Total Pay')) + ' = ' + str(_('Regular Pay')) + ' + ' + str(_('Overtime Pay')))
-        steps.append(str(_('Total Pay')) + ' = ' + str(round(regular_pay, 2)) + ' + ' + str(round(overtime_pay, 2)) + ' = ' + str(round(total_pay, 2)) + ' ' + cur)
-        return steps
-
-    def _prepare_daily_chart_data(self, regular_hours, overtime_hours, break_hours):
-        chart_config = {
-            'type': 'pie',
-            'data': {
-                'labels': [str(_('Regular Hours')), str(_('Overtime Hours')), str(_('Break Time'))],
-                'datasets': [{
-                    'data': [max(0.01, regular_hours), max(0.01, overtime_hours), max(0.01, break_hours)],
-                    'backgroundColor': ['#6366f1', '#8b5cf6', '#e5e7eb'],
-                    'borderColor': ['#4f46e5', '#7c3aed', '#d1d5db'],
-                    'borderWidth': 2
-                }]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'legend': {'display': True, 'position': 'bottom'},
-                    'title': {'display': True, 'text': str(_('Daily Hours Breakdown'))}
-                }
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            ct = data.get('calc_type', 'weekly')
+            dispatch = {
+                'weekly':   self._calc_weekly,
+                'daily':    self._calc_daily,
+                'payroll':  self._calc_payroll,
+                'overtime': self._calc_overtime,
             }
-        }
-        return {'daily_chart': chart_config}
+            handler = dispatch.get(ct)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
+        except json.JSONDecodeError:
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
 
-    def _prepare_weekly_chart_data(self, daily_breakdown, total_worked_hours, weekly_regular, weekly_overtime):
-        days = [d['day'] for d in daily_breakdown]
-        hours = [d['worked_hours'] for d in daily_breakdown]
-        chart_config = {
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    @staticmethod
+    def _parse_time(val):
+        """Parse HH:MM → minutes from midnight. Returns None on failure."""
+        if not val:
+            return None
+        s = str(val).strip()
+        if ':' not in s:
+            return None
+        parts = s.split(':')
+        try:
+            h, m = int(parts[0]), int(parts[1])
+        except (ValueError, IndexError):
+            return None
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            return None
+        return h * 60 + m
+
+    @staticmethod
+    def _fmt_hm(minutes):
+        """Format minutes → Xh Ym string."""
+        if minutes < 0:
+            minutes = 0
+        h = int(minutes) // 60
+        m = int(minutes) % 60
+        if h == 0:
+            return f'{m}m'
+        if m == 0:
+            return f'{h}h'
+        return f'{h}h {m}m'
+
+    @staticmethod
+    def _minutes_to_hours(minutes):
+        """Minutes → decimal hours, rounded to 2 places."""
+        return round(minutes / 60, 2)
+
+    @staticmethod
+    def _duration_minutes(start_min, end_min):
+        """Calculate duration in minutes, handling midnight crossing."""
+        if end_min < start_min:
+            return (1440 - start_min) + end_min
+        return end_min - start_min
+
+    DAYS = [
+        str(_('Monday')), str(_('Tuesday')), str(_('Wednesday')),
+        str(_('Thursday')), str(_('Friday')), str(_('Saturday')), str(_('Sunday')),
+    ]
+
+    # ── 1) WEEKLY ────────────────────────────────────────────────────
+    def _calc_weekly(self, data):
+        entries = data.get('entries', [])
+        ot_threshold = float(data.get('overtime_threshold', 40))
+        ot_rate = float(data.get('overtime_rate', 1.5))
+        hourly_rate = float(data.get('hourly_rate', 0))
+
+        if not entries or len(entries) == 0:
+            return self._err(_('At least one day entry is required.'))
+        if len(entries) > 7:
+            return self._err(_('Maximum 7 day entries allowed.'))
+
+        daily_results = []
+        total_minutes = 0
+        labels = []
+        hours_data = []
+
+        for i, entry in enumerate(entries):
+            clock_in = self._parse_time(entry.get('clock_in'))
+            clock_out = self._parse_time(entry.get('clock_out'))
+            break_min = float(entry.get('break_minutes', 0))
+            day_name = entry.get('day', self.DAYS[i] if i < 7 else f'Day {i+1}')
+
+            if clock_in is None or clock_out is None:
+                daily_results.append({
+                    'day': day_name, 'clock_in': '-', 'clock_out': '-',
+                    'break': 0, 'gross': '0h', 'net': '0h',
+                    'net_minutes': 0, 'net_hours': 0,
+                })
+                labels.append(day_name)
+                hours_data.append(0)
+                continue
+
+            gross = self._duration_minutes(clock_in, clock_out)
+            net = max(0, gross - break_min)
+            total_minutes += net
+
+            daily_results.append({
+                'day': day_name,
+                'clock_in': entry.get('clock_in', '-'),
+                'clock_out': entry.get('clock_out', '-'),
+                'break': int(break_min),
+                'gross': self._fmt_hm(gross),
+                'net': self._fmt_hm(net),
+                'net_minutes': int(net),
+                'net_hours': self._minutes_to_hours(net),
+            })
+            labels.append(day_name)
+            hours_data.append(self._minutes_to_hours(net))
+
+        total_hours = self._minutes_to_hours(total_minutes)
+        regular_hours = min(total_hours, ot_threshold)
+        overtime_hours = max(0, total_hours - ot_threshold)
+
+        regular_pay = round(regular_hours * hourly_rate, 2) if hourly_rate > 0 else 0
+        overtime_pay = round(overtime_hours * hourly_rate * ot_rate, 2) if hourly_rate > 0 else 0
+        total_pay = round(regular_pay + overtime_pay, 2)
+
+        steps = [
+            str(_('Step 1: Daily hours')),
+        ]
+        for dr in daily_results:
+            steps.append(f'  • {dr["day"]}: {dr["clock_in"]} → {dr["clock_out"]} − {dr["break"]}m break = {dr["net"]}')
+        steps += [
+            '',
+            str(_('Step 2: Total hours')),
+            f'  {_("Total")} = {total_hours}h ({self._fmt_hm(total_minutes)})',
+            '',
+            str(_('Step 3: Overtime calculation')),
+            f'  {_("Threshold")} = {ot_threshold}h',
+            f'  {_("Regular")} = {regular_hours}h',
+            f'  {_("Overtime")} = {overtime_hours}h (×{ot_rate})',
+        ]
+        if hourly_rate > 0:
+            steps += [
+                '',
+                str(_('Step 4: Pay calculation')),
+                f'  {_("Rate")} = ${hourly_rate}/hr',
+                f'  {_("Regular pay")} = {regular_hours} × ${hourly_rate} = ${regular_pay}',
+                f'  {_("Overtime pay")} = {overtime_hours} × ${hourly_rate} × {ot_rate} = ${overtime_pay}',
+                f'  {_("Total pay")} = ${total_pay}',
+            ]
+        steps += ['', str(_('Result: {h}h total, {ot}h overtime').format(h=total_hours, ot=overtime_hours))]
+
+        chart = {'main_chart': {
             'type': 'bar',
             'data': {
-                'labels': days + [str(_('Total'))],
+                'labels': labels,
                 'datasets': [{
-                    'label': str(_('Hours Worked')),
-                    'data': hours + [total_worked_hours],
-                    'backgroundColor': ['#6366f1'] * len(days) + ['#8b5cf6'],
-                    'borderColor': ['#4f46e5'] * len(days) + ['#7c3aed'],
-                    'borderWidth': 2
-                }]
+                    'label': str(_('Hours')),
+                    'data': hours_data,
+                    'backgroundColor': 'rgba(99,102,241,0.7)',
+                    'borderColor': '#6366f1',
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
             },
             'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'legend': {'display': False},
-                    'title': {'display': True, 'text': str(_('Weekly Hours Worked'))}
-                },
-                'scales': {
-                    'y': {
-                        'beginAtZero': True,
-                        'title': {'display': True, 'text': str(_('Hours'))}
-                    }
-                }
-            }
-        }
-        return {'weekly_chart': chart_config}
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Hours by Day'))}},
+                'scales': {'y': {'beginAtZero': True,
+                                 'title': {'display': True, 'text': str(_('Hours'))}}},
+            },
+        }}
 
-    def _prepare_pay_chart_data(self, regular_pay, overtime_pay, total_pay):
-        chart_config = {
-            'type': 'pie',
+        detail_cards = [
+            {'label': str(_('Total')), 'value': f'{total_hours}h', 'color': 'indigo'},
+            {'label': str(_('Regular')), 'value': f'{regular_hours}h', 'color': 'green'},
+            {'label': str(_('Overtime')), 'value': f'{overtime_hours}h', 'color': 'red'},
+            {'label': str(_('Days')), 'value': str(len(entries)), 'color': 'blue'},
+        ]
+        if hourly_rate > 0:
+            detail_cards.append({'label': str(_('Total Pay')), 'value': f'${total_pay}', 'color': 'purple'})
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'weekly',
+            'result': f'{total_hours}h',
+            'result_label': str(_('Weekly Total Hours')),
+            'daily_results': daily_results,
+            'total_hours': total_hours,
+            'regular_hours': regular_hours,
+            'overtime_hours': overtime_hours,
+            'total_pay': total_pay if hourly_rate > 0 else None,
+            'formula': f'{len(entries)} days → {total_hours}h ({overtime_hours}h OT)',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': detail_cards,
+        })
+
+    # ── 2) DAILY ─────────────────────────────────────────────────────
+    def _calc_daily(self, data):
+        ci = data.get('clock_in', '')
+        co = data.get('clock_out', '')
+        brk = float(data.get('break_minutes', 0))
+        ot_after = float(data.get('overtime_after', 8))
+
+        if not ci or not co:
+            return self._err(_('Clock in and clock out times are required.'))
+
+        ci_min = self._parse_time(ci)
+        co_min = self._parse_time(co)
+        if ci_min is None or co_min is None:
+            return self._err(_('Invalid time format. Use HH:MM (24-hour).'))
+
+        gross = self._duration_minutes(ci_min, co_min)
+        net = max(0, gross - brk)
+
+        net_hours = self._minutes_to_hours(net)
+        regular = min(net_hours, ot_after)
+        overtime = max(0, net_hours - ot_after)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Clock In")} = {ci}',
+            f'  • {_("Clock Out")} = {co}',
+            f'  • {_("Break")} = {int(brk)} {_("minutes")}',
+            '',
+            str(_('Step 2: Calculate gross hours')),
+            f'  {co} − {ci} = {self._fmt_hm(gross)} ({self._minutes_to_hours(gross)}h)',
+            '',
+            str(_('Step 3: Subtract break')),
+            f'  {self._fmt_hm(gross)} − {int(brk)}m = {self._fmt_hm(net)} ({net_hours}h)',
+            '',
+            str(_('Step 4: Overtime (after {t}h)').format(t=ot_after)),
+            f'  {_("Regular")} = {regular}h',
+            f'  {_("Overtime")} = {overtime}h',
+            '',
+            str(_('Result: {h} net hours').format(h=net_hours)),
+        ]
+
+        chart = {'main_chart': {
+            'type': 'doughnut',
             'data': {
-                'labels': [str(_('Regular Pay')), str(_('Overtime Pay'))],
+                'labels': [str(_('Work')), str(_('Break'))],
                 'datasets': [{
-                    'data': [max(0.01, regular_pay), max(0.01, overtime_pay)],
-                    'backgroundColor': ['#6366f1', '#8b5cf6'],
-                    'borderColor': ['#4f46e5', '#7c3aed'],
-                    'borderWidth': 2
-                }]
+                    'data': [int(net), int(brk)],
+                    'backgroundColor': ['rgba(99,102,241,0.8)', 'rgba(239,68,68,0.6)'],
+                    'borderWidth': 2, 'borderColor': '#fff',
+                }],
             },
             'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'legend': {'display': True, 'position': 'bottom'},
-                    'title': {'display': True, 'text': str(_('Pay Breakdown')) + ' (' + str(_('Total')) + ': ' + str(total_pay) + ')'}
-                }
-            }
-        }
-        return {'pay_chart': chart_config}
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'position': 'bottom'},
+                            'title': {'display': True, 'text': str(_('Work vs Break'))}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'daily',
+            'result': self._fmt_hm(net),
+            'result_label': str(_('Net Working Time')),
+            'gross_hours': self._minutes_to_hours(gross),
+            'net_hours': net_hours,
+            'regular_hours': regular,
+            'overtime_hours': overtime,
+            'formula': f'{ci} → {co} − {int(brk)}m = {self._fmt_hm(net)}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Gross')), 'value': self._fmt_hm(gross), 'color': 'blue'},
+                {'label': str(_('Net')), 'value': self._fmt_hm(net), 'color': 'indigo'},
+                {'label': str(_('Regular')), 'value': f'{regular}h', 'color': 'green'},
+                {'label': str(_('Overtime')), 'value': f'{overtime}h', 'color': 'red'},
+            ],
+        })
+
+    # ── 3) PAYROLL ───────────────────────────────────────────────────
+    def _calc_payroll(self, data):
+        reg_hours = float(data.get('regular_hours', 0))
+        ot_hours = float(data.get('overtime_hours', 0))
+        hourly_rate = float(data.get('hourly_rate', 0))
+        ot_rate = float(data.get('overtime_rate', 1.5))
+
+        if hourly_rate <= 0:
+            return self._err(_('Hourly rate must be greater than zero.'))
+        if reg_hours < 0 or ot_hours < 0:
+            return self._err(_('Hours must be non-negative.'))
+
+        reg_pay = round(reg_hours * hourly_rate, 2)
+        ot_pay = round(ot_hours * hourly_rate * ot_rate, 2)
+        gross_pay = round(reg_pay + ot_pay, 2)
+        total_hours = round(reg_hours + ot_hours, 2)
+
+        # Common deduction estimates
+        fed_tax = round(gross_pay * 0.22, 2)     # ~22% federal
+        state_tax = round(gross_pay * 0.05, 2)   # ~5% state
+        fica = round(gross_pay * 0.0765, 2)      # 7.65% FICA
+        total_deductions = round(fed_tax + state_tax + fica, 2)
+        net_pay = round(gross_pay - total_deductions, 2)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Regular hours")} = {reg_hours}h',
+            f'  • {_("Overtime hours")} = {ot_hours}h',
+            f'  • {_("Hourly rate")} = ${hourly_rate}',
+            f'  • {_("OT multiplier")} = {ot_rate}×',
+            '',
+            str(_('Step 2: Calculate pay')),
+            f'  {_("Regular pay")} = {reg_hours} × ${hourly_rate} = ${reg_pay}',
+            f'  {_("OT pay")} = {ot_hours} × ${hourly_rate} × {ot_rate} = ${ot_pay}',
+            f'  {_("Gross pay")} = ${reg_pay} + ${ot_pay} = ${gross_pay}',
+            '',
+            str(_('Step 3: Estimated deductions')),
+            f'  {_("Federal tax")} (~22%) = ${fed_tax}',
+            f'  {_("State tax")} (~5%) = ${state_tax}',
+            f'  FICA (7.65%) = ${fica}',
+            f'  {_("Total deductions")} = ${total_deductions}',
+            '',
+            str(_('Step 4: Net pay')),
+            f'  ${gross_pay} − ${total_deductions} = ${net_pay}',
+            '',
+            str(_('Result: Gross ${g}, Net ${n}').format(g=gross_pay, n=net_pay)),
+        ]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Regular')), str(_('Overtime')), str(_('Gross')),
+                           str(_('Deductions')), str(_('Net'))],
+                'datasets': [{
+                    'label': '$',
+                    'data': [reg_pay, ot_pay, gross_pay, total_deductions, net_pay],
+                    'backgroundColor': [
+                        'rgba(16,185,129,0.7)', 'rgba(245,158,11,0.7)',
+                        'rgba(99,102,241,0.7)', 'rgba(239,68,68,0.7)',
+                        'rgba(59,130,246,0.7)'],
+                    'borderRadius': 6, 'borderWidth': 2,
+                    'borderColor': ['#10b981', '#f59e0b', '#6366f1', '#ef4444', '#3b82f6'],
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Pay Breakdown'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'payroll',
+            'result': f'${gross_pay}',
+            'result_label': str(_('Gross Pay')),
+            'regular_pay': reg_pay, 'overtime_pay': ot_pay,
+            'gross_pay': gross_pay, 'net_pay': net_pay,
+            'deductions': total_deductions,
+            'formula': f'{reg_hours}h + {ot_hours}h OT @ ${hourly_rate}/hr = ${gross_pay}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Gross')), 'value': f'${gross_pay}', 'color': 'indigo'},
+                {'label': str(_('Regular')), 'value': f'${reg_pay}', 'color': 'green'},
+                {'label': str(_('OT Pay')), 'value': f'${ot_pay}', 'color': 'yellow'},
+                {'label': str(_('Net')), 'value': f'${net_pay}', 'color': 'blue'},
+            ],
+        })
+
+    # ── 4) OVERTIME ANALYSIS ─────────────────────────────────────────
+    def _calc_overtime(self, data):
+        total_hours = float(data.get('total_hours', 0))
+        threshold = float(data.get('threshold', 40))
+        ot_rate = float(data.get('overtime_rate', 1.5))
+        double_threshold = float(data.get('double_threshold', 60))
+        double_rate = float(data.get('double_rate', 2.0))
+        hourly_rate = float(data.get('hourly_rate', 0))
+
+        if total_hours < 0:
+            return self._err(_('Total hours must be non-negative.'))
+        if threshold <= 0:
+            return self._err(_('Overtime threshold must be positive.'))
+
+        regular = min(total_hours, threshold)
+
+        if total_hours > double_threshold:
+            time_and_half = double_threshold - threshold if double_threshold > threshold else 0
+            double_time = total_hours - double_threshold
+        else:
+            time_and_half = max(0, total_hours - threshold)
+            double_time = 0
+
+        total_ot = round(time_and_half + double_time, 2)
+
+        if hourly_rate > 0:
+            reg_pay = round(regular * hourly_rate, 2)
+            ot_pay = round(time_and_half * hourly_rate * ot_rate, 2)
+            dt_pay = round(double_time * hourly_rate * double_rate, 2)
+            total_pay = round(reg_pay + ot_pay + dt_pay, 2)
+        else:
+            reg_pay = ot_pay = dt_pay = total_pay = 0
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Total hours")} = {total_hours}h',
+            f'  • {_("OT threshold")} = {threshold}h (×{ot_rate})',
+            f'  • {_("Double-time threshold")} = {double_threshold}h (×{double_rate})',
+            '',
+            str(_('Step 2: Break down hours')),
+            f'  {_("Regular")} = min({total_hours}, {threshold}) = {regular}h',
+            f'  {_("Time-and-half")} = {round(time_and_half, 2)}h',
+            f'  {_("Double-time")} = {round(double_time, 2)}h',
+            f'  {_("Total overtime")} = {total_ot}h',
+        ]
+
+        if hourly_rate > 0:
+            steps += [
+                '',
+                str(_('Step 3: Pay calculation')),
+                f'  {_("Rate")} = ${hourly_rate}/hr',
+                f'  {_("Regular")} = {regular} × ${hourly_rate} = ${reg_pay}',
+                f'  {_("OT")} = {round(time_and_half, 2)} × ${hourly_rate} × {ot_rate} = ${ot_pay}',
+                f'  {_("Double")} = {round(double_time, 2)} × ${hourly_rate} × {double_rate} = ${dt_pay}',
+                f'  {_("Total")} = ${total_pay}',
+            ]
+
+        pct_ot = round((total_ot / total_hours * 100), 1) if total_hours > 0 else 0
+        steps += ['', str(_('Result: {r}h regular, {ot}h overtime ({pct}%)').format(
+            r=regular, ot=total_ot, pct=pct_ot))]
+
+        chart = {'main_chart': {
+            'type': 'doughnut',
+            'data': {
+                'labels': [str(_('Regular')), str(_('Time-and-half')), str(_('Double-time'))],
+                'datasets': [{
+                    'data': [regular, round(time_and_half, 2), round(double_time, 2)],
+                    'backgroundColor': ['rgba(16,185,129,0.8)', 'rgba(245,158,11,0.8)',
+                                        'rgba(239,68,68,0.8)'],
+                    'borderWidth': 2, 'borderColor': '#fff',
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'position': 'bottom'},
+                            'title': {'display': True, 'text': str(_('Hours Breakdown'))}},
+            },
+        }}
+
+        detail_cards = [
+            {'label': str(_('Regular')), 'value': f'{regular}h', 'color': 'green'},
+            {'label': str(_('OT (1.5×)')), 'value': f'{round(time_and_half, 2)}h', 'color': 'yellow'},
+            {'label': str(_('DT (2×)')), 'value': f'{round(double_time, 2)}h', 'color': 'red'},
+            {'label': str(_('OT %')), 'value': f'{pct_ot}%', 'color': 'purple'},
+        ]
+        if hourly_rate > 0:
+            detail_cards.append({'label': str(_('Total Pay')), 'value': f'${total_pay}', 'color': 'indigo'})
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'overtime',
+            'result': f'{total_ot}h OT',
+            'result_label': str(_('Overtime Analysis')),
+            'regular_hours': regular,
+            'time_and_half': round(time_and_half, 2),
+            'double_time': round(double_time, 2),
+            'total_overtime': total_ot,
+            'overtime_pct': pct_ot,
+            'total_pay': total_pay if hourly_rate > 0 else None,
+            'formula': f'{total_hours}h → {regular}h reg + {total_ot}h OT',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': detail_cards,
+        })

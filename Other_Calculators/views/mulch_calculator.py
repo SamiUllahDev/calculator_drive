@@ -6,1105 +6,388 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
 import math
-import numpy as np
-from sympy import symbols, Eq, simplify, latex
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class MulchCalculator(View):
     """
-    Professional Mulch Calculator with Comprehensive Features
-    
-    This calculator provides mulch calculations with:
-    - Calculate mulch needed for rectangular areas
-    - Calculate mulch needed for circular areas
-    - Calculate mulch needed for triangular areas
-    - Calculate coverage area from volume
-    - Calculate weight from volume
-    - Calculate cost from volume/weight
-    - Unit conversions
-    
-    Features:
-    - Supports multiple area shapes
-    - Handles various units
-    - Provides step-by-step solutions
-    - Interactive visualizations
+    Mulch Calculator — volume, weight, cost, coverage.
+
+    Calc types
+        • rectangular          → L × W × D
+        • circular             → π × r² × D
+        • triangular           → ½ × B × H × D
+        • coverage_from_volume → Area = V / D
+        • weight_from_volume   → W = V × Density
+        • cost_calculation     → Cost = Qty × Price
     """
     template_name = 'other_calculators/mulch_calculator.html'
-    
-    # Length conversion factors (to meters)
-    LENGTH_CONVERSIONS = {
-        'meters': 1.0,
-        'feet': 0.3048,  # 1 ft = 0.3048 m
-        'yards': 0.9144,  # 1 yd = 0.9144 m
-        'inches': 0.0254,  # 1 in = 0.0254 m
-        'centimeters': 0.01,  # 1 cm = 0.01 m
+
+    # Length → feet
+    LEN = {'feet': 1.0, 'inches': 1/12, 'yards': 3.0, 'meters': 3.28084}
+    # Volume → cubic feet
+    VOL = {'cubic_feet': 1.0, 'cubic_yards': 27.0, 'cubic_meters': 35.3147}
+    # Weight → pounds
+    WGT = {'pounds': 1.0, 'tons': 2000.0, 'kilograms': 2.20462}
+    # Area → square feet
+    AREA = {'square_feet': 1.0, 'square_yards': 9.0, 'square_meters': 10.7639}
+
+    # Mulch densities (lbs per cubic foot)
+    DENSITY = {
+        'wood_chips':  25.0,
+        'bark_mulch':  22.0,
+        'straw':       6.25,
+        'compost':     37.5,
+        'rubber':      12.5,
+        'stone':       100.0,
     }
-    
-    # Volume conversion factors (to cubic meters)
-    VOLUME_CONVERSIONS = {
-        'cubic_meters': 1.0,
-        'cubic_feet': 0.0283168,  # 1 ft³ = 0.0283168 m³
-        'cubic_yards': 0.764555,  # 1 yd³ = 0.764555 m³
-        'cubic_inches': 0.0000163871,  # 1 in³ = 0.0000163871 m³
-        'liters': 0.001,  # 1 L = 0.001 m³
-        'gallons_us': 0.00378541,  # 1 US gal = 0.00378541 m³
+
+    UNIT_SYM = {
+        'cubic_feet': 'ft³', 'cubic_yards': 'yd³', 'cubic_meters': 'm³',
+        'pounds': 'lbs', 'tons': 'tons', 'kilograms': 'kg',
+        'square_feet': 'ft²', 'square_yards': 'yd²', 'square_meters': 'm²',
+        'feet': 'ft', 'inches': 'in', 'yards': 'yd', 'meters': 'm',
     }
-    
-    # Area conversion factors (to square meters)
-    AREA_CONVERSIONS = {
-        'square_meters': 1.0,
-        'square_feet': 0.092903,  # 1 ft² = 0.092903 m²
-        'square_yards': 0.836127,  # 1 yd² = 0.836127 m²
-        'square_inches': 0.00064516,  # 1 in² = 0.00064516 m²
-        'acres': 4046.86,  # 1 acre = 4046.86 m²
-    }
-    
-    # Weight conversion factors (to kilograms)
-    WEIGHT_CONVERSIONS = {
-        'kilograms': 1.0,
-        'pounds': 0.453592,  # 1 lb = 0.453592 kg
-        'tons': 1000.0,  # 1 metric ton = 1000 kg
-        'us_tons': 907.185,  # 1 US ton = 907.185 kg
-    }
-    
-    # Typical mulch density (kg/m³) - varies by type
-    MULCH_DENSITY = {
-        'wood_chips': 400.0,  # kg/m³
-        'bark_mulch': 350.0,
-        'straw': 100.0,
-        'compost': 600.0,
-        'rubber': 200.0,
-        'stone': 1600.0,
-    }
-    
-    def _format_unit(self, unit):
-        """Format unit name for display"""
-        unit_map = {
-            'meters': 'm',
-            'feet': 'ft',
-            'yards': 'yd',
-            'inches': 'in',
-            'centimeters': 'cm',
-            'cubic_meters': 'm³',
-            'cubic_feet': 'ft³',
-            'cubic_yards': 'yd³',
-            'cubic_inches': 'in³',
-            'liters': 'L',
-            'gallons_us': 'US gal',
-            'square_meters': 'm²',
-            'square_feet': 'ft²',
-            'square_yards': 'yd²',
-            'square_inches': 'in²',
-            'acres': 'acres',
-            'kilograms': 'kg',
-            'pounds': 'lbs',
-            'tons': 'tons',
-            'us_tons': 'US tons',
-        }
-        return unit_map.get(unit, unit)
-    
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Mulch Calculator'),
-        }
-        return render(request, self.template_name, context)
-    
+        })
+
+    # ── POST ─────────────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'rectangular')
-            
-            if calc_type == 'rectangular':
-                return self._calculate_rectangular(data)
-            elif calc_type == 'circular':
-                return self._calculate_circular(data)
-            elif calc_type == 'triangular':
-                return self._calculate_triangular(data)
-            elif calc_type == 'coverage_from_volume':
-                return self._calculate_coverage_from_volume(data)
-            elif calc_type == 'weight_from_volume':
-                return self._calculate_weight_from_volume(data)
-            elif calc_type == 'cost_calculation':
-                return self._calculate_cost(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            ct = data.get('calc_type', 'rectangular')
+            dispatch = {
+                'rectangular':          self._calc_rect,
+                'circular':             self._calc_circ,
+                'triangular':           self._calc_tri,
+                'coverage_from_volume': self._calc_coverage,
+                'weight_from_volume':   self._calc_weight,
+                'cost_calculation':     self._calc_cost,
+            }
+            handler = dispatch.get(ct)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_rectangular(self, data):
-        """Calculate mulch needed for rectangular area"""
-        try:
-            if 'length' not in data or data.get('length') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Length is required.')
-                }, status=400)
-            
-            if 'width' not in data or data.get('width') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Width is required.')
-                }, status=400)
-            
-            if 'depth' not in data or data.get('depth') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth is required.')
-                }, status=400)
-            
-            try:
-                length = float(data.get('length', 0))
-                width = float(data.get('width', 0))
-                depth = float(data.get('depth', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            length_unit = data.get('length_unit', 'feet')
-            depth_unit = data.get('depth_unit', 'inches')
-            result_unit = data.get('result_unit', 'cubic_yards')
-            
-            # Validate units
-            if length_unit not in self.LENGTH_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid length unit.')
-                }, status=400)
-            
-            if depth_unit not in self.LENGTH_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid depth unit.')
-                }, status=400)
-            
-            if result_unit not in self.VOLUME_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid result unit.')
-                }, status=400)
-            
-            # Validate ranges
-            if length <= 0 or width <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Length and width must be greater than zero.')
-                }, status=400)
-            
-            if depth <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth must be greater than zero.')
-                }, status=400)
-            
-            # Convert to base units (meters)
-            length_m = float(length * self.LENGTH_CONVERSIONS[length_unit])
-            width_m = float(width * self.LENGTH_CONVERSIONS[length_unit])
-            depth_m = float(depth * self.LENGTH_CONVERSIONS[depth_unit])
-            
-            # Calculate volume: V = L × W × D
-            volume_m3 = float(np.multiply(np.multiply(length_m, width_m), depth_m))
-            
-            # Convert to result unit
-            result = float(np.divide(volume_m3, self.VOLUME_CONVERSIONS[result_unit]))
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            steps = self._prepare_rectangular_steps(length, length_unit, width, depth, depth_unit, length_m, width_m, depth_m, volume_m3, result, result_unit)
-            
-            chart_data = self._prepare_rectangular_chart_data(length_m, width_m, depth_m, volume_m3)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'rectangular',
-                'length': length,
-                'width': width,
-                'depth': depth,
-                'length_unit': length_unit,
-                'depth_unit': depth_unit,
-                'volume': round(result, 4),
-                'result_unit': result_unit,
-                'volume_m3': round(volume_m3, 6),
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
+            return self._err(_('Invalid JSON data.'))
         except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating mulch: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_circular(self, data):
-        """Calculate mulch needed for circular area"""
-        try:
-            if 'radius' not in data or data.get('radius') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Radius is required.')
-                }, status=400)
-            
-            if 'depth' not in data or data.get('depth') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth is required.')
-                }, status=400)
-            
-            try:
-                radius = float(data.get('radius', 0))
-                depth = float(data.get('depth', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            radius_unit = data.get('radius_unit', 'feet')
-            depth_unit = data.get('depth_unit', 'inches')
-            result_unit = data.get('result_unit', 'cubic_yards')
-            
-            # Validate units
-            if radius_unit not in self.LENGTH_CONVERSIONS or depth_unit not in self.LENGTH_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid unit.')
-                }, status=400)
-            
-            if result_unit not in self.VOLUME_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid result unit.')
-                }, status=400)
-            
-            # Validate ranges
-            if radius <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Radius must be greater than zero.')
-                }, status=400)
-            
-            if depth <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth must be greater than zero.')
-                }, status=400)
-            
-            # Convert to base units (meters)
-            radius_m = float(radius * self.LENGTH_CONVERSIONS[radius_unit])
-            depth_m = float(depth * self.LENGTH_CONVERSIONS[depth_unit])
-            
-            # Calculate volume: V = π × r² × D
-            area_m2 = float(np.multiply(np.pi, np.multiply(radius_m, radius_m)))
-            volume_m3 = float(np.multiply(area_m2, depth_m))
-            
-            # Convert to result unit
-            result = float(np.divide(volume_m3, self.VOLUME_CONVERSIONS[result_unit]))
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            steps = self._prepare_circular_steps(radius, radius_unit, depth, depth_unit, radius_m, depth_m, area_m2, volume_m3, result, result_unit)
-            
-            chart_data = self._prepare_circular_chart_data(radius_m, depth_m, volume_m3)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'circular',
-                'radius': radius,
-                'depth': depth,
-                'radius_unit': radius_unit,
-                'depth_unit': depth_unit,
-                'volume': round(result, 4),
-                'result_unit': result_unit,
-                'volume_m3': round(volume_m3, 6),
-                'area_m2': round(area_m2, 6),
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating mulch: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_triangular(self, data):
-        """Calculate mulch needed for triangular area"""
-        try:
-            if 'base' not in data or data.get('base') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Base is required.')
-                }, status=400)
-            
-            if 'height' not in data or data.get('height') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Height is required.')
-                }, status=400)
-            
-            if 'depth' not in data or data.get('depth') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth is required.')
-                }, status=400)
-            
-            try:
-                base = float(data.get('base', 0))
-                height = float(data.get('height', 0))
-                depth = float(data.get('depth', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            base_unit = data.get('base_unit', 'feet')
-            depth_unit = data.get('depth_unit', 'inches')
-            result_unit = data.get('result_unit', 'cubic_yards')
-            
-            # Validate units
-            if base_unit not in self.LENGTH_CONVERSIONS or depth_unit not in self.LENGTH_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid unit.')
-                }, status=400)
-            
-            if result_unit not in self.VOLUME_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid result unit.')
-                }, status=400)
-            
-            # Validate ranges
-            if base <= 0 or height <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Base and height must be greater than zero.')
-                }, status=400)
-            
-            if depth <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth must be greater than zero.')
-                }, status=400)
-            
-            # Convert to base units (meters)
-            base_m = float(base * self.LENGTH_CONVERSIONS[base_unit])
-            height_m = float(height * self.LENGTH_CONVERSIONS[base_unit])
-            depth_m = float(depth * self.LENGTH_CONVERSIONS[depth_unit])
-            
-            # Calculate volume: V = (1/2 × B × H) × D
-            area_m2 = float(np.multiply(0.5, np.multiply(base_m, height_m)))
-            volume_m3 = float(np.multiply(area_m2, depth_m))
-            
-            # Convert to result unit
-            result = float(np.divide(volume_m3, self.VOLUME_CONVERSIONS[result_unit]))
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            steps = self._prepare_triangular_steps(base, base_unit, height, depth, depth_unit, base_m, height_m, depth_m, area_m2, volume_m3, result, result_unit)
-            
-            chart_data = self._prepare_triangular_chart_data(base_m, height_m, depth_m, volume_m3)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'triangular',
-                'base': base,
-                'height': height,
-                'depth': depth,
-                'base_unit': base_unit,
-                'depth_unit': depth_unit,
-                'volume': round(result, 4),
-                'result_unit': result_unit,
-                'volume_m3': round(volume_m3, 6),
-                'area_m2': round(area_m2, 6),
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating mulch: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_coverage_from_volume(self, data):
-        """Calculate coverage area from volume and depth"""
-        try:
-            if 'volume' not in data or data.get('volume') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Volume is required.')
-                }, status=400)
-            
-            if 'depth' not in data or data.get('depth') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth is required.')
-                }, status=400)
-            
-            try:
-                volume = float(data.get('volume', 0))
-                depth = float(data.get('depth', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            volume_unit = data.get('volume_unit', 'cubic_yards')
-            depth_unit = data.get('depth_unit', 'inches')
-            result_unit = data.get('result_unit', 'square_feet')
-            
-            # Validate units
-            if volume_unit not in self.VOLUME_CONVERSIONS or depth_unit not in self.LENGTH_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid unit.')
-                }, status=400)
-            
-            if result_unit not in self.AREA_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid result unit.')
-                }, status=400)
-            
-            # Validate ranges
-            if volume <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Volume must be greater than zero.')
-                }, status=400)
-            
-            if depth <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Depth must be greater than zero.')
-                }, status=400)
-            
-            # Convert to base units
-            volume_m3 = float(volume * self.VOLUME_CONVERSIONS[volume_unit])
-            depth_m = float(depth * self.LENGTH_CONVERSIONS[depth_unit])
-            
-            # Calculate area: A = V / D
-            area_m2 = float(np.divide(volume_m3, depth_m))
-            
-            # Convert to result unit
-            result = float(np.divide(area_m2, self.AREA_CONVERSIONS[result_unit]))
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            steps = self._prepare_coverage_steps(volume, volume_unit, depth, depth_unit, volume_m3, depth_m, area_m2, result, result_unit)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'coverage_from_volume',
-                'volume': volume,
-                'volume_unit': volume_unit,
-                'depth': depth,
-                'depth_unit': depth_unit,
-                'coverage': round(result, 4),
-                'result_unit': result_unit,
-                'area_m2': round(area_m2, 6),
-                'step_by_step': steps,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating coverage: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_weight_from_volume(self, data):
-        """Calculate weight from volume and mulch type"""
-        try:
-            if 'volume' not in data or data.get('volume') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Volume is required.')
-                }, status=400)
-            
-            try:
-                volume = float(data.get('volume', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            volume_unit = data.get('volume_unit', 'cubic_yards')
-            mulch_type = data.get('mulch_type', 'wood_chips')
-            result_unit = data.get('result_unit', 'pounds')
-            
-            # Validate units
-            if volume_unit not in self.VOLUME_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid volume unit.')
-                }, status=400)
-            
-            if mulch_type not in self.MULCH_DENSITY:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid mulch type.')
-                }, status=400)
-            
-            if result_unit not in self.WEIGHT_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid result unit.')
-                }, status=400)
-            
-            # Validate ranges
-            if volume <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Volume must be greater than zero.')
-                }, status=400)
-            
-            # Convert to base units
-            volume_m3 = float(volume * self.VOLUME_CONVERSIONS[volume_unit])
-            density_kg_m3 = self.MULCH_DENSITY[mulch_type]
-            
-            # Calculate weight: W = V × D
-            weight_kg = float(np.multiply(volume_m3, density_kg_m3))
-            
-            # Convert to result unit
-            result = float(np.divide(weight_kg, self.WEIGHT_CONVERSIONS[result_unit]))
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            steps = self._prepare_weight_steps(volume, volume_unit, mulch_type, density_kg_m3, volume_m3, weight_kg, result, result_unit)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'weight_from_volume',
-                'volume': volume,
-                'volume_unit': volume_unit,
-                'mulch_type': mulch_type,
-                'density': density_kg_m3,
-                'weight': round(result, 2),
-                'result_unit': result_unit,
-                'weight_kg': round(weight_kg, 2),
-                'step_by_step': steps,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating weight: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_cost(self, data):
-        """Calculate cost from volume/weight and price"""
-        try:
-            calc_mode = data.get('cost_mode', 'from_volume')
-            
-            if calc_mode == 'from_volume':
-                if 'volume' not in data or data.get('volume') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Volume is required.')
-                    }, status=400)
-                
-                if 'price_per_unit' not in data or data.get('price_per_unit') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Price per unit is required.')
-                    }, status=400)
-                
-                try:
-                    volume = float(data.get('volume', 0))
-                    price_per_unit = float(data.get('price_per_unit', 0))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid input type. Please enter numeric values.')
-                    }, status=400)
-                
-                volume_unit = data.get('volume_unit', 'cubic_yards')
-                price_unit = data.get('price_unit', 'per_cubic_yard')
-                currency = data.get('currency', 'usd')
-                
-                # Validate
-                if volume <= 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Volume must be greater than zero.')
-                    }, status=400)
-                
-                if price_per_unit < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Price must be non-negative.')
-                    }, status=400)
-                
-                # Calculate cost
-                total_cost = float(np.multiply(volume, price_per_unit))
-                
-                steps = self._prepare_cost_volume_steps(volume, volume_unit, price_per_unit, price_unit, total_cost, currency)
-                
-                return JsonResponse({
-                    'success': True,
-                    'calc_type': 'cost_calculation',
-                    'cost_mode': 'from_volume',
-                    'volume': volume,
-                    'volume_unit': volume_unit,
-                    'price_per_unit': price_per_unit,
-                    'price_unit': price_unit,
-                    'total_cost': round(total_cost, 2),
-                    'currency': currency,
-                    'step_by_step': steps,
-                })
-            
-            else:  # from_weight
-                if 'weight' not in data or data.get('weight') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Weight is required.')
-                    }, status=400)
-                
-                if 'price_per_unit' not in data or data.get('price_per_unit') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Price per unit is required.')
-                    }, status=400)
-                
-                try:
-                    weight = float(data.get('weight', 0))
-                    price_per_unit = float(data.get('price_per_unit', 0))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid input type. Please enter numeric values.')
-                    }, status=400)
-                
-                weight_unit = data.get('weight_unit', 'pounds')
-                price_unit = data.get('price_unit', 'per_pound')
-                currency = data.get('currency', 'usd')
-                
-                # Validate
-                if weight <= 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Weight must be greater than zero.')
-                    }, status=400)
-                
-                if price_per_unit < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Price must be non-negative.')
-                    }, status=400)
-                
-                # Calculate cost
-                total_cost = float(np.multiply(weight, price_per_unit))
-                
-                steps = self._prepare_cost_weight_steps(weight, weight_unit, price_per_unit, price_unit, total_cost, currency)
-                
-                return JsonResponse({
-                    'success': True,
-                    'calc_type': 'cost_calculation',
-                    'cost_mode': 'from_weight',
-                    'weight': weight,
-                    'weight_unit': weight_unit,
-                    'price_per_unit': price_per_unit,
-                    'price_unit': price_unit,
-                    'total_cost': round(total_cost, 2),
-                    'currency': currency,
-                    'step_by_step': steps,
-                })
-                
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating cost: {error}').format(error=str(e))
-            }, status=500)
-    
-    # Step-by-step solution preparation methods
-    def _prepare_rectangular_steps(self, length, length_unit, width, depth, depth_unit, length_m, width_m, depth_m, volume_m3, result, result_unit):
-        """Prepare step-by-step solution for rectangular area"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Length: {length} {unit}').format(length=length, unit=self._format_unit(length_unit)))
-        steps.append(_('Width: {width} {unit}').format(width=width, unit=self._format_unit(length_unit)))
-        steps.append(_('Depth: {depth} {unit}').format(depth=depth, unit=self._format_unit(depth_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units (meters)'))
-        steps.append(_('Length: {length} m').format(length=length_m))
-        steps.append(_('Width: {width} m').format(width=width_m))
-        steps.append(_('Depth: {depth} m').format(depth=depth_m))
-        steps.append('')
-        steps.append(_('Step 3: Calculate volume'))
-        steps.append(_('Formula: Volume = Length × Width × Depth'))
-        steps.append(_('Volume = {length} m × {width} m × {depth} m').format(length=length_m, width=width_m, depth=depth_m))
-        steps.append(_('Volume = {volume} m³').format(volume=volume_m3))
-        steps.append('')
-        if result_unit != 'cubic_meters':
-            steps.append(_('Step 4: Convert to desired unit'))
-            steps.append(_('Volume = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
-        else:
-            steps.append(_('Step 4: Result'))
-            steps.append(_('Volume = {result} m³').format(result=result))
-        return steps
-    
-    def _prepare_circular_steps(self, radius, radius_unit, depth, depth_unit, radius_m, depth_m, area_m2, volume_m3, result, result_unit):
-        """Prepare step-by-step solution for circular area"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Radius: {radius} {unit}').format(radius=radius, unit=self._format_unit(radius_unit)))
-        steps.append(_('Depth: {depth} {unit}').format(depth=depth, unit=self._format_unit(depth_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units (meters)'))
-        steps.append(_('Radius: {radius} m').format(radius=radius_m))
-        steps.append(_('Depth: {depth} m').format(depth=depth_m))
-        steps.append('')
-        steps.append(_('Step 3: Calculate area'))
-        steps.append(_('Formula: Area = π × r²'))
-        steps.append(_('Area = π × ({radius} m)²').format(radius=radius_m))
-        steps.append(_('Area = {area} m²').format(area=area_m2))
-        steps.append('')
-        steps.append(_('Step 4: Calculate volume'))
-        steps.append(_('Formula: Volume = Area × Depth'))
-        steps.append(_('Volume = {area} m² × {depth} m').format(area=area_m2, depth=depth_m))
-        steps.append(_('Volume = {volume} m³').format(volume=volume_m3))
-        steps.append('')
-        if result_unit != 'cubic_meters':
-            steps.append(_('Step 5: Convert to desired unit'))
-            steps.append(_('Volume = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
-        else:
-            steps.append(_('Step 5: Result'))
-            steps.append(_('Volume = {result} m³').format(result=result))
-        return steps
-    
-    def _prepare_triangular_steps(self, base, base_unit, height, depth, depth_unit, base_m, height_m, depth_m, area_m2, volume_m3, result, result_unit):
-        """Prepare step-by-step solution for triangular area"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Base: {base} {unit}').format(base=base, unit=self._format_unit(base_unit)))
-        steps.append(_('Height: {height} {unit}').format(height=height, unit=self._format_unit(base_unit)))
-        steps.append(_('Depth: {depth} {unit}').format(depth=depth, unit=self._format_unit(depth_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units (meters)'))
-        steps.append(_('Base: {base} m').format(base=base_m))
-        steps.append(_('Height: {height} m').format(height=height_m))
-        steps.append(_('Depth: {depth} m').format(depth=depth_m))
-        steps.append('')
-        steps.append(_('Step 3: Calculate area'))
-        steps.append(_('Formula: Area = (1/2) × Base × Height'))
-        steps.append(_('Area = (1/2) × {base} m × {height} m').format(base=base_m, height=height_m))
-        steps.append(_('Area = {area} m²').format(area=area_m2))
-        steps.append('')
-        steps.append(_('Step 4: Calculate volume'))
-        steps.append(_('Formula: Volume = Area × Depth'))
-        steps.append(_('Volume = {area} m² × {depth} m').format(area=area_m2, depth=depth_m))
-        steps.append(_('Volume = {volume} m³').format(volume=volume_m3))
-        steps.append('')
-        if result_unit != 'cubic_meters':
-            steps.append(_('Step 5: Convert to desired unit'))
-            steps.append(_('Volume = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
-        else:
-            steps.append(_('Step 5: Result'))
-            steps.append(_('Volume = {result} m³').format(result=result))
-        return steps
-    
-    def _prepare_coverage_steps(self, volume, volume_unit, depth, depth_unit, volume_m3, depth_m, area_m2, result, result_unit):
-        """Prepare step-by-step solution for coverage calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Volume: {volume} {unit}').format(volume=volume, unit=self._format_unit(volume_unit)))
-        steps.append(_('Depth: {depth} {unit}').format(depth=depth, unit=self._format_unit(depth_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units'))
-        steps.append(_('Volume: {volume} m³').format(volume=volume_m3))
-        steps.append(_('Depth: {depth} m').format(depth=depth_m))
-        steps.append('')
-        steps.append(_('Step 3: Calculate coverage area'))
-        steps.append(_('Formula: Area = Volume / Depth'))
-        steps.append(_('Area = {volume} m³ / {depth} m').format(volume=volume_m3, depth=depth_m))
-        steps.append(_('Area = {area} m²').format(area=area_m2))
-        steps.append('')
-        if result_unit != 'square_meters':
-            steps.append(_('Step 4: Convert to desired unit'))
-            steps.append(_('Coverage Area = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
-        else:
-            steps.append(_('Step 4: Result'))
-            steps.append(_('Coverage Area = {result} m²').format(result=result))
-        return steps
-    
-    def _prepare_weight_steps(self, volume, volume_unit, mulch_type, density_kg_m3, volume_m3, weight_kg, result, result_unit):
-        """Prepare step-by-step solution for weight calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Volume: {volume} {unit}').format(volume=volume, unit=self._format_unit(volume_unit)))
-        steps.append(_('Mulch Type: {type}').format(type=mulch_type.replace('_', ' ').title()))
-        steps.append('')
-        steps.append(_('Step 2: Convert volume to cubic meters'))
-        steps.append(_('Volume: {volume} m³').format(volume=volume_m3))
-        steps.append('')
-        steps.append(_('Step 3: Get density for mulch type'))
-        steps.append(_('Density: {density} kg/m³').format(density=density_kg_m3))
-        steps.append('')
-        steps.append(_('Step 4: Calculate weight'))
-        steps.append(_('Formula: Weight = Volume × Density'))
-        steps.append(_('Weight = {volume} m³ × {density} kg/m³').format(volume=volume_m3, density=density_kg_m3))
-        steps.append(_('Weight = {weight} kg').format(weight=weight_kg))
-        steps.append('')
-        if result_unit != 'kilograms':
-            steps.append(_('Step 5: Convert to desired unit'))
-            steps.append(_('Weight = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
-        else:
-            steps.append(_('Step 5: Result'))
-            steps.append(_('Weight = {result} kg').format(result=result))
-        return steps
-    
-    def _prepare_cost_volume_steps(self, volume, volume_unit, price_per_unit, price_unit, total_cost, currency):
-        """Prepare step-by-step solution for cost from volume"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Volume: {volume} {unit}').format(volume=volume, unit=self._format_unit(volume_unit)))
-        steps.append(_('Price: {price} {currency}/{unit}').format(price=price_per_unit, currency=currency.upper(), unit=self._format_unit(volume_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Calculate total cost'))
-        steps.append(_('Formula: Total Cost = Volume × Price per Unit'))
-        steps.append(_('Total Cost = {volume} {unit} × {price} {currency}/{unit}').format(volume=volume, unit=self._format_unit(volume_unit), price=price_per_unit, currency=currency.upper()))
-        steps.append(_('Total Cost = {cost} {currency}').format(cost=total_cost, currency=currency.upper()))
-        return steps
-    
-    def _prepare_cost_weight_steps(self, weight, weight_unit, price_per_unit, price_unit, total_cost, currency):
-        """Prepare step-by-step solution for cost from weight"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Weight: {weight} {unit}').format(weight=weight, unit=self._format_unit(weight_unit)))
-        steps.append(_('Price: {price} {currency}/{unit}').format(price=price_per_unit, currency=currency.upper(), unit=self._format_unit(weight_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Calculate total cost'))
-        steps.append(_('Formula: Total Cost = Weight × Price per Unit'))
-        steps.append(_('Total Cost = {weight} {unit} × {price} {currency}/{unit}').format(weight=weight, unit=self._format_unit(weight_unit), price=price_per_unit, currency=currency.upper()))
-        steps.append(_('Total Cost = {cost} {currency}').format(cost=total_cost, currency=currency.upper()))
-        return steps
-    
-    # Chart data preparation methods
-    def _prepare_rectangular_chart_data(self, length_m, width_m, depth_m, volume_m3):
-        """Prepare chart data for rectangular calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Length (m)'), _('Width (m)'), _('Depth (m)'), _('Volume (m³)')],
-                    'datasets': [{
-                        'label': _('Values'),
-                        'data': [length_m, width_m, depth_m, volume_m3],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)',
-                            'rgba(239, 68, 68, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24',
-                            '#ef4444'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Rectangular Mulch Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Value')
-                            }
-                        }
-                    }
-                }
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _f(self, v, dp=2):
+        return f'{v:,.{dp}f}'
+
+    def _sym(self, u):
+        return self.UNIT_SYM.get(u, u)
+
+    def _pos(self, data, key, label):
+        v = data.get(key)
+        if v is None or v == '':
+            raise ValueError(str(_('{label} is required.').format(label=label)))
+        f = float(v)
+        if f <= 0:
+            raise ValueError(str(_('{label} must be greater than zero.').format(label=label)))
+        return f
+
+    def _nonneg(self, data, key, label):
+        v = data.get(key)
+        if v is None or v == '':
+            raise ValueError(str(_('{label} is required.').format(label=label)))
+        f = float(v)
+        if f < 0:
+            raise ValueError(str(_('{label} must be non-negative.').format(label=label)))
+        return f
+
+    def _to_ft(self, val, unit):
+        if unit not in self.LEN:
+            raise ValueError(str(_('Invalid length unit.')))
+        return val * self.LEN[unit]
+
+    def _to_cuft(self, val, unit):
+        if unit not in self.VOL:
+            raise ValueError(str(_('Invalid volume unit.')))
+        return val * self.VOL[unit]
+
+    def _vol_multi(self, cuft):
+        return {
+            'cubic_feet':   round(cuft, 2),
+            'cubic_yards':  round(cuft / 27, 4),
+            'cubic_meters': round(cuft / 35.3147, 4),
+        }
+
+    def _chart(self, labels, values, title):
+        colors = ['rgba(34,197,94,0.8)', 'rgba(59,130,246,0.8)', 'rgba(245,158,11,0.8)', 'rgba(139,92,246,0.8)']
+        borders = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6']
+        n = len(labels)
+        return {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Values')),
+                    'data': values,
+                    'backgroundColor': colors[:n],
+                    'borderColor': borders[:n],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }]
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': str(title)}},
+                'scales': {'y': {'beginAtZero': True}},
             }
-            return {'rectangular_chart': chart_config}
-        except Exception as e:
-            return None
-    
-    def _prepare_circular_chart_data(self, radius_m, depth_m, volume_m3):
-        """Prepare chart data for circular calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Radius (m)'), _('Depth (m)'), _('Volume (m³)')],
-                    'datasets': [{
-                        'label': _('Values'),
-                        'data': [radius_m, depth_m, volume_m3],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Circular Mulch Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Value')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'circular_chart': chart_config}
-        except Exception as e:
-            return None
-    
-    def _prepare_triangular_chart_data(self, base_m, height_m, depth_m, volume_m3):
-        """Prepare chart data for triangular calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Base (m)'), _('Height (m)'), _('Depth (m)'), _('Volume (m³)')],
-                    'datasets': [{
-                        'label': _('Values'),
-                        'data': [base_m, height_m, depth_m, volume_m3],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)',
-                            'rgba(239, 68, 68, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24',
-                            '#ef4444'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Triangular Mulch Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Value')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'triangular_chart': chart_config}
-        except Exception as e:
-            return None
+        }
+
+    # ── 1) RECTANGULAR ───────────────────────────────────────────────
+    def _calc_rect(self, data):
+        l = self._pos(data, 'length', str(_('Length')))
+        w = self._pos(data, 'width', str(_('Width')))
+        d = self._pos(data, 'depth', str(_('Depth')))
+        lu = data.get('length_unit', 'feet')
+        du = data.get('depth_unit', 'inches')
+        ru = data.get('result_unit', 'cubic_yards')
+
+        lf = self._to_ft(l, lu); wf = self._to_ft(w, lu); df = self._to_ft(d, du)
+        cuft = lf * wf * df
+        result = cuft / self.VOL[ru]
+        vol = self._vol_multi(cuft)
+
+        steps = [
+            str(_('Step 1: Given dimensions')),
+            f'  • {_("Length")} = {self._f(l)} {self._sym(lu)}',
+            f'  • {_("Width")} = {self._f(w)} {self._sym(lu)}',
+            f'  • {_("Depth")} = {self._f(d)} {self._sym(du)}',
+            '', str(_('Step 2: Convert to feet')),
+            f'  L = {self._f(lf)} ft, W = {self._f(wf)} ft, D = {self._f(df, 4)} ft',
+            '', str(_('Step 3: Calculate volume')),
+            f'  V = L × W × D = {self._f(lf)} × {self._f(wf)} × {self._f(df, 4)} = {self._f(cuft)} ft³',
+            '', str(_('Step 4: Convert to {unit}').format(unit=self._sym(ru))),
+            f'  = {self._f(result, 4)} {self._sym(ru)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'rectangular',
+            'result': round(result, 4), 'result_label': str(_('Mulch Volume')), 'result_unit_symbol': self._sym(ru),
+            'formula': f'V = {self._f(l)} × {self._f(w)} × {self._f(d)} = {self._f(result, 4)} {self._sym(ru)}',
+            'volume': vol, 'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Cubic Feet')), str(_('Cubic Yards')), str(_('Cubic Meters'))],
+                [vol['cubic_feet'], vol['cubic_yards'], vol['cubic_meters']],
+                str(_('Volume Comparison'))
+            )},
+        })
+
+    # ── 2) CIRCULAR ──────────────────────────────────────────────────
+    def _calc_circ(self, data):
+        r = self._pos(data, 'radius', str(_('Radius')))
+        d = self._pos(data, 'depth', str(_('Depth')))
+        ru_ = data.get('radius_unit', 'feet')
+        du = data.get('depth_unit', 'inches')
+        ou = data.get('result_unit', 'cubic_yards')
+
+        rf = self._to_ft(r, ru_); df = self._to_ft(d, du)
+        area = math.pi * rf ** 2
+        cuft = area * df
+        result = cuft / self.VOL[ou]
+        vol = self._vol_multi(cuft)
+
+        steps = [
+            str(_('Step 1: Given dimensions')),
+            f'  • {_("Radius")} = {self._f(r)} {self._sym(ru_)}',
+            f'  • {_("Depth")} = {self._f(d)} {self._sym(du)}',
+            '', str(_('Step 2: Convert to feet')),
+            f'  r = {self._f(rf)} ft, D = {self._f(df, 4)} ft',
+            '', str(_('Step 3: Calculate area')),
+            f'  A = π × r² = π × {self._f(rf)}² = {self._f(area)} ft²',
+            '', str(_('Step 4: Calculate volume')),
+            f'  V = A × D = {self._f(area)} × {self._f(df, 4)} = {self._f(cuft)} ft³',
+            '', str(_('Step 5: Convert to {unit}').format(unit=self._sym(ou))),
+            f'  = {self._f(result, 4)} {self._sym(ou)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'circular',
+            'result': round(result, 4), 'result_label': str(_('Mulch Volume')), 'result_unit_symbol': self._sym(ou),
+            'formula': f'V = π × {self._f(r)}² × {self._f(d)} = {self._f(result, 4)} {self._sym(ou)}',
+            'volume': vol, 'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Cubic Feet')), str(_('Cubic Yards')), str(_('Cubic Meters'))],
+                [vol['cubic_feet'], vol['cubic_yards'], vol['cubic_meters']],
+                str(_('Volume Comparison'))
+            )},
+        })
+
+    # ── 3) TRIANGULAR ────────────────────────────────────────────────
+    def _calc_tri(self, data):
+        b = self._pos(data, 'base', str(_('Base')))
+        h = self._pos(data, 'height', str(_('Height')))
+        d = self._pos(data, 'depth', str(_('Depth')))
+        bu = data.get('base_unit', 'feet')
+        du = data.get('depth_unit', 'inches')
+        ou = data.get('result_unit', 'cubic_yards')
+
+        bf = self._to_ft(b, bu); hf = self._to_ft(h, bu); df = self._to_ft(d, du)
+        area = 0.5 * bf * hf
+        cuft = area * df
+        result = cuft / self.VOL[ou]
+        vol = self._vol_multi(cuft)
+
+        steps = [
+            str(_('Step 1: Given dimensions')),
+            f'  • {_("Base")} = {self._f(b)} {self._sym(bu)}',
+            f'  • {_("Height")} = {self._f(h)} {self._sym(bu)}',
+            f'  • {_("Depth")} = {self._f(d)} {self._sym(du)}',
+            '', str(_('Step 2: Convert to feet')),
+            f'  B = {self._f(bf)} ft, H = {self._f(hf)} ft, D = {self._f(df, 4)} ft',
+            '', str(_('Step 3: Calculate area')),
+            f'  A = ½ × B × H = ½ × {self._f(bf)} × {self._f(hf)} = {self._f(area)} ft²',
+            '', str(_('Step 4: Calculate volume')),
+            f'  V = A × D = {self._f(area)} × {self._f(df, 4)} = {self._f(cuft)} ft³',
+            '', str(_('Step 5: Convert to {unit}').format(unit=self._sym(ou))),
+            f'  = {self._f(result, 4)} {self._sym(ou)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'triangular',
+            'result': round(result, 4), 'result_label': str(_('Mulch Volume')), 'result_unit_symbol': self._sym(ou),
+            'formula': f'V = ½ × {self._f(b)} × {self._f(h)} × {self._f(d)} = {self._f(result, 4)} {self._sym(ou)}',
+            'volume': vol, 'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Cubic Feet')), str(_('Cubic Yards')), str(_('Cubic Meters'))],
+                [vol['cubic_feet'], vol['cubic_yards'], vol['cubic_meters']],
+                str(_('Volume Comparison'))
+            )},
+        })
+
+    # ── 4) COVERAGE FROM VOLUME ──────────────────────────────────────
+    def _calc_coverage(self, data):
+        v = self._pos(data, 'volume', str(_('Volume')))
+        d = self._pos(data, 'depth', str(_('Depth')))
+        vu = data.get('volume_unit', 'cubic_yards')
+        du = data.get('depth_unit', 'inches')
+        ou = data.get('result_unit', 'square_feet')
+
+        cuft = self._to_cuft(v, vu)
+        df = self._to_ft(d, du)
+        sqft = cuft / df
+        result = sqft / self.AREA.get(ou, 1.0)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Volume")} = {self._f(v)} {self._sym(vu)}',
+            f'  • {_("Depth")} = {self._f(d)} {self._sym(du)}',
+            '', str(_('Step 2: Convert to base units')),
+            f'  Volume = {self._f(cuft)} ft³, Depth = {self._f(df, 4)} ft',
+            '', str(_('Step 3: Calculate coverage area')),
+            f'  Area = V / D = {self._f(cuft)} / {self._f(df, 4)} = {self._f(sqft)} ft²',
+            '', str(_('Step 4: Convert to {unit}').format(unit=self._sym(ou))),
+            f'  = {self._f(result, 4)} {self._sym(ou)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'coverage_from_volume',
+            'result': round(result, 4), 'result_label': str(_('Coverage Area')), 'result_unit_symbol': self._sym(ou),
+            'formula': f'A = {self._f(v)} {self._sym(vu)} / {self._f(d)} {self._sym(du)} = {self._f(result, 4)} {self._sym(ou)}',
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Volume (ft³)')), str(_('Area (ft²)'))],
+                [round(cuft, 2), round(sqft, 2)],
+                str(_('Volume → Coverage'))
+            )},
+        })
+
+    # ── 5) WEIGHT FROM VOLUME ────────────────────────────────────────
+    def _calc_weight(self, data):
+        v = self._pos(data, 'volume', str(_('Volume')))
+        vu = data.get('volume_unit', 'cubic_yards')
+        mt = data.get('mulch_type', 'wood_chips')
+        ou = data.get('result_unit', 'pounds')
+
+        if mt not in self.DENSITY:
+            raise ValueError(str(_('Invalid mulch type.')))
+
+        density = self.DENSITY[mt]
+        cuft = self._to_cuft(v, vu)
+        lbs = cuft * density
+        result = lbs / self.WGT.get(ou, 1.0)
+
+        mt_label = mt.replace('_', ' ').title()
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Volume")} = {self._f(v)} {self._sym(vu)}',
+            f'  • {_("Mulch Type")} = {mt_label}',
+            f'  • {_("Density")} = {self._f(density)} lbs/ft³',
+            '', str(_('Step 2: Convert to cubic feet')),
+            f'  = {self._f(cuft)} ft³',
+            '', str(_('Step 3: Calculate weight')),
+            f'  W = V × ρ = {self._f(cuft)} × {self._f(density)} = {self._f(lbs)} lbs',
+            '', str(_('Step 4: Convert to {unit}').format(unit=self._sym(ou))),
+            f'  = {self._f(result, 4)} {self._sym(ou)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'weight_from_volume',
+            'result': round(result, 4), 'result_label': str(_('Weight')), 'result_unit_symbol': self._sym(ou),
+            'formula': f'W = {self._f(v)} {self._sym(vu)} × {self._f(density)} = {self._f(result, 4)} {self._sym(ou)}',
+            'mulch_type': mt, 'density': density,
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Volume (ft³)')), str(_('Weight (lbs)'))],
+                [round(cuft, 2), round(lbs, 2)],
+                str(_('Volume → Weight'))
+            )},
+        })
+
+    # ── 6) COST ──────────────────────────────────────────────────────
+    def _calc_cost(self, data):
+        mode = data.get('cost_mode', 'from_volume')
+
+        if mode == 'from_volume':
+            v = self._pos(data, 'volume', str(_('Volume')))
+            price = self._nonneg(data, 'price_per_unit', str(_('Price')))
+            vu = data.get('volume_unit', 'cubic_yards')
+            total = v * price
+            steps = [
+                str(_('Step 1: Given values')),
+                f'  • {_("Volume")} = {self._f(v)} {self._sym(vu)}',
+                f'  • {_("Price")} = ${self._f(price)} / {self._sym(vu)}',
+                '', str(_('Step 2: Calculate total cost')),
+                f'  Cost = V × Price = {self._f(v)} × ${self._f(price)} = ${self._f(total)}',
+            ]
+            formula = f'{self._f(v)} {self._sym(vu)} × ${self._f(price)} = ${self._f(total)}'
+            chart_labels = [str(_('Volume')), str(_('Price/Unit')), str(_('Total'))]
+            chart_vals = [round(v, 2), round(price, 2), round(total, 2)]
+        else:
+            w = self._pos(data, 'weight', str(_('Weight')))
+            price = self._nonneg(data, 'price_per_unit', str(_('Price')))
+            wu = data.get('weight_unit', 'pounds')
+            total = w * price
+            steps = [
+                str(_('Step 1: Given values')),
+                f'  • {_("Weight")} = {self._f(w)} {self._sym(wu)}',
+                f'  • {_("Price")} = ${self._f(price)} / {self._sym(wu)}',
+                '', str(_('Step 2: Calculate total cost')),
+                f'  Cost = W × Price = {self._f(w)} × ${self._f(price)} = ${self._f(total)}',
+            ]
+            formula = f'{self._f(w)} {self._sym(wu)} × ${self._f(price)} = ${self._f(total)}'
+            chart_labels = [str(_('Weight')), str(_('Price/Unit')), str(_('Total'))]
+            chart_vals = [round(w if mode != 'from_volume' else v, 2), round(price, 2), round(total, 2)]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'cost_calculation',
+            'result': round(total, 2), 'result_label': str(_('Total Cost')), 'result_unit_symbol': '$',
+            'formula': formula,
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(chart_labels, chart_vals, str(_('Cost Breakdown')))},
+        })

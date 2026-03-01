@@ -1,440 +1,488 @@
 from django.views import View
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
-from django.core.serializers.json import DjangoJSONEncoder
 import json
-import logging
-from datetime import datetime, timedelta
-
-logger = logging.getLogger(__name__)
-
-
-class SafeJSONEncoder(DjangoJSONEncoder):
-    def default(self, o):
-        try:
-            return super().default(o)
-        except TypeError:
-            return str(o) if o is not None else None
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class TimeDurationCalculator(View):
     """
-    Time Duration Calculator: duration between times, add/subtract duration,
-    convert units, elapsed time. BMI-style upgrade.
+    Time Duration Calculator — 4 calculation types.
+
+    Calculation types
+        • between_times → duration between two clock times (midnight-aware)
+        • add_subtract  → add/subtract a duration to/from a clock time
+        • convert       → convert between time-duration units
+        • elapsed       → start time + elapsed duration → end time
     """
     template_name = 'other_calculators/time_duration_calculator.html'
 
-    TIME_CONVERSIONS = {
+    UNITS = {
         'seconds': 1.0,
         'minutes': 60.0,
-        'hours': 3600.0,
-        'days': 86400.0,
-        'weeks': 604800.0,
-        'months': 2592000.0,
-        'years': 31536000.0,
+        'hours':   3600.0,
+        'days':    86400.0,
+        'weeks':   604800.0,
+        'months':  2592000.0,   # 30 days
+        'years':   31536000.0,  # 365 days
+    }
+    UNIT_SHORT = {
+        'seconds': 's', 'minutes': 'min', 'hours': 'h',
+        'days': 'days', 'weeks': 'weeks', 'months': 'months', 'years': 'years',
     }
 
-    def _format_unit(self, unit):
-        unit_map = {
-            'seconds': 's', 'minutes': 'min', 'hours': 'h', 'days': 'days',
-            'weeks': 'weeks', 'months': 'months', 'years': 'years',
-        }
-        return unit_map.get(unit, unit)
-
-    def _get_data(self, request):
-        if request.content_type and 'application/json' in request.content_type:
-            try:
-                body = request.body
-                if not body:
-                    return {}
-                return json.loads(body)
-            except (json.JSONDecodeError, ValueError, TypeError):
-                return {}
-        if request.body:
-            try:
-                return json.loads(request.body)
-            except (json.JSONDecodeError, ValueError, TypeError):
-                pass
-        data = {}
-        for k in request.POST:
-            v = request.POST.getlist(k)
-            data[k] = v[0] if len(v) == 1 else v
-        return data
-
-    def _val(self, data, key, default=None):
-        v = data.get(key, default)
-        return (v[0] if isinstance(v, list) and v else v) if v is not None else default
-
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        context = {'calculator_name': str(_('Time Duration Calculator'))}
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, {
+            'calculator_name': _('Time Duration Calculator'),
+        })
 
+    # ── POST ──────────────────────────────────────────────────────────
     def post(self, request):
         try:
-            data = self._get_data(request)
-            if not data:
-                return HttpResponse(
-                    json.dumps({'success': False, 'error': str(_('Invalid request data.'))}, cls=SafeJSONEncoder),
-                    content_type='application/json',
-                    status=400
-                )
-            calc_type = self._val(data, 'calc_type', 'between_times')
-            if calc_type == 'between_times':
-                result = self._calculate_between_times(data)
-            elif calc_type == 'add_subtract':
-                result = self._calculate_add_subtract(data)
-            elif calc_type == 'convert':
-                result = self._convert_duration(data)
-            elif calc_type == 'elapsed':
-                result = self._calculate_elapsed(data)
-            else:
-                return HttpResponse(
-                    json.dumps({'success': False, 'error': str(_('Invalid calculation type.'))}, cls=SafeJSONEncoder),
-                    content_type='application/json',
-                    status=400
-                )
-            if isinstance(result, dict) and not result.get('success'):
-                return HttpResponse(
-                    json.dumps(result, cls=SafeJSONEncoder),
-                    content_type='application/json',
-                    status=400
-                )
-            return HttpResponse(json.dumps(result, cls=SafeJSONEncoder), content_type='application/json')
-        except Exception as e:
-            logger.exception("Time duration calculator failed: %s", e)
-            from django.conf import settings
-            err_msg = str(_('An error occurred during calculation.'))
-            if getattr(settings, 'DEBUG', False):
-                err_msg += ' [' + str(e).replace('"', "'") + ']'
-            return HttpResponse(
-                json.dumps({'success': False, 'error': err_msg}, cls=SafeJSONEncoder),
-                content_type='application/json',
-                status=500
-            )
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            ct = data.get('calc_type', 'between_times')
+            dispatch = {
+                'between_times': self._calc_between,
+                'add_subtract':  self._calc_add_subtract,
+                'convert':       self._calc_convert,
+                'elapsed':       self._calc_elapsed,
+            }
+            handler = dispatch.get(ct)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
+        except json.JSONDecodeError:
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
 
-    def _parse_time(self, time_str):
-        try:
-            if ':' in str(time_str):
-                parts = str(time_str).split(':')
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    @staticmethod
+    def _parse_time(val):
+        """Parse HH:MM or HH:MM:SS → total seconds. Returns None on failure."""
+        if not val:
+            return None
+        s = str(val).strip()
+        if ':' in s:
+            parts = s.split(':')
+            try:
                 if len(parts) == 2:
-                    hours = int(parts[0])
-                    minutes = int(parts[1])
-                    seconds = 0
+                    h, m, sec = int(parts[0]), int(parts[1]), 0
                 elif len(parts) == 3:
-                    hours = int(parts[0])
-                    minutes = int(parts[1])
-                    seconds = int(parts[2])
+                    h, m, sec = int(parts[0]), int(parts[1]), int(parts[2])
                 else:
                     return None
-                return hours * 3600 + minutes * 60 + seconds
-            return float(time_str)
-        except Exception:
+            except ValueError:
+                return None
+            if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= sec <= 59):
+                return None
+            return h * 3600 + m * 60 + sec
+        try:
+            return float(s)
+        except ValueError:
             return None
 
-    def _format_duration(self, total_seconds):
-        if total_seconds < 60:
-            return f"{int(total_seconds)} seconds"
-        elif total_seconds < 3600:
-            minutes = int(total_seconds // 60)
-            seconds = int(total_seconds % 60)
-            if seconds == 0:
-                return f"{minutes} minute{'s' if minutes != 1 else ''}"
-            return f"{minutes} minute{'s' if minutes != 1 else ''} {seconds} second{'s' if seconds != 1 else ''}"
-        elif total_seconds < 86400:
-            hours = int(total_seconds // 3600)
-            minutes = int((total_seconds % 3600) // 60)
-            if minutes == 0:
-                return f"{hours} hour{'s' if hours != 1 else ''}"
-            return f"{hours} hour{'s' if hours != 1 else ''} {minutes} minute{'s' if minutes != 1 else ''}"
+    @staticmethod
+    def _fmt_hms(total_sec):
+        """Format seconds → HH:MM:SS string."""
+        total_sec = int(total_sec) % 86400
+        h = total_sec // 3600
+        m = (total_sec % 3600) // 60
+        s = total_sec % 60
+        return f'{h:02d}:{m:02d}:{s:02d}'
+
+    @staticmethod
+    def _fmt_duration(total_sec):
+        """Format seconds → human-readable duration string."""
+        total_sec = int(abs(total_sec))
+        if total_sec == 0:
+            return '0 seconds'
+        d = total_sec // 86400
+        h = (total_sec % 86400) // 3600
+        m = (total_sec % 3600) // 60
+        s = total_sec % 60
+        parts = []
+        if d > 0:
+            parts.append(f'{d} day{"s" if d != 1 else ""}')
+        if h > 0:
+            parts.append(f'{h} hour{"s" if h != 1 else ""}')
+        if m > 0:
+            parts.append(f'{m} minute{"s" if m != 1 else ""}')
+        if s > 0:
+            parts.append(f'{s} second{"s" if s != 1 else ""}')
+        return ' '.join(parts)
+
+    @staticmethod
+    def _breakdown(total_sec):
+        """Return h, m, s ints from total seconds."""
+        ts = int(abs(total_sec))
+        return ts // 3600, (ts % 3600) // 60, ts % 60
+
+    # ── 1) BETWEEN TIMES ─────────────────────────────────────────────
+    def _calc_between(self, data):
+        st = data.get('start_time', '')
+        et = data.get('end_time', '')
+        if not st:
+            return self._err(_('Start time is required.'))
+        if not et:
+            return self._err(_('End time is required.'))
+
+        ss = self._parse_time(st)
+        es = self._parse_time(et)
+        if ss is None or es is None:
+            return self._err(_('Invalid time format. Use HH:MM or HH:MM:SS (24-hour).'))
+
+        # Handle midnight crossing
+        if es < ss:
+            dur = (86400 - ss) + es
+            crosses = True
         else:
-            days = int(total_seconds // 86400)
-            hours = int((total_seconds % 86400) // 3600)
-            if hours == 0:
-                return f"{days} day{'s' if days != 1 else ''}"
-            return f"{days} day{'s' if days != 1 else ''} {hours} hour{'s' if hours != 1 else ''}"
+            dur = es - ss
+            crosses = False
 
-    def _calculate_between_times(self, data):
-        start_time_str = self._val(data, 'start_time', '')
-        end_time_str = self._val(data, 'end_time', '')
-        if not start_time_str:
-            return {'success': False, 'error': str(_('Start time is required.'))}
-        if not end_time_str:
-            return {'success': False, 'error': str(_('End time is required.'))}
-        start_seconds = self._parse_time(start_time_str)
-        end_seconds = self._parse_time(end_time_str)
-        if start_seconds is None or end_seconds is None:
-            return {'success': False, 'error': str(_('Invalid time format. Use HH:MM or HH:MM:SS format.'))}
-        if end_seconds < start_seconds:
-            duration_seconds = (86400 - start_seconds) + end_seconds
+        h, m, s = self._breakdown(dur)
+        dur_min = round(dur / 60, 2)
+        dur_hrs = round(dur / 3600, 2)
+        dur_days = round(dur / 86400, 4)
+        dur_fmt = self._fmt_duration(dur)
+
+        steps = [
+            str(_('Step 1: Given times')),
+            f'  • {_("Start")} = {st}',
+            f'  • {_("End")} = {et}',
+            '',
+            str(_('Step 2: Convert to seconds')),
+            f'  {_("Start")} = {int(ss)} {_("seconds")}',
+            f'  {_("End")} = {int(es)} {_("seconds")}',
+            '',
+        ]
+        if crosses:
+            steps += [
+                str(_('Step 3: Calculate duration (crosses midnight)')),
+                f'  (86400 − {int(ss)}) + {int(es)} = {int(dur)} {_("seconds")}',
+            ]
         else:
-            duration_seconds = end_seconds - start_seconds
-        duration_minutes = float(duration_seconds / 60.0)
-        duration_hours = float(duration_seconds / 3600.0)
-        duration_days = float(duration_seconds / 86400.0)
-        duration_formatted = self._format_duration(duration_seconds)
-        steps = self._prepare_between_times_steps(
-            start_time_str, end_time_str, start_seconds, end_seconds,
-            duration_seconds, duration_minutes, duration_hours, duration_days, duration_formatted
-        )
-        chart_data = self._prepare_between_times_chart_data(start_seconds, end_seconds, duration_seconds)
-        return {
-            'success': True,
-            'calc_type': 'between_times',
-            'start_time': start_time_str,
-            'end_time': end_time_str,
-            'duration_seconds': duration_seconds,
-            'duration_minutes': round(duration_minutes, 2),
-            'duration_hours': round(duration_hours, 2),
-            'duration_days': round(duration_days, 4),
-            'duration_formatted': duration_formatted,
-            'step_by_step': steps,
-            'chart_data': chart_data,
-        }
+            steps += [
+                str(_('Step 3: Calculate duration')),
+                f'  {int(es)} − {int(ss)} = {int(dur)} {_("seconds")}',
+            ]
+        steps += [
+            '',
+            str(_('Step 4: Convert to other units')),
+            f'  {_("Minutes")} = {dur_min}',
+            f'  {_("Hours")} = {dur_hrs}',
+            f'  {_("Days")} = {dur_days}',
+            '',
+            str(_('Result: {d}').format(d=dur_fmt)),
+        ]
 
-    def _calculate_add_subtract(self, data):
-        time_str = self._val(data, 'time', '')
-        if not time_str:
-            return {'success': False, 'error': str(_('Time is required.'))}
-        duration_raw = self._val(data, 'duration')
-        if duration_raw is None or duration_raw == '':
-            return {'success': False, 'error': str(_('Duration is required.'))}
-        try:
-            duration = float(duration_raw)
-        except (ValueError, TypeError):
-            return {'success': False, 'error': str(_('Invalid input type. Please enter numeric values.'))}
-        operation = self._val(data, 'operation', 'add')
-        duration_unit = self._val(data, 'duration_unit', 'hours')
-        time_seconds = self._parse_time(time_str)
-        if time_seconds is None:
-            return {'success': False, 'error': str(_('Invalid time format. Use HH:MM or HH:MM:SS format.'))}
-        if duration < 0:
-            return {'success': False, 'error': str(_('Duration must be non-negative.'))}
-        if duration_unit not in self.TIME_CONVERSIONS:
-            return {'success': False, 'error': str(_('Invalid duration unit.'))}
-        duration_seconds = float(duration * self.TIME_CONVERSIONS[duration_unit])
-        if operation == 'add':
-            result_seconds = time_seconds + duration_seconds
-        else:
-            result_seconds = time_seconds - duration_seconds
-            if result_seconds < 0:
-                result_seconds += 86400
-        total_seconds = int(result_seconds % 86400)
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        seconds = int(total_seconds % 60)
-        result_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        steps = self._prepare_add_subtract_steps(
-            time_str, operation, duration, duration_unit, time_seconds, duration_seconds,
-            result_seconds, hours, minutes, seconds, result_formatted
-        )
-        return {
-            'success': True,
-            'calc_type': 'add_subtract',
-            'time': time_str,
-            'operation': operation,
-            'duration': duration,
-            'duration_unit': duration_unit,
-            'result_seconds': result_seconds,
-            'result_formatted': result_formatted,
-            'hours': hours,
-            'minutes': minutes,
-            'seconds': seconds,
-            'step_by_step': steps,
-        }
-
-    def _convert_duration(self, data):
-        duration_raw = self._val(data, 'duration')
-        if duration_raw is None or duration_raw == '':
-            return {'success': False, 'error': str(_('Duration is required.'))}
-        try:
-            duration = float(duration_raw)
-        except (ValueError, TypeError):
-            return {'success': False, 'error': str(_('Invalid input type. Please enter numeric values.'))}
-        from_unit = self._val(data, 'from_unit', 'hours')
-        to_unit = self._val(data, 'to_unit', 'minutes')
-        if duration < 0:
-            return {'success': False, 'error': str(_('Duration must be non-negative.'))}
-        if from_unit not in self.TIME_CONVERSIONS or to_unit not in self.TIME_CONVERSIONS:
-            return {'success': False, 'error': str(_('Invalid unit.'))}
-        duration_seconds = float(duration * self.TIME_CONVERSIONS[from_unit])
-        result = duration_seconds / self.TIME_CONVERSIONS[to_unit]
-        steps = self._prepare_convert_steps(duration, from_unit, duration_seconds, result, to_unit)
-        return {
-            'success': True,
-            'calc_type': 'convert',
-            'duration': duration,
-            'from_unit': from_unit,
-            'result': round(result, 6),
-            'to_unit': to_unit,
-            'step_by_step': steps,
-        }
-
-    def _calculate_elapsed(self, data):
-        start_time_str = self._val(data, 'start_time', '')
-        if not start_time_str:
-            return {'success': False, 'error': str(_('Start time is required.'))}
-        elapsed_raw = self._val(data, 'elapsed_duration')
-        if elapsed_raw is None or elapsed_raw == '':
-            return {'success': False, 'error': str(_('Elapsed duration is required.'))}
-        try:
-            elapsed_duration = float(elapsed_raw)
-        except (ValueError, TypeError):
-            return {'success': False, 'error': str(_('Invalid input type. Please enter numeric values.'))}
-        elapsed_unit = self._val(data, 'elapsed_unit', 'hours')
-        start_seconds = self._parse_time(start_time_str)
-        if start_seconds is None:
-            return {'success': False, 'error': str(_('Invalid time format. Use HH:MM or HH:MM:SS format.'))}
-        if elapsed_duration < 0:
-            return {'success': False, 'error': str(_('Elapsed duration must be non-negative.'))}
-        if elapsed_unit not in self.TIME_CONVERSIONS:
-            return {'success': False, 'error': str(_('Invalid elapsed unit.'))}
-        elapsed_seconds = float(elapsed_duration * self.TIME_CONVERSIONS[elapsed_unit])
-        end_seconds = start_seconds + elapsed_seconds
-        total_seconds = int(end_seconds % 86400)
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        seconds = int(total_seconds % 60)
-        end_time_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        steps = self._prepare_elapsed_steps(
-            start_time_str, elapsed_duration, elapsed_unit, start_seconds, elapsed_seconds,
-            end_seconds, hours, minutes, seconds, end_time_formatted
-        )
-        return {
-            'success': True,
-            'calc_type': 'elapsed',
-            'start_time': start_time_str,
-            'elapsed_duration': elapsed_duration,
-            'elapsed_unit': elapsed_unit,
-            'end_time_seconds': end_seconds,
-            'end_time_formatted': end_time_formatted,
-            'hours': hours,
-            'minutes': minutes,
-            'seconds': seconds,
-            'step_by_step': steps,
-        }
-
-    def _prepare_between_times_steps(self, start_time_str, end_time_str, start_seconds, end_seconds, duration_seconds, duration_minutes, duration_hours, duration_days, duration_formatted):
-        steps = []
-        steps.append(str(_('Step 1: Identify the given times')))
-        steps.append(str(_('Start Time')) + ': ' + str(start_time_str))
-        steps.append(str(_('End Time')) + ': ' + str(end_time_str))
-        steps.append('')
-        steps.append(str(_('Step 2: Convert to seconds')))
-        steps.append(str(_('Start Time')) + ': ' + str(start_time_str) + ' = ' + str(start_seconds) + ' ' + str(_('seconds')))
-        steps.append(str(_('End Time')) + ': ' + str(end_time_str) + ' = ' + str(end_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        if end_seconds < start_seconds:
-            steps.append(str(_('Step 3: Calculate duration (crosses midnight)')))
-            steps.append(str(_('Duration')) + ' = (86400 - ' + str(_('Start')) + ') + ' + str(_('End')))
-            steps.append(str(_('Duration')) + ' = (86400 - ' + str(start_seconds) + ') + ' + str(end_seconds) + ' = ' + str(duration_seconds) + ' ' + str(_('seconds')))
-        else:
-            steps.append(str(_('Step 3: Calculate duration')))
-            steps.append(str(_('Duration')) + ' = ' + str(_('End')) + ' - ' + str(_('Start')))
-            steps.append(str(_('Duration')) + ' = ' + str(end_seconds) + ' - ' + str(start_seconds) + ' = ' + str(duration_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 4: Convert to different units')))
-        steps.append(str(_('Duration')) + ' = ' + str(duration_seconds) + ' ' + str(_('seconds')))
-        steps.append(str(_('Duration')) + ' = ' + str(round(duration_minutes, 2)) + ' ' + str(_('minutes')))
-        steps.append(str(_('Duration')) + ' = ' + str(round(duration_hours, 2)) + ' ' + str(_('hours')))
-        steps.append(str(_('Duration')) + ' = ' + str(round(duration_days, 4)) + ' ' + str(_('days')))
-        steps.append('')
-        steps.append(str(_('Step 5: Result')))
-        steps.append(str(_('Duration')) + ' = ' + str(duration_formatted))
-        return steps
-
-    def _prepare_add_subtract_steps(self, time_str, operation, duration, duration_unit, time_seconds, duration_seconds, result_seconds, hours, minutes, seconds, result_formatted):
-        steps = []
-        steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Time')) + ': ' + str(time_str))
-        steps.append(str(_('Duration')) + ': ' + str(duration) + ' ' + self._format_unit(duration_unit))
-        steps.append(str(_('Operation')) + ': ' + operation.title())
-        steps.append('')
-        steps.append(str(_('Step 2: Convert to seconds')))
-        steps.append(str(_('Time')) + ': ' + str(time_str) + ' = ' + str(time_seconds) + ' ' + str(_('seconds')))
-        steps.append(str(_('Duration')) + ': ' + str(duration) + ' ' + self._format_unit(duration_unit) + ' = ' + str(duration_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 3: Perform')) + ' ' + operation)
-        if operation == 'add':
-            steps.append(str(_('Result')) + ' = ' + str(_('Time')) + ' + ' + str(_('Duration')))
-            steps.append(str(_('Result')) + ' = ' + str(time_seconds) + ' + ' + str(duration_seconds) + ' = ' + str(result_seconds) + ' ' + str(_('seconds')))
-        else:
-            steps.append(str(_('Result')) + ' = ' + str(_('Time')) + ' - ' + str(_('Duration')))
-            steps.append(str(_('Result')) + ' = ' + str(time_seconds) + ' - ' + str(duration_seconds) + ' = ' + str(result_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 4: Convert to hours, minutes, seconds')))
-        steps.append(str(_('Hours')) + ' = ' + str(result_seconds) + ' ÷ 3600 = ' + str(hours))
-        steps.append(str(_('Minutes')) + ' = (' + str(result_seconds) + ' % 3600) ÷ 60 = ' + str(minutes))
-        steps.append(str(_('Seconds')) + ' = ' + str(result_seconds) + ' % 60 = ' + str(seconds))
-        steps.append('')
-        steps.append(str(_('Step 5: Result')))
-        steps.append(str(_('Result')) + ' = ' + str(result_formatted))
-        return steps
-
-    def _prepare_convert_steps(self, duration, from_unit, duration_seconds, result, to_unit):
-        steps = []
-        steps.append(str(_('Step 1: Identify the given value')))
-        steps.append(str(_('Duration')) + ': ' + str(duration) + ' ' + self._format_unit(from_unit))
-        steps.append('')
-        steps.append(str(_('Step 2: Convert to base unit (seconds)')))
-        steps.append(str(_('Duration in seconds')) + ' = ' + str(duration) + ' × ' + str(self.TIME_CONVERSIONS[from_unit]) + ' = ' + str(duration_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 3: Convert to target unit')))
-        steps.append(str(_('Duration in')) + ' ' + self._format_unit(to_unit) + ' = ' + str(duration_seconds) + ' ÷ ' + str(self.TIME_CONVERSIONS[to_unit]) + ' = ' + str(round(result, 6)) + ' ' + self._format_unit(to_unit))
-        return steps
-
-    def _prepare_elapsed_steps(self, start_time_str, elapsed_duration, elapsed_unit, start_seconds, elapsed_seconds, end_seconds, hours, minutes, seconds, end_time_formatted):
-        steps = []
-        steps.append(str(_('Step 1: Identify the given values')))
-        steps.append(str(_('Start Time')) + ': ' + str(start_time_str))
-        steps.append(str(_('Elapsed Duration')) + ': ' + str(elapsed_duration) + ' ' + self._format_unit(elapsed_unit))
-        steps.append('')
-        steps.append(str(_('Step 2: Convert to seconds')))
-        steps.append(str(_('Start Time')) + ': ' + str(start_time_str) + ' = ' + str(start_seconds) + ' ' + str(_('seconds')))
-        steps.append(str(_('Elapsed Duration')) + ': ' + str(elapsed_duration) + ' ' + self._format_unit(elapsed_unit) + ' = ' + str(elapsed_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 3: Calculate end time')))
-        steps.append(str(_('End Time')) + ' = ' + str(_('Start Time')) + ' + ' + str(_('Elapsed Duration')))
-        steps.append(str(_('End Time')) + ' = ' + str(start_seconds) + ' + ' + str(elapsed_seconds) + ' = ' + str(end_seconds) + ' ' + str(_('seconds')))
-        steps.append('')
-        steps.append(str(_('Step 4: Convert to hours, minutes, seconds')))
-        steps.append(str(_('Hours')) + ' = ' + str(end_seconds) + ' ÷ 3600 = ' + str(hours))
-        steps.append(str(_('Minutes')) + ' = (' + str(end_seconds) + ' % 3600) ÷ 60 = ' + str(minutes))
-        steps.append(str(_('Seconds')) + ' = ' + str(end_seconds) + ' % 60 = ' + str(seconds))
-        steps.append('')
-        steps.append(str(_('Step 5: Result')))
-        steps.append(str(_('End Time')) + ' = ' + str(end_time_formatted))
-        return steps
-
-    def _prepare_between_times_chart_data(self, start_seconds, end_seconds, duration_seconds):
-        chart_config = {
+        chart = {'main_chart': {
             'type': 'bar',
             'data': {
                 'labels': [str(_('Start')), str(_('End')), str(_('Duration'))],
                 'datasets': [{
-                    'label': str(_('Time (seconds)')),
-                    'data': [start_seconds, end_seconds, duration_seconds],
-                    'backgroundColor': ['#6366f1', '#8b5cf6', '#e5e7eb'],
-                    'borderColor': ['#4f46e5', '#7c3aed', '#d1d5db'],
-                    'borderWidth': 2
-                }]
+                    'label': str(_('Seconds')),
+                    'data': [int(ss), int(es), int(dur)],
+                    'backgroundColor': ['rgba(59,130,246,0.7)', 'rgba(99,102,241,0.7)',
+                                        'rgba(139,92,246,0.7)'],
+                    'borderColor': ['#3b82f6', '#6366f1', '#8b5cf6'],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
             },
             'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'legend': {'display': False},
-                    'title': {'display': True, 'text': str(_('Time Duration'))}
-                },
-                'scales': {
-                    'y': {
-                        'beginAtZero': True,
-                        'title': {'display': True, 'text': str(_('Time (seconds)'))}
-                    }
-                }
-            }
-        }
-        return {'duration_chart': chart_config}
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Time Duration'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'between_times',
+            'result': dur_fmt, 'result_label': str(_('Duration Between Times')),
+            'crosses_midnight': crosses,
+            'duration_seconds': int(dur), 'duration_minutes': dur_min,
+            'duration_hours': dur_hrs, 'duration_days': dur_days,
+            'duration_formatted': dur_fmt,
+            'formula': f'{st} → {et} = {dur_fmt}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Seconds')), 'value': str(int(dur)), 'color': 'blue'},
+                {'label': str(_('Minutes')), 'value': str(dur_min), 'color': 'indigo'},
+                {'label': str(_('Hours')), 'value': str(dur_hrs), 'color': 'purple'},
+                {'label': str(_('Days')), 'value': str(dur_days), 'color': 'violet'},
+            ],
+        })
+
+    # ── 2) ADD / SUBTRACT ────────────────────────────────────────────
+    def _calc_add_subtract(self, data):
+        ts = data.get('time', '')
+        op = data.get('operation', 'add')
+        dur_raw = data.get('duration')
+        dur_unit = data.get('duration_unit', 'hours')
+
+        if not ts:
+            return self._err(_('Time is required.'))
+        if dur_raw is None or dur_raw == '':
+            return self._err(_('Duration is required.'))
+
+        base = self._parse_time(ts)
+        if base is None:
+            return self._err(_('Invalid time format. Use HH:MM or HH:MM:SS (24-hour).'))
+
+        try:
+            dur_val = float(dur_raw)
+        except (ValueError, TypeError):
+            return self._err(_('Duration must be a number.'))
+        if dur_val < 0:
+            return self._err(_('Duration must be non-negative.'))
+        if dur_unit not in self.UNITS:
+            return self._err(_('Invalid duration unit.'))
+
+        dur_sec = dur_val * self.UNITS[dur_unit]
+        u_short = self.UNIT_SHORT.get(dur_unit, dur_unit)
+
+        if op == 'add':
+            result_sec = base + dur_sec
+        else:
+            result_sec = base - dur_sec
+            if result_sec < 0:
+                result_sec += 86400
+
+        fmt = self._fmt_hms(result_sec)
+        h, m, s = self._breakdown(result_sec)
+        op_sym = '+' if op == 'add' else '−'
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Time")} = {ts}',
+            f'  • {_("Operation")} = {op.title()}',
+            f'  • {_("Duration")} = {dur_val} {u_short}',
+            '',
+            str(_('Step 2: Convert to seconds')),
+            f'  {_("Time")} = {int(base)} {_("seconds")}',
+            f'  {_("Duration")} = {dur_val} × {self.UNITS[dur_unit]:.0f} = {dur_sec:.0f} {_("seconds")}',
+            '',
+            str(_('Step 3: Calculate')),
+            f'  {int(base)} {op_sym} {dur_sec:.0f} = {int(result_sec % 86400)} {_("seconds")}',
+            '',
+            str(_('Step 4: Convert to HH:MM:SS')),
+            f'  {_("Hours")} = {h},  {_("Minutes")} = {m},  {_("Seconds")} = {s}',
+            '',
+            str(_('Result: {r}').format(r=fmt)),
+        ]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Original')), str(_('Duration')), str(_('Result'))],
+                'datasets': [{
+                    'label': str(_('Seconds')),
+                    'data': [int(base), int(dur_sec), int(result_sec % 86400)],
+                    'backgroundColor': ['rgba(59,130,246,0.7)', 'rgba(99,102,241,0.7)',
+                                        'rgba(16,185,129,0.7)'],
+                    'borderColor': ['#3b82f6', '#6366f1', '#10b981'],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Add/Subtract Duration'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'add_subtract',
+            'result': fmt, 'result_label': str(_('Result Time')),
+            'formula': f'{ts} {op_sym} {dur_val} {u_short} = {fmt}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Original')), 'value': ts, 'color': 'blue'},
+                {'label': str(_('Operation')), 'value': f'{op_sym} {dur_val} {u_short}', 'color': 'indigo'},
+                {'label': str(_('Result')), 'value': fmt, 'color': 'green'},
+                {'label': str(_('Total sec')), 'value': str(int(result_sec % 86400)), 'color': 'purple'},
+            ],
+        })
+
+    # ── 3) CONVERT ───────────────────────────────────────────────────
+    def _calc_convert(self, data):
+        dur_raw = data.get('duration')
+        from_u = data.get('from_unit', 'hours')
+        to_u = data.get('to_unit', 'minutes')
+
+        if dur_raw is None or dur_raw == '':
+            return self._err(_('Duration is required.'))
+        try:
+            dur_val = float(dur_raw)
+        except (ValueError, TypeError):
+            return self._err(_('Duration must be a number.'))
+        if dur_val < 0:
+            return self._err(_('Duration must be non-negative.'))
+        if from_u not in self.UNITS or to_u not in self.UNITS:
+            return self._err(_('Invalid unit.'))
+
+        dur_sec = dur_val * self.UNITS[from_u]
+        result = round(dur_sec / self.UNITS[to_u], 6)
+        fu = self.UNIT_SHORT.get(from_u, from_u)
+        tu = self.UNIT_SHORT.get(to_u, to_u)
+
+        # All conversions
+        all_conv = {k: round(dur_sec / v, 6) for k, v in self.UNITS.items()}
+
+        steps = [
+            str(_('Step 1: Given value')),
+            f'  {dur_val} {fu}',
+            '',
+            str(_('Step 2: Convert to seconds')),
+            f'  {dur_val} × {self.UNITS[from_u]:.0f} = {dur_sec:.2f} {_("seconds")}',
+            '',
+            str(_('Step 3: Convert to {u}').format(u=tu)),
+            f'  {dur_sec:.2f} ÷ {self.UNITS[to_u]:.0f} = {result} {tu}',
+            '',
+            str(_('Step 4: All conversions')),
+        ]
+        for k, v in all_conv.items():
+            steps.append(f'  • {self.UNIT_SHORT[k]} = {v}')
+        steps += ['', str(_('Result: {v} {u}').format(v=result, u=tu))]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': [f'{dur_val} {fu}', f'{result} {tu}'],
+                'datasets': [{
+                    'label': str(_('Seconds equivalent')),
+                    'data': [dur_sec, dur_sec],
+                    'backgroundColor': ['rgba(59,130,246,0.7)', 'rgba(139,92,246,0.7)'],
+                    'borderColor': ['#3b82f6', '#8b5cf6'],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Unit Conversion'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'convert',
+            'result': f'{result} {tu}',
+            'result_label': str(_('Conversion Result')),
+            'all_conversions': all_conv,
+            'formula': f'{dur_val} {fu} = {result} {tu}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Seconds')), 'value': str(all_conv['seconds']), 'color': 'blue'},
+                {'label': str(_('Minutes')), 'value': str(all_conv['minutes']), 'color': 'indigo'},
+                {'label': str(_('Hours')), 'value': str(all_conv['hours']), 'color': 'purple'},
+                {'label': str(_('Days')), 'value': str(all_conv['days']), 'color': 'green'},
+            ],
+        })
+
+    # ── 4) ELAPSED ───────────────────────────────────────────────────
+    def _calc_elapsed(self, data):
+        st = data.get('start_time', '')
+        dur_raw = data.get('elapsed_duration')
+        dur_unit = data.get('elapsed_unit', 'hours')
+
+        if not st:
+            return self._err(_('Start time is required.'))
+        if dur_raw is None or dur_raw == '':
+            return self._err(_('Elapsed duration is required.'))
+
+        ss = self._parse_time(st)
+        if ss is None:
+            return self._err(_('Invalid time format. Use HH:MM or HH:MM:SS (24-hour).'))
+
+        try:
+            dur_val = float(dur_raw)
+        except (ValueError, TypeError):
+            return self._err(_('Duration must be a number.'))
+        if dur_val < 0:
+            return self._err(_('Duration must be non-negative.'))
+        if dur_unit not in self.UNITS:
+            return self._err(_('Invalid duration unit.'))
+
+        dur_sec = dur_val * self.UNITS[dur_unit]
+        end_sec = ss + dur_sec
+        u_short = self.UNIT_SHORT.get(dur_unit, dur_unit)
+
+        fmt = self._fmt_hms(end_sec)
+        h, m, s = self._breakdown(end_sec % 86400)
+        crosses = end_sec >= 86400
+        days_elapsed = int(end_sec // 86400)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Start")} = {st}',
+            f'  • {_("Elapsed")} = {dur_val} {u_short}',
+            '',
+            str(_('Step 2: Convert to seconds')),
+            f'  {_("Start")} = {int(ss)} {_("seconds")}',
+            f'  {_("Elapsed")} = {dur_val} × {self.UNITS[dur_unit]:.0f} = {dur_sec:.0f} {_("seconds")}',
+            '',
+            str(_('Step 3: Calculate end time')),
+            f'  {int(ss)} + {dur_sec:.0f} = {int(end_sec)} {_("seconds")}',
+        ]
+        if crosses:
+            steps.append(f'  ({days_elapsed} day{"s" if days_elapsed != 1 else ""} later)')
+        steps += [
+            '',
+            str(_('Step 4: Convert to HH:MM:SS')),
+            f'  {_("Hours")} = {h},  {_("Minutes")} = {m},  {_("Seconds")} = {s}',
+            '',
+            str(_('Result: {r}').format(r=fmt)),
+        ]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Start')), str(_('Elapsed')), str(_('End'))],
+                'datasets': [{
+                    'label': str(_('Seconds')),
+                    'data': [int(ss), int(dur_sec), int(end_sec % 86400)],
+                    'backgroundColor': ['rgba(59,130,246,0.7)', 'rgba(245,158,11,0.7)',
+                                        'rgba(16,185,129,0.7)'],
+                    'borderColor': ['#3b82f6', '#f59e0b', '#10b981'],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Elapsed Time'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        detail_cards = [
+            {'label': str(_('Start')), 'value': st, 'color': 'blue'},
+            {'label': str(_('Elapsed')), 'value': f'{dur_val} {u_short}', 'color': 'yellow'},
+            {'label': str(_('End')), 'value': fmt, 'color': 'green'},
+            {'label': str(_('Total sec')), 'value': str(int(end_sec)), 'color': 'purple'},
+        ]
+        if crosses:
+            detail_cards.append({'label': str(_('Days')), 'value': f'+{days_elapsed}', 'color': 'red'})
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'elapsed',
+            'result': fmt, 'result_label': str(_('End Time')),
+            'crosses_midnight': crosses, 'days_elapsed': days_elapsed,
+            'end_time_formatted': fmt,
+            'formula': f'{st} + {dur_val} {u_short} = {fmt}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': detail_cards,
+        })

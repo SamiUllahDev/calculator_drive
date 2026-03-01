@@ -6,741 +6,356 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
 import math
-import numpy as np
-from sympy import symbols, Eq, simplify, latex
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class RoofingCalculator(View):
     """
-    Professional Roofing Calculator with Comprehensive Features
-    
-    This calculator provides roofing calculations with:
-    - Calculate roof area for different shapes
-    - Calculate materials needed (shingles, tiles, etc.)
-    - Calculate roof pitch/slope
-    - Calculate cost estimates
-    - Calculate waste factor
-    
-    Features:
-    - Supports multiple roof shapes
-    - Handles various units
-    - Provides step-by-step solutions
-    - Interactive visualizations
+    Roofing Calculator — area, materials, pitch, cost.
+
+    Calc types
+        • area       → L × W × pitch multiplier (gable / hip / flat)
+        • materials   → area → bundles & squares
+        • pitch       → rise / run → X:12, angle, slope %
+        • cost        → squares × price + labor
     """
     template_name = 'other_calculators/roofing_calculator.html'
-    
-    # Length conversion factors (to meters)
-    LENGTH_CONVERSIONS = {
-        'meters': 1.0,
-        'feet': 0.3048,  # 1 ft = 0.3048 m
-        'inches': 0.0254,  # 1 in = 0.0254 m
+
+    # Length → feet
+    LEN = {'feet': 1.0, 'inches': 1/12, 'meters': 3.28084}
+    # Area → square feet
+    AREA = {'square_feet': 1.0, 'square_meters': 10.7639, 'square_yards': 9.0}
+
+    # Material coverage: ft² per bundle
+    COVERAGE = {
+        'asphalt_shingles': 33.33,   # 3 bundles / square
+        'wood_shingles':    25.0,    # 4 bundles / square
+        'slate_tiles':      100.0,   # 1 bundle / square
+        'clay_tiles':       100.0,
+        'metal_roofing':    100.0,
+        'rubber_roofing':   100.0,
     }
-    
-    # Area conversion factors (to square meters)
-    AREA_CONVERSIONS = {
-        'square_meters': 1.0,
-        'square_feet': 0.092903,  # 1 ft² = 0.092903 m²
-        'square_yards': 0.836127,  # 1 yd² = 0.836127 m²
-        'square_inches': 0.00064516,  # 1 in² = 0.00064516 m²
+
+    UNIT_SYM = {
+        'feet': 'ft', 'inches': 'in', 'meters': 'm',
+        'square_feet': 'ft²', 'square_meters': 'm²', 'square_yards': 'yd²',
     }
-    
-    # Material coverage (square feet per bundle/square)
-    MATERIAL_COVERAGE = {
-        'asphalt_shingles': 33.33,  # 3 bundles per square (100 sq ft)
-        'wood_shingles': 25.0,  # 4 bundles per square
-        'slate_tiles': 100.0,  # 1 square per square
-        'clay_tiles': 100.0,  # 1 square per square
-        'metal_roofing': 100.0,  # 1 square per square
-        'rubber_roofing': 100.0,  # 1 square per square
-    }
-    
-    def _format_unit(self, unit):
-        """Format unit name for display"""
-        unit_map = {
-            'meters': 'm',
-            'feet': 'ft',
-            'inches': 'in',
-            'square_meters': 'm²',
-            'square_feet': 'ft²',
-            'square_yards': 'yd²',
-            'square_inches': 'in²',
-        }
-        return unit_map.get(unit, unit)
-    
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Roofing Calculator'),
-        }
-        return render(request, self.template_name, context)
-    
+        })
+
+    # ── POST ─────────────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'area')
-            
-            if calc_type == 'area':
-                return self._calculate_area(data)
-            elif calc_type == 'materials':
-                return self._calculate_materials(data)
-            elif calc_type == 'pitch':
-                return self._calculate_pitch(data)
-            elif calc_type == 'cost':
-                return self._calculate_cost(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            ct = data.get('calc_type', 'area')
+            dispatch = {
+                'area':      self._calc_area,
+                'materials': self._calc_materials,
+                'pitch':     self._calc_pitch,
+                'cost':      self._calc_cost,
+            }
+            handler = dispatch.get(ct)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_area(self, data):
-        """Calculate roof area for different shapes"""
-        try:
-            roof_shape = data.get('roof_shape', 'gable')
-            
-            if roof_shape == 'gable':
-                # Simple gable roof: 2 rectangular sides
-                if 'length' not in data or data.get('length') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Length is required.')
-                    }, status=400)
-                
-                if 'width' not in data or data.get('width') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Width is required.')
-                    }, status=400)
-                
-                if 'pitch' not in data or data.get('pitch') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Roof pitch is required.')
-                    }, status=400)
-                
-                try:
-                    length = float(data.get('length', 0))
-                    width = float(data.get('width', 0))
-                    pitch = float(data.get('pitch', 0))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid input type. Please enter numeric values.')
-                    }, status=400)
-                
-                length_unit = data.get('length_unit', 'feet')
-                result_unit = data.get('result_unit', 'square_feet')
-                
-                # Validate
-                if length <= 0 or width <= 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Length and width must be greater than zero.')
-                    }, status=400)
-                
-                if pitch < 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Pitch must be non-negative.')
-                    }, status=400)
-                
-                # Convert to base units
-                length_m = float(length * self.LENGTH_CONVERSIONS[length_unit])
-                width_m = float(width * self.LENGTH_CONVERSIONS[length_unit])
-                
-                # Calculate roof area with pitch
-                # Pitch multiplier = sqrt(1 + (pitch/12)²)
-                pitch_multiplier = float(np.sqrt(1.0 + np.multiply(np.divide(pitch, 12.0), np.divide(pitch, 12.0))))
-                
-                # Area = length × width × pitch_multiplier (for 2 sides)
-                area_m2 = float(np.multiply(np.multiply(length_m, width_m), pitch_multiplier))
-                
-                # Convert to result unit
-                result = float(np.divide(area_m2, self.AREA_CONVERSIONS[result_unit]))
-                
-                steps = self._prepare_gable_area_steps(length, length_unit, width, pitch, length_m, width_m, pitch_multiplier, area_m2, result, result_unit)
-                
-            elif roof_shape == 'hip':
-                # Hip roof: 4 triangular sides
-                if 'length' not in data or data.get('length') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Length is required.')
-                    }, status=400)
-                
-                if 'width' not in data or data.get('width') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Width is required.')
-                    }, status=400)
-                
-                if 'pitch' not in data or data.get('pitch') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Roof pitch is required.')
-                    }, status=400)
-                
-                try:
-                    length = float(data.get('length', 0))
-                    width = float(data.get('width', 0))
-                    pitch = float(data.get('pitch', 0))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid input type. Please enter numeric values.')
-                    }, status=400)
-                
-                length_unit = data.get('length_unit', 'feet')
-                result_unit = data.get('result_unit', 'square_feet')
-                
-                # Validate
-                if length <= 0 or width <= 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Length and width must be greater than zero.')
-                    }, status=400)
-                
-                # Convert to base units
-                length_m = float(length * self.LENGTH_CONVERSIONS[length_unit])
-                width_m = float(width * self.LENGTH_CONVERSIONS[length_unit])
-                
-                # Calculate hip roof area (more complex, simplified calculation)
-                pitch_multiplier = float(np.sqrt(1.0 + np.multiply(np.divide(pitch, 12.0), np.divide(pitch, 12.0))))
-                area_m2 = float(np.multiply(np.multiply(length_m, width_m), pitch_multiplier))
-                
-                # Convert to result unit
-                result = float(np.divide(area_m2, self.AREA_CONVERSIONS[result_unit]))
-                
-                steps = self._prepare_hip_area_steps(length, length_unit, width, pitch, length_m, width_m, pitch_multiplier, area_m2, result, result_unit)
-                
-            else:  # flat
-                # Flat roof: simple rectangle
-                if 'length' not in data or data.get('length') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Length is required.')
-                    }, status=400)
-                
-                if 'width' not in data or data.get('width') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Width is required.')
-                    }, status=400)
-                
-                try:
-                    length = float(data.get('length', 0))
-                    width = float(data.get('width', 0))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Invalid input type. Please enter numeric values.')
-                    }, status=400)
-                
-                length_unit = data.get('length_unit', 'feet')
-                result_unit = data.get('result_unit', 'square_feet')
-                
-                # Validate
-                if length <= 0 or width <= 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Length and width must be greater than zero.')
-                    }, status=400)
-                
-                # Convert to base units
-                length_m = float(length * self.LENGTH_CONVERSIONS[length_unit])
-                width_m = float(width * self.LENGTH_CONVERSIONS[length_unit])
-                
-                # Calculate flat roof area
-                area_m2 = float(np.multiply(length_m, width_m))
-                
-                # Convert to result unit
-                result = float(np.divide(area_m2, self.AREA_CONVERSIONS[result_unit]))
-                
-                steps = self._prepare_flat_area_steps(length, length_unit, width, length_m, width_m, area_m2, result, result_unit)
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result) or result <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            chart_data = self._prepare_area_chart_data(area_m2, roof_shape)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'area',
-                'roof_shape': roof_shape,
-                'area': round(result, 4),
-                'result_unit': result_unit,
-                'area_m2': round(area_m2, 6),
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating area: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_materials(self, data):
-        """Calculate materials needed for roofing"""
-        try:
-            if 'area' not in data or data.get('area') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Roof area is required.')
-                }, status=400)
-            
-            try:
-                area = float(data.get('area', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            area_unit = data.get('area_unit', 'square_feet')
-            material_type = data.get('material_type', 'asphalt_shingles')
-            waste_factor = float(data.get('waste_factor', 10))  # Default 10% waste
-            
-            # Validate
-            if area <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Area must be greater than zero.')
-                }, status=400)
-            
-            if material_type not in self.MATERIAL_COVERAGE:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid material type.')
-                }, status=400)
-            
-            if waste_factor < 0 or waste_factor > 50:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Waste factor must be between 0 and 50 percent.')
-                }, status=400)
-            
-            # Convert area to square feet
-            area_ft2 = float(area * self.AREA_CONVERSIONS[area_unit] / self.AREA_CONVERSIONS['square_feet'])
-            
-            # Calculate materials needed
-            coverage = self.MATERIAL_COVERAGE[material_type]
-            area_with_waste = float(area_ft2 * (1.0 + waste_factor / 100.0))
-            bundles_needed = float(np.ceil(np.divide(area_with_waste, coverage)))
-            squares_needed = float(np.divide(area_with_waste, 100.0))  # 1 square = 100 sq ft
-            
-            steps = self._prepare_materials_steps(area, area_unit, area_ft2, material_type, coverage, waste_factor, area_with_waste, bundles_needed, squares_needed)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'materials',
-                'area': area,
-                'area_unit': area_unit,
-                'material_type': material_type,
-                'waste_factor': waste_factor,
-                'bundles_needed': int(bundles_needed),
-                'squares_needed': round(squares_needed, 2),
-                'area_with_waste': round(area_with_waste, 2),
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating materials: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_pitch(self, data):
-        """Calculate roof pitch from rise and run"""
-        try:
-            if 'rise' not in data or data.get('rise') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Rise is required.')
-                }, status=400)
-            
-            if 'run' not in data or data.get('run') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Run is required.')
-                }, status=400)
-            
-            try:
-                rise = float(data.get('rise', 0))
-                run = float(data.get('run', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Validate
-            if rise < 0 or run <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Rise must be non-negative and run must be greater than zero.')
-                }, status=400)
-            
-            # Calculate pitch (rise over 12 inches of run)
-            pitch = float(np.multiply(np.divide(rise, run), 12.0))
-            
-            # Calculate angle in degrees
-            angle_rad = float(np.arctan(np.divide(rise, run)))
-            angle_deg = float(np.multiply(angle_rad, 180.0 / np.pi))
-            
-            # Calculate slope as percentage
-            slope_percent = float(np.multiply(np.divide(rise, run), 100.0))
-            
-            steps = self._prepare_pitch_steps(rise, run, pitch, angle_deg, slope_percent)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'pitch',
-                'rise': rise,
-                'run': run,
-                'pitch': round(pitch, 2),
-                'angle': round(angle_deg, 2),
-                'slope_percent': round(slope_percent, 2),
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating pitch: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_cost(self, data):
-        """Calculate roofing cost"""
-        try:
-            if 'area' not in data or data.get('area') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Roof area is required.')
-                }, status=400)
-            
-            if 'price_per_square' not in data or data.get('price_per_square') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Price per square is required.')
-                }, status=400)
-            
-            try:
-                area = float(data.get('area', 0))
-                price_per_square = float(data.get('price_per_square', 0))
-                labor_cost = float(data.get('labor_cost', 0))
-                waste_factor = float(data.get('waste_factor', 10))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            area_unit = data.get('area_unit', 'square_feet')
-            currency = data.get('currency', 'usd')
-            
-            # Validate
-            if area <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Area must be greater than zero.')
-                }, status=400)
-            
-            if price_per_square < 0 or labor_cost < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Prices must be non-negative.')
-                }, status=400)
-            
-            # Convert area to square feet
-            area_ft2 = float(area * self.AREA_CONVERSIONS[area_unit] / self.AREA_CONVERSIONS['square_feet'])
-            
-            # Calculate squares needed (with waste)
-            area_with_waste = float(area_ft2 * (1.0 + waste_factor / 100.0))
-            squares_needed = float(np.divide(area_with_waste, 100.0))
-            
-            # Calculate costs
-            material_cost = float(np.multiply(squares_needed, price_per_square))
-            total_cost = float(np.add(material_cost, labor_cost))
-            
-            steps = self._prepare_cost_steps(area, area_unit, area_ft2, waste_factor, area_with_waste, squares_needed, price_per_square, labor_cost, material_cost, total_cost, currency)
-            
-            chart_data = self._prepare_cost_chart_data(material_cost, labor_cost, total_cost)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'cost',
-                'area': area,
-                'area_unit': area_unit,
-                'price_per_square': price_per_square,
-                'labor_cost': labor_cost,
-                'waste_factor': waste_factor,
-                'squares_needed': round(squares_needed, 2),
-                'material_cost': round(material_cost, 2),
-                'total_cost': round(total_cost, 2),
-                'currency': currency,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating cost: {error}').format(error=str(e))
-            }, status=500)
-    
-    # Step-by-step solution preparation methods
-    def _prepare_gable_area_steps(self, length, length_unit, width, pitch, length_m, width_m, pitch_multiplier, area_m2, result, result_unit):
-        """Prepare step-by-step solution for gable roof area"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Length: {length} {unit}').format(length=length, unit=self._format_unit(length_unit)))
-        steps.append(_('Width: {width} {unit}').format(width=width, unit=self._format_unit(length_unit)))
-        steps.append(_('Pitch: {pitch} in 12').format(pitch=pitch))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units (meters)'))
-        steps.append(_('Length: {length} m').format(length=length_m))
-        steps.append(_('Width: {width} m').format(width=width_m))
-        steps.append('')
-        steps.append(_('Step 3: Calculate pitch multiplier'))
-        steps.append(_('Pitch Multiplier = √(1 + (pitch/12)²)'))
-        steps.append(_('Pitch Multiplier = √(1 + ({pitch}/12)²)').format(pitch=pitch))
-        steps.append(_('Pitch Multiplier = {mult}').format(mult=round(pitch_multiplier, 4)))
-        steps.append('')
-        steps.append(_('Step 4: Calculate roof area'))
-        steps.append(_('Area = Length × Width × Pitch Multiplier'))
-        steps.append(_('Area = {length} m × {width} m × {mult}').format(length=length_m, width=width_m, mult=round(pitch_multiplier, 4)))
-        steps.append(_('Area = {area} m²').format(area=area_m2))
-        steps.append('')
-        if result_unit != 'square_meters':
-            steps.append(_('Step 5: Convert to desired unit'))
-            steps.append(_('Area = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _f(self, v, dp=2):
+        return f'{v:,.{dp}f}'
+
+    def _sym(self, u):
+        return self.UNIT_SYM.get(u, u)
+
+    def _pos(self, data, key, label):
+        v = data.get(key)
+        if v is None or v == '':
+            raise ValueError(str(_('{label} is required.').format(label=label)))
+        f = float(v)
+        if f <= 0:
+            raise ValueError(str(_('{label} must be greater than zero.').format(label=label)))
+        return f
+
+    def _nonneg(self, data, key, label):
+        v = data.get(key)
+        if v is None or v == '':
+            return 0.0
+        f = float(v)
+        if f < 0:
+            raise ValueError(str(_('{label} must be non-negative.').format(label=label)))
+        return f
+
+    def _to_ft(self, val, unit):
+        if unit not in self.LEN:
+            raise ValueError(str(_('Invalid length unit.')))
+        return val * self.LEN[unit]
+
+    def _to_sqft(self, val, unit):
+        if unit not in self.AREA:
+            raise ValueError(str(_('Invalid area unit.')))
+        return val * self.AREA[unit]
+
+    def _area_multi(self, sqft):
+        return {
+            'square_feet':   round(sqft, 2),
+            'square_meters': round(sqft / 10.7639, 4),
+            'square_yards':  round(sqft / 9, 4),
+        }
+
+    def _chart(self, labels, values, title, chart_type='bar'):
+        colors = ['rgba(239,68,68,0.8)', 'rgba(59,130,246,0.8)', 'rgba(245,158,11,0.8)', 'rgba(16,185,129,0.8)']
+        borders = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981']
+        n = len(labels)
+        ds = {
+            'label': str(_('Values')),
+            'data': values,
+            'backgroundColor': colors[:n],
+            'borderColor': borders[:n],
+            'borderWidth': 2,
+        }
+        if chart_type == 'bar':
+            ds['borderRadius'] = 6
+        opts = {
+            'responsive': True, 'maintainAspectRatio': False,
+            'plugins': {'title': {'display': True, 'text': str(title)}},
+        }
+        if chart_type == 'bar':
+            opts['plugins']['legend'] = {'display': False}
+            opts['scales'] = {'y': {'beginAtZero': True}}
         else:
-            steps.append(_('Step 5: Result'))
-            steps.append(_('Area = {result} m²').format(result=result))
-        return steps
-    
-    def _prepare_hip_area_steps(self, length, length_unit, width, pitch, length_m, width_m, pitch_multiplier, area_m2, result, result_unit):
-        """Prepare step-by-step solution for hip roof area"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Length: {length} {unit}').format(length=length, unit=self._format_unit(length_unit)))
-        steps.append(_('Width: {width} {unit}').format(width=width, unit=self._format_unit(length_unit)))
-        steps.append(_('Pitch: {pitch} in 12').format(pitch=pitch))
-        steps.append('')
-        steps.append(_('Step 2: Calculate pitch multiplier'))
-        steps.append(_('Pitch Multiplier = √(1 + (pitch/12)²)'))
-        steps.append(_('Pitch Multiplier = {mult}').format(mult=round(pitch_multiplier, 4)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate roof area (hip roof)'))
-        steps.append(_('Area = Length × Width × Pitch Multiplier'))
-        steps.append(_('Area = {length} m × {width} m × {mult}').format(length=length_m, width=width_m, mult=round(pitch_multiplier, 4)))
-        steps.append(_('Area = {area} m²').format(area=area_m2))
-        steps.append('')
-        if result_unit != 'square_meters':
-            steps.append(_('Step 4: Convert to desired unit'))
-            steps.append(_('Area = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
+            opts['plugins']['legend'] = {'display': True, 'position': 'bottom'}
+        return {'type': chart_type, 'data': {'labels': labels, 'datasets': [ds]}, 'options': opts}
+
+    def _pitch_multiplier(self, pitch):
+        """pitch = rise per 12 run. Multiplier = √(1 + (pitch/12)²)"""
+        return math.sqrt(1 + (pitch / 12) ** 2)
+
+    # ── 1) ROOF AREA ─────────────────────────────────────────────────
+    def _calc_area(self, data):
+        shape = data.get('roof_shape', 'gable')
+        l = self._pos(data, 'length', str(_('Length')))
+        w = self._pos(data, 'width', str(_('Width')))
+        lu = data.get('length_unit', 'feet')
+        ru = data.get('result_unit', 'square_feet')
+
+        lf = self._to_ft(l, lu)
+        wf = self._to_ft(w, lu)
+
+        if shape == 'flat':
+            pm = 1.0
+            pitch = 0
         else:
-            steps.append(_('Step 4: Result'))
-            steps.append(_('Area = {result} m²').format(result=result))
-        return steps
-    
-    def _prepare_flat_area_steps(self, length, length_unit, width, length_m, width_m, area_m2, result, result_unit):
-        """Prepare step-by-step solution for flat roof area"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Length: {length} {unit}').format(length=length, unit=self._format_unit(length_unit)))
-        steps.append(_('Width: {width} {unit}').format(width=width, unit=self._format_unit(length_unit)))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units (meters)'))
-        steps.append(_('Length: {length} m').format(length=length_m))
-        steps.append(_('Width: {width} m').format(width=width_m))
-        steps.append('')
-        steps.append(_('Step 3: Calculate roof area'))
-        steps.append(_('Area = Length × Width'))
-        steps.append(_('Area = {length} m × {width} m').format(length=length_m, width=width_m))
-        steps.append(_('Area = {area} m²').format(area=area_m2))
-        steps.append('')
-        if result_unit != 'square_meters':
-            steps.append(_('Step 4: Convert to desired unit'))
-            steps.append(_('Area = {result} {unit}').format(result=result, unit=self._format_unit(result_unit)))
+            pitch = self._nonneg(data, 'pitch', str(_('Pitch')))
+            pm = self._pitch_multiplier(pitch)
+
+        base_sqft = lf * wf
+        roof_sqft = base_sqft * pm
+        result = roof_sqft / self.AREA.get(ru, 1.0)
+        aream = self._area_multi(roof_sqft)
+        squares = roof_sqft / 100  # roofing squares
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Shape")} = {shape.title()}',
+            f'  • {_("Length")} = {self._f(l)} {self._sym(lu)}',
+            f'  • {_("Width")} = {self._f(w)} {self._sym(lu)}',
+        ]
+        if shape != 'flat':
+            steps.append(f'  • {_("Pitch")} = {self._f(pitch, 1)}:12')
+        steps += [
+            '', str(_('Step 2: Convert to feet')),
+            f'  L = {self._f(lf)} ft, W = {self._f(wf)} ft',
+        ]
+        if shape != 'flat':
+            steps += [
+                '', str(_('Step 3: Pitch multiplier')),
+                f'  √(1 + ({self._f(pitch, 1)}/12)²) = {self._f(pm, 4)}',
+                '', str(_('Step 4: Calculate roof area')),
+                f'  A = L × W × PM = {self._f(lf)} × {self._f(wf)} × {self._f(pm, 4)} = {self._f(roof_sqft)} ft²',
+            ]
         else:
-            steps.append(_('Step 4: Result'))
-            steps.append(_('Area = {result} m²').format(result=result))
-        return steps
-    
-    def _prepare_materials_steps(self, area, area_unit, area_ft2, material_type, coverage, waste_factor, area_with_waste, bundles_needed, squares_needed):
-        """Prepare step-by-step solution for materials calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Roof Area: {area} {unit}').format(area=area, unit=self._format_unit(area_unit)))
-        steps.append(_('Material Type: {type}').format(type=material_type.replace('_', ' ').title()))
-        steps.append(_('Waste Factor: {waste}%').format(waste=waste_factor))
-        steps.append('')
-        steps.append(_('Step 2: Convert area to square feet'))
-        steps.append(_('Area: {area} ft²').format(area=area_ft2))
-        steps.append('')
-        steps.append(_('Step 3: Add waste factor'))
-        steps.append(_('Area with Waste = Area × (1 + Waste Factor / 100)'))
-        steps.append(_('Area with Waste = {area} × (1 + {waste} / 100)').format(area=area_ft2, waste=waste_factor))
-        steps.append(_('Area with Waste = {area} ft²').format(area=area_with_waste))
-        steps.append('')
-        steps.append(_('Step 4: Calculate materials needed'))
-        steps.append(_('Coverage per bundle: {coverage} ft²').format(coverage=coverage))
-        steps.append(_('Bundles Needed = Area with Waste / Coverage'))
-        steps.append(_('Bundles Needed = {area} / {coverage} = {bundles} bundles').format(area=area_with_waste, coverage=coverage, bundles=int(bundles_needed)))
-        steps.append('')
-        steps.append(_('Step 5: Calculate squares'))
-        steps.append(_('Squares Needed = Area with Waste / 100'))
-        steps.append(_('Squares Needed = {area} / 100 = {squares} squares').format(area=area_with_waste, squares=round(squares_needed, 2)))
-        return steps
-    
-    def _prepare_pitch_steps(self, rise, run, pitch, angle_deg, slope_percent):
-        """Prepare step-by-step solution for pitch calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Rise: {rise} inches').format(rise=rise))
-        steps.append(_('Run: {run} inches').format(run=run))
-        steps.append('')
-        steps.append(_('Step 2: Calculate pitch'))
-        steps.append(_('Pitch = (Rise / Run) × 12'))
-        steps.append(_('Pitch = ({rise} / {run}) × 12').format(rise=rise, run=run))
-        steps.append(_('Pitch = {pitch} in 12').format(pitch=round(pitch, 2)))
-        steps.append('')
-        steps.append(_('Step 3: Calculate angle'))
-        steps.append(_('Angle = arctan(Rise / Run)'))
-        steps.append(_('Angle = arctan({rise} / {run})').format(rise=rise, run=run))
-        steps.append(_('Angle = {angle}°').format(angle=round(angle_deg, 2)))
-        steps.append('')
-        steps.append(_('Step 4: Calculate slope percentage'))
-        steps.append(_('Slope = (Rise / Run) × 100%'))
-        steps.append(_('Slope = ({rise} / {run}) × 100%').format(rise=rise, run=run))
-        steps.append(_('Slope = {slope}%').format(slope=round(slope_percent, 2)))
-        return steps
-    
-    def _prepare_cost_steps(self, area, area_unit, area_ft2, waste_factor, area_with_waste, squares_needed, price_per_square, labor_cost, material_cost, total_cost, currency):
-        """Prepare step-by-step solution for cost calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Roof Area: {area} {unit}').format(area=area, unit=self._format_unit(area_unit)))
-        steps.append(_('Price per Square: {price} {currency}').format(price=price_per_square, currency=currency.upper()))
-        steps.append(_('Labor Cost: {cost} {currency}').format(cost=labor_cost, currency=currency.upper()))
-        steps.append(_('Waste Factor: {waste}%').format(waste=waste_factor))
-        steps.append('')
-        steps.append(_('Step 2: Convert area to square feet'))
-        steps.append(_('Area: {area} ft²').format(area=area_ft2))
-        steps.append('')
-        steps.append(_('Step 3: Add waste factor'))
-        steps.append(_('Area with Waste = {area} ft²').format(area=area_with_waste))
-        steps.append('')
-        steps.append(_('Step 4: Calculate squares needed'))
-        steps.append(_('Squares = Area with Waste / 100'))
-        steps.append(_('Squares = {area} / 100 = {squares} squares').format(area=area_with_waste, squares=round(squares_needed, 2)))
-        steps.append('')
-        steps.append(_('Step 5: Calculate material cost'))
-        steps.append(_('Material Cost = Squares × Price per Square'))
-        steps.append(_('Material Cost = {squares} × {price} = {cost} {currency}').format(squares=round(squares_needed, 2), price=price_per_square, cost=round(material_cost, 2), currency=currency.upper()))
-        steps.append('')
-        steps.append(_('Step 6: Calculate total cost'))
-        steps.append(_('Total Cost = Material Cost + Labor Cost'))
-        steps.append(_('Total Cost = {material} + {labor} = {total} {currency}').format(material=round(material_cost, 2), labor=labor_cost, total=round(total_cost, 2), currency=currency.upper()))
-        return steps
-    
-    # Chart data preparation methods
-    def _prepare_area_chart_data(self, area_m2, roof_shape):
-        """Prepare chart data for area calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Roof Area')],
-                    'datasets': [{
-                        'label': _('Area (m²)'),
-                        'data': [area_m2],
-                        'backgroundColor': 'rgba(59, 130, 246, 0.8)',
-                        'borderColor': '#3b82f6',
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Roof Area Calculation ({shape})').format(shape=roof_shape.title())
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Area (m²)')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'area_chart': chart_config}
-        except Exception as e:
-            return None
-    
-    def _prepare_cost_chart_data(self, material_cost, labor_cost, total_cost):
-        """Prepare chart data for cost calculation"""
-        try:
-            chart_config = {
-                'type': 'pie',
-                'data': {
-                    'labels': [_('Material Cost'), _('Labor Cost')],
-                    'datasets': [{
-                        'data': [material_cost, labor_cost],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': True,
-                            'position': 'bottom'
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Roofing Cost Breakdown (Total: {total})').format(total=total_cost)
-                        }
-                    }
-                }
-            }
-            return {'cost_chart': chart_config}
-        except Exception as e:
-            return None
+            steps += [
+                '', str(_('Step 3: Calculate roof area')),
+                f'  A = L × W = {self._f(lf)} × {self._f(wf)} = {self._f(roof_sqft)} ft²',
+            ]
+        steps += [
+            '', str(_('Step {n}: Roofing squares').format(n=5 if shape != 'flat' else 4)),
+            f'  {self._f(roof_sqft)} / 100 = {self._f(squares)} squares',
+            '', str(_('Step {n}: Convert to {unit}').format(n=6 if shape != 'flat' else 5, unit=self._sym(ru))),
+            f'  = {self._f(result, 4)} {self._sym(ru)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'area',
+            'result': round(result, 4),
+            'result_label': str(_('Roof Area')),
+            'result_unit_symbol': self._sym(ru),
+            'roof_shape': shape,
+            'pitch_multiplier': round(pm, 4),
+            'squares': round(squares, 2),
+            'area': aream,
+            'formula': f'{self._f(l)} × {self._f(w)} {self._sym(lu)}' + (f' × PM({self._f(pitch, 1)}:12)' if shape != 'flat' else '') + f' = {self._f(result, 4)} {self._sym(ru)}',
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('ft²')), str(_('m²')), str(_('yd²'))],
+                [aream['square_feet'], aream['square_meters'], aream['square_yards']],
+                str(_('Roof Area Comparison'))
+            )},
+        })
+
+    # ── 2) MATERIALS ─────────────────────────────────────────────────
+    def _calc_materials(self, data):
+        area = self._pos(data, 'area', str(_('Roof Area')))
+        au = data.get('area_unit', 'square_feet')
+        mt = data.get('material_type', 'asphalt_shingles')
+        wf = float(data.get('waste_factor', 10))
+
+        if mt not in self.COVERAGE:
+            raise ValueError(str(_('Invalid material type.')))
+        if wf < 0 or wf > 50:
+            raise ValueError(str(_('Waste factor must be between 0 and 50%.')))
+
+        sqft = self._to_sqft(area, au)
+        sqft_waste = sqft * (1 + wf / 100)
+        coverage = self.COVERAGE[mt]
+        bundles = math.ceil(sqft_waste / coverage)
+        squares = sqft_waste / 100
+        mt_label = mt.replace('_', ' ').title()
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Area")} = {self._f(area)} {self._sym(au)}',
+            f'  • {_("Material")} = {mt_label}',
+            f'  • {_("Waste")} = {self._f(wf, 0)}%',
+            '', str(_('Step 2: Convert to square feet')),
+            f'  = {self._f(sqft)} ft²',
+            '', str(_('Step 3: Add waste ({pct}%)').format(pct=int(wf))),
+            f'  {self._f(sqft)} × {self._f(1 + wf/100, 2)} = {self._f(sqft_waste)} ft²',
+            '', str(_('Step 4: Calculate bundles')),
+            f'  Coverage: {self._f(coverage)} ft²/bundle',
+            f'  {self._f(sqft_waste)} / {self._f(coverage)} = {bundles} bundles',
+            '', str(_('Step 5: Roofing squares')),
+            f'  {self._f(sqft_waste)} / 100 = {self._f(squares)} squares',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'materials',
+            'result': bundles,
+            'result_label': str(_('Bundles Needed')),
+            'result_unit_symbol': str(_('bundles')),
+            'squares': round(squares, 2),
+            'area_with_waste': round(sqft_waste, 2),
+            'material_type': mt,
+            'formula': f'{self._f(area)} {self._sym(au)} + {int(wf)}% waste → {bundles} bundles ({self._f(squares)} sq)',
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Area (ft²)')), str(_('w/ Waste (ft²)')), str(_('Bundles'))],
+                [round(sqft, 1), round(sqft_waste, 1), bundles],
+                str(_('Materials Breakdown'))
+            )},
+        })
+
+    # ── 3) PITCH ─────────────────────────────────────────────────────
+    def _calc_pitch(self, data):
+        rise = self._nonneg(data, 'rise', str(_('Rise')))
+        run = self._pos(data, 'run', str(_('Run')))
+
+        pitch = (rise / run) * 12  # X:12
+        angle = math.degrees(math.atan(rise / run))
+        slope_pct = (rise / run) * 100
+        pm = self._pitch_multiplier(pitch)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Rise")} = {self._f(rise)} in',
+            f'  • {_("Run")} = {self._f(run)} in',
+            '', str(_('Step 2: Calculate pitch (X:12)')),
+            f'  ({self._f(rise)} / {self._f(run)}) × 12 = {self._f(pitch)}:12',
+            '', str(_('Step 3: Calculate angle')),
+            f'  arctan({self._f(rise)} / {self._f(run)}) = {self._f(angle)}°',
+            '', str(_('Step 4: Slope percentage')),
+            f'  ({self._f(rise)} / {self._f(run)}) × 100 = {self._f(slope_pct)}%',
+            '', str(_('Step 5: Pitch multiplier')),
+            f'  √(1 + ({self._f(pitch)}/12)²) = {self._f(pm, 4)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'pitch',
+            'result': round(pitch, 2),
+            'result_label': str(_('Roof Pitch')),
+            'result_unit_symbol': ':12',
+            'angle': round(angle, 2),
+            'slope_percent': round(slope_pct, 2),
+            'pitch_multiplier': round(pm, 4),
+            'formula': f'{self._f(rise)} / {self._f(run)} = {self._f(pitch)}:12 ({self._f(angle)}°)',
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Rise (in)')), str(_('Run (in)')), str(_('Pitch (:12)')), str(_('Angle (°)'))],
+                [round(rise, 2), round(run, 2), round(pitch, 2), round(angle, 2)],
+                str(_('Pitch Analysis'))
+            )},
+        })
+
+    # ── 4) COST ──────────────────────────────────────────────────────
+    def _calc_cost(self, data):
+        area = self._pos(data, 'area', str(_('Roof Area')))
+        pps = self._nonneg(data, 'price_per_square', str(_('Price per Square')))
+        au = data.get('area_unit', 'square_feet')
+        wf = float(data.get('waste_factor', 10))
+        labor = self._nonneg(data, 'labor_cost', str(_('Labor Cost')))
+
+        if wf < 0 or wf > 50:
+            raise ValueError(str(_('Waste factor must be between 0 and 50%.')))
+
+        sqft = self._to_sqft(area, au)
+        sqft_waste = sqft * (1 + wf / 100)
+        squares = sqft_waste / 100
+        material_cost = squares * pps
+        total = material_cost + labor
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Area")} = {self._f(area)} {self._sym(au)}',
+            f'  • {_("Price/square")} = ${self._f(pps)}',
+            f'  • {_("Labor")} = ${self._f(labor)}',
+            f'  • {_("Waste")} = {self._f(wf, 0)}%',
+            '', str(_('Step 2: Area with waste')),
+            f'  {self._f(sqft)} × {self._f(1 + wf/100, 2)} = {self._f(sqft_waste)} ft²',
+            '', str(_('Step 3: Roofing squares')),
+            f'  {self._f(sqft_waste)} / 100 = {self._f(squares)} squares',
+            '', str(_('Step 4: Material cost')),
+            f'  {self._f(squares)} × ${self._f(pps)} = ${self._f(material_cost)}',
+            '', str(_('Step 5: Total cost')),
+            f'  ${self._f(material_cost)} + ${self._f(labor)} = ${self._f(total)}',
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'cost',
+            'result': round(total, 2),
+            'result_label': str(_('Total Cost')),
+            'result_unit_symbol': '$',
+            'squares': round(squares, 2),
+            'material_cost': round(material_cost, 2),
+            'labor_cost': round(labor, 2),
+            'formula': f'{self._f(squares)} sq × ${self._f(pps)} + ${self._f(labor)} = ${self._f(total)}',
+            'step_by_step': steps,
+            'chart_data': {'main_chart': self._chart(
+                [str(_('Material Cost')), str(_('Labor Cost'))],
+                [round(material_cost, 2), round(labor, 2)],
+                str(_('Cost Breakdown')),
+                'pie'
+            )},
+        })

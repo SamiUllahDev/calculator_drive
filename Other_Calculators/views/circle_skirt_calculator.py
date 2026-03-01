@@ -5,281 +5,401 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
-import numpy as np
+import math
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CircleSkirtCalculator(View):
     """
-    Circle Skirt Calculator — Sewing pattern measurements.
+    Circle Skirt Calculator — 4 skirt types.
 
-    Calculates waist radius, outer radius, fabric dimensions,
-    and yardage for full, 3/4, half, and quarter circle skirts.
+    Skirt types
+        • full           → 360° — maximum flare
+        • three_quarter  → 270° — nice drape, less bulk
+        • half           → 180° — moderate, everyday
+        • quarter        → 90°  — A-line, least fabric
 
-    Math:
+    Math
         waist_radius = waist_circumference / (2 × π × fraction)
-        outer_radius = waist_radius + skirt_length
-        fabric dimensions depend on skirt type and fold strategy
-
-    Uses NumPy for all circular geometry calculations.
+        outer_radius = waist_radius + skirt_length + hem_allowance
+        fabric needs depend on type and fabric width
     """
     template_name = 'other_calculators/circle_skirt_calculator.html'
 
-    SKIRT_TYPES = [
-        {
-            'value': 'full',
-            'label': 'Full Circle',
-            'fraction': 1.0,
-            'description': 'Maximum flare — uses the most fabric but creates the most dramatic look.',
-            'folds': 'Fold fabric in quarters; cut quarter-circle arc.',
-        },
-        {
-            'value': 'three_quarter',
-            'label': '¾ Circle',
-            'fraction': 0.75,
-            'description': 'Nice flare with less fabric than a full circle.',
-            'folds': 'Fold fabric; requires a single seam.',
-        },
-        {
-            'value': 'half',
-            'label': 'Half Circle',
-            'fraction': 0.5,
-            'description': 'Moderate flare — a great balance of movement and fabric economy.',
-            'folds': 'Fold fabric in half; cut half-circle arc.',
-        },
-        {
-            'value': 'quarter',
-            'label': '¼ Circle (A-line)',
-            'fraction': 0.25,
-            'description': 'Minimal flare, A-line shape. Uses the least fabric.',
-            'folds': 'Cut on single layer; two panels needed.',
-        },
-    ]
-
-    # Standard fabric widths (inches)
+    TYPES = {
+        'full':          (1.0,  'Full Circle (360°)'),
+        'three_quarter': (0.75, '¾ Circle (270°)'),
+        'half':          (0.5,  'Half Circle (180°)'),
+        'quarter':       (0.25, '¼ Circle / A-Line (90°)'),
+    }
     FABRIC_WIDTHS = [36, 44, 45, 54, 58, 60]
 
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Circle Skirt Calculator'),
-            'page_title': _('Circle Skirt Calculator - Sewing Pattern'),
-            'skirt_types': self.SKIRT_TYPES,
-            'fabric_widths': self.FABRIC_WIDTHS,
-        }
-        return render(request, self.template_name, context)
+        })
 
+    # ── POST ──────────────────────────────────────────────────────────
     def post(self, request):
         try:
-            data = json.loads(request.body)
-
-            waist = float(data.get('waist', 28))
-            skirt_length = float(data.get('skirt_length', 22))
-            skirt_type = data.get('skirt_type', 'full')
-            seam_allowance = float(data.get('seam_allowance', 0.625))
-            hem_allowance = float(data.get('hem_allowance', 0.5))
-            unit = data.get('unit', 'inches')
-            fabric_width = float(data.get('fabric_width', 45))
-
-            # Validate
-            if unit == 'cm':
-                # Convert to inches for calculation, convert back for display
-                waist_in = waist / 2.54
-                length_in = skirt_length / 2.54
-                seam_in = seam_allowance / 2.54
-                hem_in = hem_allowance / 2.54
-                fw_in = fabric_width / 2.54
-            else:
-                waist_in = waist
-                length_in = skirt_length
-                seam_in = seam_allowance
-                hem_in = hem_allowance
-                fw_in = fabric_width
-
-            waist_in = max(10, min(60, waist_in))
-            length_in = max(5, min(50, length_in))
-
-            # ── Get skirt type data ──────────────────────────────
-            type_data = next((t for t in self.SKIRT_TYPES if t['value'] == skirt_type), self.SKIRT_TYPES[0])
-            fraction = type_data['fraction']
-
-            # ── Core geometry (NumPy) ────────────────────────────
-            # Waist radius: R_waist = waist_circumference / (2π × fraction)
-            waist_circ = waist_in + (2 * seam_in)  # add seam allowance to waist
-            r_waist = float(waist_circ / (2 * np.pi * fraction))
-            r_outer = r_waist + length_in + hem_in
-
-            # ── Fabric requirements ──────────────────────────────
-            fabric_calcs = self._calc_fabric(r_waist, r_outer, fraction, fw_in, seam_in)
-
-            # ── Arc lengths ──────────────────────────────────────
-            waist_arc = float(2 * np.pi * r_waist * fraction)
-            hem_arc = float(2 * np.pi * r_outer * fraction)
-
-            # ── Convert results to display units ─────────────────
-            if unit == 'cm':
-                conv = 2.54
-                unit_label = 'cm'
-                yard_label = str(_('meters'))
-            else:
-                conv = 1.0
-                unit_label = 'in'
-                yard_label = str(_('yards'))
-
-            results = {
-                'waist_radius': round(r_waist * conv, 2),
-                'outer_radius': round(r_outer * conv, 2),
-                'waist_arc': round(waist_arc * conv, 2),
-                'hem_arc': round(hem_arc * conv, 2),
-                'fabric_width_needed': round(fabric_calcs['width_needed'] * conv, 1),
-                'fabric_length_needed': round(fabric_calcs['length_needed'] * conv, 1),
-                'fabric_area_sq': round(fabric_calcs['area_sq_in'] * (conv ** 2), 1),
-                'yardage': round(fabric_calcs['yardage'] if unit != 'cm' else fabric_calcs['meters'], 2),
-                'panels': fabric_calcs['panels'],
-                'fold_method': fabric_calcs['fold_method'],
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            ct = data.get('calc_type', 'pattern')
+            dispatch = {
+                'pattern':    self._calc_pattern,
+                'compare':    self._calc_compare,
+                'yardage':    self._calc_yardage,
             }
-
-            # ── Chart data ───────────────────────────────────────
-            chart_data = self._prepare_chart_data(
-                r_waist * conv, r_outer * conv, fraction,
-                results, unit_label, type_data
-            )
-
-            return JsonResponse({
-                'success': True,
-                'skirt_type': type_data['label'],
-                'skirt_description': type_data['description'],
-                'fold_instruction': type_data['folds'],
-                'unit': unit_label,
-                'yard_label': yard_label,
-                'results': results,
-                'chart_data': chart_data,
-            })
-
+            handler = dispatch.get(ct)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': str(_('Invalid request.'))}, status=400)
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
         except Exception:
-            return JsonResponse({'success': False, 'error': str(_('Calculation error.'))}, status=500)
+            return self._err(_('An error occurred during calculation.'), 500)
 
-    # ─────────────────────────────────────────────────────────────
-    def _calc_fabric(self, r_waist, r_outer, fraction, fabric_w, seam):
-        """Calculate fabric dimensions and yardage."""
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _parse_inputs(self, data, skip_length_check=False):
+        """Parse and validate common measurement inputs."""
+        unit = data.get('unit', 'inches')
+        conv_in = 2.54 if unit == 'cm' else 1.0  # cm→in factor
+
+        waist = float(data.get('waist', 0))
+        default_len = 56 if unit == 'cm' else 22
+        length = float(data.get('skirt_length', default_len) or default_len)
+        seam = float(data.get('seam_allowance', 0.625 if unit == 'inches' else 1.5))
+        hem = float(data.get('hem_allowance', 0.5 if unit == 'inches' else 1.3))
+        fw = float(data.get('fabric_width', 45 if unit == 'inches' else 114))
+        skirt_type = data.get('skirt_type', 'full')
+
+        # Convert to inches for internal math
+        w_in = waist / conv_in
+        l_in = length / conv_in
+        s_in = seam / conv_in
+        h_in = hem / conv_in
+        fw_in = fw / conv_in
+
+        if w_in < 10 or w_in > 80:
+            raise ValueError(str(_('Waist must be between 10" and 80" (25–200 cm).')))
+        if not skip_length_check and (l_in < 5 or l_in > 60):
+            raise ValueError(str(_('Length must be between 5" and 60" (13–150 cm).')))
+
+        frac, label = self.TYPES.get(skirt_type, self.TYPES['full'])
+
+        return {
+            'waist': waist, 'length': length, 'seam': seam, 'hem': hem,
+            'fw': fw, 'unit': unit, 'skirt_type': skirt_type,
+            'w_in': w_in, 'l_in': l_in, 's_in': s_in, 'h_in': h_in,
+            'fw_in': fw_in, 'frac': frac, 'label': label,
+            'conv': conv_in,
+        }
+
+    def _core_geometry(self, w_in, l_in, s_in, h_in, frac):
+        """Core circle-skirt math — all in inches."""
+        waist_circ_adj = w_in + 2 * s_in
+        r_waist = waist_circ_adj / (2 * math.pi * frac)
+        r_outer = r_waist + l_in + h_in
+        waist_arc = 2 * math.pi * r_waist * frac
+        hem_arc = 2 * math.pi * r_outer * frac
+        return r_waist, r_outer, waist_arc, hem_arc
+
+    def _fabric_needs(self, r_waist, r_outer, frac, fw_in, s_in):
+        """Compute fabric width/length/panels/yardage."""
         diameter = 2 * r_outer
 
-        if fraction == 1.0:
-            # Full circle: fold in quarters → need square of r_outer + seam
-            width_needed = r_outer + seam
-            length_needed = r_outer + seam
-            # But if fabric is wide enough, fold in half
-            if fabric_w >= diameter + seam:
+        if frac == 1.0:
+            if fw_in >= diameter + 2 * s_in:
                 panels = 1
-                fold_method = str(_('Fold fabric in quarters. Cut a quarter-circle arc from the folded corner.'))
-                length_needed = diameter + seam * 2
-                width_needed = r_outer + seam
+                fold = str(_('Fold fabric in quarters. Cut a quarter-circle arc from the folded corner.'))
+                w = r_outer + s_in
+                l = diameter + 2 * s_in
             else:
                 panels = 2
-                fold_method = str(_('Cut two half-circles. Fold fabric in half, cut a half-circle. Repeat. Join with side seams.'))
-                width_needed = r_outer + seam
-                length_needed = (diameter + seam * 2) * 2
-
-        elif fraction == 0.75:
-            width_needed = diameter + seam
-            length_needed = diameter + seam
+                fold = str(_('Cut two half-circles. Fold fabric in half, cut half-circle. Repeat. Join with side seams.'))
+                w = r_outer + s_in
+                l = (diameter + 2 * s_in) * 2
+        elif frac == 0.75:
             panels = 1
-            fold_method = str(_('Lay fabric flat. Mark the waist arc at 270°. One seam needed at the opening.'))
-
-        elif fraction == 0.5:
-            # Half circle: fold once
-            width_needed = diameter + seam * 2
-            length_needed = r_outer + seam
-            panels = 1
-            fold_method = str(_('Fold fabric in half. Cut a half-circle arc from the fold. Open for the full half-circle.'))
-            if fabric_w < diameter + seam:
+            fold = str(_('Lay fabric flat. Mark the waist arc at 270°. One seam needed at the opening.'))
+            w = diameter + s_in
+            l = diameter + s_in
+        elif frac == 0.5:
+            if fw_in >= diameter + 2 * s_in:
+                panels = 1
+                fold = str(_('Fold fabric in half. Cut a half-circle arc from the fold.'))
+                w = diameter + 2 * s_in
+                l = r_outer + s_in
+            else:
                 panels = 2
-                fold_method = str(_('Fabric too narrow for one piece. Cut two quarter-circle panels and join with side seams.'))
-                width_needed = r_outer + seam
-                length_needed = (r_outer + seam) * 2
-
+                fold = str(_('Fabric too narrow for one piece. Cut two quarter-circle panels and join with side seams.'))
+                w = r_outer + s_in
+                l = (r_outer + s_in) * 2
         else:  # quarter
-            width_needed = r_outer + seam
-            length_needed = r_outer + seam
             panels = 2
-            fold_method = str(_('Cut two quarter-circle panels from single-layer fabric. Join with side seams.'))
+            fold = str(_('Cut two quarter-circle panels from single-layer fabric. Join with side seams.'))
+            w = r_outer + s_in
+            l = r_outer + s_in
 
-        area_sq_in = width_needed * length_needed * panels
-        yardage = length_needed / 36.0  # inches to yards
-        meters = length_needed / 39.37  # inches to meters
-
+        yardage = round(l / 36, 2)
+        meters = round(l / 39.37, 2)
         return {
-            'width_needed': width_needed,
-            'length_needed': length_needed,
-            'area_sq_in': area_sq_in,
-            'yardage': round(yardage, 2),
-            'meters': round(meters, 2),
-            'panels': panels,
-            'fold_method': fold_method,
+            'width': w, 'length': l, 'panels': panels,
+            'fold': fold, 'yardage': yardage, 'meters': meters,
         }
 
-    # ─────────────────────────────────────────────────────────────
-    def _prepare_chart_data(self, r_waist, r_outer, fraction, results, unit, type_data):
-        # 1. Dimensions comparison bar
-        dims_chart = {
+    def _to_display(self, val_in, conv):
+        """Convert inches → display unit, rounded."""
+        return round(val_in * conv, 2)
+
+    # ── 1) PATTERN ───────────────────────────────────────────────────
+    def _calc_pattern(self, data):
+        p = self._parse_inputs(data)
+        r_w, r_o, warc, harc = self._core_geometry(
+            p['w_in'], p['l_in'], p['s_in'], p['h_in'], p['frac'])
+        fab = self._fabric_needs(r_w, r_o, p['frac'], p['fw_in'], p['s_in'])
+
+        c = p['conv']
+        u = 'cm' if p['unit'] == 'cm' else 'in'
+        yl = str(_('meters')) if p['unit'] == 'cm' else str(_('yards'))
+
+        rw_d = self._to_display(r_w, c)
+        ro_d = self._to_display(r_o, c)
+        wa_d = self._to_display(warc, c)
+        ha_d = self._to_display(harc, c)
+        fw_d = self._to_display(fab['width'], c)
+        fl_d = self._to_display(fab['length'], c)
+        yard = fab['meters'] if p['unit'] == 'cm' else fab['yardage']
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Waist")} = {p["waist"]} {u}',
+            f'  • {_("Length")} = {p["length"]} {u}',
+            f'  • {_("Type")} = {p["label"]}  (fraction = {p["frac"]})',
+            f'  • {_("Seam")} = {p["seam"]} {u},  {_("Hem")} = {p["hem"]} {u}',
+            '',
+            str(_('Step 2: Adjusted waist circumference')),
+            f'  {p["waist"]} + 2 × {p["seam"]} = {round(p["waist"] + 2*p["seam"], 2)} {u}',
+            '',
+            str(_('Step 3: Waist radius')),
+            f'  R = {round(p["waist"] + 2*p["seam"], 2)} ÷ (2 × π × {p["frac"]})',
+            f'  R = {rw_d} {u}',
+            '',
+            str(_('Step 4: Outer radius')),
+            f'  R_outer = {rw_d} + {p["length"]} + {p["hem"]}',
+            f'  R_outer = {ro_d} {u}',
+            '',
+            str(_('Step 5: Arc lengths')),
+            f'  {_("Waist arc")} = 2π × {rw_d} × {p["frac"]} = {wa_d} {u}',
+            f'  {_("Hem arc")} = 2π × {ro_d} × {p["frac"]} = {ha_d} {u}',
+            '',
+            str(_('Step 6: Fabric requirements')),
+            f'  {_("Width")} = {fw_d} {u}',
+            f'  {_("Length")} = {fl_d} {u}',
+            f'  {_("Panels")} = {fab["panels"]}',
+            f'  {_("Yardage")} = {yard} {yl}',
+            '',
+            str(_('Step 7: Cutting instructions')),
+            f'  {fab["fold"]}',
+            '',
+            str(_('Result: {label} — R_waist = {r} {u}, Fabric = {y} {yl}').format(
+                label=p['label'], r=rw_d, u=u, y=yard, yl=yl)),
+        ]
+
+        chart = {'main_chart': {
             'type': 'bar',
             'data': {
-                'labels': [
-                    str(_('Waist Radius')),
-                    str(_('Outer Radius')),
-                    str(_('Fabric Width')),
-                    str(_('Fabric Length')),
-                ],
+                'labels': [str(_('Waist Radius')), str(_('Outer Radius')),
+                           str(_('Fabric Width')), str(_('Fabric Length'))],
                 'datasets': [{
-                    'label': unit,
-                    'data': [
-                        results['waist_radius'],
-                        results['outer_radius'],
-                        results['fabric_width_needed'],
-                        results['fabric_length_needed'],
-                    ],
+                    'label': u,
+                    'data': [rw_d, ro_d, fw_d, fl_d],
                     'backgroundColor': ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981'],
                     'borderRadius': 6,
-                }]
-            }
-        }
-
-        # 2. Skirt proportion doughnut (waist vs length)
-        proportion_chart = {
-            'type': 'doughnut',
-            'data': {
-                'labels': [str(_('Waist Radius')), str(_('Skirt Length'))],
-                'datasets': [{
-                    'data': [results['waist_radius'], round(r_outer - r_waist, 2)],
-                    'backgroundColor': ['#ec4899', '#8b5cf6'],
-                    'borderWidth': 2,
-                    'borderColor': '#fff',
-                }]
+                }],
             },
-            'center_text': {
-                'value': type_data['label'],
-                'label': f'{results["outer_radius"]} {unit}',
-                'color': '#8b5cf6',
-            }
-        }
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'indexAxis': 'y',
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Dimensions'))}},
+                'scales': {'x': {'beginAtZero': True}},
+            },
+        }}
 
-        # 3. Arc lengths comparison
-        arcs_chart = {
+        return JsonResponse({
+            'success': True, 'calc_type': 'pattern',
+            'result': f'{rw_d} {u}',
+            'result_label': str(_('Waist Radius')),
+            'skirt_type': p['label'],
+            'unit': u, 'yard_label': yl,
+            'waist_radius': rw_d, 'outer_radius': ro_d,
+            'waist_arc': wa_d, 'hem_arc': ha_d,
+            'fabric_width': fw_d, 'fabric_length': fl_d,
+            'yardage': yard, 'panels': fab['panels'],
+            'fold_instruction': fab['fold'],
+            'formula': f'R = Waist / (2π × {p["frac"]}) = {rw_d} {u}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Waist R')), 'value': f'{rw_d} {u}', 'color': 'pink'},
+                {'label': str(_('Outer R')), 'value': f'{ro_d} {u}', 'color': 'purple'},
+                {'label': str(_('Fabric')), 'value': f'{yard} {yl}', 'color': 'blue'},
+                {'label': str(_('Panels')), 'value': str(fab['panels']), 'color': 'green'},
+                {'label': str(_('Waist Arc')), 'value': f'{wa_d} {u}', 'color': 'yellow'},
+                {'label': str(_('Hem Arc')), 'value': f'{ha_d} {u}', 'color': 'indigo'},
+            ],
+        })
+
+    # ── 2) COMPARE (all 4 types) ─────────────────────────────────────
+    def _calc_compare(self, data):
+        p = self._parse_inputs(data)
+        c = p['conv']
+        u = 'cm' if p['unit'] == 'cm' else 'in'
+        yl = str(_('meters')) if p['unit'] == 'cm' else str(_('yards'))
+
+        rows = []
+        labels, radii, yards = [], [], []
+        for key, (frac, label) in self.TYPES.items():
+            r_w, r_o, warc, harc = self._core_geometry(
+                p['w_in'], p['l_in'], p['s_in'], p['h_in'], frac)
+            fab = self._fabric_needs(r_w, r_o, frac, p['fw_in'], p['s_in'])
+            rw_d = self._to_display(r_w, c)
+            ro_d = self._to_display(r_o, c)
+            yard = fab['meters'] if p['unit'] == 'cm' else fab['yardage']
+            rows.append({
+                'type': label, 'waist_r': rw_d, 'outer_r': ro_d,
+                'yardage': yard, 'panels': fab['panels'],
+            })
+            labels.append(label)
+            radii.append(rw_d)
+            yards.append(yard)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Waist")} = {p["waist"]} {u},  {_("Length")} = {p["length"]} {u}',
+            '',
+            str(_('Step 2: Compare all 4 skirt types')),
+        ]
+        for r in rows:
+            steps.append(f'  • {r["type"]}: R={r["waist_r"]} {u}, Fabric={r["yardage"]} {yl}, Panels={r["panels"]}')
+        steps += [
+            '',
+            str(_('Result: Full circle uses the most fabric, quarter/A-line uses the least.')),
+        ]
+
+        chart = {'main_chart': {
             'type': 'bar',
             'data': {
-                'labels': [str(_('Waist Edge')), str(_('Hem Edge'))],
-                'datasets': [{
-                    'label': unit,
-                    'data': [results['waist_arc'], results['hem_arc']],
-                    'backgroundColor': ['#f472b6', '#c084fc'],
-                    'borderRadius': 8,
-                }]
-            }
-        }
+                'labels': labels,
+                'datasets': [
+                    {'label': str(_('Waist Radius')) + f' ({u})', 'data': radii,
+                     'backgroundColor': 'rgba(236,72,153,0.7)', 'borderColor': '#ec4899',
+                     'borderWidth': 2, 'borderRadius': 6},
+                    {'label': str(_('Yardage')) + f' ({yl})', 'data': yards,
+                     'backgroundColor': 'rgba(139,92,246,0.7)', 'borderColor': '#8b5cf6',
+                     'borderWidth': 2, 'borderRadius': 6},
+                ],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': True, 'position': 'bottom'},
+                            'title': {'display': True, 'text': str(_('Skirt Type Comparison'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
 
-        return {
-            'dims_chart': dims_chart,
-            'proportion_chart': proportion_chart,
-            'arcs_chart': arcs_chart,
-        }
+        return JsonResponse({
+            'success': True, 'calc_type': 'compare',
+            'result': f'{len(rows)} types compared',
+            'result_label': str(_('Skirt Type Comparison')),
+            'rows': rows,
+            'formula': f'Waist {p["waist"]} {u}, Length {p["length"]} {u}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': rows[0]['type'], 'value': f'{rows[0]["yardage"]} {yl}', 'color': 'pink'},
+                {'label': rows[1]['type'], 'value': f'{rows[1]["yardage"]} {yl}', 'color': 'purple'},
+                {'label': rows[2]['type'], 'value': f'{rows[2]["yardage"]} {yl}', 'color': 'blue'},
+                {'label': rows[3]['type'], 'value': f'{rows[3]["yardage"]} {yl}', 'color': 'green'},
+            ],
+        })
+
+    # ── 3) YARDAGE for multiple lengths ──────────────────────────────
+    def _calc_yardage(self, data):
+        p = self._parse_inputs(data, skip_length_check=True)
+        c = p['conv']
+        u = 'cm' if p['unit'] == 'cm' else 'in'
+        yl = str(_('meters')) if p['unit'] == 'cm' else str(_('yards'))
+
+        # Calculate for several common lengths
+        if p['unit'] == 'cm':
+            lengths = [40, 50, 60, 70, 80, 100]
+        else:
+            lengths = [16, 18, 20, 22, 25, 30]
+
+        rows = []
+        labels, yds = [], []
+        for ln in lengths:
+            l_in = ln / c
+            r_w, r_o, _wa, _ha = self._core_geometry(
+                p['w_in'], l_in, p['s_in'], p['h_in'], p['frac'])
+            fab = self._fabric_needs(r_w, r_o, p['frac'], p['fw_in'], p['s_in'])
+            yard = fab['meters'] if p['unit'] == 'cm' else fab['yardage']
+            rows.append({'length': f'{ln} {u}', 'yardage': yard})
+            labels.append(f'{ln} {u}')
+            yds.append(yard)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Waist")} = {p["waist"]} {u}',
+            f'  • {_("Type")} = {p["label"]}',
+            '',
+            str(_('Step 2: Yardage for various lengths')),
+        ]
+        for r in rows:
+            steps.append(f'  • {_("Length")} {r["length"]}: {r["yardage"]} {yl}')
+        steps += ['', str(_('Result: Longer skirts need more fabric.'))]
+
+        chart = {'main_chart': {
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Fabric')) + f' ({yl})',
+                    'data': yds,
+                    'borderColor': '#ec4899',
+                    'backgroundColor': 'rgba(236,72,153,0.15)',
+                    'fill': True, 'tension': 0.3,
+                    'pointBackgroundColor': '#ec4899',
+                    'pointBorderWidth': 2, 'pointRadius': 5,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True,
+                                      'text': str(_('Yardage by Skirt Length'))}},
+                'scales': {'y': {'beginAtZero': True,
+                                 'title': {'display': True, 'text': yl}}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'yardage',
+            'result': f'{len(rows)} lengths',
+            'result_label': str(_('Yardage Chart')),
+            'rows': rows, 'skirt_type': p['label'],
+            'formula': f'{p["label"]} — Waist {p["waist"]} {u}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': rows[0]['length'], 'value': f'{rows[0]["yardage"]} {yl}', 'color': 'pink'},
+                {'label': rows[2]['length'], 'value': f'{rows[2]["yardage"]} {yl}', 'color': 'purple'},
+                {'label': rows[4]['length'], 'value': f'{rows[4]["yardage"]} {yl}', 'color': 'blue'},
+                {'label': rows[5]['length'], 'value': f'{rows[5]["yardage"]} {yl}', 'color': 'green'},
+            ],
+        })

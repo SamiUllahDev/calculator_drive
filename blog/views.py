@@ -18,7 +18,7 @@ import uuid
 from user.utils import is_email_verified, create_notification
 
 from .models import Post, Category, Comment, Tag
-from .forms import CommentForm, ReplyForm, PostForm
+from .forms import CommentForm, ReplyForm
 
 # Configure HTML sanitization settings
 ALLOWED_TAGS = [
@@ -584,46 +584,7 @@ def comment_reply(request, category_slug, post_slug, comment_id):
     
     return HttpResponseRedirect(post.get_absolute_url())
 
-# Check if user is staff
-def is_staff(user):
-    return user.is_staff
 
-@method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_staff), name='dispatch')
-class PostCreateView(CreateView):
-    """View for creating new blog posts"""
-    model = Post
-    form_class = PostForm
-    template_name = 'blog/post_form.html'
-    
-    def form_valid(self, form):
-        # Set the author to the current user
-        form.instance.author = self.request.user
-        messages.success(self.request, 'Post created successfully')
-        return super().form_valid(form)
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_create'] = True
-        return context
-
-@method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_staff), name='dispatch')
-class PostUpdateView(UpdateView):
-    """View for editing existing blog posts"""
-    model = Post
-    form_class = PostForm
-    template_name = 'blog/post_form.html'
-    
-    def form_valid(self, form):
-        # Update the post
-        messages.success(self.request, 'Post updated successfully')
-        return super().form_valid(form)
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_create'] = False
-        return context
 
 
 def blog_rss_feed(request):

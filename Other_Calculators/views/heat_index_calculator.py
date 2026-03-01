@@ -5,952 +5,387 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
-import math
 import numpy as np
-from sympy import symbols, Eq, simplify, latex
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class HeatIndexCalculator(View):
     """
-    Professional Heat Index Calculator with Comprehensive Features
-    
-    This calculator provides heat index calculations with:
-    - Calculate heat index from temperature and relative humidity
-    - Calculate temperature from heat index and relative humidity
-    - Calculate relative humidity from heat index and temperature
-    - Unit conversions (Fahrenheit/Celsius)
-    - Heat index categories and risk levels
-    
-    Features:
-    - Supports multiple calculation modes
-    - Handles temperature unit conversions
-    - Provides step-by-step solutions
-    - Interactive visualizations
+    Heat Index Calculator — Feels-Like Temperature.
+
+    Calc types:
+        • heat_index          → HI from temperature + humidity (Rothfusz)
+        • temperature         → T from HI + humidity (Newton iteration)
+        • humidity            → RH from HI + temperature (Newton iteration)
+        • convert_temperature → °F ↔ °C
+
+    Uses NumPy for arithmetic.  All user-facing strings wrapped with gettext_lazy.
     """
     template_name = 'other_calculators/heat_index_calculator.html'
-    
-    # Heat index risk categories
-    HEAT_INDEX_CATEGORIES = {
-        'caution': (80, 90, _('Caution')),
-        'extreme_caution': (90, 103, _('Extreme Caution')),
-        'danger': (103, 124, _('Danger')),
-        'extreme_danger': (124, float('inf'), _('Extreme Danger')),
-    }
-    
-    def _format_unit(self, unit):
-        """Format unit name for display"""
-        return unit
-    
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Heat Index Calculator'),
-        }
-        return render(request, self.template_name, context)
-    
+        })
+
+    # ── POST router ──────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'heat_index')
-            
-            if calc_type == 'heat_index':
-                return self._calculate_heat_index(data)
-            elif calc_type == 'temperature':
-                return self._calculate_temperature(data)
-            elif calc_type == 'humidity':
-                return self._calculate_humidity(data)
-            elif calc_type == 'convert_temperature':
-                return self._convert_temperature(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            calc = data.get('calc_type', 'heat_index')
+            dispatch = {
+                'heat_index':          self._calc_heat_index,
+                'temperature':         self._calc_temperature,
+                'humidity':            self._calc_humidity,
+                'convert_temperature': self._calc_convert,
+            }
+            handler = dispatch.get(calc)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_heat_index(self, data):
-        """Calculate heat index from temperature and relative humidity"""
-        try:
-            if 'temperature' not in data or data.get('temperature') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Temperature is required.')
-                }, status=400)
-            
-            if 'humidity' not in data or data.get('humidity') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Relative humidity is required.')
-                }, status=400)
-            
-            try:
-                temperature = float(data.get('temperature', 0))
-                humidity = float(data.get('humidity', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            temp_unit = data.get('temp_unit', 'fahrenheit')
-            
-            # Validate units
-            if temp_unit not in ['fahrenheit', 'celsius']:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid temperature unit.')
-                }, status=400)
-            
-            # Convert to Fahrenheit if needed (heat index formula requires Fahrenheit)
-            if temp_unit == 'celsius':
-                temp_f = float(np.add(np.multiply(temperature, 9.0/5.0), 32.0))
-            else:
-                temp_f = temperature
-            
-            # Validate ranges
-            if temp_f < 80:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Heat index is only valid for temperatures above 80°F (27°C).')
-                }, status=400)
-            
-            if humidity < 0 or humidity > 100:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Relative humidity must be between 0 and 100%.')
-                }, status=400)
-            
-            if humidity < 40:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Heat index is only valid for relative humidity above 40%.')
-                }, status=400)
-            
-            # Calculate heat index using Rothfusz equation
-            # HI = -42.379 + 2.04901523*T + 10.14333127*RH - 0.22475541*T*RH - 6.83783e-3*T^2 - 5.481717e-2*RH^2 + 1.22874e-3*T^2*RH + 8.5282e-4*T*RH^2 - 1.99e-6*T^2*RH^2
-            
-            T = temp_f
-            RH = humidity
-            
-            # Calculate heat index
-            hi = float(np.add(
-                -42.379,
-                np.add(
-                    np.multiply(2.04901523, T),
-                    np.add(
-                        np.multiply(10.14333127, RH),
-                        np.add(
-                            np.multiply(-0.22475541, np.multiply(T, RH)),
-                            np.add(
-                                np.multiply(-6.83783e-3, np.power(T, 2)),
-                                np.add(
-                                    np.multiply(-5.481717e-2, np.power(RH, 2)),
-                                    np.add(
-                                        np.multiply(1.22874e-3, np.multiply(np.power(T, 2), RH)),
-                                        np.add(
-                                            np.multiply(8.5282e-4, np.multiply(T, np.power(RH, 2))),
-                                            np.multiply(-1.99e-6, np.multiply(np.power(T, 2), np.power(RH, 2)))
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            ))
-            
-            # Apply adjustments
-            if RH < 13 and T >= 80 and T <= 112:
-                adjustment = float(np.multiply(0.25, np.subtract(13.0, RH)))
-                adjustment = float(np.multiply(adjustment, np.sqrt(np.subtract(17.0, np.abs(np.subtract(T, 95.0))))))
-                hi = float(np.subtract(hi, adjustment))
-            
-            if RH > 85 and T >= 80 and T <= 87:
-                adjustment = float(np.multiply(0.5, np.subtract(RH, 85.0)))
-                adjustment = float(np.multiply(adjustment, np.subtract(87.0, T)))
-                hi = float(np.add(hi, adjustment))
-            
-            # Validate result
-            if math.isinf(hi) or math.isnan(hi) or np.isinf(hi) or np.isnan(hi):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            # Get category
-            category = self._get_heat_index_category(hi)
-            
-            # Convert to Celsius if needed
-            if temp_unit == 'celsius':
-                hi_celsius = float(np.multiply(np.subtract(hi, 32.0), 5.0/9.0))
-            else:
-                hi_celsius = None
-            
-            steps = self._prepare_heat_index_steps(temperature, temp_unit, humidity, temp_f, hi, category)
-            
-            chart_data = self._prepare_heat_index_chart_data(temp_f, humidity, hi)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'heat_index',
-                'temperature': temperature,
-                'temp_unit': temp_unit,
-                'humidity': humidity,
-                'heat_index_f': round(hi, 1),
-                'heat_index_c': round(hi_celsius, 1) if hi_celsius else None,
-                'category': category['name'],
-                'risk_level': category['risk'],
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
+            return self._err(_('Invalid JSON data.'))
         except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating heat index: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_temperature(self, data):
-        """Calculate temperature from heat index and relative humidity"""
-        try:
-            if 'heat_index' not in data or data.get('heat_index') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Heat index is required.')
-                }, status=400)
-            
-            if 'humidity' not in data or data.get('humidity') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Relative humidity is required.')
-                }, status=400)
-            
-            try:
-                heat_index = float(data.get('heat_index', 0))
-                humidity = float(data.get('humidity', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            temp_unit = data.get('temp_unit', 'fahrenheit')
-            
-            # Validate units
-            if temp_unit not in ['fahrenheit', 'celsius']:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid temperature unit.')
-                }, status=400)
-            
-            # Convert heat index to Fahrenheit if needed
-            if temp_unit == 'celsius':
-                hi_f = float(np.add(np.multiply(heat_index, 9.0/5.0), 32.0))
-            else:
-                hi_f = heat_index
-            
-            # Validate ranges
-            if hi_f < 80:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Heat index must be at least 80°F (27°C).')
-                }, status=400)
-            
-            if humidity < 0 or humidity > 100:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Relative humidity must be between 0 and 100%.')
-                }, status=400)
-            
-            if humidity < 40:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Relative humidity must be at least 40% for heat index calculations.')
-                }, status=400)
-            
-            # Solve for temperature using iterative method
-            # We need to reverse the heat index formula
-            # This is complex, so we'll use a numerical approach
-            
-            # Initial guess
-            T_guess = 80.0
-            max_iterations = 100
-            tolerance = 0.01
-            
-            for i in range(max_iterations):
-                # Calculate heat index with current temperature guess
-                T = T_guess
-                RH = humidity
-                
-                hi_calc = float(np.add(
-                    -42.379,
-                    np.add(
-                        np.multiply(2.04901523, T),
-                        np.add(
-                            np.multiply(10.14333127, RH),
-                            np.add(
-                                np.multiply(-0.22475541, np.multiply(T, RH)),
-                                np.add(
-                                    np.multiply(-6.83783e-3, np.power(T, 2)),
-                                    np.add(
-                                        np.multiply(-5.481717e-2, np.power(RH, 2)),
-                                        np.add(
-                                            np.multiply(1.22874e-3, np.multiply(np.power(T, 2), RH)),
-                                            np.add(
-                                                np.multiply(8.5282e-4, np.multiply(T, np.power(RH, 2))),
-                                                np.multiply(-1.99e-6, np.multiply(np.power(T, 2), np.power(RH, 2)))
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                ))
-                
-                # Apply adjustments
-                if RH < 13 and T >= 80 and T <= 112:
-                    adjustment = float(np.multiply(0.25, np.subtract(13.0, RH)))
-                    adjustment = float(np.multiply(adjustment, np.sqrt(np.subtract(17.0, np.abs(np.subtract(T, 95.0))))))
-                    hi_calc = float(np.subtract(hi_calc, adjustment))
-                
-                if RH > 85 and T >= 80 and T <= 87:
-                    adjustment = float(np.multiply(0.5, np.subtract(RH, 85.0)))
-                    adjustment = float(np.multiply(adjustment, np.subtract(87.0, T)))
-                    hi_calc = float(np.add(hi_calc, adjustment))
-                
-                # Check if we're close enough
-                error = abs(hi_calc - hi_f)
-                if error < tolerance:
-                    break
-                
-                # Update guess using Newton's method approximation
-                # Derivative approximation
-                delta_T = 0.1
-                T_plus = T + delta_T
-                
-                hi_plus = float(np.add(
-                    -42.379,
-                    np.add(
-                        np.multiply(2.04901523, T_plus),
-                        np.add(
-                            np.multiply(10.14333127, RH),
-                            np.add(
-                                np.multiply(-0.22475541, np.multiply(T_plus, RH)),
-                                np.add(
-                                    np.multiply(-6.83783e-3, np.power(T_plus, 2)),
-                                    np.add(
-                                        np.multiply(-5.481717e-2, np.power(RH, 2)),
-                                        np.add(
-                                            np.multiply(1.22874e-3, np.multiply(np.power(T_plus, 2), RH)),
-                                            np.add(
-                                                np.multiply(8.5282e-4, np.multiply(T_plus, np.power(RH, 2))),
-                                                np.multiply(-1.99e-6, np.multiply(np.power(T_plus, 2), np.power(RH, 2)))
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                ))
-                
-                # Apply adjustments for T_plus
-                if RH < 13 and T_plus >= 80 and T_plus <= 112:
-                    adjustment = float(np.multiply(0.25, np.subtract(13.0, RH)))
-                    adjustment = float(np.multiply(adjustment, np.sqrt(np.subtract(17.0, np.abs(np.subtract(T_plus, 95.0))))))
-                    hi_plus = float(np.subtract(hi_plus, adjustment))
-                
-                if RH > 85 and T_plus >= 80 and T_plus <= 87:
-                    adjustment = float(np.multiply(0.5, np.subtract(RH, 85.0)))
-                    adjustment = float(np.multiply(adjustment, np.subtract(87.0, T_plus)))
-                    hi_plus = float(np.add(hi_plus, adjustment))
-                
-                derivative = (hi_plus - hi_calc) / delta_T
-                
-                if abs(derivative) < 1e-10:
-                    break
-                
-                T_guess = T_guess - (hi_calc - hi_f) / derivative
-                
-                # Keep within reasonable bounds
-                if T_guess < 80:
-                    T_guess = 80
-                if T_guess > 150:
-                    T_guess = 150
-            
-            temp_f = T_guess
-            
-            # Validate result
-            if math.isinf(temp_f) or math.isnan(temp_f) or np.isinf(temp_f) or np.isnan(temp_f):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            # Convert to Celsius if needed
-            if temp_unit == 'celsius':
-                temp_c = float(np.multiply(np.subtract(temp_f, 32.0), 5.0/9.0))
-            else:
-                temp_c = None
-            
-            steps = self._prepare_temperature_steps(heat_index, temp_unit, humidity, hi_f, temp_f, temp_c)
-            
-            chart_data = self._prepare_temperature_chart_data(temp_f, humidity, hi_f)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'temperature',
-                'heat_index': heat_index,
-                'temp_unit': temp_unit,
-                'humidity': humidity,
-                'temperature_f': round(temp_f, 1),
-                'temperature_c': round(temp_c, 1) if temp_c else None,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating temperature: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_humidity(self, data):
-        """Calculate relative humidity from heat index and temperature"""
-        try:
-            if 'heat_index' not in data or data.get('heat_index') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Heat index is required.')
-                }, status=400)
-            
-            if 'temperature' not in data or data.get('temperature') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Temperature is required.')
-                }, status=400)
-            
-            try:
-                heat_index = float(data.get('heat_index', 0))
-                temperature = float(data.get('temperature', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            temp_unit = data.get('temp_unit', 'fahrenheit')
-            
-            # Validate units
-            if temp_unit not in ['fahrenheit', 'celsius']:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid temperature unit.')
-                }, status=400)
-            
-            # Convert to Fahrenheit if needed
-            if temp_unit == 'celsius':
-                temp_f = float(np.add(np.multiply(temperature, 9.0/5.0), 32.0))
-                hi_f = float(np.add(np.multiply(heat_index, 9.0/5.0), 32.0))
-            else:
-                temp_f = temperature
-                hi_f = heat_index
-            
-            # Validate ranges
-            if temp_f < 80:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Temperature must be at least 80°F (27°C) for heat index calculations.')
-                }, status=400)
-            
-            if hi_f < 80:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Heat index must be at least 80°F (27°C).')
-                }, status=400)
-            
-            # Solve for humidity using iterative method
-            RH_guess = 40.0
-            max_iterations = 100
-            tolerance = 0.01
-            
-            for i in range(max_iterations):
-                # Calculate heat index with current humidity guess
-                T = temp_f
-                RH = RH_guess
-                
-                hi_calc = float(np.add(
-                    -42.379,
-                    np.add(
-                        np.multiply(2.04901523, T),
-                        np.add(
-                            np.multiply(10.14333127, RH),
-                            np.add(
-                                np.multiply(-0.22475541, np.multiply(T, RH)),
-                                np.add(
-                                    np.multiply(-6.83783e-3, np.power(T, 2)),
-                                    np.add(
-                                        np.multiply(-5.481717e-2, np.power(RH, 2)),
-                                        np.add(
-                                            np.multiply(1.22874e-3, np.multiply(np.power(T, 2), RH)),
-                                            np.add(
-                                                np.multiply(8.5282e-4, np.multiply(T, np.power(RH, 2))),
-                                                np.multiply(-1.99e-6, np.multiply(np.power(T, 2), np.power(RH, 2)))
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                ))
-                
-                # Apply adjustments
-                if RH < 13 and T >= 80 and T <= 112:
-                    adjustment = float(np.multiply(0.25, np.subtract(13.0, RH)))
-                    adjustment = float(np.multiply(adjustment, np.sqrt(np.subtract(17.0, np.abs(np.subtract(T, 95.0))))))
-                    hi_calc = float(np.subtract(hi_calc, adjustment))
-                
-                if RH > 85 and T >= 80 and T <= 87:
-                    adjustment = float(np.multiply(0.5, np.subtract(RH, 85.0)))
-                    adjustment = float(np.multiply(adjustment, np.subtract(87.0, T)))
-                    hi_calc = float(np.add(hi_calc, adjustment))
-                
-                # Check if we're close enough
-                error = abs(hi_calc - hi_f)
-                if error < tolerance:
-                    break
-                
-                # Update guess using Newton's method approximation
-                delta_RH = 0.1
-                RH_plus = RH + delta_RH
-                
-                hi_plus = float(np.add(
-                    -42.379,
-                    np.add(
-                        np.multiply(2.04901523, T),
-                        np.add(
-                            np.multiply(10.14333127, RH_plus),
-                            np.add(
-                                np.multiply(-0.22475541, np.multiply(T, RH_plus)),
-                                np.add(
-                                    np.multiply(-6.83783e-3, np.power(T, 2)),
-                                    np.add(
-                                        np.multiply(-5.481717e-2, np.power(RH_plus, 2)),
-                                        np.add(
-                                            np.multiply(1.22874e-3, np.multiply(np.power(T, 2), RH_plus)),
-                                            np.add(
-                                                np.multiply(8.5282e-4, np.multiply(T, np.power(RH_plus, 2))),
-                                                np.multiply(-1.99e-6, np.multiply(np.power(T, 2), np.power(RH_plus, 2)))
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                ))
-                
-                # Apply adjustments for RH_plus
-                if RH_plus < 13 and T >= 80 and T <= 112:
-                    adjustment = float(np.multiply(0.25, np.subtract(13.0, RH_plus)))
-                    adjustment = float(np.multiply(adjustment, np.sqrt(np.subtract(17.0, np.abs(np.subtract(T, 95.0))))))
-                    hi_plus = float(np.subtract(hi_plus, adjustment))
-                
-                if RH_plus > 85 and T >= 80 and T <= 87:
-                    adjustment = float(np.multiply(0.5, np.subtract(RH_plus, 85.0)))
-                    adjustment = float(np.multiply(adjustment, np.subtract(87.0, T)))
-                    hi_plus = float(np.add(hi_plus, adjustment))
-                
-                derivative = (hi_plus - hi_calc) / delta_RH
-                
-                if abs(derivative) < 1e-10:
-                    break
-                
-                RH_guess = RH_guess - (hi_calc - hi_f) / derivative
-                
-                # Keep within reasonable bounds
-                if RH_guess < 40:
-                    RH_guess = 40
-                if RH_guess > 100:
-                    RH_guess = 100
-            
-            humidity = RH_guess
-            
-            # Validate result
-            if math.isinf(humidity) or math.isnan(humidity) or np.isinf(humidity) or np.isnan(humidity):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            steps = self._prepare_humidity_steps(heat_index, temp_unit, temperature, temp_f, hi_f, humidity)
-            
-            chart_data = self._prepare_humidity_chart_data(temp_f, humidity, hi_f)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'humidity',
-                'heat_index': heat_index,
-                'temp_unit': temp_unit,
-                'temperature': temperature,
-                'humidity': round(humidity, 1),
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating humidity: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _convert_temperature(self, data):
-        """Convert temperature units"""
-        try:
-            if 'value' not in data or data.get('value') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Temperature value is required.')
-                }, status=400)
-            
-            try:
-                value = float(data.get('value', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter a numeric value.')
-                }, status=400)
-            
-            from_unit = data.get('from_unit', 'fahrenheit')
-            to_unit = data.get('to_unit', 'celsius')
-            
-            # Validate units
-            if from_unit not in ['fahrenheit', 'celsius'] or to_unit not in ['fahrenheit', 'celsius']:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid unit.')
-                }, status=400)
-            
-            # Convert
-            if from_unit == 'fahrenheit' and to_unit == 'celsius':
-                result = float(np.multiply(np.subtract(value, 32.0), 5.0/9.0))
-            elif from_unit == 'celsius' and to_unit == 'fahrenheit':
-                result = float(np.add(np.multiply(value, 9.0/5.0), 32.0))
-            else:
-                result = value
-            
-            # Validate result
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid conversion result.')
-                }, status=400)
-            
-            steps = self._prepare_convert_temperature_steps(value, from_unit, to_unit, result)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'convert_temperature',
-                'value': value,
-                'from_unit': from_unit,
-                'to_unit': to_unit,
-                'result': round(result, 1),
-                'step_by_step': steps,
-            })
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-    
-    def _get_heat_index_category(self, hi):
-        """Get heat index category and risk level"""
-        if hi < 80:
-            return {'name': _('Safe'), 'risk': _('Low')}
-        elif hi < 90:
-            return {'name': _('Caution'), 'risk': _('Moderate')}
-        elif hi < 103:
-            return {'name': _('Extreme Caution'), 'risk': _('High')}
-        elif hi < 124:
-            return {'name': _('Danger'), 'risk': _('Very High')}
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _fnum(self, v, dp=1):
+        if v is None:
+            return '0'
+        return f'{v:,.{dp}f}'
+
+    def _req_float(self, d, key, name):
+        v = d.get(key)
+        if v is None or v == '':
+            raise ValueError(str(_('{name} is required.').format(name=name)))
+        return float(v)
+
+    @staticmethod
+    def _to_f(c):
+        return float(np.add(np.multiply(c, 1.8), 32.0))
+
+    @staticmethod
+    def _to_c(f):
+        return float(np.multiply(np.subtract(f, 32.0), 5.0 / 9.0))
+
+    # ── Rothfusz regression ──────────────────────────────────────────
+    def _rothfusz(self, T, RH):
+        """Return heat index in °F using the NWS Rothfusz equation + adjustments."""
+        hi = (
+            -42.379
+            + 2.04901523 * T
+            + 10.14333127 * RH
+            - 0.22475541 * T * RH
+            - 6.83783e-3 * T ** 2
+            - 5.481717e-2 * RH ** 2
+            + 1.22874e-3 * T ** 2 * RH
+            + 8.5282e-4 * T * RH ** 2
+            - 1.99e-6 * T ** 2 * RH ** 2
+        )
+        # Low-humidity adjustment
+        if RH < 13 and 80 <= T <= 112:
+            adj = ((13 - RH) / 4.0) * np.sqrt((17 - abs(T - 95)) / 17.0)
+            hi -= float(adj)
+        # High-humidity adjustment
+        if RH > 85 and 80 <= T <= 87:
+            adj = ((RH - 85) / 10.0) * ((87 - T) / 5.0)
+            hi += float(adj)
+        return float(hi)
+
+    # ── category ─────────────────────────────────────────────────────
+    @staticmethod
+    def _category(hi_f):
+        if hi_f < 80:
+            return str(_('Safe')), str(_('Low')), '#22c55e'
+        elif hi_f < 90:
+            return str(_('Caution')), str(_('Moderate')), '#eab308'
+        elif hi_f < 103:
+            return str(_('Extreme Caution')), str(_('High')), '#f97316'
+        elif hi_f < 125:
+            return str(_('Danger')), str(_('Very High')), '#ef4444'
         else:
-            return {'name': _('Extreme Danger'), 'risk': _('Extreme')}
-    
-    # Step-by-step solution preparation methods
-    def _prepare_heat_index_steps(self, temperature, temp_unit, humidity, temp_f, hi, category):
-        """Prepare step-by-step solution for heat index calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Temperature: {temp}°{unit}').format(temp=temperature, unit='F' if temp_unit == 'fahrenheit' else 'C'))
-        steps.append(_('Relative Humidity: {hum}%').format(hum=humidity))
-        steps.append('')
-        if temp_unit == 'celsius':
-            steps.append(_('Step 2: Convert temperature to Fahrenheit'))
-            steps.append(_('Formula: °F = (°C × 9/5) + 32'))
-            steps.append(_('°F = ({temp} × 9/5) + 32 = {f}°F').format(temp=temperature, f=temp_f))
-            steps.append('')
-        steps.append(_('Step 3: Apply the Rothfusz equation'))
-        steps.append(_('Heat Index Formula:'))
-        steps.append(_('HI = -42.379 + 2.04901523×T + 10.14333127×RH - 0.22475541×T×RH'))
-        steps.append(_('     - 6.83783×10⁻³×T² - 5.481717×10⁻²×RH² + 1.22874×10⁻³×T²×RH'))
-        steps.append(_('     + 8.5282×10⁻⁴×T×RH² - 1.99×10⁻⁶×T²×RH²'))
-        steps.append(_('Where T = {temp}°F, RH = {hum}%').format(temp=temp_f, hum=humidity))
-        steps.append('')
-        steps.append(_('Step 4: Apply adjustments (if applicable)'))
-        if humidity < 13 and temp_f >= 80 and temp_f <= 112:
-            steps.append(_('Adjustment for RH < 13%: Subtract correction factor'))
-        if humidity > 85 and temp_f >= 80 and temp_f <= 87:
-            steps.append(_('Adjustment for RH > 85%: Add correction factor'))
-        steps.append('')
-        steps.append(_('Step 5: Final result'))
-        steps.append(_('Heat Index = {hi}°F').format(hi=round(hi, 1)))
-        steps.append(_('Category: {cat} ({risk})').format(cat=category['name'], risk=category['risk']))
-        return steps
-    
-    def _prepare_temperature_steps(self, heat_index, temp_unit, humidity, hi_f, temp_f, temp_c):
-        """Prepare step-by-step solution for temperature calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Heat Index: {hi}°{unit}').format(hi=heat_index, unit='F' if temp_unit == 'fahrenheit' else 'C'))
-        steps.append(_('Relative Humidity: {hum}%').format(hum=humidity))
-        steps.append('')
-        if temp_unit == 'celsius':
-            steps.append(_('Step 2: Convert heat index to Fahrenheit'))
-            steps.append(_('Formula: °F = (°C × 9/5) + 32'))
-            steps.append(_('°F = ({hi} × 9/5) + 32 = {f}°F').format(hi=heat_index, f=hi_f))
-            steps.append('')
-        steps.append(_('Step 3: Solve for temperature using iterative method'))
-        steps.append(_('Using the Rothfusz equation, we solve for T where:'))
-        steps.append(_('HI = -42.379 + 2.04901523×T + 10.14333127×RH - 0.22475541×T×RH'))
-        steps.append(_('     - 6.83783×10⁻³×T² - 5.481717×10⁻²×RH² + 1.22874×10⁻³×T²×RH'))
-        steps.append(_('     + 8.5282×10⁻⁴×T×RH² - 1.99×10⁻⁶×T²×RH²'))
-        steps.append(_('With HI = {hi}°F, RH = {hum}%').format(hi=hi_f, hum=humidity))
-        steps.append('')
-        steps.append(_('Step 4: Final result'))
-        steps.append(_('Temperature = {temp}°F').format(temp=round(temp_f, 1)))
-        if temp_c:
-            steps.append(_('Temperature = {temp}°C').format(temp=round(temp_c, 1)))
-        return steps
-    
-    def _prepare_humidity_steps(self, heat_index, temp_unit, temperature, temp_f, hi_f, humidity):
-        """Prepare step-by-step solution for humidity calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Heat Index: {hi}°{unit}').format(hi=heat_index, unit='F' if temp_unit == 'fahrenheit' else 'C'))
-        steps.append(_('Temperature: {temp}°{unit}').format(temp=temperature, unit='F' if temp_unit == 'fahrenheit' else 'C'))
-        steps.append('')
-        if temp_unit == 'celsius':
-            steps.append(_('Step 2: Convert to Fahrenheit'))
-            steps.append(_('Temperature: {temp}°C = {f}°F').format(temp=temperature, f=temp_f))
-            steps.append(_('Heat Index: {hi}°C = {f}°F').format(hi=heat_index, f=hi_f))
-            steps.append('')
-        steps.append(_('Step 3: Solve for relative humidity using iterative method'))
-        steps.append(_('Using the Rothfusz equation, we solve for RH where:'))
-        steps.append(_('HI = -42.379 + 2.04901523×T + 10.14333127×RH - 0.22475541×T×RH'))
-        steps.append(_('     - 6.83783×10⁻³×T² - 5.481717×10⁻²×RH² + 1.22874×10⁻³×T²×RH'))
-        steps.append(_('     + 8.5282×10⁻⁴×T×RH² - 1.99×10⁻⁶×T²×RH²'))
-        steps.append(_('With HI = {hi}°F, T = {temp}°F').format(hi=hi_f, temp=temp_f))
-        steps.append('')
-        steps.append(_('Step 4: Final result'))
-        steps.append(_('Relative Humidity = {hum}%').format(hum=round(humidity, 1)))
-        return steps
-    
-    def _prepare_convert_temperature_steps(self, value, from_unit, to_unit, result):
-        """Prepare step-by-step solution for temperature conversion"""
-        steps = []
-        steps.append(_('Step 1: Identify the given value'))
-        steps.append(_('Temperature: {value}°{unit}').format(value=value, unit='F' if from_unit == 'fahrenheit' else 'C'))
-        steps.append('')
-        if from_unit == 'fahrenheit' and to_unit == 'celsius':
-            steps.append(_('Step 2: Convert Fahrenheit to Celsius'))
-            steps.append(_('Formula: °C = (°F - 32) × 5/9'))
-            steps.append(_('°C = ({f} - 32) × 5/9 = {c}°C').format(f=value, c=result))
-        elif from_unit == 'celsius' and to_unit == 'fahrenheit':
-            steps.append(_('Step 2: Convert Celsius to Fahrenheit'))
-            steps.append(_('Formula: °F = (°C × 9/5) + 32'))
-            steps.append(_('°F = ({c} × 9/5) + 32 = {f}°F').format(c=value, f=result))
+            return str(_('Extreme Danger')), str(_('Extreme')), '#991b1b'
+
+    # ── 1) CALCULATE HEAT INDEX ──────────────────────────────────────
+    def _calc_heat_index(self, d):
+        temp = self._req_float(d, 'temperature', str(_('Temperature')))
+        hum = self._req_float(d, 'humidity', str(_('Relative Humidity')))
+        unit = d.get('temp_unit', 'fahrenheit')
+
+        temp_f = temp if unit == 'fahrenheit' else self._to_f(temp)
+        if temp_f < 80:
+            raise ValueError(str(_('Temperature must be ≥ 80 °F (27 °C) for heat index.')))
+        if hum < 0 or hum > 100:
+            raise ValueError(str(_('Relative humidity must be between 0 and 100 %.')))
+        if hum < 40:
+            raise ValueError(str(_('Relative humidity must be ≥ 40 % for heat index.')))
+
+        hi_f = self._rothfusz(temp_f, hum)
+        hi_c = self._to_c(hi_f)
+        cat_name, risk, cat_color = self._category(hi_f)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Temperature")} = {temp} °{"F" if unit == "fahrenheit" else "C"}',
+            f'  • {_("Relative Humidity")} = {hum} %',
+        ]
+        if unit == 'celsius':
+            steps += [
+                '', str(_('Step 2: Convert to Fahrenheit')),
+                f'  °F = ({temp} × 9/5) + 32 = {self._fnum(temp_f)} °F',
+            ]
+        steps += [
+            '', str(_('Step 3: Apply Rothfusz equation')),
+            '  HI = −42.379 + 2.049×T + 10.143×RH − 0.2248×T×RH …',
+            f'  T = {self._fnum(temp_f)} °F,  RH = {hum} %',
+            f'  HI = {self._fnum(hi_f)} °F  ({self._fnum(hi_c)} °C)',
+            '', str(_('Step 4: Risk category')),
+            f'  {cat_name} — {risk} {_("risk")}',
+        ]
+
+        chart = self._hi_gauge_chart(hi_f, cat_name, cat_color)
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'heat_index',
+            'result': round(hi_f, 1),
+            'result_c': round(hi_c, 1),
+            'result_label': str(_('Heat Index')),
+            'result_unit_symbol': '°F',
+            'category': cat_name,
+            'risk_level': risk,
+            'category_color': cat_color,
+            'formula': f'HI({self._fnum(temp_f)}°F, {hum}%) = {self._fnum(hi_f)}°F',
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── 2) TEMPERATURE FROM HEAT INDEX ───────────────────────────────
+    def _calc_temperature(self, d):
+        hi_input = self._req_float(d, 'heat_index', str(_('Heat Index')))
+        hum = self._req_float(d, 'humidity', str(_('Relative Humidity')))
+        unit = d.get('temp_unit', 'fahrenheit')
+
+        hi_f = hi_input if unit == 'fahrenheit' else self._to_f(hi_input)
+        if hi_f < 80:
+            raise ValueError(str(_('Heat index must be ≥ 80 °F (27 °C).')))
+        if hum < 40 or hum > 100:
+            raise ValueError(str(_('Relative humidity must be between 40 and 100 %.')))
+
+        # Newton iteration
+        T = 90.0
+        for _i in range(200):
+            f_val = self._rothfusz(T, hum) - hi_f
+            dT = 0.05
+            f_prime = (self._rothfusz(T + dT, hum) - self._rothfusz(T - dT, hum)) / (2 * dT)
+            if abs(f_prime) < 1e-12:
+                break
+            T -= f_val / f_prime
+            T = max(80, min(T, 200))
+            if abs(f_val) < 0.01:
+                break
+
+        temp_f = round(T, 1)
+        temp_c = round(self._to_c(temp_f), 1)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Heat Index")} = {hi_input} °{"F" if unit=="fahrenheit" else "C"}',
+            f'  • {_("Relative Humidity")} = {hum} %',
+        ]
+        if unit == 'celsius':
+            steps += ['', str(_('Step 2: Convert HI to Fahrenheit')),
+                       f'  HI = {self._fnum(hi_f)} °F']
+        steps += [
+            '', str(_('Step 3: Solve Rothfusz equation for T (iterative)')),
+            f'  {_("Temperature")} = {temp_f} °F  ({temp_c} °C)',
+        ]
+
+        chart = self._bar_chart(
+            [str(_('Heat Index (°F)')), str(_('Humidity (%)')), str(_('Temperature (°F)'))],
+            [hi_f, hum, temp_f],
+            ['rgba(239,68,68,0.8)', 'rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)'],
+            str(_('Temperature from Heat Index'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'temperature',
+            'result': temp_f,
+            'result_c': temp_c,
+            'result_label': str(_('Temperature')),
+            'result_unit_symbol': '°F',
+            'formula': f'T = {temp_f} °F  ({temp_c} °C)',
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── 3) HUMIDITY FROM HEAT INDEX ──────────────────────────────────
+    def _calc_humidity(self, d):
+        hi_input = self._req_float(d, 'heat_index', str(_('Heat Index')))
+        temp = self._req_float(d, 'temperature', str(_('Temperature')))
+        unit = d.get('temp_unit', 'fahrenheit')
+
+        hi_f = hi_input if unit == 'fahrenheit' else self._to_f(hi_input)
+        temp_f = temp if unit == 'fahrenheit' else self._to_f(temp)
+        if hi_f < 80:
+            raise ValueError(str(_('Heat index must be ≥ 80 °F (27 °C).')))
+        if temp_f < 80:
+            raise ValueError(str(_('Temperature must be ≥ 80 °F (27 °C).')))
+
+        # Newton iteration
+        RH = 60.0
+        for _i in range(200):
+            f_val = self._rothfusz(temp_f, RH) - hi_f
+            dRH = 0.05
+            f_prime = (self._rothfusz(temp_f, RH + dRH) - self._rothfusz(temp_f, RH - dRH)) / (2 * dRH)
+            if abs(f_prime) < 1e-12:
+                break
+            RH -= f_val / f_prime
+            RH = max(0, min(RH, 100))
+            if abs(f_val) < 0.01:
+                break
+
+        humidity = round(RH, 1)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Heat Index")} = {hi_input} °{"F" if unit=="fahrenheit" else "C"}',
+            f'  • {_("Temperature")} = {temp} °{"F" if unit=="fahrenheit" else "C"}',
+        ]
+        if unit == 'celsius':
+            steps += ['', str(_('Step 2: Convert to Fahrenheit')),
+                       f'  HI = {self._fnum(hi_f)} °F,  T = {self._fnum(temp_f)} °F']
+        steps += [
+            '', str(_('Step 3: Solve Rothfusz equation for RH (iterative)')),
+            f'  {_("Relative Humidity")} = {humidity} %',
+        ]
+
+        chart = self._bar_chart(
+            [str(_('Heat Index (°F)')), str(_('Temperature (°F)')), str(_('Humidity (%)'))],
+            [hi_f, temp_f, humidity],
+            ['rgba(239,68,68,0.8)', 'rgba(16,185,129,0.8)', 'rgba(59,130,246,0.8)'],
+            str(_('Humidity from Heat Index'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'humidity',
+            'result': humidity,
+            'result_label': str(_('Relative Humidity')),
+            'result_unit_symbol': '%',
+            'formula': f'RH = {humidity} %',
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── 4) CONVERT TEMPERATURE ───────────────────────────────────────
+    def _calc_convert(self, d):
+        value = self._req_float(d, 'value', str(_('Temperature')))
+        fu = d.get('from_unit', 'fahrenheit')
+        tu = d.get('to_unit', 'celsius')
+
+        if fu == 'fahrenheit' and tu == 'celsius':
+            result = self._to_c(value)
+        elif fu == 'celsius' and tu == 'fahrenheit':
+            result = self._to_f(value)
         else:
-            steps.append(_('Step 2: Result'))
-            steps.append(_('Temperature = {result}°{unit}').format(result=result, unit='F' if to_unit == 'fahrenheit' else 'C'))
-        return steps
-    
-    # Chart data preparation methods
-    def _prepare_heat_index_chart_data(self, temp_f, humidity, hi):
-        """Prepare chart data for heat index calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Temperature (°F)'), _('Relative Humidity (%)'), _('Heat Index (°F)')],
-                    'datasets': [{
-                        'label': _('Values'),
-                        'data': [temp_f, humidity, hi],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24'
-                        ],
-                        'borderWidth': 2
-                    }]
+            result = value
+
+        from_sym = '°F' if fu == 'fahrenheit' else '°C'
+        to_sym = '°F' if tu == 'fahrenheit' else '°C'
+
+        steps = [
+            str(_('Step 1: Given value')),
+            f'  • {self._fnum(value)} {from_sym}',
+        ]
+        if fu != tu:
+            formula = '°C = (°F − 32) × 5/9' if tu == 'celsius' else '°F = (°C × 9/5) + 32'
+            steps += [
+                '', str(_('Step 2: Apply formula')),
+                f'  {formula}',
+                f'  = {self._fnum(result)} {to_sym}',
+            ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'convert_temperature',
+            'result': round(result, 1),
+            'result_label': str(_('Converted Temperature')),
+            'result_unit_symbol': to_sym,
+            'formula': f'{self._fnum(value)} {from_sym} = {self._fnum(result)} {to_sym}',
+            'step_by_step': steps,
+            'chart_data': None,
+        })
+
+    # ── chart helpers ────────────────────────────────────────────────
+    def _bar_chart(self, labels, data, colors, title):
+        return {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Value')),
+                    'data': data,
+                    'backgroundColor': colors,
+                    'borderColor': [c.replace('0.8', '1') for c in colors],
+                    'borderWidth': 2,
+                    'borderRadius': 8,
+                }]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {
+                    'legend': {'display': False},
+                    'title': {'display': True, 'text': title},
                 },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Heat Index Calculation')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Value')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'heat_index_chart': chart_config}
-        except Exception as e:
-            return None
-    
-    def _prepare_temperature_chart_data(self, temp_f, humidity, hi_f):
-        """Prepare chart data for temperature calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Temperature (°F)'), _('Relative Humidity (%)'), _('Heat Index (°F)')],
-                    'datasets': [{
-                        'label': _('Values'),
-                        'data': [temp_f, humidity, hi_f],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24'
-                        ],
-                        'borderWidth': 2
-                    }]
+                'scales': {
+                    'y': {'beginAtZero': True},
                 },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Temperature from Heat Index')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Value')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'temperature_chart': chart_config}
-        except Exception as e:
-            return None
-    
-    def _prepare_humidity_chart_data(self, temp_f, humidity, hi_f):
-        """Prepare chart data for humidity calculation"""
-        try:
-            chart_config = {
-                'type': 'bar',
-                'data': {
-                    'labels': [_('Temperature (°F)'), _('Relative Humidity (%)'), _('Heat Index (°F)')],
-                    'datasets': [{
-                        'label': _('Values'),
-                        'data': [temp_f, humidity, hi_f],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(251, 191, 36, 0.8)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#fbbf24'
-                        ],
-                        'borderWidth': 2
-                    }]
+            },
+        }
+
+    def _hi_gauge_chart(self, hi_f, cat_name, cat_color):
+        """Horizontal bar chart comparing HI to category thresholds."""
+        labels = [
+            str(_('Caution (80)')),
+            str(_('Ext. Caution (90)')),
+            str(_('Danger (103)')),
+            str(_('Ext. Danger (125)')),
+            str(_('Your Result')),
+        ]
+        data = [80, 90, 103, 125, hi_f]
+        colors = [
+            'rgba(234,179,8,0.7)', 'rgba(249,115,22,0.7)',
+            'rgba(239,68,68,0.7)', 'rgba(153,27,27,0.7)',
+            cat_color.replace('#', 'rgba(') and f'rgba({int(cat_color[1:3],16)},{int(cat_color[3:5],16)},{int(cat_color[5:7],16)},0.9)',
+        ]
+        return {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Heat Index (°F)')),
+                    'data': data,
+                    'backgroundColor': colors,
+                    'borderWidth': 0,
+                    'borderRadius': 6,
+                }]
+            },
+            'options': {
+                'indexAxis': 'y',
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {
+                    'legend': {'display': False},
+                    'title': {'display': True, 'text': f'{cat_name} — {self._fnum(hi_f)} °F'},
                 },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': False
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Relative Humidity from Heat Index')
-                        }
-                    },
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True,
-                            'title': {
-                                'display': True,
-                                'text': _('Value')
-                            }
-                        }
-                    }
-                }
-            }
-            return {'humidity_chart': chart_config}
-        except Exception as e:
-            return None
+                'scales': {
+                    'x': {'beginAtZero': True, 'title': {'display': True, 'text': '°F'}},
+                },
+            },
+        }

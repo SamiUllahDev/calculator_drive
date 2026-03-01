@@ -10,722 +10,543 @@ import json
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class BandwidthCalculator(View):
     """
-    Professional Bandwidth Calculator with Comprehensive Features
-    
-    This calculator provides bandwidth calculations with:
-    - Data transfer time calculations
-    - File size conversions
-    - Bandwidth requirement analysis
-    - Multiple unit conversions (bits, bytes, KB, MB, GB, TB)
-    - Download/upload time estimates
-    - Network speed analysis
-    
-    Features:
-    - Supports multiple bandwidth units
-    - Handles file size conversions
-    - Calculates transfer times
-    - Provides detailed breakdowns
-    - Interactive visualizations
+    Bandwidth Calculator — 6 calculation types.
+
+    Calculation types
+        • transfer_time   → time to transfer a file at given bandwidth
+        • bandwidth_req   → bandwidth needed to transfer in given time
+        • file_size       → max file size for bandwidth × time
+        • real_world      → accounts for protocol overhead
+        • comparison      → compare connection types side-by-side
+        • recommendation  → suggest bandwidth for use-case
     """
     template_name = 'other_calculators/bandwidth_calculator.html'
-    
-    # Unit conversion factors (in bits)
-    UNIT_FACTORS = {
-        'bits': 1,
-        'bytes': 8,
-        'KB': 8 * 1024,
-        'MB': 8 * 1024 * 1024,
-        'GB': 8 * 1024 * 1024 * 1024,
-        'TB': 8 * 1024 * 1024 * 1024 * 1024,
-        'Kbps': 1000,
-        'Mbps': 1000 * 1000,
-        'Gbps': 1000 * 1000 * 1000,
-        'Tbps': 1000 * 1000 * 1000 * 1000,
+
+    # ── constants ─────────────────────────────────────────────────────
+    # file-size → bits  (binary: 1 KB = 1024 bytes)
+    FS = {
+        'bits': 1, 'bytes': 8,
+        'KB': 8 * 1024, 'MB': 8 * 1024**2,
+        'GB': 8 * 1024**3, 'TB': 8 * 1024**4,
     }
-    
+    # bandwidth → bits/s  (decimal: 1 Kbps = 1000 bps)
+    BW = {
+        'bps': 1, 'Kbps': 1e3,
+        'Mbps': 1e6, 'Gbps': 1e9, 'Tbps': 1e12,
+    }
+    TIME = {'seconds': 1, 'minutes': 60, 'hours': 3600, 'days': 86400}
+    OVERHEAD = {
+        'none': 0, 'tcp': 0.10, 'udp': 0.05,
+        'http': 0.12, 'https': 0.15, 'ftp': 0.08,
+    }
+    CONNS = [
+        ('Dial-up',   56,    'Kbps'),
+        ('DSL',       8,     'Mbps'),
+        ('Cable',     100,   'Mbps'),
+        ('Fiber',     500,   'Mbps'),
+        ('4G LTE',    50,    'Mbps'),
+        ('5G',        1000,  'Mbps'),
+        ('Gigabit',   1000,  'Mbps'),
+        ('10 Gig',    10000, 'Mbps'),
+    ]
+    USE_CASES = {
+        'web':       (2,   'Web Browsing'),
+        'email':     (1,   'Email'),
+        'hd':        (5,   'HD Streaming'),
+        '4k':        (25,  '4K Streaming'),
+        'video_call':(4,   'Video Calls'),
+        'gaming':    (5,   'Online Gaming'),
+        'remote':    (10,  'Remote Work'),
+        'general':   (5,   'General Use'),
+    }
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Bandwidth Calculator'),
-            'features': [
-                _('Data transfer time calculations'),
-                _('File size conversions'),
-                _('Bandwidth requirement analysis'),
-                _('Multiple unit conversions'),
-                _('Download/upload time estimates'),
-                _('Network speed analysis')
-            ]
-        }
-        return render(request, self.template_name, context)
-    
-    # Protocol overhead percentages (approximate)
-    PROTOCOL_OVERHEAD = {
-        'tcp': 0.10,  # 10% overhead for TCP/IP
-        'udp': 0.05,  # 5% overhead for UDP
-        'http': 0.12,  # 12% overhead for HTTP
-        'https': 0.15,  # 15% overhead for HTTPS
-        'ftp': 0.08,  # 8% overhead for FTP
-        'default': 0.10
-    }
-    
-    # Common connection types with typical speeds
-    CONNECTION_TYPES = {
-        'dialup': {'speed': 56, 'unit': 'Kbps', 'name': _('Dial-up (56K)')},
-        'isdn': {'speed': 128, 'unit': 'Kbps', 'name': _('ISDN (128K)')},
-        'dsl': {'speed': 1.5, 'unit': 'Mbps', 'name': _('DSL (1.5 Mbps)')},
-        'cable': {'speed': 25, 'unit': 'Mbps', 'name': _('Cable (25 Mbps)')},
-        'fiber': {'speed': 100, 'unit': 'Mbps', 'name': _('Fiber (100 Mbps)')},
-        '4g': {'speed': 50, 'unit': 'Mbps', 'name': _('4G Mobile (50 Mbps)')},
-        '5g': {'speed': 200, 'unit': 'Mbps', 'name': _('5G Mobile (200 Mbps)')},
-        'gigabit': {'speed': 1000, 'unit': 'Mbps', 'name': _('Gigabit (1 Gbps)')},
-    }
-    
+        })
+
+    # ── POST ──────────────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'transfer_time')
-            
-            if calc_type == 'transfer_time':
-                return self._calculate_transfer_time(data)
-            elif calc_type == 'bandwidth_required':
-                return self._calculate_bandwidth_required(data)
-            elif calc_type == 'file_size':
-                return self._calculate_file_size(data)
-            elif calc_type == 'real_world_speed':
-                return self._calculate_real_world_speed(data)
-            elif calc_type == 'batch_transfer':
-                return self._calculate_batch_transfer(data)
-            elif calc_type == 'connection_comparison':
-                return self._calculate_connection_comparison(data)
-            elif calc_type == 'cost_calculation':
-                return self._calculate_cost(data)
-            elif calc_type == 'bandwidth_recommendation':
-                return self._get_bandwidth_recommendation(data)
-            else:
-                return JsonResponse({'success': False, 'error': _('Invalid calculation type.')}, status=400)
-                
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'success': False, 'error': _('Invalid input: {error}').format(error=str(e))}, status=400)
-        except Exception as e:
-            import traceback
-            print(f"Bandwidth Calculator Error: {traceback.format_exc()}")
-            return JsonResponse({'success': False, 'error': _('An error occurred during calculation.')}, status=500)
-    
-    def _calculate_transfer_time(self, data):
-        """Calculate transfer time given file size and bandwidth"""
-        file_size = float(data.get('file_size', 0))
-        file_size_unit = data.get('file_size_unit', 'MB')
-        bandwidth = float(data.get('bandwidth', 0))
-        bandwidth_unit = data.get('bandwidth_unit', 'Mbps')
-        
-        if file_size <= 0 or bandwidth <= 0:
-            return JsonResponse({'success': False, 'error': _('File size and bandwidth must be greater than zero.')}, status=400)
-        
-        # Convert to bits
-        file_size_bits = file_size * self.UNIT_FACTORS.get(file_size_unit, 1)
-        bandwidth_bits_per_sec = bandwidth * self.UNIT_FACTORS.get(bandwidth_unit, 1)
-        
-        # Calculate time in seconds
-        time_seconds = file_size_bits / bandwidth_bits_per_sec
-        
-        # Convert to various time units
-        time_breakdown = self._convert_time_units(time_seconds)
-        
-        # Prepare step-by-step solution
-        step_by_step = self._prepare_transfer_time_steps(
-            file_size, file_size_unit, bandwidth, bandwidth_unit,
-            file_size_bits, bandwidth_bits_per_sec, time_seconds, time_breakdown
-        )
-        
-        # Prepare chart data
-        chart_data = self._prepare_transfer_time_chart_data(time_breakdown)
-        
-        result = {
-            'success': True,
-            'calc_type': 'transfer_time',
-            'file_size': file_size,
-            'file_size_unit': file_size_unit,
-            'bandwidth': bandwidth,
-            'bandwidth_unit': bandwidth_unit,
-            'time_seconds': time_seconds,
-            'time_breakdown': time_breakdown,
-            'step_by_step': step_by_step,
-            'chart_data': chart_data
-        }
-        
-        return JsonResponse(result)
-    
-    def _calculate_bandwidth_required(self, data):
-        """Calculate required bandwidth given file size and time"""
-        file_size = float(data.get('file_size', 0))
-        file_size_unit = data.get('file_size_unit', 'MB')
-        time_value = float(data.get('time_value', 0))
-        time_unit = data.get('time_unit', 'seconds')
-        
-        if file_size <= 0 or time_value <= 0:
-            return JsonResponse({'success': False, 'error': _('File size and time must be greater than zero.')}, status=400)
-        
-        # Convert to bits and seconds
-        file_size_bits = file_size * self.UNIT_FACTORS.get(file_size_unit, 1)
-        time_seconds = self._convert_to_seconds(time_value, time_unit)
-        
-        if time_seconds <= 0:
-            return JsonResponse({'success': False, 'error': _('Invalid time value.')}, status=400)
-        
-        # Calculate bandwidth in bits per second
-        bandwidth_bps = file_size_bits / time_seconds
-        
-        # Convert to various bandwidth units
-        bandwidth_breakdown = self._convert_bandwidth_units(bandwidth_bps)
-        
-        # Prepare step-by-step solution
-        step_by_step = self._prepare_bandwidth_required_steps(
-            file_size, file_size_unit, time_value, time_unit,
-            file_size_bits, time_seconds, bandwidth_bps, bandwidth_breakdown
-        )
-        
-        result = {
-            'success': True,
-            'calc_type': 'bandwidth_required',
-            'file_size': file_size,
-            'file_size_unit': file_size_unit,
-            'time_value': time_value,
-            'time_unit': time_unit,
-            'bandwidth_bps': bandwidth_bps,
-            'bandwidth_breakdown': bandwidth_breakdown,
-            'step_by_step': step_by_step
-        }
-        
-        return JsonResponse(result)
-    
-    def _calculate_file_size(self, data):
-        """Calculate file size given bandwidth and time"""
-        bandwidth = float(data.get('bandwidth', 0))
-        bandwidth_unit = data.get('bandwidth_unit', 'Mbps')
-        time_value = float(data.get('time_value', 0))
-        time_unit = data.get('time_unit', 'seconds')
-        
-        if bandwidth <= 0 or time_value <= 0:
-            return JsonResponse({'success': False, 'error': _('Bandwidth and time must be greater than zero.')}, status=400)
-        
-        # Convert to bits per second and seconds
-        bandwidth_bps = bandwidth * self.UNIT_FACTORS.get(bandwidth_unit, 1)
-        time_seconds = self._convert_to_seconds(time_value, time_unit)
-        
-        if time_seconds <= 0:
-            return JsonResponse({'success': False, 'error': _('Invalid time value.')}, status=400)
-        
-        # Calculate file size in bits
-        file_size_bits = bandwidth_bps * time_seconds
-        
-        # Convert to various file size units
-        file_size_breakdown = self._convert_file_size_units(file_size_bits)
-        
-        # Prepare step-by-step solution
-        step_by_step = self._prepare_file_size_steps(
-            bandwidth, bandwidth_unit, time_value, time_unit,
-            bandwidth_bps, time_seconds, file_size_bits, file_size_breakdown
-        )
-        
-        result = {
-            'success': True,
-            'calc_type': 'file_size',
-            'bandwidth': bandwidth,
-            'bandwidth_unit': bandwidth_unit,
-            'time_value': time_value,
-            'time_unit': time_unit,
-            'file_size_bits': file_size_bits,
-            'file_size_breakdown': file_size_breakdown,
-            'step_by_step': step_by_step
-        }
-        
-        return JsonResponse(result)
-    
-    def _convert_time_units(self, seconds):
-        """Convert seconds to various time units"""
-        return {
-            'seconds': seconds,
-            'minutes': seconds / 60,
-            'hours': seconds / 3600,
-            'days': seconds / 86400,
-            'weeks': seconds / 604800,
-            'formatted': self._format_time(seconds)
-        }
-    
-    def _format_time(self, seconds):
-        """Format time in a human-readable way"""
-        if seconds < 60:
-            return _('{value:.2f} seconds').format(value=seconds)
-        elif seconds < 3600:
-            minutes = seconds / 60
-            return _('{value:.2f} minutes').format(value=minutes)
-        elif seconds < 86400:
-            hours = seconds / 3600
-            return _('{value:.2f} hours').format(value=hours)
-        else:
-            days = seconds / 86400
-            return _('{value:.2f} days').format(value=days)
-    
-    def _convert_to_seconds(self, value, unit):
-        """Convert time value to seconds"""
-        conversions = {
-            'seconds': 1,
-            'minutes': 60,
-            'hours': 3600,
-            'days': 86400,
-            'weeks': 604800
-        }
-        return value * conversions.get(unit, 1)
-    
-    def _convert_bandwidth_units(self, bps):
-        """Convert bandwidth from bits per second to various units"""
-        return {
-            'bps': bps,
-            'Kbps': bps / 1000,
-            'Mbps': bps / (1000 * 1000),
-            'Gbps': bps / (1000 * 1000 * 1000),
-            'Tbps': bps / (1000 * 1000 * 1000 * 1000),
-            'formatted': self._format_bandwidth(bps)
-        }
-    
-    def _format_bandwidth(self, bps):
-        """Format bandwidth in a human-readable way"""
-        if bps < 1000:
-            return _('{value:.2f} bps').format(value=bps)
-        elif bps < 1000000:
-            return _('{value:.2f} Kbps').format(value=bps / 1000)
-        elif bps < 1000000000:
-            return _('{value:.2f} Mbps').format(value=bps / 1000000)
-        elif bps < 1000000000000:
-            return _('{value:.2f} Gbps').format(value=bps / 1000000000)
-        else:
-            return _('{value:.2f} Tbps').format(value=bps / 1000000000000)
-    
-    def _convert_file_size_units(self, bits):
-        """Convert file size from bits to various units"""
-        return {
-            'bits': bits,
-            'bytes': bits / 8,
-            'KB': bits / (8 * 1024),
-            'MB': bits / (8 * 1024 * 1024),
-            'GB': bits / (8 * 1024 * 1024 * 1024),
-            'TB': bits / (8 * 1024 * 1024 * 1024 * 1024),
-            'formatted': self._format_file_size(bits)
-        }
-    
-    def _format_file_size(self, bits):
-        """Format file size in a human-readable way"""
-        bytes_val = bits / 8
-        if bytes_val < 1024:
-            return _('{value:.2f} bytes').format(value=bytes_val)
-        elif bytes_val < 1024 * 1024:
-            return _('{value:.2f} KB').format(value=bytes_val / 1024)
-        elif bytes_val < 1024 * 1024 * 1024:
-            return _('{value:.2f} MB').format(value=bytes_val / (1024 * 1024))
-        elif bytes_val < 1024 * 1024 * 1024 * 1024:
-            return _('{value:.2f} GB').format(value=bytes_val / (1024 * 1024 * 1024))
-        else:
-            return _('{value:.2f} TB').format(value=bytes_val / (1024 * 1024 * 1024 * 1024))
-    
-    def _prepare_transfer_time_steps(self, file_size, file_size_unit, bandwidth, bandwidth_unit,
-                                     file_size_bits, bandwidth_bps, time_seconds, time_breakdown):
-        """Prepare step-by-step solution for transfer time calculation"""
-        steps = []
-        steps.append(_("Step 1: Identify the Given Values"))
-        steps.append(_("  File Size: {size} {unit}").format(size=file_size, unit=file_size_unit))
-        steps.append(_("  Bandwidth: {bandwidth} {unit}").format(bandwidth=bandwidth, unit=bandwidth_unit))
-        steps.append("")
-        
-        steps.append(_("Step 2: Convert to Common Units (Bits)"))
-        steps.append(_("  File Size in Bits = {size} {unit} × {factor} = {bits:,} bits").format(
-            size=file_size, unit=file_size_unit,
-            factor=self.UNIT_FACTORS.get(file_size_unit, 1),
-            bits=int(file_size_bits)
-        ))
-        steps.append(_("  Bandwidth in bps = {bandwidth} {unit} × {factor} = {bps:,} bps").format(
-            bandwidth=bandwidth, unit=bandwidth_unit,
-            factor=self.UNIT_FACTORS.get(bandwidth_unit, 1),
-            bps=int(bandwidth_bps)
-        ))
-        steps.append("")
-        
-        steps.append(_("Step 3: Calculate Transfer Time"))
-        steps.append(_("  Time = File Size ÷ Bandwidth"))
-        steps.append(_("  Time = {bits:,} bits ÷ {bps:,} bps = {seconds:.2f} seconds").format(
-            bits=int(file_size_bits), bps=int(bandwidth_bps), seconds=time_seconds
-        ))
-        steps.append("")
-        
-        steps.append(_("Step 4: Convert to Various Time Units"))
-        steps.append(_("  Seconds: {seconds:.2f}").format(seconds=time_breakdown['seconds']))
-        steps.append(_("  Minutes: {minutes:.2f}").format(minutes=time_breakdown['minutes']))
-        steps.append(_("  Hours: {hours:.2f}").format(hours=time_breakdown['hours']))
-        steps.append(_("  Days: {days:.2f}").format(days=time_breakdown['days']))
-        steps.append("")
-        
-        steps.append(_("Step 5: Final Result"))
-        steps.append(_("  Transfer Time: {formatted}").format(formatted=time_breakdown['formatted']))
-        
-        return [str(step) for step in steps]
-    
-    def _prepare_bandwidth_required_steps(self, file_size, file_size_unit, time_value, time_unit,
-                                          file_size_bits, time_seconds, bandwidth_bps, bandwidth_breakdown):
-        """Prepare step-by-step solution for bandwidth required calculation"""
-        steps = []
-        steps.append(_("Step 1: Identify the Given Values"))
-        steps.append(_("  File Size: {size} {unit}").format(size=file_size, unit=file_size_unit))
-        steps.append(_("  Time: {time} {unit}").format(time=time_value, unit=time_unit))
-        steps.append("")
-        
-        steps.append(_("Step 2: Convert to Common Units"))
-        steps.append(_("  File Size in Bits = {size} {unit} × {factor} = {bits:,} bits").format(
-            size=file_size, unit=file_size_unit,
-            factor=self.UNIT_FACTORS.get(file_size_unit, 1),
-            bits=int(file_size_bits)
-        ))
-        steps.append(_("  Time in Seconds = {time} {unit} × {factor} = {seconds:.2f} seconds").format(
-            time=time_value, unit=time_unit,
-            factor=self._convert_to_seconds(1, time_unit),
-            seconds=time_seconds
-        ))
-        steps.append("")
-        
-        steps.append(_("Step 3: Calculate Required Bandwidth"))
-        steps.append(_("  Bandwidth = File Size ÷ Time"))
-        steps.append(_("  Bandwidth = {bits:,} bits ÷ {seconds:.2f} seconds = {bps:.2f} bps").format(
-            bits=int(file_size_bits), seconds=time_seconds, bps=bandwidth_bps
-        ))
-        steps.append("")
-        
-        steps.append(_("Step 4: Convert to Various Bandwidth Units"))
-        steps.append(_("  bps: {bps:.2f}").format(bps=bandwidth_breakdown['bps']))
-        steps.append(_("  Kbps: {kbps:.2f}").format(kbps=bandwidth_breakdown['Kbps']))
-        steps.append(_("  Mbps: {mbps:.2f}").format(mbps=bandwidth_breakdown['Mbps']))
-        steps.append(_("  Gbps: {gbps:.2f}").format(gbps=bandwidth_breakdown['Gbps']))
-        steps.append("")
-        
-        steps.append(_("Step 5: Final Result"))
-        steps.append(_("  Required Bandwidth: {formatted}").format(formatted=bandwidth_breakdown['formatted']))
-        
-        return [str(step) for step in steps]
-    
-    def _prepare_file_size_steps(self, bandwidth, bandwidth_unit, time_value, time_unit,
-                                bandwidth_bps, time_seconds, file_size_bits, file_size_breakdown):
-        """Prepare step-by-step solution for file size calculation"""
-        steps = []
-        steps.append(_("Step 1: Identify the Given Values"))
-        steps.append(_("  Bandwidth: {bandwidth} {unit}").format(bandwidth=bandwidth, unit=bandwidth_unit))
-        steps.append(_("  Time: {time} {unit}").format(time=time_value, unit=time_unit))
-        steps.append("")
-        
-        steps.append(_("Step 2: Convert to Common Units"))
-        steps.append(_("  Bandwidth in bps = {bandwidth} {unit} × {factor} = {bps:,} bps").format(
-            bandwidth=bandwidth, unit=bandwidth_unit,
-            factor=self.UNIT_FACTORS.get(bandwidth_unit, 1),
-            bps=int(bandwidth_bps)
-        ))
-        steps.append(_("  Time in Seconds = {time} {unit} × {factor} = {seconds:.2f} seconds").format(
-            time=time_value, unit=time_unit,
-            factor=self._convert_to_seconds(1, time_unit),
-            seconds=time_seconds
-        ))
-        steps.append("")
-        
-        steps.append(_("Step 3: Calculate File Size"))
-        steps.append(_("  File Size = Bandwidth × Time"))
-        steps.append(_("  File Size = {bps:,} bps × {seconds:.2f} seconds = {bits:,} bits").format(
-            bps=int(bandwidth_bps), seconds=time_seconds, bits=int(file_size_bits)
-        ))
-        steps.append("")
-        
-        steps.append(_("Step 4: Convert to Various File Size Units"))
-        steps.append(_("  Bits: {bits:.2f}").format(bits=file_size_breakdown['bits']))
-        steps.append(_("  Bytes: {bytes:.2f}").format(bytes=file_size_breakdown['bytes']))
-        steps.append(_("  KB: {kb:.2f}").format(kb=file_size_breakdown['KB']))
-        steps.append(_("  MB: {mb:.2f}").format(mb=file_size_breakdown['MB']))
-        steps.append(_("  GB: {gb:.2f}").format(gb=file_size_breakdown['GB']))
-        steps.append("")
-        
-        steps.append(_("Step 5: Final Result"))
-        steps.append(_("  File Size: {formatted}").format(formatted=file_size_breakdown['formatted']))
-        
-        return [str(step) for step in steps]
-    
-    def _prepare_transfer_time_chart_data(self, time_breakdown):
-        """Prepare chart data for transfer time visualization"""
-        chart_data = {}
-        
-        try:
-            chart_data['time_units_chart'] = {
-                'type': 'bar',
-                'data': {
-                    'labels': [str(_('Seconds')), str(_('Minutes')), str(_('Hours')), str(_('Days'))],
-                    'datasets': [{
-                        'label': str(_('Time Units')),
-                        'data': [
-                            time_breakdown['seconds'],
-                            time_breakdown['minutes'],
-                            time_breakdown['hours'],
-                            time_breakdown['days']
-                        ],
-                        'backgroundColor': [
-                            'rgba(59, 130, 246, 0.6)',
-                            'rgba(16, 185, 129, 0.6)',
-                            'rgba(245, 158, 11, 0.6)',
-                            'rgba(239, 68, 68, 0.6)'
-                        ],
-                        'borderColor': [
-                            '#3b82f6',
-                            '#10b981',
-                            '#f59e0b',
-                            '#ef4444'
-                        ],
-                        'borderWidth': 2
-                    }]
-                },
-                'options': {
-                    'scales': {
-                        'y': {
-                            'beginAtZero': True
-                        }
-                    }
-                }
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            ct = data.get('calc_type', 'transfer_time')
+            dispatch = {
+                'transfer_time':   self._calc_transfer_time,
+                'bandwidth_req':   self._calc_bandwidth_req,
+                'file_size':       self._calc_file_size,
+                'real_world':      self._calc_real_world,
+                'comparison':      self._calc_comparison,
+                'recommendation':  self._calc_recommendation,
             }
-        except Exception as e:
-            import traceback
-            print(f"Chart data preparation error: {traceback.format_exc()}")
-            chart_data = {}
-        
-        return chart_data
-    
-    def _calculate_real_world_speed(self, data):
-        """Calculate real-world transfer speed accounting for protocol overhead"""
-        file_size = float(data.get('file_size', 0))
-        file_size_unit = data.get('file_size_unit', 'MB')
-        bandwidth = float(data.get('bandwidth', 0))
-        bandwidth_unit = data.get('bandwidth_unit', 'Mbps')
-        protocol = data.get('protocol', 'default')
-        
-        if file_size <= 0 or bandwidth <= 0:
-            return JsonResponse({'success': False, 'error': _('File size and bandwidth must be greater than zero.')}, status=400)
-        
-        # Get protocol overhead
-        overhead_percent = self.PROTOCOL_OVERHEAD.get(protocol, self.PROTOCOL_OVERHEAD['default'])
-        
-        # Convert to bits
-        file_size_bits = file_size * self.UNIT_FACTORS.get(file_size_unit, 1)
-        bandwidth_bits_per_sec = bandwidth * self.UNIT_FACTORS.get(bandwidth_unit, 1)
-        
-        # Calculate theoretical time
-        theoretical_time = file_size_bits / bandwidth_bits_per_sec
-        
-        # Calculate effective bandwidth (accounting for overhead)
-        effective_bandwidth = bandwidth_bits_per_sec * (1 - overhead_percent)
-        real_world_time = file_size_bits / effective_bandwidth
-        
-        # Calculate difference
-        time_difference = real_world_time - theoretical_time
-        efficiency = (theoretical_time / real_world_time) * 100
-        
-        result = {
-            'success': True,
-            'calc_type': 'real_world_speed',
-            'theoretical_time': self._convert_time_units(theoretical_time),
-            'real_world_time': self._convert_time_units(real_world_time),
-            'time_difference': self._convert_time_units(time_difference),
-            'efficiency': round(efficiency, 2),
-            'overhead_percent': round(overhead_percent * 100, 2),
-            'protocol': protocol,
-            'effective_bandwidth': self._convert_bandwidth_units(effective_bandwidth)
+            handler = dispatch.get(ct)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
+        except json.JSONDecodeError:
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _to_bits(self, val, unit):
+        f = self.FS.get(unit)
+        if f is None:
+            raise ValueError(str(_('Unknown file-size unit: {u}').format(u=unit)))
+        return float(val) * f
+
+    def _to_bps(self, val, unit):
+        f = self.BW.get(unit)
+        if f is None:
+            raise ValueError(str(_('Unknown bandwidth unit: {u}').format(u=unit)))
+        return float(val) * f
+
+    def _to_sec(self, val, unit):
+        f = self.TIME.get(unit)
+        if f is None:
+            raise ValueError(str(_('Unknown time unit: {u}').format(u=unit)))
+        return float(val) * f
+
+    @staticmethod
+    def _fmt_time(s):
+        if s < 0.01:
+            return f'{s*1000:.2f} ms'
+        if s < 60:
+            return f'{s:.2f} sec'
+        if s < 3600:
+            return f'{s/60:.2f} min'
+        if s < 86400:
+            return f'{s/3600:.2f} hr'
+        return f'{s/86400:.2f} days'
+
+    @staticmethod
+    def _fmt_bw(bps):
+        if bps < 1e3:   return f'{bps:.2f} bps'
+        if bps < 1e6:   return f'{bps/1e3:.2f} Kbps'
+        if bps < 1e9:   return f'{bps/1e6:.2f} Mbps'
+        if bps < 1e12:  return f'{bps/1e9:.2f} Gbps'
+        return f'{bps/1e12:.2f} Tbps'
+
+    @staticmethod
+    def _fmt_fs(bits):
+        b = bits / 8
+        if b < 1024:        return f'{b:.2f} B'
+        if b < 1024**2:     return f'{b/1024:.2f} KB'
+        if b < 1024**3:     return f'{b/1024**2:.2f} MB'
+        if b < 1024**4:     return f'{b/1024**3:.2f} GB'
+        return f'{b/1024**4:.2f} TB'
+
+    def _time_breakdown(self, s):
+        return {
+            'seconds': round(s, 4), 'minutes': round(s/60, 4),
+            'hours': round(s/3600, 4), 'days': round(s/86400, 4),
+            'formatted': self._fmt_time(s),
         }
-        
-        return JsonResponse(result)
-    
-    def _calculate_batch_transfer(self, data):
-        """Calculate transfer time for multiple files"""
-        files = data.get('files', [])
-        bandwidth = float(data.get('bandwidth', 0))
-        bandwidth_unit = data.get('bandwidth_unit', 'Mbps')
-        transfer_type = data.get('transfer_type', 'sequential')  # sequential or parallel
-        
-        if not files or len(files) == 0:
-            return JsonResponse({'success': False, 'error': _('Please provide at least one file.')}, status=400)
-        
-        if bandwidth <= 0:
-            return JsonResponse({'success': False, 'error': _('Bandwidth must be greater than zero.')}, status=400)
-        
-        bandwidth_bps = bandwidth * self.UNIT_FACTORS.get(bandwidth_unit, 1)
-        
-        total_size_bits = 0
-        file_results = []
-        
-        for file_data in files:
-            file_size = float(file_data.get('size', 0))
-            file_size_unit = file_data.get('unit', 'MB')
-            file_name = file_data.get('name', _('File'))
-            
-            file_size_bits = file_size * self.UNIT_FACTORS.get(file_size_unit, 1)
-            file_time = file_size_bits / bandwidth_bps
-            
-            file_results.append({
-                'name': file_name,
-                'size': file_size,
-                'unit': file_size_unit,
-                'time': self._convert_time_units(file_time)
-            })
-            
-            if transfer_type == 'sequential':
-                total_size_bits += file_size_bits
-            else:  # parallel
-                total_size_bits = max(total_size_bits, file_size_bits)
-        
-        if transfer_type == 'sequential':
-            total_time = total_size_bits / bandwidth_bps
-        else:
-            total_time = total_size_bits / bandwidth_bps
-        
-        result = {
-            'success': True,
-            'calc_type': 'batch_transfer',
-            'transfer_type': transfer_type,
-            'total_time': self._convert_time_units(total_time),
-            'files': file_results,
-            'total_files': len(files)
+
+    def _bw_breakdown(self, bps):
+        return {
+            'bps': round(bps, 2), 'Kbps': round(bps/1e3, 4),
+            'Mbps': round(bps/1e6, 4), 'Gbps': round(bps/1e9, 6),
+            'formatted': self._fmt_bw(bps),
         }
-        
-        return JsonResponse(result)
-    
-    def _calculate_connection_comparison(self, data):
-        """Compare transfer times across different connection types"""
-        file_size = float(data.get('file_size', 0))
-        file_size_unit = data.get('file_size_unit', 'MB')
-        connection_types = data.get('connection_types', list(self.CONNECTION_TYPES.keys()))
-        
-        if file_size <= 0:
-            return JsonResponse({'success': False, 'error': _('File size must be greater than zero.')}, status=400)
-        
-        file_size_bits = file_size * self.UNIT_FACTORS.get(file_size_unit, 1)
-        comparisons = []
-        
-        for conn_type in connection_types:
-            if conn_type in self.CONNECTION_TYPES:
-                conn_info = self.CONNECTION_TYPES[conn_type]
-                speed = conn_info['speed']
-                unit = conn_info['unit']
-                name = conn_info['name']
-                
-                bandwidth_bps = speed * self.UNIT_FACTORS.get(unit, 1)
-                transfer_time = file_size_bits / bandwidth_bps
-                
-                comparisons.append({
-                    'type': conn_type,
-                    'name': str(name),
-                    'speed': speed,
-                    'unit': unit,
-                    'transfer_time': self._convert_time_units(transfer_time)
-                })
-        
-        # Sort by transfer time
-        comparisons.sort(key=lambda x: x['transfer_time']['seconds'])
-        
-        result = {
-            'success': True,
-            'calc_type': 'connection_comparison',
-            'file_size': file_size,
-            'file_size_unit': file_size_unit,
-            'comparisons': comparisons
+
+    def _fs_breakdown(self, bits):
+        b = bits / 8
+        return {
+            'bits': round(bits, 2), 'bytes': round(b, 2),
+            'KB': round(b/1024, 4), 'MB': round(b/1024**2, 4),
+            'GB': round(b/1024**3, 6), 'TB': round(b/1024**4, 8),
+            'formatted': self._fmt_fs(bits),
         }
-        
-        return JsonResponse(result)
-    
-    def _calculate_cost(self, data):
-        """Calculate data transfer costs"""
-        file_size = float(data.get('file_size', 0))
-        file_size_unit = data.get('file_size_unit', 'GB')
-        cost_per_gb = float(data.get('cost_per_gb', 0))
-        bandwidth = float(data.get('bandwidth', 0))
-        bandwidth_unit = data.get('bandwidth_unit', 'Mbps')
-        
-        if file_size <= 0:
-            return JsonResponse({'success': False, 'error': _('File size must be greater than zero.')}, status=400)
-        
-        # Convert file size to GB
-        file_size_bits = file_size * self.UNIT_FACTORS.get(file_size_unit, 1)
-        file_size_gb = file_size_bits / (8 * 1024 * 1024 * 1024)
-        
-        # Calculate cost
-        total_cost = file_size_gb * cost_per_gb
-        
-        # Calculate transfer time if bandwidth provided
-        transfer_time = None
-        if bandwidth > 0:
-            bandwidth_bps = bandwidth * self.UNIT_FACTORS.get(bandwidth_unit, 1)
-            time_seconds = file_size_bits / bandwidth_bps
-            transfer_time = self._convert_time_units(time_seconds)
-        
-        result = {
-            'success': True,
-            'calc_type': 'cost_calculation',
-            'file_size_gb': round(file_size_gb, 4),
-            'cost_per_gb': cost_per_gb,
-            'total_cost': round(total_cost, 2),
-            'transfer_time': transfer_time
-        }
-        
-        return JsonResponse(result)
-    
-    def _get_bandwidth_recommendation(self, data):
-        """Get bandwidth recommendations based on use case"""
-        use_case = data.get('use_case', 'general')
-        num_users = int(data.get('num_users', 1))
-        concurrent_streams = int(data.get('concurrent_streams', 1))
-        
-        # Bandwidth requirements per use case (in Mbps per user/stream)
-        requirements = {
-            'web_browsing': 1,
-            'email': 0.5,
-            'video_call': 2,
-            'hd_streaming': 5,
-            '4k_streaming': 25,
-            'gaming': 3,
-            'file_sharing': 10,
-            'video_conferencing': 4,
-            'general': 5
-        }
-        
-        base_requirement = requirements.get(use_case, requirements['general'])
-        
-        # Calculate total requirement
-        if use_case in ['hd_streaming', '4k_streaming']:
-            total_bandwidth = base_requirement * concurrent_streams
-        else:
-            total_bandwidth = base_requirement * num_users
-        
-        # Add 20% buffer for network overhead
-        recommended_bandwidth = total_bandwidth * 1.2
-        
-        # Get connection recommendations
-        suitable_connections = []
-        for conn_type, conn_info in self.CONNECTION_TYPES.items():
-            speed = conn_info['speed']
-            if speed >= recommended_bandwidth:
-                suitable_connections.append({
-                    'type': conn_type,
-                    'name': str(conn_info['name']),
-                    'speed': speed,
-                    'unit': conn_info['unit']
-                })
-        
-        result = {
-            'success': True,
-            'calc_type': 'bandwidth_recommendation',
-            'use_case': use_case,
-            'num_users': num_users,
-            'concurrent_streams': concurrent_streams,
-            'base_requirement': round(base_requirement, 2),
-            'recommended_bandwidth': round(recommended_bandwidth, 2),
-            'suitable_connections': suitable_connections
-        }
-        
-        return JsonResponse(result)
+
+    # ── 1) TRANSFER TIME ─────────────────────────────────────────────
+    def _calc_transfer_time(self, data):
+        fs = data.get('file_size')
+        fu = data.get('file_size_unit', 'MB')
+        bw = data.get('bandwidth')
+        bu = data.get('bandwidth_unit', 'Mbps')
+
+        if not fs or not bw:
+            return self._err(_('File size and bandwidth are required.'))
+
+        bits = self._to_bits(fs, fu)
+        bps = self._to_bps(bw, bu)
+        if bits <= 0 or bps <= 0:
+            return self._err(_('Values must be greater than zero.'))
+
+        t = bits / bps
+        tb = self._time_breakdown(t)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("File")} = {fs} {fu}',
+            f'  • {_("Bandwidth")} = {bw} {bu}',
+            '',
+            str(_('Step 2: Convert to bits and bps')),
+            f'  {_("File")} = {fs} {fu} × {self.FS[fu]:,} = {int(bits):,} bits',
+            f'  {_("Bandwidth")} = {bw} {bu} × {self.BW[bu]:,.0f} = {int(bps):,} bps',
+            '',
+            str(_('Step 3: Calculate time')),
+            f'  {_("Time")} = {int(bits):,} ÷ {int(bps):,} = {t:.4f} {_("seconds")}',
+            '',
+            str(_('Step 4: Time breakdown')),
+            f'  {_("Seconds")}: {tb["seconds"]}',
+            f'  {_("Minutes")}: {tb["minutes"]}',
+            f'  {_("Hours")}: {tb["hours"]}',
+            f'  {_("Days")}: {tb["days"]}',
+            '',
+            str(_('Result: {t}').format(t=tb["formatted"])),
+        ]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Seconds')), str(_('Minutes')), str(_('Hours')), str(_('Days'))],
+                'datasets': [{
+                    'label': str(_('Transfer Time')),
+                    'data': [tb['seconds'], tb['minutes'], tb['hours'], tb['days']],
+                    'backgroundColor': ['rgba(59,130,246,0.7)', 'rgba(16,185,129,0.7)',
+                                        'rgba(245,158,11,0.7)', 'rgba(239,68,68,0.7)'],
+                    'borderColor': ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Transfer Time Breakdown'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'transfer_time',
+            'result': tb['formatted'], 'result_label': str(_('Transfer Time')),
+            'time_breakdown': tb,
+            'formula': f'{fs} {fu} ÷ {bw} {bu} = {tb["formatted"]}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Seconds')), 'value': str(tb['seconds']), 'color': 'blue'},
+                {'label': str(_('Minutes')), 'value': str(tb['minutes']), 'color': 'green'},
+                {'label': str(_('Hours')), 'value': str(tb['hours']), 'color': 'yellow'},
+                {'label': str(_('Days')), 'value': str(tb['days']), 'color': 'red'},
+            ],
+        })
+
+    # ── 2) BANDWIDTH REQUIRED ────────────────────────────────────────
+    def _calc_bandwidth_req(self, data):
+        fs = data.get('file_size')
+        fu = data.get('file_size_unit', 'MB')
+        tv = data.get('time_value')
+        tu = data.get('time_unit', 'seconds')
+
+        if not fs or not tv:
+            return self._err(_('File size and time are required.'))
+
+        bits = self._to_bits(fs, fu)
+        secs = self._to_sec(tv, tu)
+        if bits <= 0 or secs <= 0:
+            return self._err(_('Values must be greater than zero.'))
+
+        bps = bits / secs
+        bb = self._bw_breakdown(bps)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("File")} = {fs} {fu}',
+            f'  • {_("Time")} = {tv} {tu}',
+            '',
+            str(_('Step 2: Convert')),
+            f'  {_("File")} = {int(bits):,} bits',
+            f'  {_("Time")} = {secs:.2f} seconds',
+            '',
+            str(_('Step 3: Calculate bandwidth')),
+            f'  {_("Bandwidth")} = {int(bits):,} ÷ {secs:.2f} = {bps:.2f} bps',
+            '',
+            str(_('Step 4: Bandwidth breakdown')),
+            f'  Kbps: {bb["Kbps"]}',
+            f'  Mbps: {bb["Mbps"]}',
+            f'  Gbps: {bb["Gbps"]}',
+            '',
+            str(_('Result: {b}').format(b=bb["formatted"])),
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'bandwidth_req',
+            'result': bb['formatted'], 'result_label': str(_('Required Bandwidth')),
+            'bandwidth_breakdown': bb,
+            'formula': f'{fs} {fu} in {tv} {tu} → {bb["formatted"]}',
+            'step_by_step': steps,
+            'detail_cards': [
+                {'label': 'bps',  'value': f'{bb["bps"]:,.0f}', 'color': 'blue'},
+                {'label': 'Kbps', 'value': str(bb['Kbps']), 'color': 'green'},
+                {'label': 'Mbps', 'value': str(bb['Mbps']), 'color': 'yellow'},
+                {'label': 'Gbps', 'value': str(bb['Gbps']), 'color': 'purple'},
+            ],
+        })
+
+    # ── 3) FILE SIZE ─────────────────────────────────────────────────
+    def _calc_file_size(self, data):
+        bw = data.get('bandwidth')
+        bu = data.get('bandwidth_unit', 'Mbps')
+        tv = data.get('time_value')
+        tu = data.get('time_unit', 'seconds')
+
+        if not bw or not tv:
+            return self._err(_('Bandwidth and time are required.'))
+
+        bps = self._to_bps(bw, bu)
+        secs = self._to_sec(tv, tu)
+        if bps <= 0 or secs <= 0:
+            return self._err(_('Values must be greater than zero.'))
+
+        bits = bps * secs
+        fb = self._fs_breakdown(bits)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Bandwidth")} = {bw} {bu}',
+            f'  • {_("Time")} = {tv} {tu}',
+            '',
+            str(_('Step 2: Convert')),
+            f'  {_("Bandwidth")} = {bps:,.0f} bps',
+            f'  {_("Time")} = {secs:.2f} seconds',
+            '',
+            str(_('Step 3: Calculate file size')),
+            f'  {_("Size")} = {bps:,.0f} × {secs:.2f} = {bits:,.0f} bits',
+            '',
+            str(_('Step 4: File size breakdown')),
+            f'  KB: {fb["KB"]}',
+            f'  MB: {fb["MB"]}',
+            f'  GB: {fb["GB"]}',
+            '',
+            str(_('Result: {s}').format(s=fb["formatted"])),
+        ]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'file_size',
+            'result': fb['formatted'], 'result_label': str(_('Maximum File Size')),
+            'file_size_breakdown': fb,
+            'formula': f'{bw} {bu} × {tv} {tu} = {fb["formatted"]}',
+            'step_by_step': steps,
+            'detail_cards': [
+                {'label': 'KB', 'value': str(fb['KB']), 'color': 'blue'},
+                {'label': 'MB', 'value': str(fb['MB']), 'color': 'green'},
+                {'label': 'GB', 'value': str(fb['GB']), 'color': 'yellow'},
+                {'label': 'TB', 'value': str(fb['TB']), 'color': 'purple'},
+            ],
+        })
+
+    # ── 4) REAL-WORLD SPEED ──────────────────────────────────────────
+    def _calc_real_world(self, data):
+        fs = data.get('file_size')
+        fu = data.get('file_size_unit', 'MB')
+        bw = data.get('bandwidth')
+        bu = data.get('bandwidth_unit', 'Mbps')
+        proto = data.get('protocol', 'tcp')
+
+        if not fs or not bw:
+            return self._err(_('File size and bandwidth are required.'))
+
+        bits = self._to_bits(fs, fu)
+        bps = self._to_bps(bw, bu)
+        if bits <= 0 or bps <= 0:
+            return self._err(_('Values must be greater than zero.'))
+
+        oh_pct = self.OVERHEAD.get(proto, 0.10)
+        eff_bps = bps * (1 - oh_pct)
+        eff_pct = round((1 - oh_pct) * 100, 1)
+
+        t_ideal = bits / bps
+        t_real = bits / eff_bps
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("File")} = {fs} {fu}  ({int(bits):,} bits)',
+            f'  • {_("Bandwidth")} = {bw} {bu}  ({int(bps):,} bps)',
+            f'  • {_("Protocol")} = {proto.upper()}  ({oh_pct*100:.0f}% overhead)',
+            '',
+            str(_('Step 2: Calculate effective bandwidth')),
+            f'  {_("Effective")} = {int(bps):,} × {eff_pct/100} = {eff_bps:,.0f} bps',
+            f'  {_("Effective")} = {self._fmt_bw(eff_bps)}',
+            '',
+            str(_('Step 3: Calculate times')),
+            f'  {_("Ideal time")} = {int(bits):,} ÷ {int(bps):,} = {self._fmt_time(t_ideal)}',
+            f'  {_("Real time")} = {int(bits):,} ÷ {eff_bps:,.0f} = {self._fmt_time(t_real)}',
+            f'  {_("Difference")} = {self._fmt_time(t_real - t_ideal)}',
+            '',
+            str(_('Result: {t} (real-world with {p} overhead)').format(
+                t=self._fmt_time(t_real), p=proto.upper())),
+        ]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': [str(_('Ideal Time (sec)')), str(_('Real Time (sec)'))],
+                'datasets': [{
+                    'label': str(_('Seconds')),
+                    'data': [round(t_ideal, 4), round(t_real, 4)],
+                    'backgroundColor': ['rgba(16,185,129,0.7)', 'rgba(239,68,68,0.7)'],
+                    'borderColor': ['#10b981', '#ef4444'],
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True, 'text': str(_('Ideal vs Real-World'))}},
+                'scales': {'y': {'beginAtZero': True}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'real_world',
+            'result': self._fmt_time(t_real),
+            'result_label': str(_('Real-World Transfer Time')),
+            'ideal_time': self._fmt_time(t_ideal),
+            'real_time': self._fmt_time(t_real),
+            'efficiency': eff_pct,
+            'protocol': proto,
+            'overhead_pct': oh_pct * 100,
+            'effective_bw': self._fmt_bw(eff_bps),
+            'formula': f'{fs} {fu} @ {bw} {bu} ({proto.upper()}) → {self._fmt_time(t_real)}',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': str(_('Ideal')), 'value': self._fmt_time(t_ideal), 'color': 'green'},
+                {'label': str(_('Real')), 'value': self._fmt_time(t_real), 'color': 'red'},
+                {'label': str(_('Efficiency')), 'value': f'{eff_pct}%', 'color': 'blue'},
+                {'label': str(_('Effective BW')), 'value': self._fmt_bw(eff_bps), 'color': 'purple'},
+            ],
+        })
+
+    # ── 5) CONNECTION COMPARISON ─────────────────────────────────────
+    def _calc_comparison(self, data):
+        fs = data.get('file_size')
+        fu = data.get('file_size_unit', 'MB')
+
+        if not fs:
+            return self._err(_('File size is required.'))
+
+        bits = self._to_bits(fs, fu)
+        if bits <= 0:
+            return self._err(_('File size must be greater than zero.'))
+
+        rows = []
+        labels, times_sec = [], []
+        for name, speed, unit in self.CONNS:
+            bps = speed * self.BW[unit]
+            t = bits / bps
+            rows.append({'name': name, 'speed': f'{speed} {unit}', 'time': self._fmt_time(t), 'seconds': round(t, 4)})
+            labels.append(name)
+            times_sec.append(round(t, 4))
+
+        steps = [
+            str(_('Step 1: File size')),
+            f'  {fs} {fu} = {int(bits):,} bits',
+            '',
+            str(_('Step 2: Transfer time for each connection')),
+        ]
+        for r in rows:
+            steps.append(f'  • {r["name"]} ({r["speed"]}): {r["time"]}')
+        steps += ['', str(_('Result: Fastest = {n}  ({t})').format(n=rows[-1]['name'], t=rows[-1]['time']))]
+
+        chart = {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Seconds')),
+                    'data': times_sec,
+                    'backgroundColor': 'rgba(59,130,246,0.7)',
+                    'borderColor': '#3b82f6',
+                    'borderWidth': 2, 'borderRadius': 6,
+                }],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'indexAxis': 'y',
+                'plugins': {'legend': {'display': False},
+                            'title': {'display': True,
+                                      'text': str(_('Transfer Time by Connection'))}},
+                'scales': {'x': {'beginAtZero': True,
+                                 'title': {'display': True, 'text': str(_('Seconds'))}}},
+            },
+        }}
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'comparison',
+            'result': f'{len(rows)} connections compared',
+            'result_label': str(_('Connection Comparison')),
+            'file_size': fs, 'file_size_unit': fu,
+            'connections': rows,
+            'formula': f'{fs} {fu} across {len(rows)} connection types',
+            'step_by_step': steps, 'chart_data': chart,
+            'detail_cards': [
+                {'label': rows[0]['name'], 'value': rows[0]['time'], 'color': 'red'},
+                {'label': rows[-1]['name'], 'value': rows[-1]['time'], 'color': 'green'},
+                {'label': str(_('File')), 'value': f'{fs} {fu}', 'color': 'blue'},
+                {'label': str(_('Types')), 'value': str(len(rows)), 'color': 'purple'},
+            ],
+        })
+
+    # ── 6) RECOMMENDATION ────────────────────────────────────────────
+    def _calc_recommendation(self, data):
+        uc = data.get('use_case', 'general')
+        users = int(data.get('num_users', 1))
+        streams = int(data.get('concurrent_streams', 1))
+
+        if users < 1: users = 1
+        if streams < 1: streams = 1
+        if users > 100:
+            return self._err(_('Maximum 100 users.'))
+
+        base, label = self.USE_CASES.get(uc, self.USE_CASES['general'])
+        total = base * users * streams
+        recommended = round(total * 1.2, 2)  # 20 % headroom
+
+        suitable = [(n, s, u) for n, s, u in self.CONNS
+                     if s * (self.BW[u] / 1e6) >= recommended]
+
+        steps = [
+            str(_('Step 1: Use case')),
+            f'  • {label}',
+            f'  • {_("Base")} = {base} Mbps {_("per user per stream")}',
+            '',
+            str(_('Step 2: Total requirement')),
+            f'  {base} × {users} {_("users")} × {streams} {_("streams")} = {total} Mbps',
+            '',
+            str(_('Step 3: Add 20% headroom')),
+            f'  {total} × 1.2 = {recommended} Mbps',
+            '',
+            str(_('Step 4: Suitable connections')),
+        ]
+        for n, s, u in suitable:
+            steps.append(f'  ✓ {n} ({s} {u})')
+        if not suitable:
+            steps.append(f'  {_("No standard connection meets this requirement.")}')
+        steps += ['', str(_('Result: Recommended {r} Mbps for {l}').format(r=recommended, l=label))]
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'recommendation',
+            'result': f'{recommended} Mbps',
+            'result_label': str(_('Recommended Bandwidth')),
+            'use_case': label,
+            'base_per_user': base,
+            'users': users, 'streams': streams,
+            'total_raw': total, 'recommended': recommended,
+            'suitable': [{'name': n, 'speed': f'{s} {u}'} for n, s, u in suitable],
+            'formula': f'{base} × {users} × {streams} × 1.2 = {recommended} Mbps',
+            'step_by_step': steps,
+            'detail_cards': [
+                {'label': str(_('Base')), 'value': f'{base} Mbps', 'color': 'blue'},
+                {'label': str(_('Users')), 'value': str(users), 'color': 'green'},
+                {'label': str(_('Streams')), 'value': str(streams), 'color': 'yellow'},
+                {'label': str(_('Recommended')), 'value': f'{recommended} Mbps', 'color': 'purple'},
+            ],
+        })

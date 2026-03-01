@@ -5,516 +5,353 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
-import math
 import numpy as np
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class WindChillCalculator(View):
     """
-    Professional Wind Chill Calculator with Comprehensive Features
-    
-    This calculator provides wind chill calculations with:
-    - Calculate wind chill from temperature and wind speed
-    - Calculate temperature from wind chill (reverse calculation)
-    - Calculate wind speed from wind chill (reverse calculation)
-    - Support for Celsius and Fahrenheit
-    - Support for mph, km/h, and m/s wind speeds
-    
-    Features:
-    - Supports multiple calculation modes
-    - Handles various temperature and wind speed units
-    - Provides step-by-step solutions
-    - Interactive visualizations
-    - Risk category assessment
+    Wind Chill Calculator — NWS Wind Chill Index.
+
+    Calc types
+        • wind_chill       → WC from temperature + wind speed
+        • from_wind_chill  → T from WC + wind speed (algebraic)
+        • wind_speed       → V from WC + T (binary-search)
+
+    NWS formula (°F, mph):
+        WC = 35.74 + 0.6215·T − 35.75·V^0.16 + 0.4275·T·V^0.16
+
+    Valid when T ≤ 50 °F and V ≥ 3 mph.
     """
     template_name = 'other_calculators/wind_chill_calculator.html'
-    
+
+    WIND_SYM = {'mph': 'mph', 'kmh': 'km/h', 'ms': 'm/s'}
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Wind Chill Calculator'),
-        }
-        return render(request, self.template_name, context)
-    
+        })
+
+    # ── POST router ──────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'wind_chill')
-            
-            if calc_type == 'wind_chill':
-                return self._calculate_wind_chill(data)
-            elif calc_type == 'from_wind_chill':
-                return self._calculate_from_wind_chill(data)
-            elif calc_type == 'wind_speed':
-                return self._calculate_wind_speed(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _fahrenheit_to_celsius(self, f):
-        """Convert Fahrenheit to Celsius"""
-        return (f - 32) * 5 / 9
-    
-    def _celsius_to_fahrenheit(self, c):
-        """Convert Celsius to Fahrenheit"""
-        return (c * 9 / 5) + 32
-    
-    def _mph_to_kmh(self, mph):
-        """Convert mph to km/h"""
-        return mph * 1.60934
-    
-    def _kmh_to_mph(self, kmh):
-        """Convert km/h to mph"""
-        return kmh / 1.60934
-    
-    def _mph_to_ms(self, mph):
-        """Convert mph to m/s"""
-        return mph * 0.44704
-    
-    def _ms_to_mph(self, ms):
-        """Convert m/s to mph"""
-        return ms / 0.44704
-    
-    def _calculate_wind_chill_index(self, temp_f, wind_speed_mph):
-        """
-        Calculate wind chill using North American Wind Chill Index
-        Formula: WC = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16
-        Where T is temperature in Fahrenheit and V is wind speed in mph
-        """
-        if wind_speed_mph < 3:
-            # Wind chill only applies when wind speed is 3 mph or higher
-            return temp_f
-        
-        if temp_f > 50:
-            # Wind chill only applies when temperature is 50°F or below
-            return temp_f
-        
-        wind_chill = 35.74 + (0.6215 * temp_f) - (35.75 * (wind_speed_mph ** 0.16)) + (0.4275 * temp_f * (wind_speed_mph ** 0.16))
-        return wind_chill
-    
-    def _get_wind_chill_category(self, wind_chill_f):
-        """Get risk category based on wind chill"""
-        if wind_chill_f >= 32:
-            return {'category': _('Little Danger'), 'color': 'green', 'description': _('Little danger from freezing for properly clothed person')}
-        elif wind_chill_f >= 0:
-            return {'category': _('Caution'), 'color': 'yellow', 'description': _('Uncomfortable. Risk of hypothermia if outside for long periods')}
-        elif wind_chill_f >= -20:
-            return {'category': _('Caution'), 'color': 'yellow', 'description': _('Uncomfortable. Risk of hypothermia if outside for long periods')}
-        elif wind_chill_f >= -40:
-            return {'category': _('Danger'), 'color': 'orange', 'description': _('Dangerous. Exposed skin can freeze in 10 minutes')}
-        else:
-            return {'category': _('Extreme Danger'), 'color': 'red', 'description': _('Extremely dangerous. Exposed skin can freeze in 5 minutes')}
-    
-    def _calculate_wind_chill(self, data):
-        """Calculate wind chill from temperature and wind speed"""
-        try:
-            if 'temperature' not in data or data.get('temperature') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Temperature is required.')
-                }, status=400)
-            
-            if 'wind_speed' not in data or data.get('wind_speed') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind speed is required.')
-                }, status=400)
-            
-            try:
-                temperature = float(data.get('temperature', 0))
-                wind_speed = float(data.get('wind_speed', 0))
-                temp_unit = data.get('temp_unit', 'F')
-                wind_unit = data.get('wind_unit', 'mph')
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Convert to Fahrenheit and mph for calculation
-            if temp_unit == 'C':
-                temp_f = self._celsius_to_fahrenheit(temperature)
-            else:
-                temp_f = temperature
-            
-            if wind_unit == 'kmh':
-                wind_speed_mph = self._kmh_to_mph(wind_speed)
-            elif wind_unit == 'ms':
-                wind_speed_mph = self._ms_to_mph(wind_speed)
-            else:
-                wind_speed_mph = wind_speed
-            
-            # Validation
-            if wind_speed_mph < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind speed must be non-negative.')
-                }, status=400)
-            
-            # Calculate wind chill
-            wind_chill_f = self._calculate_wind_chill_index(temp_f, wind_speed_mph)
-            
-            # Convert back to requested unit
-            if temp_unit == 'C':
-                wind_chill_result = self._fahrenheit_to_celsius(wind_chill_f)
-            else:
-                wind_chill_result = wind_chill_f
-            
-            # Get risk category
-            category = self._get_wind_chill_category(wind_chill_f)
-            
-            # Calculate wind chill for different wind speeds (for chart)
-            wind_speeds = []
-            wind_chills = []
-            for ws in range(0, 51, 5):
-                wc = self._calculate_wind_chill_index(temp_f, ws)
-                wind_speeds.append(ws)
-                if temp_unit == 'C':
-                    wind_chills.append(self._fahrenheit_to_celsius(wc))
-                else:
-                    wind_chills.append(wc)
-            
-            steps = self._prepare_wind_chill_steps(temperature, temp_unit, temp_f, wind_speed, wind_unit, wind_speed_mph, wind_chill_f, wind_chill_result, temp_unit)
-            chart_data = self._prepare_wind_chill_chart_data(wind_speeds, wind_chills, temp_unit)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'wind_chill',
-                'temperature': temperature,
-                'temp_unit': temp_unit,
-                'wind_speed': wind_speed,
-                'wind_unit': wind_unit,
-                'wind_chill': round(wind_chill_result, 2),
-                'wind_chill_f': round(wind_chill_f, 2),
-                'category': category,
-                'step_by_step': steps,
-                'chart_data': chart_data,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating wind chill: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_from_wind_chill(self, data):
-        """Calculate temperature from wind chill and wind speed (reverse calculation)"""
-        try:
-            if 'wind_chill' not in data or data.get('wind_chill') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind chill is required.')
-                }, status=400)
-            
-            if 'wind_speed' not in data or data.get('wind_speed') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind speed is required.')
-                }, status=400)
-            
-            try:
-                wind_chill = float(data.get('wind_chill', 0))
-                wind_speed = float(data.get('wind_speed', 0))
-                temp_unit = data.get('temp_unit', 'F')
-                wind_unit = data.get('wind_unit', 'mph')
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Convert to Fahrenheit and mph
-            if temp_unit == 'C':
-                wind_chill_f = self._celsius_to_fahrenheit(wind_chill)
-            else:
-                wind_chill_f = wind_chill
-            
-            if wind_unit == 'kmh':
-                wind_speed_mph = self._kmh_to_mph(wind_speed)
-            elif wind_unit == 'ms':
-                wind_speed_mph = self._ms_to_mph(wind_speed)
-            else:
-                wind_speed_mph = wind_speed
-            
-            # Validation
-            if wind_speed_mph < 3:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind speed must be at least 3 mph for wind chill calculation.')
-                }, status=400)
-            
-            # Reverse calculation: solve for T in WC = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16
-            # WC = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16
-            # WC - 35.74 + 35.75×V^0.16 = T×(0.6215 + 0.4275×V^0.16)
-            # T = (WC - 35.74 + 35.75×V^0.16) / (0.6215 + 0.4275×V^0.16)
-            
-            v_power = wind_speed_mph ** 0.16
-            temp_f = (wind_chill_f - 35.74 + 35.75 * v_power) / (0.6215 + 0.4275 * v_power)
-            
-            # Convert back to requested unit
-            if temp_unit == 'C':
-                temp_result = self._fahrenheit_to_celsius(temp_f)
-            else:
-                temp_result = temp_f
-            
-            steps = self._prepare_from_wind_chill_steps(wind_chill, temp_unit, wind_chill_f, wind_speed, wind_unit, wind_speed_mph, v_power, temp_f, temp_result, temp_unit)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'from_wind_chill',
-                'wind_chill': wind_chill,
-                'temp_unit': temp_unit,
-                'wind_speed': wind_speed,
-                'wind_unit': wind_unit,
-                'temperature': round(temp_result, 2),
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating from wind chill: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_wind_speed(self, data):
-        """Calculate wind speed from wind chill and temperature (reverse calculation)"""
-        try:
-            if 'wind_chill' not in data or data.get('wind_chill') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind chill is required.')
-                }, status=400)
-            
-            if 'temperature' not in data or data.get('temperature') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Temperature is required.')
-                }, status=400)
-            
-            try:
-                wind_chill = float(data.get('wind_chill', 0))
-                temperature = float(data.get('temperature', 0))
-                temp_unit = data.get('temp_unit', 'F')
-                wind_unit = data.get('wind_unit', 'mph')
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            # Convert to Fahrenheit
-            if temp_unit == 'C':
-                temp_f = self._celsius_to_fahrenheit(temperature)
-                wind_chill_f = self._celsius_to_fahrenheit(wind_chill)
-            else:
-                temp_f = temperature
-                wind_chill_f = wind_chill
-            
-            # Validation
-            if temp_f > 50:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Wind chill only applies when temperature is 50°F (10°C) or below.')
-                }, status=400)
-            
-            # Reverse calculation: solve for V in WC = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16
-            # This requires iterative solving or approximation
-            # Using Newton's method or binary search
-            
-            # Binary search for wind speed
-            low = 3.0
-            high = 100.0
-            tolerance = 0.01
-            
-            for _ in range(100):  # Max iterations
-                mid = (low + high) / 2
-                wc_mid = self._calculate_wind_chill_index(temp_f, mid)
-                
-                if abs(wc_mid - wind_chill_f) < tolerance:
-                    wind_speed_mph = mid
-                    break
-                
-                if wc_mid < wind_chill_f:
-                    high = mid
-                else:
-                    low = mid
-            else:
-                wind_speed_mph = (low + high) / 2
-            
-            # Convert to requested unit
-            if wind_unit == 'kmh':
-                wind_speed_result = self._mph_to_kmh(wind_speed_mph)
-            elif wind_unit == 'ms':
-                wind_speed_result = self._mph_to_ms(wind_speed_mph)
-            else:
-                wind_speed_result = wind_speed_mph
-            
-            steps = self._prepare_wind_speed_steps(wind_chill, temp_unit, wind_chill_f, temperature, temp_f, wind_speed_mph, wind_speed_result, wind_unit)
-            
-            return JsonResponse({
-                'success': True,
-                'calc_type': 'wind_speed',
-                'wind_chill': wind_chill,
-                'temp_unit': temp_unit,
-                'temperature': temperature,
-                'wind_unit': wind_unit,
-                'wind_speed': round(wind_speed_result, 2),
-                'step_by_step': steps,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating wind speed: {error}').format(error=str(e))
-            }, status=500)
-    
-    # Step-by-step solution preparation methods
-    def _prepare_wind_chill_steps(self, temperature, temp_unit, temp_f, wind_speed, wind_unit, wind_speed_mph, wind_chill_f, wind_chill_result, result_unit):
-        """Prepare step-by-step solution for wind chill calculation"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Temperature: {temp}°{unit}').format(temp=temperature, unit=temp_unit))
-        steps.append(_('Wind Speed: {speed} {unit}').format(speed=wind_speed, unit=wind_unit))
-        steps.append('')
-        steps.append(_('Step 2: Convert to standard units'))
-        if temp_unit == 'C':
-            steps.append(_('Temperature in Fahrenheit = ({temp} × 9/5) + 32 = {f}°F').format(temp=temperature, f=round(temp_f, 2)))
-        else:
-            steps.append(_('Temperature in Fahrenheit = {f}°F').format(f=round(temp_f, 2)))
-        if wind_unit != 'mph':
-            steps.append(_('Wind Speed in mph = {speed} {unit} = {mph} mph').format(speed=wind_speed, unit=wind_unit, mph=round(wind_speed_mph, 2)))
-        else:
-            steps.append(_('Wind Speed in mph = {mph} mph').format(mph=round(wind_speed_mph, 2)))
-        steps.append('')
-        steps.append(_('Step 3: Apply Wind Chill Index formula'))
-        steps.append(_('Wind Chill = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16'))
-        steps.append(_('Where T = temperature in °F, V = wind speed in mph'))
-        v_power = wind_speed_mph ** 0.16
-        steps.append(_('V^0.16 = {v_power}').format(v_power=round(v_power, 4)))
-        steps.append(_('Wind Chill = 35.74 + 0.6215×{temp} - 35.75×{v_power} + 0.4275×{temp}×{v_power}').format(temp=round(temp_f, 2), v_power=round(v_power, 4)))
-        steps.append(_('Wind Chill = {wc}°F').format(wc=round(wind_chill_f, 2)))
-        steps.append('')
-        steps.append(_('Step 4: Convert to requested unit'))
-        if result_unit == 'C':
-            steps.append(_('Wind Chill in Celsius = ({f} - 32) × 5/9 = {c}°C').format(f=round(wind_chill_f, 2), c=round(wind_chill_result, 2)))
-        else:
-            steps.append(_('Wind Chill = {result}°F').format(result=round(wind_chill_result, 2)))
-        return steps
-    
-    def _prepare_from_wind_chill_steps(self, wind_chill, temp_unit, wind_chill_f, wind_speed, wind_unit, wind_speed_mph, v_power, temp_f, temp_result, result_unit):
-        """Prepare step-by-step solution for temperature from wind chill"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Wind Chill: {wc}°{unit}').format(wc=wind_chill, unit=temp_unit))
-        steps.append(_('Wind Speed: {speed} {unit}').format(speed=wind_speed, unit=wind_unit))
-        steps.append('')
-        steps.append(_('Step 2: Convert to standard units'))
-        if temp_unit == 'C':
-            steps.append(_('Wind Chill in Fahrenheit = ({wc} × 9/5) + 32 = {f}°F').format(wc=wind_chill, f=round(wind_chill_f, 2)))
-        if wind_unit != 'mph':
-            steps.append(_('Wind Speed in mph = {speed} {unit} = {mph} mph').format(speed=wind_speed, unit=wind_unit, mph=round(wind_speed_mph, 2)))
-        steps.append('')
-        steps.append(_('Step 3: Solve for temperature'))
-        steps.append(_('From: WC = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16'))
-        steps.append(_('Solving for T:'))
-        steps.append(_('T = (WC - 35.74 + 35.75×V^0.16) / (0.6215 + 0.4275×V^0.16)'))
-        steps.append(_('V^0.16 = {v_power}').format(v_power=round(v_power, 4)))
-        steps.append(_('T = ({wc} - 35.74 + 35.75×{v_power}) / (0.6215 + 0.4275×{v_power})').format(wc=round(wind_chill_f, 2), v_power=round(v_power, 4)))
-        steps.append(_('T = {temp}°F').format(temp=round(temp_f, 2)))
-        steps.append('')
-        steps.append(_('Step 4: Convert to requested unit'))
-        if result_unit == 'C':
-            steps.append(_('Temperature in Celsius = ({f} - 32) × 5/9 = {c}°C').format(f=round(temp_f, 2), c=round(temp_result, 2)))
-        else:
-            steps.append(_('Temperature = {result}°F').format(result=round(temp_result, 2)))
-        return steps
-    
-    def _prepare_wind_speed_steps(self, wind_chill, temp_unit, wind_chill_f, temperature, temp_f, wind_speed_mph, wind_speed_result, result_unit):
-        """Prepare step-by-step solution for wind speed from wind chill"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Wind Chill: {wc}°{unit}').format(wc=wind_chill, unit=temp_unit))
-        steps.append(_('Temperature: {temp}°{unit}').format(temp=temperature, unit=temp_unit))
-        steps.append('')
-        steps.append(_('Step 2: Convert to standard units'))
-        if temp_unit == 'C':
-            steps.append(_('Wind Chill in Fahrenheit = {f}°F').format(f=round(wind_chill_f, 2)))
-            steps.append(_('Temperature in Fahrenheit = {f}°F').format(f=round(temp_f, 2)))
-        steps.append('')
-        steps.append(_('Step 3: Solve for wind speed'))
-        steps.append(_('From: WC = 35.74 + 0.6215×T - 35.75×V^0.16 + 0.4275×T×V^0.16'))
-        steps.append(_('Using iterative method to solve for V'))
-        steps.append(_('Wind Speed = {speed} mph').format(speed=round(wind_speed_mph, 2)))
-        steps.append('')
-        steps.append(_('Step 4: Convert to requested unit'))
-        if result_unit != 'mph':
-            steps.append(_('Wind Speed = {result} {unit}').format(result=round(wind_speed_result, 2), unit=result_unit))
-        else:
-            steps.append(_('Wind Speed = {result} mph').format(result=round(wind_speed_result, 2)))
-        return steps
-    
-    # Chart data preparation methods
-    def _prepare_wind_chill_chart_data(self, wind_speeds, wind_chills, temp_unit):
-        """Prepare chart data for wind chill visualization"""
-        try:
-            chart_config = {
-                'type': 'line',
-                'data': {
-                    'labels': [f'{ws} mph' for ws in wind_speeds],
-                    'datasets': [{
-                        'label': _('Wind Chill (°{unit})').format(unit=temp_unit),
-                        'data': wind_chills,
-                        'borderColor': 'rgba(59, 130, 246, 1)',
-                        'backgroundColor': 'rgba(59, 130, 246, 0.1)',
-                        'borderWidth': 2,
-                        'fill': True,
-                        'tension': 0.4
-                    }]
-                },
-                'options': {
-                    'responsive': True,
-                    'maintainAspectRatio': True,
-                    'plugins': {
-                        'legend': {
-                            'display': True,
-                            'position': 'top'
-                        },
-                        'title': {
-                            'display': True,
-                            'text': _('Wind Chill vs Wind Speed')
-                        }
-                    },
-                    'scales': {
-                        'x': {
-                            'title': {
-                                'display': True,
-                                'text': _('Wind Speed (mph)')
-                            }
-                        },
-                        'y': {
-                            'title': {
-                                'display': True,
-                                'text': _('Wind Chill (°{unit})').format(unit=temp_unit)
-                            }
-                        }
-                    }
-                }
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            calc = data.get('calc_type', 'wind_chill')
+            dispatch = {
+                'wind_chill':      self._calc_wind_chill,
+                'from_wind_chill': self._calc_from_wind_chill,
+                'wind_speed':      self._calc_wind_speed,
             }
-            return {'wind_chill_chart': chart_config}
-        except Exception as e:
-            return None
+            handler = dispatch.get(calc)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
+        except json.JSONDecodeError:
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _fnum(self, v, dp=1):
+        if v is None:
+            return '0'
+        return f'{v:,.{dp}f}'
+
+    def _req_float(self, d, key, name):
+        v = d.get(key)
+        if v is None or v == '':
+            raise ValueError(str(_('{name} is required.').format(name=name)))
+        return float(v)
+
+    # ── unit conversions ─────────────────────────────────────────────
+    @staticmethod
+    def _to_f(c):
+        return float(np.add(np.multiply(c, 1.8), 32.0))
+
+    @staticmethod
+    def _to_c(f):
+        return float(np.multiply(np.subtract(f, 32.0), 5.0 / 9.0))
+
+    @staticmethod
+    def _to_mph(val, unit):
+        if unit == 'kmh':
+            return val / 1.60934
+        if unit == 'ms':
+            return val / 0.44704
+        return val
+
+    @staticmethod
+    def _from_mph(mph, unit):
+        if unit == 'kmh':
+            return mph * 1.60934
+        if unit == 'ms':
+            return mph * 0.44704
+        return mph
+
+    # ── NWS Wind Chill Index (°F, mph) ───────────────────────────────
+    def _wci(self, T, V):
+        """WC = 35.74 + 0.6215·T − 35.75·V^0.16 + 0.4275·T·V^0.16"""
+        if V < 3 or T > 50:
+            return T
+        vp = V ** 0.16
+        return 35.74 + 0.6215 * T - 35.75 * vp + 0.4275 * T * vp
+
+    # ── risk category ────────────────────────────────────────────────
+    @staticmethod
+    def _category(wc_f):
+        if wc_f >= 32:
+            return str(_('Little Danger')), str(_('Low')), '#22c55e', str(_('Properly clothed persons are in little danger.'))
+        elif wc_f >= 0:
+            return str(_('Caution')), str(_('Moderate')), '#eab308', str(_('Risk of hypothermia with prolonged exposure.'))
+        elif wc_f >= -20:
+            return str(_('Danger')), str(_('High')), '#f97316', str(_('Exposed skin can freeze in 10 minutes.'))
+        elif wc_f >= -40:
+            return str(_('High Danger')), str(_('Very High')), '#ef4444', str(_('Exposed skin can freeze in 5 minutes.'))
+        else:
+            return str(_('Extreme Danger')), str(_('Extreme')), '#991b1b', str(_('Exposed skin can freeze in under 2 minutes.'))
+
+    # ── 1) WIND CHILL ────────────────────────────────────────────────
+    def _calc_wind_chill(self, d):
+        temp = self._req_float(d, 'temperature', str(_('Temperature')))
+        wspd = self._req_float(d, 'wind_speed', str(_('Wind Speed')))
+        tu = d.get('temp_unit', 'F')
+        wu = d.get('wind_unit', 'mph')
+
+        temp_f = temp if tu == 'F' else self._to_f(temp)
+        wind_mph = self._to_mph(wspd, wu)
+
+        if wind_mph < 0:
+            raise ValueError(str(_('Wind speed must be non-negative.')))
+
+        wc_f = self._wci(temp_f, wind_mph)
+        wc_out = wc_f if tu == 'F' else self._to_c(wc_f)
+        cat_name, risk, color, desc = self._category(wc_f)
+
+        tsym = '°F' if tu == 'F' else '°C'
+        wsym = self.WIND_SYM.get(wu, wu)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Temperature")} = {self._fnum(temp)} {tsym}',
+            f'  • {_("Wind Speed")} = {self._fnum(wspd)} {wsym}',
+        ]
+        if tu == 'C':
+            steps += ['', str(_('Step 2: Convert to °F and mph')),
+                       f'  T = {self._fnum(temp_f)} °F']
+        if wu != 'mph':
+            steps.append(f'  V = {self._fnum(wind_mph)} mph')
+
+        vp = wind_mph ** 0.16 if wind_mph >= 3 else 0
+        steps += [
+            '', str(_('Step 3: Apply NWS Wind Chill formula')),
+            '  WC = 35.74 + 0.6215×T − 35.75×V^0.16 + 0.4275×T×V^0.16',
+            f'  T = {self._fnum(temp_f)} °F,  V = {self._fnum(wind_mph)} mph',
+        ]
+        if wind_mph >= 3 and temp_f <= 50:
+            steps.append(f'  V^0.16 = {self._fnum(vp, 4)}')
+            steps.append(f'  WC = {self._fnum(wc_f)} °F  ({self._fnum(self._to_c(wc_f))} °C)')
+        else:
+            steps.append(f'  {_("Wind chill equals air temperature (outside valid range)")}')
+
+        steps += [
+            '', str(_('Step 4: Risk category')),
+            f'  {cat_name} — {desc}',
+        ]
+
+        chart = self._wc_line_chart(temp_f, tu)
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'wind_chill',
+            'result': round(wc_out, 1),
+            'result_label': str(_('Wind Chill')),
+            'result_unit_symbol': tsym,
+            'result_f': round(wc_f, 1),
+            'category': cat_name,
+            'risk_level': risk,
+            'category_color': color,
+            'category_desc': desc,
+            'formula': f'WC = {self._fnum(wc_out)} {tsym}',
+            'step_by_step': steps,
+            'chart_data': {'wc_chart': chart},
+        })
+
+    # ── 2) TEMPERATURE FROM WIND CHILL ───────────────────────────────
+    def _calc_from_wind_chill(self, d):
+        wc_in = self._req_float(d, 'wind_chill', str(_('Wind Chill')))
+        wspd = self._req_float(d, 'wind_speed', str(_('Wind Speed')))
+        tu = d.get('temp_unit', 'F')
+        wu = d.get('wind_unit', 'mph')
+
+        wc_f = wc_in if tu == 'F' else self._to_f(wc_in)
+        wind_mph = self._to_mph(wspd, wu)
+
+        if wind_mph < 3:
+            raise ValueError(str(_('Wind speed must be ≥ 3 mph for wind chill.')))
+
+        # Algebraic: T = (WC − 35.74 + 35.75·V^0.16) / (0.6215 + 0.4275·V^0.16)
+        vp = wind_mph ** 0.16
+        temp_f = (wc_f - 35.74 + 35.75 * vp) / (0.6215 + 0.4275 * vp)
+        temp_out = temp_f if tu == 'F' else self._to_c(temp_f)
+
+        tsym = '°F' if tu == 'F' else '°C'
+        wsym = self.WIND_SYM.get(wu, wu)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Wind Chill")} = {self._fnum(wc_in)} {tsym}',
+            f'  • {_("Wind Speed")} = {self._fnum(wspd)} {wsym}',
+        ]
+        if tu == 'C':
+            steps += ['', str(_('Step 2: Convert WC to °F')),
+                       f'  WC = {self._fnum(wc_f)} °F']
+        if wu != 'mph':
+            steps.append(f'  V = {self._fnum(wind_mph)} mph')
+        steps += [
+            '', str(_('Step 3: Solve for T')),
+            '  T = (WC − 35.74 + 35.75·V^0.16) / (0.6215 + 0.4275·V^0.16)',
+            f'  V^0.16 = {self._fnum(vp, 4)}',
+            f'  T = {self._fnum(temp_f)} °F  ({self._fnum(self._to_c(temp_f))} °C)',
+        ]
+
+        chart = self._bar_chart(
+            [str(_('Wind Chill (°F)')), str(_('Wind Speed (mph)')), str(_('Temperature (°F)'))],
+            [wc_f, wind_mph, temp_f],
+            ['rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)', 'rgba(239,68,68,0.8)'],
+            str(_('Temperature from Wind Chill'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'from_wind_chill',
+            'result': round(temp_out, 1),
+            'result_label': str(_('Temperature')),
+            'result_unit_symbol': tsym,
+            'formula': f'T = {self._fnum(temp_out)} {tsym}',
+            'step_by_step': steps,
+            'chart_data': {'wc_chart': chart},
+        })
+
+    # ── 3) WIND SPEED FROM WIND CHILL ────────────────────────────────
+    def _calc_wind_speed(self, d):
+        wc_in = self._req_float(d, 'wind_chill', str(_('Wind Chill')))
+        temp = self._req_float(d, 'temperature', str(_('Temperature')))
+        tu = d.get('temp_unit', 'F')
+        wu = d.get('wind_unit', 'mph')
+
+        wc_f = wc_in if tu == 'F' else self._to_f(wc_in)
+        temp_f = temp if tu == 'F' else self._to_f(temp)
+
+        if temp_f > 50:
+            raise ValueError(str(_('Temperature must be ≤ 50 °F (10 °C) for wind chill.')))
+
+        # Binary search for V
+        lo, hi = 3.0, 200.0
+        for _i in range(200):
+            mid = (lo + hi) / 2.0
+            calc_wc = self._wci(temp_f, mid)
+            if abs(calc_wc - wc_f) < 0.01:
+                break
+            if calc_wc > wc_f:
+                lo = mid
+            else:
+                hi = mid
+        wind_mph = (lo + hi) / 2.0
+        wind_out = self._from_mph(wind_mph, wu)
+
+        tsym = '°F' if tu == 'F' else '°C'
+        wsym = self.WIND_SYM.get(wu, wu)
+
+        steps = [
+            str(_('Step 1: Given values')),
+            f'  • {_("Wind Chill")} = {self._fnum(wc_in)} {tsym}',
+            f'  • {_("Temperature")} = {self._fnum(temp)} {tsym}',
+        ]
+        if tu == 'C':
+            steps += ['', str(_('Step 2: Convert to °F')),
+                       f'  WC = {self._fnum(wc_f)} °F,  T = {self._fnum(temp_f)} °F']
+        steps += [
+            '', str(_('Step 3: Solve for V (iterative)')),
+            f'  V = {self._fnum(wind_mph)} mph',
+        ]
+        if wu != 'mph':
+            steps.append(f'  V = {self._fnum(wind_out)} {wsym}')
+
+        chart = self._bar_chart(
+            [str(_('Wind Chill (°F)')), str(_('Temperature (°F)')), str(_('Wind Speed (mph)'))],
+            [wc_f, temp_f, wind_mph],
+            ['rgba(59,130,246,0.8)', 'rgba(239,68,68,0.8)', 'rgba(16,185,129,0.8)'],
+            str(_('Wind Speed from Wind Chill'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'wind_speed',
+            'result': round(wind_out, 1),
+            'result_label': str(_('Wind Speed')),
+            'result_unit_symbol': wsym,
+            'formula': f'V = {self._fnum(wind_out)} {wsym}',
+            'step_by_step': steps,
+            'chart_data': {'wc_chart': chart},
+        })
+
+    # ── chart helpers ────────────────────────────────────────────────
+    def _bar_chart(self, labels, data, colors, title):
+        return {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': str(_('Value')),
+                    'data': [round(v, 1) for v in data],
+                    'backgroundColor': colors,
+                    'borderColor': [c.replace('0.8', '1') for c in colors],
+                    'borderWidth': 2,
+                    'borderRadius': 8,
+                }]
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': title}},
+                'scales': {'y': {'beginAtZero': False}},
+            },
+        }
+
+    def _wc_line_chart(self, temp_f, tu):
+        """Line chart: wind chill vs wind speed at the given temperature."""
+        speeds = list(range(3, 61, 3))
+        wcs = [self._wci(temp_f, s) for s in speeds]
+        if tu == 'C':
+            wcs = [self._to_c(w) for w in wcs]
+        tsym = '°F' if tu == 'F' else '°C'
+        return {
+            'type': 'line',
+            'data': {
+                'labels': [f'{s} mph' for s in speeds],
+                'datasets': [{
+                    'label': f'{_("Wind Chill")} ({tsym})',
+                    'data': [round(w, 1) for w in wcs],
+                    'borderColor': 'rgba(59,130,246,1)',
+                    'backgroundColor': 'rgba(59,130,246,0.1)',
+                    'borderWidth': 2,
+                    'fill': True,
+                    'tension': 0.4,
+                    'pointRadius': 3,
+                }]
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {
+                    'legend': {'display': True, 'position': 'top'},
+                    'title': {'display': True, 'text': f'{_("Wind Chill at")} {self._fnum(temp_f)} °F'},
+                },
+                'scales': {
+                    'x': {'title': {'display': True, 'text': str(_('Wind Speed (mph)'))}},
+                    'y': {'title': {'display': True, 'text': f'{_("Wind Chill")} ({tsym})'}},
+                },
+            },
+        }

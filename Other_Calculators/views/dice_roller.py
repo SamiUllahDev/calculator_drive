@@ -7,544 +7,238 @@ from django.utils.translation import gettext_lazy as _
 import json
 import random
 import statistics
-import numpy as np
 from collections import Counter
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class DiceRoller(View):
     """
-    Professional Dice Roller with Comprehensive Features
-    
-    This calculator provides dice rolling with:
-    - Roll single or multiple dice
-    - Support for standard dice (d4, d6, d8, d10, d12, d20, d100)
-    - Custom dice with any number of sides
-    - Statistics and analysis
-    - Visualizations
-    
-    Features:
-    - Supports multiple dice types
-    - Provides statistics and analysis
-    - Interactive visualizations
-    - Step-by-step solutions
+    Dice Roller — single, multiple, and custom dice.
+
+    Roll types
+        • single   → 1 die of any standard or custom type
+        • multiple → N dice of the same type, with statistics
+        • custom   → N dice with custom sides + modifier
     """
     template_name = 'other_calculators/dice_roller.html'
-    
-    # Standard dice configurations
-    STANDARD_DICE = {
-        'd4': {'sides': 4, 'name': 'D4'},
-        'd6': {'sides': 6, 'name': 'D6'},
-        'd8': {'sides': 8, 'name': 'D8'},
-        'd10': {'sides': 10, 'name': 'D10'},
-        'd12': {'sides': 12, 'name': 'D12'},
-        'd20': {'sides': 20, 'name': 'D20'},
-        'd100': {'sides': 100, 'name': 'D100'},
+
+    DICE = {
+        'd4':   4,   'd6':   6,   'd8':   8,
+        'd10':  10,  'd12':  12,  'd20':  20,  'd100': 100,
     }
-    
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Dice Roller'),
-        }
-        return render(request, self.template_name, context)
-    
+        })
+
+    # ── POST ─────────────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            roll_type = data.get('roll_type', 'single')
-            
-            if roll_type == 'single':
-                return self._roll_single_die(data)
-            elif roll_type == 'multiple':
-                return self._roll_multiple_dice(data)
-            elif roll_type == 'custom':
-                return self._roll_custom_dice(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid roll type.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            rt = data.get('roll_type', 'single')
+            dispatch = {
+                'single':   self._roll_single,
+                'multiple': self._roll_multiple,
+                'custom':   self._roll_custom,
+            }
+            handler = dispatch.get(rt)
+            if not handler:
+                return self._err(_('Invalid roll type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _roll_single_die(self, data):
-        """Roll a single die"""
-        try:
-            # Check for required fields
-            if 'dice_type' not in data or data.get('dice_type') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Dice type is required.')
-                }, status=400)
-            
-            dice_type = data.get('dice_type', 'd6')
-            
-            # Validate dice type
-            if dice_type not in self.STANDARD_DICE and dice_type != 'custom':
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid dice type.')
-                }, status=400)
-            
-            if dice_type == 'custom':
-                # Custom die
-                if 'sides' not in data or data.get('sides') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Number of sides is required for custom dice.')
-                    }, status=400)
-                
-                try:
-                    sides = int(data.get('sides', 6))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Number of sides must be a valid integer.')
-                    }, status=400)
-                
-                if sides < 2:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Dice must have at least 2 sides.')
-                    }, status=400)
-                
-                if sides > 1000:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Dice cannot have more than 1000 sides.')
-                    }, status=400)
-                
-                dice_name = f'D{sides}'
-            else:
-                # Standard die
-                dice_config = self.STANDARD_DICE[dice_type]
-                sides = dice_config['sides']
-                dice_name = dice_config['name']
-            
-            # Roll the die
-            result = random.randint(1, sides)
-            
-            response_data = {
-                'success': True,
-                'roll_type': 'single',
-                'dice_type': dice_type,
-                'dice_name': dice_name,
-                'sides': sides,
-                'result': result,
-                'step_by_step': self._prepare_single_roll_steps(dice_name, sides, result),
-                'chart_data': self._prepare_single_roll_chart_data(sides, result),
-            }
-            
-            return JsonResponse(response_data)
-            
+            return self._err(_('Invalid JSON data.'))
         except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error rolling dice: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _roll_multiple_dice(self, data):
-        """Roll multiple dice"""
-        try:
-            # Check for required fields
-            if 'dice_type' not in data or data.get('dice_type') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Dice type is required.')
-                }, status=400)
-            
-            if 'count' not in data or data.get('count') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Number of dice is required.')
-                }, status=400)
-            
-            dice_type = data.get('dice_type', 'd6')
-            
-            try:
-                count = int(data.get('count', 1))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Number of dice must be a valid integer.')
-                }, status=400)
-            
-            if count < 1:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('You must roll at least 1 die.')
-                }, status=400)
-            
-            if count > 100:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('You cannot roll more than 100 dice at once.')
-                }, status=400)
-            
-            # Validate dice type
-            if dice_type not in self.STANDARD_DICE and dice_type != 'custom':
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid dice type.')
-                }, status=400)
-            
-            if dice_type == 'custom':
-                if 'sides' not in data or data.get('sides') is None:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Number of sides is required for custom dice.')
-                    }, status=400)
-                
-                try:
-                    sides = int(data.get('sides', 6))
-                except (ValueError, TypeError):
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Number of sides must be a valid integer.')
-                    }, status=400)
-                
-                if sides < 2:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Dice must have at least 2 sides.')
-                    }, status=400)
-                
-                if sides > 1000:
-                    return JsonResponse({
-                        'success': False,
-                        'error': _('Dice cannot have more than 1000 sides.')
-                    }, status=400)
-                
-                dice_name = f'D{sides}'
-            else:
-                dice_config = self.STANDARD_DICE[dice_type]
-                sides = dice_config['sides']
-                dice_name = dice_config['name']
-            
-            # Roll multiple dice
-            results = [random.randint(1, sides) for _ in range(count)]
-            total = sum(results)
-            average = statistics.mean(results) if results else 0
-            
-            # Calculate statistics
-            stats = self._calculate_statistics(results)
-            
-            response_data = {
-                'success': True,
-                'roll_type': 'multiple',
-                'dice_type': dice_type,
-                'dice_name': dice_name,
-                'sides': sides,
-                'count': count,
-                'results': results,
-                'total': total,
-                'average': round(average, 2),
-                'statistics': stats,
-                'step_by_step': self._prepare_multiple_roll_steps(dice_name, sides, count, results, total, average),
-                'chart_data': self._prepare_multiple_roll_chart_data(results, sides),
-            }
-            
-            return JsonResponse(response_data)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error rolling dice: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _roll_custom_dice(self, data):
-        """Roll custom dice with modifiers"""
-        try:
-            # Check for required fields
-            if 'sides' not in data or data.get('sides') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Number of sides is required.')
-                }, status=400)
-            
-            if 'count' not in data or data.get('count') is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Number of dice is required.')
-                }, status=400)
-            
-            try:
-                sides = int(data.get('sides', 6))
-                count = int(data.get('count', 1))
-                modifier = int(data.get('modifier', 0))
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Sides, count, and modifier must be valid integers.')
-                }, status=400)
-            
-            if sides < 2:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Dice must have at least 2 sides.')
-                }, status=400)
-            
-            if sides > 1000:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Dice cannot have more than 1000 sides.')
-                }, status=400)
-            
-            if count < 1:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('You must roll at least 1 die.')
-                }, status=400)
-            
-            if count > 100:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('You cannot roll more than 100 dice at once.')
-                }, status=400)
-            
-            if modifier < -1000 or modifier > 1000:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Modifier must be between -1000 and 1000.')
-                }, status=400)
-            
-            # Roll dice
-            results = [random.randint(1, sides) for _ in range(count)]
-            total = sum(results) + modifier
-            average = statistics.mean(results) if results else 0
-            
-            # Calculate statistics
-            stats = self._calculate_statistics(results)
-            
-            response_data = {
-                'success': True,
-                'roll_type': 'custom',
-                'sides': sides,
-                'count': count,
-                'modifier': modifier,
-                'results': results,
-                'total': total,
-                'average': round(average, 2),
-                'statistics': stats,
-                'step_by_step': self._prepare_custom_roll_steps(sides, count, modifier, results, total),
-                'chart_data': self._prepare_multiple_roll_chart_data(results, sides),
-            }
-            
-            return JsonResponse(response_data)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error rolling dice: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_statistics(self, results):
-        """Calculate statistics for dice rolls"""
-        if not results:
-            return {}
-        
-        stats = {
-            'min': min(results),
-            'max': max(results),
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during the roll.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _sides_from(self, data):
+        """Resolve the number of sides from dice_type or explicit 'sides'."""
+        dt = data.get('dice_type', '')
+        if dt in self.DICE:
+            return self.DICE[dt], f'D{self.DICE[dt]}'
+        s = data.get('sides')
+        if s is None or s == '':
+            raise ValueError(str(_('Number of sides is required.')))
+        s = int(s)
+        if s < 2 or s > 1000:
+            raise ValueError(str(_('Sides must be between 2 and 1,000.')))
+        return s, f'D{s}'
+
+    @staticmethod
+    def _stats(results):
+        if len(results) < 2:
+            return {'min': results[0], 'max': results[0], 'mean': results[0],
+                    'median': results[0], 'std_dev': 0, 'sum': results[0], 'count': 1}
+        freq = dict(Counter(results))
+        mode_val = max(freq, key=freq.get)
+        return {
+            'min': min(results), 'max': max(results),
             'mean': round(statistics.mean(results), 2),
             'median': statistics.median(results),
-            'mode': statistics.mode(results) if len(results) > 1 and len(set(results)) < len(results) else None,
-            'sum': sum(results),
-            'count': len(results),
+            'mode': mode_val,
+            'std_dev': round(statistics.stdev(results), 2),
+            'sum': sum(results), 'count': len(results),
+            'frequency': freq,
         }
-        
-        # Calculate standard deviation if we have enough data
-        if len(results) > 1:
-            stats['std_dev'] = round(statistics.stdev(results), 2)
-        else:
-            stats['std_dev'] = 0
-        
-        # Count frequency of each result
-        counter = Counter(results)
-        stats['frequency'] = dict(counter)
-        
-        return stats
-    
-    def _prepare_single_roll_steps(self, dice_name, sides, result):
-        """Prepare step-by-step for single die roll"""
-        steps = []
-        steps.append(_('Step 1: Identify the die'))
-        steps.append(_('Die Type: {dice}').format(dice=dice_name))
-        steps.append(_('Number of Sides: {sides}').format(sides=sides))
-        steps.append('')
-        steps.append(_('Step 2: Roll the die'))
-        steps.append(_('Random number generator selects a value between 1 and {sides}').format(sides=sides))
-        steps.append('')
-        steps.append(_('Step 3: Result'))
-        steps.append(_('Roll Result: {result}').format(result=result))
-        steps.append('')
-        steps.append(_('Note: Each side has an equal probability of {prob}%').format(prob=round(100/sides, 2)))
-        return steps
-    
-    def _prepare_multiple_roll_steps(self, dice_name, sides, count, results, total, average):
-        """Prepare step-by-step for multiple dice rolls"""
-        steps = []
-        steps.append(_('Step 1: Identify the dice'))
-        steps.append(_('Die Type: {dice}').format(dice=dice_name))
-        steps.append(_('Number of Sides: {sides}').format(sides=sides))
-        steps.append(_('Number of Dice: {count}').format(count=count))
-        steps.append('')
-        steps.append(_('Step 2: Roll all dice'))
-        for i, result in enumerate(results, 1):
-            steps.append(_('Die {num}: {result}').format(num=i, result=result))
-        steps.append('')
-        steps.append(_('Step 3: Calculate total'))
-        steps.append(_('Total = {results} = {total}').format(
-            results=' + '.join(map(str, results)),
-            total=total
-        ))
-        steps.append('')
-        steps.append(_('Step 4: Calculate average'))
-        steps.append(_('Average = Total ÷ Count = {total} ÷ {count} = {avg}').format(
-            total=total, count=count, avg=average
-        ))
-        return steps
-    
-    def _prepare_custom_roll_steps(self, sides, count, modifier, results, total):
-        """Prepare step-by-step for custom dice roll"""
-        steps = []
-        steps.append(_('Step 1: Identify the dice'))
-        steps.append(_('Number of Sides: {sides}').format(sides=sides))
-        steps.append(_('Number of Dice: {count}').format(count=count))
-        steps.append(_('Modifier: {modifier}').format(modifier=modifier))
-        steps.append('')
-        steps.append(_('Step 2: Roll all dice'))
-        for i, result in enumerate(results, 1):
-            steps.append(_('Die {num}: {result}').format(num=i, result=result))
-        steps.append('')
-        steps.append(_('Step 3: Calculate total with modifier'))
+
+    def _chart_rolls(self, results, sides, title):
+        """Bar chart of individual roll results."""
+        labels = [f'#{i+1}' for i in range(len(results))]
+        colors = ['rgba(99,102,241,0.8)'] * len(results)
+        return {'main_chart': {
+            'type': 'bar',
+            'data': {'labels': labels, 'datasets': [{
+                'label': str(_('Roll Result')), 'data': results,
+                'backgroundColor': colors,
+                'borderColor': ['#6366f1'] * len(results),
+                'borderWidth': 2, 'borderRadius': 6,
+            }]},
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {'legend': {'display': False}, 'title': {'display': True, 'text': str(title)}},
+                'scales': {'y': {'beginAtZero': True, 'max': sides, 'title': {'display': True, 'text': str(_('Value'))}}},
+            },
+        }}
+
+    # ── 1) SINGLE DIE ────────────────────────────────────────────────
+    def _roll_single(self, data):
+        sides, name = self._sides_from(data)
+        result = random.randint(1, sides)
+        prob = round(100 / sides, 2)
+
+        steps = [
+            str(_('Step 1: Die type')),
+            f'  • {name} ({sides} {_("sides")})',
+            '', str(_('Step 2: Roll')),
+            f'  {_("Random")} 1–{sides} → {result}',
+            '', str(_('Step 3: Probability')),
+            f'  {_("Each side")} = 1/{sides} = {prob}%',
+            '', str(_('Result: {result}').format(result=result)),
+        ]
+
+        return JsonResponse({
+            'success': True, 'roll_type': 'single',
+            'result': result,
+            'result_label': str(_('{name} Roll').format(name=name)),
+            'dice_name': name, 'sides': sides,
+            'probability': prob,
+            'formula': f'{name} → {result}',
+            'step_by_step': steps,
+            'chart_data': self._chart_rolls([result], sides, f'{name}: {result}'),
+        })
+
+    # ── 2) MULTIPLE DICE ─────────────────────────────────────────────
+    def _roll_multiple(self, data):
+        sides, name = self._sides_from(data)
+        count = data.get('count')
+        if count is None or count == '':
+            raise ValueError(str(_('Number of dice is required.')))
+        count = int(count)
+        if count < 1 or count > 100:
+            raise ValueError(str(_('Number of dice must be between 1 and 100.')))
+
+        results = [random.randint(1, sides) for _ in range(count)]
+        total = sum(results)
+        avg = round(statistics.mean(results), 2)
+        st = self._stats(results)
+
+        steps = [
+            str(_('Step 1: Configuration')),
+            f'  • {count}×{name} ({sides} {_("sides")})',
+            '', str(_('Step 2: Individual rolls')),
+        ]
+        for i, r in enumerate(results, 1):
+            steps.append(f'  • #{i}: {r}')
+        steps += [
+            '', str(_('Step 3: Total')),
+            f'  {" + ".join(map(str, results))} = {total}',
+            '', str(_('Step 4: Average')),
+            f'  {total} / {count} = {avg}',
+            '', str(_('Step 5: Statistics')),
+            f'  {_("Min")}={st["min"]}, {_("Max")}={st["max"]}, {_("Std Dev")}={st["std_dev"]}',
+            '', str(_('Result: Total = {total}, Average = {avg}').format(total=total, avg=avg)),
+        ]
+
+        return JsonResponse({
+            'success': True, 'roll_type': 'multiple',
+            'result': total,
+            'result_label': str(_('{count}×{name} Total').format(count=count, name=name)),
+            'dice_name': name, 'sides': sides, 'count': count,
+            'results': results, 'total': total, 'average': avg,
+            'statistics': st,
+            'formula': f'{count}d{sides} = {total}',
+            'step_by_step': steps,
+            'chart_data': self._chart_rolls(results, sides, f'{count}×{name}'),
+        })
+
+    # ── 3) CUSTOM DICE ───────────────────────────────────────────────
+    def _roll_custom(self, data):
+        s = data.get('sides')
+        if s is None or s == '':
+            raise ValueError(str(_('Number of sides is required.')))
+        sides = int(s)
+        if sides < 2 or sides > 1000:
+            raise ValueError(str(_('Sides must be between 2 and 1,000.')))
+
+        c = data.get('count')
+        if c is None or c == '':
+            raise ValueError(str(_('Number of dice is required.')))
+        count = int(c)
+        if count < 1 or count > 100:
+            raise ValueError(str(_('Number of dice must be between 1 and 100.')))
+
+        modifier = int(data.get('modifier', 0))
+        if modifier < -1000 or modifier > 1000:
+            raise ValueError(str(_('Modifier must be between -1,000 and 1,000.')))
+
+        results = [random.randint(1, sides) for _ in range(count)]
         dice_sum = sum(results)
-        steps.append(_('Dice Sum = {results} = {dice_sum}').format(
-            results=' + '.join(map(str, results)),
-            dice_sum=dice_sum
-        ))
+        total = dice_sum + modifier
+        avg = round(statistics.mean(results), 2)
+        st = self._stats(results)
+
+        mod_str = ''
+        if modifier > 0:
+            mod_str = f' + {modifier}'
+        elif modifier < 0:
+            mod_str = f' − {abs(modifier)}'
+
+        steps = [
+            str(_('Step 1: Configuration')),
+            f'  • {count}d{sides}{mod_str}',
+            '', str(_('Step 2: Individual rolls')),
+        ]
+        for i, r in enumerate(results, 1):
+            steps.append(f'  • #{i}: {r}')
+        steps += [
+            '', str(_('Step 3: Dice sum')),
+            f'  {" + ".join(map(str, results))} = {dice_sum}',
+        ]
         if modifier != 0:
-            steps.append(_('Total = Dice Sum + Modifier = {dice_sum} + {modifier} = {total}').format(
-                dice_sum=dice_sum, modifier=modifier, total=total
-            ))
-        else:
-            steps.append(_('Total = {total}').format(total=total))
-        return steps
-    
-    def _prepare_single_roll_chart_data(self, sides, result):
-        """Prepare chart data for single roll"""
-        # Create a bar chart showing all possible outcomes with the result highlighted
-        outcomes = list(range(1, sides + 1))
-        colors = ['rgba(239, 68, 68, 0.8)' if x == result else 'rgba(59, 130, 246, 0.3)' for x in outcomes]
-        
-        chart_config = {
-            'type': 'bar',
-            'data': {
-                'labels': [str(x) for x in outcomes],
-                'datasets': [{
-                    'label': _('Possible Outcomes'),
-                    'data': [1 if x == result else 0.1 for x in outcomes],
-                    'backgroundColor': colors,
-                    'borderColor': ['#ef4444' if x == result else '#3b82f6' for x in outcomes],
-                    'borderWidth': 2
-                }]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': True,
-                'plugins': {
-                    'legend': {
-                        'display': False
-                    },
-                    'title': {
-                        'display': True,
-                        'text': _('Roll Result: {result}').format(result=result)
-                    }
-                },
-                'scales': {
-                    'y': {
-                        'beginAtZero': True,
-                        'display': False
-                    }
-                }
-            }
-        }
-        
-        return {'single_roll_chart': chart_config}
-    
-    def _prepare_multiple_roll_chart_data(self, results, sides):
-        """Prepare chart data for multiple rolls"""
-        # Create a histogram showing frequency of each result
-        counter = Counter(results)
-        outcomes = list(range(1, sides + 1))
-        frequencies = [counter.get(x, 0) for x in outcomes]
-        
-        chart_config = {
-            'type': 'bar',
-            'data': {
-                'labels': [str(x) for x in outcomes],
-                'datasets': [{
-                    'label': _('Frequency'),
-                    'data': frequencies,
-                    'backgroundColor': 'rgba(59, 130, 246, 0.8)',
-                    'borderColor': '#3b82f6',
-                    'borderWidth': 2
-                }]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': True,
-                'plugins': {
-                    'legend': {
-                        'display': False
-                    },
-                    'title': {
-                        'display': True,
-                        'text': _('Roll Frequency Distribution')
-                    }
-                },
-                'scales': {
-                    'y': {
-                        'beginAtZero': True,
-                        'title': {
-                            'display': True,
-                            'text': _('Frequency')
-                        }
-                    },
-                    'x': {
-                        'title': {
-                            'display': True,
-                            'text': _('Roll Value')
-                        }
-                    }
-                }
-            }
-        }
-        
-        return {'multiple_roll_chart': chart_config}
+            steps += [
+                '', str(_('Step 4: Apply modifier')),
+                f'  {dice_sum}{mod_str} = {total}',
+            ]
+        steps += [
+            '', str(_('Result: Total = {total}').format(total=total)),
+        ]
+
+        return JsonResponse({
+            'success': True, 'roll_type': 'custom',
+            'result': total,
+            'result_label': str(_('{count}d{sides}{mod} Total').format(count=count, sides=sides, mod=mod_str)),
+            'sides': sides, 'count': count, 'modifier': modifier,
+            'results': results, 'total': total, 'average': avg,
+            'statistics': st,
+            'formula': f'{count}d{sides}{mod_str} = {total}',
+            'step_by_step': steps,
+            'chart_data': self._chart_rolls(results, sides, f'{count}d{sides}{mod_str}'),
+        })

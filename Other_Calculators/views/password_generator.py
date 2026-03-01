@@ -5,334 +5,362 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
-import secrets
-import string
 import math
+import string
+import secrets
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class PasswordGenerator(View):
     """
-    Professional Password Generator with Comprehensive Features
-    
-    This generator provides password generation with:
-    - Generate secure random passwords
-    - Customizable length and character sets
-    - Password strength analysis
-    - Multiple password generation
-    - Exclude ambiguous characters
-    
-    Features:
-    - Supports multiple generation modes
-    - Provides password strength metrics
-    - Secure random generation using secrets module
+    Password Generator — random, passphrase, and PIN.
+
+    Generation types
+        • random      → random characters (upper, lower, digits, symbols)
+        • passphrase  → N random words separated by a delimiter
+        • pin         → numeric PIN of N digits
     """
     template_name = 'other_calculators/password_generator.html'
-    
-    # Character sets
-    LOWERCASE = string.ascii_lowercase
-    UPPERCASE = string.ascii_uppercase
-    DIGITS = string.digits
-    SPECIAL = "!@#$%^&*()_+-=[]{}|;:,.<>?"
-    
-    # Ambiguous characters to exclude
-    AMBIGUOUS = "0OIl1"
-    
+
+    WORD_LIST = [
+        'apple', 'brave', 'cloud', 'dance', 'eagle', 'flame', 'grape', 'heart',
+        'ivory', 'jewel', 'kings', 'lemon', 'maple', 'night', 'ocean', 'pearl',
+        'queen', 'river', 'stone', 'tiger', 'unity', 'vivid', 'water', 'xenon',
+        'youth', 'zebra', 'amber', 'blaze', 'chase', 'delta', 'ember', 'frost',
+        'green', 'honey', 'index', 'joker', 'knife', 'lunar', 'mango', 'noble',
+        'olive', 'piano', 'quest', 'royal', 'solar', 'table', 'ultra', 'viola',
+        'whirl', 'pixel', 'yacht', 'zephyr', 'alpha', 'brisk', 'coral', 'drift',
+        'epoch', 'flora', 'globe', 'haven', 'irony', 'jazzy', 'karma', 'lilac',
+        'mocha', 'nexus', 'oasis', 'plume', 'quilt', 'ridge', 'spark', 'torch',
+        'umbra', 'venom', 'wages', 'oxide', 'yucca', 'zones', 'atlas', 'bloom',
+        'cider', 'dusky', 'elfin', 'fjord', 'grain', 'haste', 'ivory', 'junco',
+        'knack', 'lodge', 'marsh', 'north', 'orbit', 'prism', 'quota', 'reign',
+        'sable', 'thorn', 'usher', 'valve', 'wrist', 'proxy', 'yearn', 'zonal',
+    ]
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
+        return render(request, self.template_name, {
             'calculator_name': _('Password Generator'),
-        }
-        return render(request, self.template_name, context)
-    
+        })
+
+    # ── POST ─────────────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for password generation"""
         try:
-            data = json.loads(request.body)
-            action = data.get('action', 'generate')
-            
-            if action == 'generate':
-                return self._generate_passwords(data)
-            elif action == 'analyze':
-                return self._analyze_password(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid action.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            gt = data.get('gen_type', 'random')
+            dispatch = {
+                'random':     self._gen_random,
+                'passphrase': self._gen_passphrase,
+                'pin':        self._gen_pin,
+            }
+            handler = dispatch.get(gt)
+            if not handler:
+                return self._err(_('Invalid generation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _generate_passwords(self, data):
-        """Generate passwords based on criteria"""
-        try:
-            length = data.get('length', 12)
-            count = data.get('count', 1)
-            include_uppercase = data.get('include_uppercase', True)
-            include_lowercase = data.get('include_lowercase', True)
-            include_numbers = data.get('include_numbers', True)
-            include_special = data.get('include_special', False)
-            exclude_ambiguous = data.get('exclude_ambiguous', False)
-            
-            try:
-                length = int(length)
-                count = int(count)
-            except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Length and count must be integers.')
-                }, status=400)
-            
-            # Validate ranges
-            if length < 1:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Password length must be at least 1.')
-                }, status=400)
-            
-            if length > 128:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Password length cannot exceed 128 characters.')
-                }, status=400)
-            
-            if count < 1:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Count must be at least 1.')
-                }, status=400)
-            
-            if count > 50:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Count cannot exceed 50.')
-                }, status=400)
-            
-            # Build character set
-            char_set = ""
-            if include_lowercase:
-                char_set += self.LOWERCASE
-            if include_uppercase:
-                char_set += self.UPPERCASE
-            if include_numbers:
-                char_set += self.DIGITS
-            if include_special:
-                char_set += self.SPECIAL
-            
-            # Remove ambiguous characters if requested
-            if exclude_ambiguous:
-                for char in self.AMBIGUOUS:
-                    char_set = char_set.replace(char, '')
-            
-            # Validate character set
-            if not char_set:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('At least one character type must be selected.')
-                }, status=400)
-            
-            # Ensure at least one character from each selected type
-            required_chars = []
-            if include_lowercase:
-                required_chars.append(self.LOWERCASE)
-            if include_uppercase:
-                required_chars.append(self.UPPERCASE)
-            if include_numbers:
-                required_chars.append(self.DIGITS)
-            if include_special:
-                required_chars.append(self.SPECIAL)
-            
-            # Remove ambiguous from required chars if needed
-            if exclude_ambiguous:
-                required_chars = [''.join(c for c in chars if c not in self.AMBIGUOUS) for chars in required_chars]
-                required_chars = [chars for chars in required_chars if chars]  # Remove empty
-            
-            # Generate passwords
-            passwords = []
-            for _ in range(count):
-                password = self._generate_single_password(char_set, length, required_chars, exclude_ambiguous)
-                passwords.append(password)
-            
-            # Analyze first password
-            analysis = self._analyze_password_strength(passwords[0])
-            
-            return JsonResponse({
-                'success': True,
-                'action': 'generate',
-                'passwords': passwords,
-                'count': count,
-                'length': length,
-                'analysis': analysis,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error generating passwords: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _generate_single_password(self, char_set, length, required_chars, exclude_ambiguous):
-        """Generate a single password ensuring all required character types are included"""
-        # Ensure at least one character from each required type
+            return self._err(_('Invalid JSON data.'))
+        except (ValueError, TypeError) as e:
+            return self._err(str(e))
+        except Exception:
+            return self._err(_('An error occurred during generation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    @staticmethod
+    def _strength(entropy):
+        if entropy >= 128:
+            return str(_('Very Strong')), 'very_strong'
+        elif entropy >= 80:
+            return str(_('Strong')), 'strong'
+        elif entropy >= 60:
+            return str(_('Good')), 'good'
+        elif entropy >= 40:
+            return str(_('Fair')), 'fair'
+        else:
+            return str(_('Weak')), 'weak'
+
+    @staticmethod
+    def _crack_time(entropy):
+        """Rough brute-force crack time at 10 billion guesses/sec."""
+        combos = 2 ** entropy
+        seconds = combos / 1e10
+        if seconds < 1:
+            return str(_('Instantly'))
+        if seconds < 60:
+            return f'{seconds:.0f} {_("seconds")}'
+        if seconds < 3600:
+            return f'{seconds / 60:.0f} {_("minutes")}'
+        if seconds < 86400:
+            return f'{seconds / 3600:.0f} {_("hours")}'
+        if seconds < 31536000:
+            return f'{seconds / 86400:.0f} {_("days")}'
+        years = seconds / 31536000
+        if years < 1e6:
+            return f'{years:,.0f} {_("years")}'
+        if years < 1e9:
+            return f'{years / 1e6:,.1f} {_("million years")}'
+        return f'{years / 1e9:,.1f} {_("billion years")}'
+
+    # ── 1) RANDOM PASSWORD ───────────────────────────────────────────
+    def _gen_random(self, data):
+        length = int(data.get('length', 16))
+        if length < 4 or length > 128:
+            raise ValueError(str(_('Length must be between 4 and 128.')))
+
+        use_upper = data.get('uppercase', True)
+        use_lower = data.get('lowercase', True)
+        use_digits = data.get('digits', True)
+        use_symbols = data.get('symbols', True)
+        exclude = data.get('exclude_chars', '')
+
+        charset = ''
+        pools = []
+        if use_upper:
+            pool = string.ascii_uppercase
+            charset += pool
+            pools.append(('uppercase', pool))
+        if use_lower:
+            pool = string.ascii_lowercase
+            charset += pool
+            pools.append(('lowercase', pool))
+        if use_digits:
+            pool = string.digits
+            charset += pool
+            pools.append(('digits', pool))
+        if use_symbols:
+            pool = '!@#$%^&*()-_=+[]{}|;:,.<>?'
+            charset += pool
+            pools.append(('symbols', pool))
+
+        if not charset:
+            raise ValueError(str(_('At least one character type must be selected.')))
+
+        # Remove excluded characters
+        if exclude:
+            charset = ''.join(c for c in charset if c not in exclude)
+            if len(charset) < 2:
+                raise ValueError(str(_('Too many characters excluded. Not enough characters to generate password.')))
+
+        pool_size = len(charset)
+
+        # Ensure at least one character from each selected pool
         password_chars = []
-        
-        # Add one character from each required type
-        for required_set in required_chars:
-            if required_set:
-                # Remove ambiguous if needed
-                if exclude_ambiguous:
-                    filtered_set = ''.join(c for c in required_set if c not in self.AMBIGUOUS)
-                    if filtered_set:
-                        password_chars.append(secrets.choice(filtered_set))
-                else:
-                    password_chars.append(secrets.choice(required_set))
-        
-        # Fill the rest with random characters from the full set
-        remaining_length = length - len(password_chars)
-        for _ in range(remaining_length):
-            password_chars.append(secrets.choice(char_set))
-        
-        # Shuffle to randomize positions
-        secrets.SystemRandom().shuffle(password_chars)
-        
-        return ''.join(password_chars)
-    
-    def _analyze_password(self, data):
-        """Analyze password strength"""
-        try:
-            password = data.get('password', '')
-            
-            if not password:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Password is required.')
-                }, status=400)
-            
-            analysis = self._analyze_password_strength(password)
-            
-            return JsonResponse({
-                'success': True,
-                'action': 'analyze',
-                'password': password,
-                'analysis': analysis,
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error analyzing password: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _analyze_password_strength(self, password):
-        """Analyze password strength and return metrics"""
-        length = len(password)
-        
-        # Check character types
-        has_lowercase = any(c.islower() for c in password)
-        has_uppercase = any(c.isupper() for c in password)
-        has_numbers = any(c.isdigit() for c in password)
-        has_special = any(c in self.SPECIAL for c in password)
-        
-        # Count unique characters
-        unique_chars = len(set(password))
-        
-        # Calculate entropy (bits)
-        char_set_size = 0
-        if has_lowercase:
-            char_set_size += 26
-        if has_uppercase:
-            char_set_size += 26
-        if has_numbers:
-            char_set_size += 10
-        if has_special:
-            char_set_size += len(self.SPECIAL)
-        
-        if char_set_size > 0:
-            entropy = length * math.log2(char_set_size)
-        else:
-            entropy = 0
-        
-        # Determine strength level
-        if entropy < 28:
-            strength = 'weak'
-            strength_score = 1
-        elif entropy < 40:
-            strength = 'fair'
-            strength_score = 2
-        elif entropy < 60:
-            strength = 'good'
-            strength_score = 3
-        elif entropy < 80:
-            strength = 'strong'
-            strength_score = 4
-        else:
-            strength = 'very_strong'
-            strength_score = 5
-        
-        # Calculate time to crack (rough estimate)
-        # Assuming 1 billion guesses per second
-        guesses_per_second = 1_000_000_000
-        possible_combinations = char_set_size ** length if char_set_size > 0 else 1
-        seconds_to_crack = possible_combinations / (2 * guesses_per_second)  # Average case
-        
-        # Convert to human-readable time
-        if seconds_to_crack < 1:
-            time_to_crack = _('Less than a second')
-        elif seconds_to_crack < 60:
-            time_to_crack = _('{seconds} seconds').format(seconds=int(seconds_to_crack))
-        elif seconds_to_crack < 3600:
-            time_to_crack = _('{minutes} minutes').format(minutes=int(seconds_to_crack / 60))
-        elif seconds_to_crack < 86400:
-            time_to_crack = _('{hours} hours').format(hours=int(seconds_to_crack / 3600))
-        elif seconds_to_crack < 31536000:
-            time_to_crack = _('{days} days').format(days=int(seconds_to_crack / 86400))
-        elif seconds_to_crack < 31536000000:
-            time_to_crack = _('{years} years').format(years=int(seconds_to_crack / 31536000))
-        else:
-            time_to_crack = _('Millions of years')
-        
-        # Generate feedback
-        feedback = []
-        if length < 8:
-            feedback.append(_('Password is too short. Use at least 8 characters.'))
-        elif length < 12:
-            feedback.append(_('Consider using a longer password (12+ characters).'))
-        
-        if not has_lowercase:
-            feedback.append(_('Add lowercase letters for better security.'))
-        if not has_uppercase:
-            feedback.append(_('Add uppercase letters for better security.'))
-        if not has_numbers:
-            feedback.append(_('Add numbers for better security.'))
-        if not has_special:
-            feedback.append(_('Add special characters for better security.'))
-        
-        if unique_chars < length * 0.5:
-            feedback.append(_('Password has many repeated characters. Consider using more variety.'))
-        
-        if not feedback:
-            feedback.append(_('Password meets good security practices.'))
-        
-        return {
-            'length': length,
-            'has_lowercase': has_lowercase,
-            'has_uppercase': has_uppercase,
-            'has_numbers': has_numbers,
-            'has_special': has_special,
-            'unique_chars': unique_chars,
-            'entropy': round(entropy, 2),
-            'strength': strength,
-            'strength_score': strength_score,
-            'char_set_size': char_set_size,
-            'time_to_crack': time_to_crack,
-            'feedback': feedback,
-        }
+        for pname, pool in pools:
+            filtered = ''.join(c for c in pool if c not in exclude) if exclude else pool
+            if filtered:
+                password_chars.append(secrets.choice(filtered))
+
+        # Fill the rest
+        remaining = length - len(password_chars)
+        if remaining > 0:
+            password_chars.extend(secrets.choice(charset) for _ in range(remaining))
+
+        # Shuffle
+        pw_list = list(password_chars)
+        secrets.SystemRandom().shuffle(pw_list)
+        password = ''.join(pw_list)
+
+        entropy = round(length * math.log2(pool_size), 1) if pool_size > 0 else 0
+        strength_label, strength_key = self._strength(entropy)
+        crack = self._crack_time(entropy)
+
+        char_types = []
+        if use_upper:
+            char_types.append(str(_('Uppercase (A-Z)')))
+        if use_lower:
+            char_types.append(str(_('Lowercase (a-z)')))
+        if use_digits:
+            char_types.append(str(_('Digits (0-9)')))
+        if use_symbols:
+            char_types.append(str(_('Symbols (!@#...)')))
+
+        steps = [
+            str(_('Step 1: Character set')),
+            f'  • {", ".join(char_types)}',
+            f'  • {_("Pool size")} = {pool_size} {_("characters")}',
+        ]
+        if exclude:
+            steps.append(f'  • {_("Excluded")}: {exclude}')
+        steps += [
+            '', str(_('Step 2: Generate {n} random characters').format(n=length)),
+            f'  • {_("One from each pool guaranteed")}',
+            f'  • {_("Remaining filled from full charset")}',
+            '', str(_('Step 3: Calculate entropy')),
+            f'  log₂({pool_size}) × {length} = {entropy} {_("bits")}',
+            '', str(_('Step 4: Strength assessment')),
+            f'  • {strength_label}',
+            f'  • {_("Crack time")}: {crack}',
+            '', str(_('Result: Password generated ({n} chars, {e} bits)').format(n=length, e=entropy)),
+        ]
+
+        return JsonResponse({
+            'success': True, 'gen_type': 'random',
+            'result': password,
+            'result_label': str(_('Random Password')),
+            'password': password, 'length': length,
+            'pool_size': pool_size, 'entropy': entropy,
+            'strength': strength_label, 'strength_key': strength_key,
+            'crack_time': crack,
+            'formula': f'{length} {_("chars")} × log₂({pool_size}) = {entropy} {_("bits")}',
+            'step_by_step': steps,
+            'chart_data': self._strength_chart(entropy),
+        })
+
+    # ── 2) PASSPHRASE ────────────────────────────────────────────────
+    def _gen_passphrase(self, data):
+        num_words = int(data.get('num_words', 4))
+        if num_words < 2 or num_words > 12:
+            raise ValueError(str(_('Number of words must be between 2 and 12.')))
+
+        delimiter = data.get('delimiter', '-')
+        if len(delimiter) > 3:
+            raise ValueError(str(_('Delimiter must be 3 characters or fewer.')))
+
+        capitalize = data.get('capitalize', False)
+        add_number = data.get('add_number', False)
+
+        words = [secrets.choice(self.WORD_LIST) for _ in range(num_words)]
+        if capitalize:
+            words = [w.capitalize() for w in words]
+
+        if add_number:
+            words.append(str(secrets.randbelow(100)))
+
+        passphrase = delimiter.join(words)
+
+        # Entropy: log2(word_list_size) per word
+        wl_size = len(self.WORD_LIST)
+        word_entropy = num_words * math.log2(wl_size)
+        if add_number:
+            word_entropy += math.log2(100)
+        entropy = round(word_entropy, 1)
+        strength_label, strength_key = self._strength(entropy)
+        crack = self._crack_time(entropy)
+
+        steps = [
+            str(_('Step 1: Configuration')),
+            f'  • {num_words} {_("words")} {_("from a list of")} {wl_size}',
+            f'  • {_("Delimiter")}: "{delimiter}"',
+            f'  • {_("Capitalize")}: {"✓" if capitalize else "✗"}',
+            f'  • {_("Add number")}: {"✓" if add_number else "✗"}',
+            '', str(_('Step 2: Select random words')),
+        ]
+        for i, w in enumerate(words, 1):
+            steps.append(f'  • #{i}: {w}')
+        steps += [
+            '', str(_('Step 3: Calculate entropy')),
+            f'  {num_words} × log₂({wl_size}) = {round(num_words * math.log2(wl_size), 1)} {_("bits")}',
+        ]
+        if add_number:
+            steps.append(f'  + log₂(100) = 6.6 {_("bits")}')
+        steps += [
+            f'  {_("Total")} = {entropy} {_("bits")}',
+            '', str(_('Step 4: Strength assessment')),
+            f'  • {strength_label}',
+            f'  • {_("Crack time")}: {crack}',
+            '', str(_('Result: Passphrase generated ({n} words, {e} bits)').format(n=num_words, e=entropy)),
+        ]
+
+        return JsonResponse({
+            'success': True, 'gen_type': 'passphrase',
+            'result': passphrase,
+            'result_label': str(_('Passphrase')),
+            'password': passphrase, 'num_words': num_words,
+            'word_list_size': wl_size, 'entropy': entropy,
+            'strength': strength_label, 'strength_key': strength_key,
+            'crack_time': crack,
+            'formula': f'{num_words} {_("words")} × log₂({wl_size}) = {entropy} {_("bits")}',
+            'step_by_step': steps,
+            'chart_data': self._strength_chart(entropy),
+        })
+
+    # ── 3) PIN ───────────────────────────────────────────────────────
+    def _gen_pin(self, data):
+        length = int(data.get('pin_length', 6))
+        if length < 4 or length > 12:
+            raise ValueError(str(_('PIN length must be between 4 and 12.')))
+
+        pin = ''.join(str(secrets.randbelow(10)) for _ in range(length))
+        entropy = round(length * math.log2(10), 1)
+        strength_label, strength_key = self._strength(entropy)
+        crack = self._crack_time(entropy)
+
+        steps = [
+            str(_('Step 1: Configuration')),
+            f'  • {length}-{_("digit PIN")}',
+            f'  • {_("Pool")}: 0–9 (10 {_("digits")})',
+            '', str(_('Step 2: Generate {n} random digits').format(n=length)),
+            f'  {pin}',
+            '', str(_('Step 3: Calculate entropy')),
+            f'  {length} × log₂(10) = {entropy} {_("bits")}',
+            '', str(_('Step 4: Strength assessment')),
+            f'  • {strength_label}',
+            f'  • {_("Crack time")}: {crack}',
+            '', str(_('Result: PIN generated ({n} digits, {e} bits)').format(n=length, e=entropy)),
+        ]
+
+        return JsonResponse({
+            'success': True, 'gen_type': 'pin',
+            'result': pin,
+            'result_label': str(_('PIN Code')),
+            'password': pin, 'length': length,
+            'pool_size': 10, 'entropy': entropy,
+            'strength': strength_label, 'strength_key': strength_key,
+            'crack_time': crack,
+            'formula': f'{length} × log₂(10) = {entropy} {_("bits")}',
+            'step_by_step': steps,
+            'chart_data': self._strength_chart(entropy),
+        })
+
+    # ── chart helper ─────────────────────────────────────────────────
+    @staticmethod
+    def _strength_chart(entropy):
+        thresholds = [
+            (str(_('Weak')), 40),
+            (str(_('Fair')), 60),
+            (str(_('Good')), 80),
+            (str(_('Strong')), 128),
+            (str(_('Very Strong')), 200),
+        ]
+        labels = [t[0] for t in thresholds]
+        values = [t[1] for t in thresholds]
+        colors = ['rgba(239,68,68,0.7)', 'rgba(245,158,11,0.7)', 'rgba(59,130,246,0.7)',
+                  'rgba(34,197,94,0.7)', 'rgba(16,185,129,0.7)']
+
+        return {'main_chart': {
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': str(_('Threshold (bits)')),
+                        'data': values,
+                        'backgroundColor': colors,
+                        'borderColor': ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e', '#10b981'],
+                        'borderWidth': 2, 'borderRadius': 6,
+                    },
+                    {
+                        'label': str(_('Your Entropy')),
+                        'data': [entropy] * len(values),
+                        'type': 'line',
+                        'borderColor': '#7c3aed',
+                        'borderWidth': 3,
+                        'pointRadius': 0,
+                        'borderDash': [6, 3],
+                        'fill': False,
+                    },
+                ],
+            },
+            'options': {
+                'responsive': True, 'maintainAspectRatio': False,
+                'plugins': {
+                    'legend': {'display': True, 'position': 'bottom'},
+                    'title': {'display': True, 'text': str(_('Password Strength vs Thresholds'))},
+                },
+                'scales': {'y': {'beginAtZero': True, 'title': {'display': True, 'text': str(_('Bits of Entropy'))}}},
+            },
+        }}

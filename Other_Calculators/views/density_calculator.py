@@ -5,749 +5,363 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 import json
-import math
 import numpy as np
-from sympy import symbols, Eq, solve, simplify, latex
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class DensityCalculator(View):
     """
-    Professional Density Calculator with Comprehensive Features
-    
-    This calculator provides density calculations with:
-    - Calculate density from mass and volume
-    - Calculate mass from density and volume
-    - Calculate volume from density and mass
-    - Unit conversions for density, mass, and volume
-    
-    Features:
-    - Supports multiple calculation modes
-    - Handles various units (metric and imperial)
-    - Provides step-by-step solutions
-    - Interactive visualizations
+    Density Calculator — Density, Mass & Volume.
+
+    Calc types:
+        • density  → ρ = m / V
+        • mass     → m = ρ × V
+        • volume   → V = m / ρ
+        • convert  → density unit conversion
+
+    Uses NumPy for arithmetic.
+    All user-facing strings wrapped with gettext_lazy for i18n.
     """
     template_name = 'other_calculators/density_calculator.html'
-    
-    # Density conversion factors (to kg/m³)
-    DENSITY_CONVERSIONS = {
-        'kg_per_m3': 1.0,
-        'g_per_cm3': 1000.0,
-        'g_per_liter': 1.0,
-        'lb_per_ft3': 16.018463,
-        'lb_per_in3': 27679.9,
-        'oz_per_in3': 1729.99,
-        'g_per_ml': 1000.0,
+
+    # ── unit conversion factors ──────────────────────────────────────
+    MASS_UNITS = {
+        'kg':  {'to_kg': 1.0,        'sym': 'kg',  'label': _('Kilograms (kg)')},
+        'g':   {'to_kg': 0.001,      'sym': 'g',   'label': _('Grams (g)')},
+        'mg':  {'to_kg': 1e-6,       'sym': 'mg',  'label': _('Milligrams (mg)')},
+        'lb':  {'to_kg': 0.453592,   'sym': 'lb',  'label': _('Pounds (lb)')},
+        'oz':  {'to_kg': 0.0283495,  'sym': 'oz',  'label': _('Ounces (oz)')},
+        'ton': {'to_kg': 1000.0,     'sym': 't',   'label': _('Metric Tons (t)')},
     }
-    
-    # Mass conversion factors (to kg)
-    MASS_CONVERSIONS = {
-        'kg': 1.0,
-        'g': 0.001,
-        'mg': 0.000001,
-        'lb': 0.453592,
-        'oz': 0.0283495,
-        'ton': 1000.0,
+
+    VOL_UNITS = {
+        'm3':    {'to_m3': 1.0,           'sym': 'm³',   'label': _('Cubic Meters (m³)')},
+        'cm3':   {'to_m3': 1e-6,          'sym': 'cm³',  'label': _('Cubic Centimeters (cm³)')},
+        'liter': {'to_m3': 0.001,         'sym': 'L',    'label': _('Liters (L)')},
+        'ml':    {'to_m3': 1e-6,          'sym': 'mL',   'label': _('Milliliters (mL)')},
+        'ft3':   {'to_m3': 0.0283168,     'sym': 'ft³',  'label': _('Cubic Feet (ft³)')},
+        'in3':   {'to_m3': 1.6387e-5,     'sym': 'in³',  'label': _('Cubic Inches (in³)')},
     }
-    
-    # Volume conversion factors (to m³)
-    VOLUME_CONVERSIONS = {
-        'm3': 1.0,
-        'cm3': 0.000001,
-        'liter': 0.001,
-        'ml': 0.000001,
-        'ft3': 0.0283168,
-        'in3': 0.0000163871,
-        'gallon_us': 0.00378541,
-        'gallon_uk': 0.00454609,
+
+    DENS_UNITS = {
+        'kg_per_m3':  {'to_base': 1.0,        'sym': 'kg/m³',  'label': _('kg/m³')},
+        'g_per_cm3':  {'to_base': 1000.0,     'sym': 'g/cm³',  'label': _('g/cm³')},
+        'g_per_liter': {'to_base': 1.0,       'sym': 'g/L',    'label': _('g/L')},
+        'lb_per_ft3': {'to_base': 16.018463,  'sym': 'lb/ft³', 'label': _('lb/ft³')},
+        'lb_per_in3': {'to_base': 27679.9,    'sym': 'lb/in³', 'label': _('lb/in³')},
     }
-    
-    def _format_unit(self, unit):
-        """Format unit name for display"""
-        return unit.replace('_', '/').replace('per', '/')
-    
+
+    # ── GET ───────────────────────────────────────────────────────────
     def get(self, request):
-        """Handle GET request"""
-        context = {
-            'calculator_name': 'Density Calculator',
-        }
-        return render(request, self.template_name, context)
-    
+        return render(request, self.template_name, {
+            'calculator_name': _('Density Calculator'),
+        })
+
+    # ── POST router ──────────────────────────────────────────────────
     def post(self, request):
-        """Handle POST request for calculations"""
         try:
-            data = json.loads(request.body)
-            calc_type = data.get('calc_type', 'density')
-            
-            if calc_type == 'density':
-                return self._calculate_density(data)
-            elif calc_type == 'mass':
-                return self._calculate_mass(data)
-            elif calc_type == 'volume':
-                return self._calculate_volume(data)
-            elif calc_type == 'convert':
-                return self._convert_units(data)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation type.')
-                }, status=400)
-                
+            data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            calc = data.get('calc_type', 'density')
+            dispatch = {
+                'density': self._calc_density,
+                'mass':    self._calc_mass,
+                'volume':  self._calc_volume,
+                'convert': self._calc_convert,
+            }
+            handler = dispatch.get(calc)
+            if not handler:
+                return self._err(_('Invalid calculation type.'))
+            return handler(data)
         except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid JSON data.')
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('An error occurred: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_density(self, data):
-        """Calculate density from mass and volume"""
-        try:
-            mass = float(data.get('mass', 0))
-            mass_unit = data.get('mass_unit', 'kg')
-            volume = float(data.get('volume', 0))
-            volume_unit = data.get('volume_unit', 'm3')
-            result_unit = data.get('result_unit', 'kg_per_m3')
-            
-            # Validate inputs
-            if not isinstance(mass, (int, float)) or not isinstance(volume, (int, float)):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            if mass <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Mass must be greater than zero.')
-                }, status=400)
-            
-            if volume <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Volume must be greater than zero.')
-                }, status=400)
-            
-            if mass > 1e20 or volume > 1e20:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Values are too large. Please use smaller values.')
-                }, status=400)
-            
-            if mass_unit not in self.MASS_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid mass unit.')
-                }, status=400)
-            
-            if volume_unit not in self.VOLUME_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid volume unit.')
-                }, status=400)
-            
-            # Convert to base units using numpy for precision
-            mass_kg = np.multiply(mass, self.MASS_CONVERSIONS.get(mass_unit, 1.0))
-            volume_m3 = np.multiply(volume, self.VOLUME_CONVERSIONS.get(volume_unit, 1.0))
-            
-            # Calculate density in kg/m³ using numpy for precision
-            density_kg_m3 = np.divide(mass_kg, volume_m3)
-            
-            # Convert to Python float for JSON serialization
-            mass_kg = float(mass_kg)
-            volume_m3 = float(volume_m3)
-            
-            # Convert to result unit
-            if result_unit not in self.DENSITY_CONVERSIONS:
-                result_unit = 'kg_per_m3'
-            
-            conversion_factor = np.divide(
-                self.DENSITY_CONVERSIONS.get('kg_per_m3', 1.0),
-                self.DENSITY_CONVERSIONS.get(result_unit, 1.0)
-            )
-            density_result = np.multiply(density_kg_m3, conversion_factor)
-            
-            # Convert numpy scalar to Python float
-            density_kg_m3 = float(density_kg_m3)
-            density_result = float(density_result)
-            
-            if math.isinf(density_result) or math.isnan(density_result) or np.isinf(density_result) or np.isnan(density_result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'density',
-                'mass': mass,
-                'mass_unit': mass_unit,
-                'volume': volume,
-                'volume_unit': volume_unit,
-                'density': density_result,
-                'density_unit': result_unit,
-                'density_unit_formatted': self._format_unit(result_unit),
-                'density_kg_m3': density_kg_m3,
-                'step_by_step': self._prepare_density_steps(mass, mass_unit, volume, volume_unit, density_result, result_unit, mass_kg, volume_m3),
-                'chart_data': self._prepare_density_chart_data(density_kg_m3),
-            }
-            
-            return JsonResponse(response_data)
-            
+            return self._err(_('Invalid JSON data.'))
         except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Error calculating density: {error}').format(error=str(e))
-            }, status=500)
-    
-    def _calculate_mass(self, data):
-        """Calculate mass from density and volume"""
-        try:
-            density = float(data.get('density', 0))
-            density_unit = data.get('density_unit', 'kg_per_m3')
-            volume = float(data.get('volume', 0))
-            volume_unit = data.get('volume_unit', 'm3')
-            result_unit = data.get('result_unit', 'kg')
-            
-            # Validate inputs
-            if not isinstance(density, (int, float)) or not isinstance(volume, (int, float)):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            if density <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Density must be greater than zero.')
-                }, status=400)
-            
-            if volume <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Volume must be greater than zero.')
-                }, status=400)
-            
-            if density > 1e20 or volume > 1e20:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Values are too large. Please use smaller values.')
-                }, status=400)
-            
-            if density_unit not in self.DENSITY_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid density unit.')
-                }, status=400)
-            
-            if volume_unit not in self.VOLUME_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid volume unit.')
-                }, status=400)
-            
-            # Convert to base units using numpy for precision
-            density_kg_m3 = np.multiply(density, self.DENSITY_CONVERSIONS.get(density_unit, 1.0))
-            volume_m3 = np.multiply(volume, self.VOLUME_CONVERSIONS.get(volume_unit, 1.0))
-            
-            # Calculate mass in kg using numpy for precision
-            mass_kg = np.multiply(density_kg_m3, volume_m3)
-            
-            # Convert to Python float for JSON serialization
-            density_kg_m3 = float(density_kg_m3)
-            volume_m3 = float(volume_m3)
-            
-            # Convert to result unit
-            if result_unit not in self.MASS_CONVERSIONS:
-                result_unit = 'kg'
-            
-            conversion_factor = np.divide(
-                self.MASS_CONVERSIONS.get('kg', 1.0),
-                self.MASS_CONVERSIONS.get(result_unit, 1.0)
-            )
-            mass_result = np.multiply(mass_kg, conversion_factor)
-            
-            # Convert numpy scalar to Python float
-            mass_kg = float(mass_kg)
-            mass_result = float(mass_result)
-            
-            if math.isinf(mass_result) or math.isnan(mass_result) or np.isinf(mass_result) or np.isnan(mass_result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'mass',
-                'density': density,
-                'density_unit': density_unit,
-                'density_unit_formatted': self._format_unit(density_unit),
-                'volume': volume,
-                'volume_unit': volume_unit,
-                'mass': mass_result,
-                'mass_unit': result_unit,
-                'mass_kg': mass_kg,
-                'density_kg_m3': density_kg_m3,
-                'volume_m3': volume_m3,
-                'step_by_step': self._prepare_mass_steps(density, density_unit, volume, volume_unit, mass_result, result_unit, density_kg_m3, volume_m3),
-                'chart_data': self._prepare_mass_chart_data(mass_kg, density_kg_m3, volume_m3),
-            }
-            
-            return JsonResponse(response_data)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-    
-    def _calculate_volume(self, data):
-        """Calculate volume from density and mass"""
-        try:
-            density = float(data.get('density', 0))
-            density_unit = data.get('density_unit', 'kg_per_m3')
-            mass = float(data.get('mass', 0))
-            mass_unit = data.get('mass_unit', 'kg')
-            result_unit = data.get('result_unit', 'm3')
-            
-            # Validate inputs
-            if not isinstance(density, (int, float)) or not isinstance(mass, (int, float)):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter numeric values.')
-                }, status=400)
-            
-            if density <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Density must be greater than zero.')
-                }, status=400)
-            
-            if mass <= 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Mass must be greater than zero.')
-                }, status=400)
-            
-            if density > 1e20 or mass > 1e20:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Values are too large. Please use smaller values.')
-                }, status=400)
-            
-            if density_unit not in self.DENSITY_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid density unit.')
-                }, status=400)
-            
-            if mass_unit not in self.MASS_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid mass unit.')
-                }, status=400)
-            
-            # Convert to base units using numpy for precision
-            density_kg_m3 = np.multiply(density, self.DENSITY_CONVERSIONS.get(density_unit, 1.0))
-            mass_kg = np.multiply(mass, self.MASS_CONVERSIONS.get(mass_unit, 1.0))
-            
-            # Calculate volume in m³ using numpy for precision
-            volume_m3 = np.divide(mass_kg, density_kg_m3)
-            
-            # Convert to Python float for JSON serialization
-            density_kg_m3 = float(density_kg_m3)
-            mass_kg = float(mass_kg)
-            
-            # Convert to result unit
-            if result_unit not in self.VOLUME_CONVERSIONS:
-                result_unit = 'm3'
-            
-            conversion_factor = np.divide(
-                self.VOLUME_CONVERSIONS.get('m3', 1.0),
-                self.VOLUME_CONVERSIONS.get(result_unit, 1.0)
-            )
-            volume_result = np.multiply(volume_m3, conversion_factor)
-            
-            # Convert numpy scalar to Python float
-            volume_m3 = float(volume_m3)
-            volume_result = float(volume_result)
-            
-            if math.isinf(volume_result) or math.isnan(volume_result) or np.isinf(volume_result) or np.isnan(volume_result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid calculation result.')
-                }, status=400)
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'volume',
-                'density': density,
-                'density_unit': density_unit,
-                'density_unit_formatted': self._format_unit(density_unit),
-                'mass': mass,
-                'mass_unit': mass_unit,
-                'volume': volume_result,
-                'volume_unit': result_unit,
-                'volume_m3': volume_m3,
-                'density_kg_m3': density_kg_m3,
-                'mass_kg': mass_kg,
-                'step_by_step': self._prepare_volume_steps(density, density_unit, mass, mass_unit, volume_result, result_unit, density_kg_m3, mass_kg),
-                'chart_data': self._prepare_volume_chart_data(volume_m3, density_kg_m3, mass_kg),
-            }
-            
-            return JsonResponse(response_data)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-    
-    def _convert_units(self, data):
-        """Convert density units"""
-        try:
-            value = float(data.get('value', 0))
-            from_unit = data.get('from_unit', 'kg_per_m3')
-            to_unit = data.get('to_unit', 'kg_per_m3')
-            
-            # Validate inputs
-            if not isinstance(value, (int, float)):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid input type. Please enter a numeric value.')
-                }, status=400)
-            
-            if value < 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Value must be non-negative.')
-                }, status=400)
-            
-            if value > 1e20:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Value is too large. Please use a smaller value.')
-                }, status=400)
-            
-            if from_unit not in self.DENSITY_CONVERSIONS or to_unit not in self.DENSITY_CONVERSIONS:
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid unit.')
-                }, status=400)
-            
-            # Convert to base unit (kg/m³) then to target unit using numpy
-            value_kg_m3 = np.multiply(value, self.DENSITY_CONVERSIONS.get(from_unit, 1.0))
-            conversion_factor = np.divide(
-                self.DENSITY_CONVERSIONS.get('kg_per_m3', 1.0),
-                self.DENSITY_CONVERSIONS.get(to_unit, 1.0)
-            )
-            result = np.multiply(value_kg_m3, conversion_factor)
-            
-            # Convert numpy scalar to Python float
-            result = float(result)
-            
-            if math.isinf(result) or math.isnan(result) or np.isinf(result) or np.isnan(result):
-                return JsonResponse({
-                    'success': False,
-                    'error': _('Invalid conversion result.')
-                }, status=400)
-            
-            response_data = {
-                'success': True,
-                'calc_type': 'convert',
-                'value': value,
-                'from_unit': from_unit,
-                'from_unit_formatted': self._format_unit(from_unit),
-                'to_unit': to_unit,
-                'to_unit_formatted': self._format_unit(to_unit),
-                'result': result,
-                'step_by_step': self._prepare_convert_steps(value, from_unit, to_unit, result),
-            }
-            
-            return JsonResponse(response_data)
-            
-        except (ValueError, TypeError) as e:
-            return JsonResponse({
-                'success': False,
-                'error': _('Invalid input: {error}').format(error=str(e))
-            }, status=400)
-    
-    def _prepare_density_steps(self, mass, mass_unit, volume, volume_unit, density, density_unit, mass_kg, volume_m3):
-        """Prepare step-by-step for density calculation using sympy for formula display"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Mass: {mass} {unit}').format(mass=mass, unit=mass_unit))
-        steps.append(_('Volume: {volume} {unit}').format(volume=volume, unit=volume_unit))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units'))
-        steps.append(_('Mass in kg: {mass} kg').format(mass=mass_kg))
-        steps.append(_('Volume in m³: {volume} m³').format(volume=volume_m3))
-        steps.append('')
-        steps.append(_('Step 3: Apply the density formula'))
-        # Use sympy to display the formula symbolically
-        try:
-            rho, m, V = symbols('rho m V')
-            formula = Eq(rho, m / V)
-            formula_str = latex(formula)
-            steps.append(_('Formula: ρ = m / V'))
-            steps.append(_('Where: ρ = Density, m = Mass, V = Volume'))
-        except:
-            steps.append(_('Formula: Density = Mass ÷ Volume'))
-        steps.append(_('Density = Mass ÷ Volume'))
-        steps.append(_('Density = {mass} kg ÷ {volume} m³').format(mass=mass_kg, volume=volume_m3))
-        steps.append(_('Density = {density} kg/m³').format(density=mass_kg / volume_m3))
-        steps.append('')
-        steps.append(_('Step 4: Convert to desired unit'))
-        steps.append(_('Density = {density} {unit}').format(density=density, unit=density_unit))
-        return steps
-    
-    def _prepare_mass_steps(self, density, density_unit, volume, volume_unit, mass, mass_unit, density_kg_m3, volume_m3):
-        """Prepare step-by-step for mass calculation using sympy for formula display"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Density: {density} {unit}').format(density=density, unit=density_unit))
-        steps.append(_('Volume: {volume} {unit}').format(volume=volume, unit=volume_unit))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units'))
-        steps.append(_('Density in kg/m³: {density} kg/m³').format(density=density_kg_m3))
-        steps.append(_('Volume in m³: {volume} m³').format(volume=volume_m3))
-        steps.append('')
-        steps.append(_('Step 3: Apply the mass formula'))
-        # Use sympy to display the formula symbolically
-        try:
-            rho, m, V = symbols('rho m V')
-            formula = Eq(m, rho * V)
-            formula_str = latex(formula)
-            steps.append(_('Formula: m = ρ × V'))
-            steps.append(_('Where: m = Mass, ρ = Density, V = Volume'))
-        except:
-            steps.append(_('Formula: Mass = Density × Volume'))
-        steps.append(_('Mass = Density × Volume'))
-        steps.append(_('Mass = {density} kg/m³ × {volume} m³').format(density=density_kg_m3, volume=volume_m3))
-        steps.append(_('Mass = {mass} kg').format(mass=density_kg_m3 * volume_m3))
-        steps.append('')
-        steps.append(_('Step 4: Convert to desired unit'))
-        steps.append(_('Mass = {mass} {unit}').format(mass=mass, unit=mass_unit))
-        return steps
-    
-    def _prepare_volume_steps(self, density, density_unit, mass, mass_unit, volume, volume_unit, density_kg_m3, mass_kg):
-        """Prepare step-by-step for volume calculation using sympy for formula display"""
-        steps = []
-        steps.append(_('Step 1: Identify the given values'))
-        steps.append(_('Density: {density} {unit}').format(density=density, unit=density_unit))
-        steps.append(_('Mass: {mass} {unit}').format(mass=mass, unit=mass_unit))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base units'))
-        steps.append(_('Density in kg/m³: {density} kg/m³').format(density=density_kg_m3))
-        steps.append(_('Mass in kg: {mass} kg').format(mass=mass_kg))
-        steps.append('')
-        steps.append(_('Step 3: Apply the volume formula'))
-        # Use sympy to display the formula symbolically
-        try:
-            rho, m, V = symbols('rho m V')
-            formula = Eq(V, m / rho)
-            formula_str = latex(formula)
-            steps.append(_('Formula: V = m / ρ'))
-            steps.append(_('Where: V = Volume, m = Mass, ρ = Density'))
-        except:
-            steps.append(_('Formula: Volume = Mass ÷ Density'))
-        steps.append(_('Volume = Mass ÷ Density'))
-        steps.append(_('Volume = {mass} kg ÷ {density} kg/m³').format(mass=mass_kg, density=density_kg_m3))
-        steps.append(_('Volume = {volume} m³').format(volume=mass_kg / density_kg_m3))
-        steps.append('')
-        steps.append(_('Step 4: Convert to desired unit'))
-        steps.append(_('Volume = {volume} {unit}').format(volume=volume, unit=volume_unit))
-        return steps
-    
-    def _prepare_convert_steps(self, value, from_unit, to_unit, result):
-        """Prepare step-by-step for unit conversion"""
-        steps = []
-        steps.append(_('Step 1: Identify the given value'))
-        steps.append(_('Value: {value} {unit}').format(value=value, unit=from_unit.replace('_', '/').replace('per', '/')))
-        steps.append('')
-        steps.append(_('Step 2: Convert to base unit (kg/m³)'))
-        from_factor = self.DENSITY_CONVERSIONS.get(from_unit, 1.0)
-        value_kg_m3 = value * from_factor
-        steps.append(_('Conversion factor for {unit}: {factor}').format(unit=from_unit.replace('_', '/').replace('per', '/'), factor=from_factor))
-        steps.append(_('Value in kg/m³ = {value} × {factor} = {result} kg/m³').format(value=value, factor=from_factor, result=value_kg_m3))
-        steps.append('')
-        steps.append(_('Step 3: Convert to target unit'))
-        to_factor = self.DENSITY_CONVERSIONS.get(to_unit, 1.0)
-        conversion_factor = 1.0 / to_factor
-        steps.append(_('Conversion factor for {unit}: {factor}').format(unit=to_unit.replace('_', '/').replace('per', '/'), factor=to_factor))
-        steps.append(_('Result = {value} kg/m³ ÷ {factor} = {result}').format(value=value_kg_m3, factor=to_factor, result=result))
-        steps.append('')
-        steps.append(_('Step 4: Final Result'))
-        steps.append(_('Result: {result} {unit}').format(result=result, unit=to_unit.replace('_', '/').replace('per', '/')))
-        return steps
-    
-    def _prepare_density_chart_data(self, density_kg_m3):
-        """Prepare chart data for density using numpy for array operations"""
-        # Common material densities for comparison (kg/m³)
-        materials = np.array([
-            _('Water'),
-            _('Air'),
-            _('Iron'),
-            _('Aluminum'),
-            _('Gold'),
-            _('Calculated')
-        ])
-        
-        densities = np.array([1000, 1.225, 7870, 2700, 19300, density_kg_m3])
-        
-        # Use numpy to ensure all values are finite
-        densities = np.where(np.isfinite(densities), densities, 0)
-        
-        chart_config = {
+            return self._err(str(_('Invalid input:')) + ' ' + str(e))
+        except Exception:
+            return self._err(_('An error occurred during calculation.'), 500)
+
+    # ── helpers ───────────────────────────────────────────────────────
+    @staticmethod
+    def _err(msg, status=400):
+        return JsonResponse({'success': False, 'error': str(msg)}, status=status)
+
+    def _fnum(self, v, dp=6):
+        if v is None:
+            return '0'
+        if abs(v) < 1e-9 or abs(v) >= 1e9:
+            return f'{v:.6g}'
+        return f'{v:,.{dp}g}'
+
+    def _safe_pos(self, v, name):
+        if v is None or v == '':
+            raise ValueError(str(_('{name} is required.').format(name=name)))
+        v = float(v)
+        if v <= 0:
+            raise ValueError(str(_('{name} must be greater than zero.').format(name=name)))
+        if v > 1e15:
+            raise ValueError(str(_('{name} is too large.').format(name=name)))
+        return v
+
+    def _verify(self, val):
+        if not np.isfinite(val):
+            raise ValueError(str(_('Calculation produced an invalid result.')))
+        return val
+
+    def _m_sym(self, k):
+        return self.MASS_UNITS.get(k, self.MASS_UNITS['kg'])['sym']
+
+    def _v_sym(self, k):
+        return self.VOL_UNITS.get(k, self.VOL_UNITS['m3'])['sym']
+
+    def _d_sym(self, k):
+        return self.DENS_UNITS.get(k, self.DENS_UNITS['kg_per_m3'])['sym']
+
+    def _to_kg(self, val, unit):
+        return float(np.multiply(val, self.MASS_UNITS.get(unit, self.MASS_UNITS['kg'])['to_kg']))
+
+    def _from_kg(self, kg, unit):
+        return float(np.divide(kg, self.MASS_UNITS.get(unit, self.MASS_UNITS['kg'])['to_kg']))
+
+    def _to_m3(self, val, unit):
+        return float(np.multiply(val, self.VOL_UNITS.get(unit, self.VOL_UNITS['m3'])['to_m3']))
+
+    def _from_m3(self, m3, unit):
+        return float(np.divide(m3, self.VOL_UNITS.get(unit, self.VOL_UNITS['m3'])['to_m3']))
+
+    def _to_base_d(self, val, unit):
+        return float(np.multiply(val, self.DENS_UNITS.get(unit, self.DENS_UNITS['kg_per_m3'])['to_base']))
+
+    def _from_base_d(self, base, unit):
+        return float(np.divide(base, self.DENS_UNITS.get(unit, self.DENS_UNITS['kg_per_m3'])['to_base']))
+
+    # ── 1) CALCULATE DENSITY ─────────────────────────────────────────
+    def _calc_density(self, d):
+        mass = self._safe_pos(d.get('mass'), str(_('Mass')))
+        volume = self._safe_pos(d.get('volume'), str(_('Volume')))
+        mu = d.get('mass_unit', 'kg')
+        vu = d.get('volume_unit', 'm3')
+        ru = d.get('result_unit', 'kg_per_m3')
+
+        mass_kg = self._to_kg(mass, mu)
+        vol_m3 = self._to_m3(volume, vu)
+        dens_base = self._verify(float(np.divide(mass_kg, vol_m3)))
+        result = self._from_base_d(dens_base, ru)
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Mass")} = {mass} {self._m_sym(mu)}',
+            f'  • {_("Volume")} = {volume} {self._v_sym(vu)}',
+        ]
+        if mu != 'kg' or vu != 'm3':
+            steps += ['', str(_('Step 2: Convert to base units'))]
+            if mu != 'kg':
+                steps.append(f'  {_("Mass")} = {self._fnum(mass_kg)} kg')
+            if vu != 'm3':
+                steps.append(f'  {_("Volume")} = {self._fnum(vol_m3)} m³')
+        steps += [
+            '', str(_('Step 3: Apply the density formula')),
+            f'  {_("Formula")}: ρ = m / V',
+            f'  ρ = {self._fnum(mass_kg)} / {self._fnum(vol_m3)}',
+            f'  ρ = {self._fnum(dens_base)} kg/m³',
+        ]
+        if ru != 'kg_per_m3':
+            steps += [
+                '', str(_('Step 4: Convert to {unit}').format(unit=self._d_sym(ru))),
+                f'  ρ = {self._fnum(result)} {self._d_sym(ru)}',
+            ]
+
+        chart = self._comparison_chart(dens_base)
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'density',
+            'result': round(result, 6),
+            'result_label': str(_('Density')),
+            'result_unit_symbol': self._d_sym(ru),
+            'formula': f'ρ = {self._fnum(mass_kg)} / {self._fnum(vol_m3)}',
+            'mass_kg': round(mass_kg, 6),
+            'volume_m3': round(vol_m3, 6),
+            'density_base': round(dens_base, 6),
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── 2) CALCULATE MASS ────────────────────────────────────────────
+    def _calc_mass(self, d):
+        density = self._safe_pos(d.get('density'), str(_('Density')))
+        volume = self._safe_pos(d.get('volume'), str(_('Volume')))
+        du = d.get('density_unit', 'kg_per_m3')
+        vu = d.get('volume_unit', 'm3')
+        ru = d.get('result_unit', 'kg')
+
+        dens_base = self._to_base_d(density, du)
+        vol_m3 = self._to_m3(volume, vu)
+        mass_kg = self._verify(float(np.multiply(dens_base, vol_m3)))
+        result = self._from_kg(mass_kg, ru) if ru != 'kg' else mass_kg
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Density")} = {density} {self._d_sym(du)}',
+            f'  • {_("Volume")} = {volume} {self._v_sym(vu)}',
+        ]
+        if du != 'kg_per_m3' or vu != 'm3':
+            steps += ['', str(_('Step 2: Convert to base units'))]
+            if du != 'kg_per_m3':
+                steps.append(f'  {_("Density")} = {self._fnum(dens_base)} kg/m³')
+            if vu != 'm3':
+                steps.append(f'  {_("Volume")} = {self._fnum(vol_m3)} m³')
+        steps += [
+            '', str(_('Step 3: Apply the mass formula')),
+            f'  {_("Formula")}: m = ρ × V',
+            f'  m = {self._fnum(dens_base)} × {self._fnum(vol_m3)}',
+            f'  m = {self._fnum(mass_kg)} kg',
+        ]
+        if ru != 'kg':
+            steps += [
+                '', str(_('Step 4: Convert to {unit}').format(unit=self._m_sym(ru))),
+                f'  m = {self._fnum(result)} {self._m_sym(ru)}',
+            ]
+
+        chart = self._bar_chart(
+            [str(_('Density (kg/m³)')), str(_('Volume (m³)')), str(_('Mass (kg)'))],
+            [dens_base, vol_m3, mass_kg],
+            ['rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)', 'rgba(251,191,36,0.8)'],
+            str(_('Mass Calculation'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'mass',
+            'result': round(result, 6),
+            'result_label': str(_('Mass')),
+            'result_unit_symbol': self._m_sym(ru),
+            'formula': f'm = {self._fnum(dens_base)} × {self._fnum(vol_m3)}',
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── 3) CALCULATE VOLUME ──────────────────────────────────────────
+    def _calc_volume(self, d):
+        density = self._safe_pos(d.get('density'), str(_('Density')))
+        mass = self._safe_pos(d.get('mass'), str(_('Mass')))
+        du = d.get('density_unit', 'kg_per_m3')
+        mu = d.get('mass_unit', 'kg')
+        ru = d.get('result_unit', 'm3')
+
+        dens_base = self._to_base_d(density, du)
+        mass_kg = self._to_kg(mass, mu)
+        vol_m3 = self._verify(float(np.divide(mass_kg, dens_base)))
+        result = self._from_m3(vol_m3, ru) if ru != 'm3' else vol_m3
+
+        steps = [
+            str(_('Step 1: Identify the given values')),
+            f'  • {_("Density")} = {density} {self._d_sym(du)}',
+            f'  • {_("Mass")} = {mass} {self._m_sym(mu)}',
+        ]
+        if du != 'kg_per_m3' or mu != 'kg':
+            steps += ['', str(_('Step 2: Convert to base units'))]
+            if du != 'kg_per_m3':
+                steps.append(f'  {_("Density")} = {self._fnum(dens_base)} kg/m³')
+            if mu != 'kg':
+                steps.append(f'  {_("Mass")} = {self._fnum(mass_kg)} kg')
+        steps += [
+            '', str(_('Step 3: Apply the volume formula')),
+            f'  {_("Formula")}: V = m / ρ',
+            f'  V = {self._fnum(mass_kg)} / {self._fnum(dens_base)}',
+            f'  V = {self._fnum(vol_m3)} m³',
+        ]
+        if ru != 'm3':
+            steps += [
+                '', str(_('Step 4: Convert to {unit}').format(unit=self._v_sym(ru))),
+                f'  V = {self._fnum(result)} {self._v_sym(ru)}',
+            ]
+
+        chart = self._bar_chart(
+            [str(_('Mass (kg)')), str(_('Density (kg/m³)')), str(_('Volume (m³)'))],
+            [mass_kg, dens_base, vol_m3],
+            ['rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)', 'rgba(251,191,36,0.8)'],
+            str(_('Volume Calculation'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'volume',
+            'result': round(result, 6),
+            'result_label': str(_('Volume')),
+            'result_unit_symbol': self._v_sym(ru),
+            'formula': f'V = {self._fnum(mass_kg)} / {self._fnum(dens_base)}',
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── 4) CONVERT DENSITY UNITS ─────────────────────────────────────
+    def _calc_convert(self, d):
+        value = self._safe_pos(d.get('value'), str(_('Value')))
+        fu = d.get('from_unit', 'kg_per_m3')
+        tu = d.get('to_unit', 'g_per_cm3')
+
+        base = self._to_base_d(value, fu)
+        result = self._verify(self._from_base_d(base, tu))
+
+        steps = [
+            str(_('Step 1: Identify the given value')),
+            f'  • {value} {self._d_sym(fu)}',
+            '', str(_('Step 2: Convert to base unit (kg/m³)')),
+            f'  {value} × {self.DENS_UNITS[fu]["to_base"]} = {self._fnum(base)} kg/m³',
+            '', str(_('Step 3: Convert to target unit ({unit})').format(unit=self._d_sym(tu))),
+            f'  {self._fnum(base)} / {self.DENS_UNITS[tu]["to_base"]} = {self._fnum(result)} {self._d_sym(tu)}',
+        ]
+
+        chart = self._bar_chart(
+            [self._d_sym(fu), 'kg/m³', self._d_sym(tu)],
+            [value, base, result],
+            ['rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)', 'rgba(251,191,36,0.8)'],
+            str(_('Unit Conversion'))
+        )
+
+        return JsonResponse({
+            'success': True, 'calc_type': 'convert',
+            'result': round(result, 6),
+            'result_label': str(_('Converted Density')),
+            'result_unit_symbol': self._d_sym(tu),
+            'formula': f'{value} {self._d_sym(fu)} = {self._fnum(result)} {self._d_sym(tu)}',
+            'step_by_step': steps,
+            'chart_data': {'hp_chart': chart},
+        })
+
+    # ── chart helpers ────────────────────────────────────────────────
+    def _bar_chart(self, labels, data, colors, title):
+        return {
             'type': 'bar',
             'data': {
-                'labels': materials.tolist(),
+                'labels': labels,
                 'datasets': [{
-                    'label': _('Density (kg/m³)'),
-                    'data': densities.tolist(),
-                    'backgroundColor': [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(251, 191, 36, 0.8)',
-                        'rgba(139, 92, 246, 0.8)',
-                        'rgba(236, 72, 153, 0.8)',
-                        'rgba(239, 68, 68, 0.8)'
-                    ],
-                    'borderColor': [
-                        '#3b82f6',
-                        '#10b981',
-                        '#fbbf24',
-                        '#8b5cf6',
-                        '#ec4899',
-                        '#ef4444'
-                    ],
-                    'borderWidth': 2
+                    'label': str(_('Value')),
+                    'data': data,
+                    'backgroundColor': colors,
+                    'borderColor': [c.replace('0.8', '1') for c in colors],
+                    'borderWidth': 2,
+                    'borderRadius': 8,
                 }]
             },
             'options': {
                 'responsive': True,
-                'maintainAspectRatio': True,
+                'maintainAspectRatio': False,
                 'plugins': {
-                    'legend': {
-                        'display': False
-                    },
-                    'title': {
-                        'display': True,
-                        'text': _('Density Comparison')
-                    }
+                    'legend': {'display': False},
+                    'title': {'display': True, 'text': title},
                 },
                 'scales': {
-                    'y': {
-                        'beginAtZero': True
-                    }
-                }
-            }
-        }
-        
-        return {'density_chart': chart_config}
-    
-    def _prepare_mass_chart_data(self, mass_kg, density_kg_m3, volume_m3):
-        """Prepare chart data for mass calculation"""
-        # Create a pie chart showing the relationship
-        chart_config = {
-            'type': 'doughnut',
-            'data': {
-                'labels': [
-                    _('Mass (kg)'),
-                    _('Density (kg/m³)'),
-                    _('Volume (m³)')
-                ],
-                'datasets': [{
-                    'data': [
-                        mass_kg,
-                        density_kg_m3 / 1000,  # Normalize for visualization
-                        volume_m3 * 1000  # Normalize for visualization
-                    ],
-                    'backgroundColor': [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(251, 191, 36, 0.8)'
-                    ],
-                    'borderColor': [
-                        '#3b82f6',
-                        '#10b981',
-                        '#fbbf24'
-                    ],
-                    'borderWidth': 2
-                }]
+                    'y': {'beginAtZero': True, 'title': {'display': True, 'text': str(_('Value'))}},
+                },
             },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': True,
-                'plugins': {
-                    'legend': {
-                        'display': True,
-                        'position': 'bottom'
-                    },
-                    'title': {
-                        'display': True,
-                        'text': _('Mass Calculation Breakdown')
-                    }
-                }
-            }
         }
-        
-        return {'mass_chart': chart_config}
-    
-    def _prepare_volume_chart_data(self, volume_m3, density_kg_m3, mass_kg):
-        """Prepare chart data for volume calculation"""
-        # Create a pie chart showing the relationship
-        chart_config = {
-            'type': 'doughnut',
-            'data': {
-                'labels': [
-                    _('Volume (m³)'),
-                    _('Density (kg/m³)'),
-                    _('Mass (kg)')
-                ],
-                'datasets': [{
-                    'data': [
-                        volume_m3 * 1000,  # Normalize for visualization
-                        density_kg_m3 / 1000,  # Normalize for visualization
-                        mass_kg
-                    ],
-                    'backgroundColor': [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(251, 191, 36, 0.8)'
-                    ],
-                    'borderColor': [
-                        '#3b82f6',
-                        '#10b981',
-                        '#fbbf24'
-                    ],
-                    'borderWidth': 2
-                }]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': True,
-                'plugins': {
-                    'legend': {
-                        'display': True,
-                        'position': 'bottom'
-                    },
-                    'title': {
-                        'display': True,
-                        'text': _('Volume Calculation Breakdown')
-                    }
-                }
-            }
-        }
-        
-        return {'volume_chart': chart_config}
+
+    def _comparison_chart(self, density_kg_m3):
+        """Bar chart comparing calculated density with common materials."""
+        labels = [
+            str(_('Air')), str(_('Water')), str(_('Aluminum')),
+            str(_('Iron')), str(_('Gold')), str(_('Your Result'))
+        ]
+        data = [1.225, 1000, 2700, 7870, 19300, density_kg_m3]
+        colors = [
+            'rgba(156,163,175,0.8)', 'rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)',
+            'rgba(251,191,36,0.8)', 'rgba(245,158,11,0.8)', 'rgba(239,68,68,0.8)',
+        ]
+        return self._bar_chart(labels, data, colors, str(_('Density Comparison (kg/m³)')))
