@@ -66,6 +66,7 @@ SITE_ID = 1
 MIDDLEWARE = [
     'core.middleware.CanonicalDomainMiddleware',  # Must be first: www→non-www, http→https redirects
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files efficiently
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # Language switching
     'django.middleware.common.CommonMiddleware',
@@ -181,12 +182,27 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-
 STATIC_URL = 'static/'
-STATIC_ROOT = "/var/www/calculator_drive/static/"
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Additional directories where Django will look for static files
+STATICFILES_DIRS = [
+    BASE_DIR / 'core' / 'static',
+]
+
+# WhiteNoise: Serve static files with compression and caching
+# Automatically compresses files (gzip/brotli) and adds cache-busting hashes
+STORAGES = {
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+# WhiteNoise settings
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache for hashed static files
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = "/var/www/calculator_drive/media/"
+MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # Default primary key field type
