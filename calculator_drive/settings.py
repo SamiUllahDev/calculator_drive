@@ -64,9 +64,9 @@ INSTALLED_APPS = [
 SITE_ID = 1
 
 MIDDLEWARE = [
-    'core.middleware.CanonicalDomainMiddleware',  # Must be first: www→non-www, http→https redirects
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files efficiently
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files — must be right after SecurityMiddleware
+    'core.middleware.CanonicalDomainMiddleware',  # www→non-www, http→https redirects
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # Language switching
     'django.middleware.common.CommonMiddleware',
@@ -182,7 +182,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Additional directories where Django will look for static files
