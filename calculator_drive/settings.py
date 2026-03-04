@@ -205,6 +205,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Additional directories where Django will look for static files
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
+    BASE_DIR / 'theme' / 'static',  # Compiled Tailwind CSS (theme is dev-only app)
 ]
 
 # ============================================================================
