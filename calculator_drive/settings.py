@@ -33,9 +33,9 @@ DEBUG = os.environ.get('DEBUG', 'True') != 'False'
 # Use environment variable: export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
-INTERNAL_IPS = [
-    '127.0.0.1',
-]
+# INTERNAL_IPS = [
+#     '127.0.0.1',
+# ]
 
 
 # Application definition
