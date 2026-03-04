@@ -62,14 +62,13 @@ INSTALLED_APPS = [
     'user',
     'google_adsense',
     'tinymce',
-    'tailwind',
-    'theme',
 ]
-
-TAILWIND_APP_NAME = 'theme'
 
 # Dev-only apps (safe even if packages aren't installed)
 if DEBUG:
+    # Tailwind CSS live rebuild (dev only)
+    INSTALLED_APPS += ['tailwind', 'theme']
+    TAILWIND_APP_NAME = 'theme'
     try:
         import django_extensions  # noqa: F401
         INSTALLED_APPS += ['django_extensions']
