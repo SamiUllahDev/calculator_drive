@@ -1,6 +1,8 @@
 from django.shortcuts import render
 from django.views import View
 from django.views.generic import TemplateView
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
 
 # Create your views here.
 
@@ -8,7 +10,8 @@ def custom_404_view(request, exception):
     """Custom handler for 404 errors."""
     return render(request, 'core/404.html', status=404)
 
-class Index(View):  # Changed to PascalCase naming convention
+@method_decorator(cache_page(60 * 5), name='dispatch')  # Cache homepage for 5 minutes (reduces TTFB)
+class Index(View):
     def get(self, request):
         return render(request, 'core/index.html')
 
