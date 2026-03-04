@@ -88,9 +88,18 @@ urlpatterns += i18n_patterns(
     prefix_default_language=False,  # Don't prefix default language (en) - /blog/ not /en/blog/
 )
 
-# Serve media files in development mode
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Serve static files (when not using a web server like Nginx/Apache)
+# In production, configure your web server to serve /static/ directly
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 # Custom error handlers
 handler404 = 'core.views.custom_404_view'
+
+# Django Browser Reload (development only)
+if settings.DEBUG:
+    urlpatterns += [
+        path("__reload__/", include("django_browser_reload.urls")),
+    ]

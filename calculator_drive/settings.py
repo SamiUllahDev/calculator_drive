@@ -33,6 +33,10 @@ DEBUG = False
 # Use environment variable: export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
+
 
 # Application definition
 
@@ -59,14 +63,21 @@ INSTALLED_APPS = [
     'google_adsense',
     'django_extensions',
     'tinymce',
+    'tailwind',
+    'theme',
 ]
+
+TAILWIND_APP_NAME = 'theme'
+
+if DEBUG:
+    INSTALLED_APPS += ['django_browser_reload']
 
 SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files — must be right after SecurityMiddleware
-    'core.middleware.CanonicalDomainMiddleware',  # www→non-www, http→https redirects
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files (must be right after SecurityMiddleware)
+    'django.middleware.gzip.GZipMiddleware',  # Compress dynamic responses (WhiteNoise handles static compression)
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',  # Language switching
     'django.middleware.common.CommonMiddleware',
@@ -77,7 +88,11 @@ MIDDLEWARE = [
     'user.middleware.EmailVerificationMiddleware',  # Email verification checks
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.http.ConditionalGetMiddleware',  # 304 Not Modified responses
 ]
+
+if DEBUG:
+    MIDDLEWARE += ['django_browser_reload.middleware.BrowserReloadMiddleware']
 
 ROOT_URLCONF = 'calculator_drive.urls'
 
@@ -187,19 +202,39 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Additional directories where Django will look for static files
 STATICFILES_DIRS = [
-    BASE_DIR / 'core' / 'static',
+    BASE_DIR / 'static',
 ]
 
-# WhiteNoise: Serve static files with compression and caching
-# Automatically compresses files (gzip/brotli) and adds cache-busting hashes
-STORAGES = {
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-    },
-}
+# ============================================================================
+# WHITENOISE CONFIGURATION
+# ============================================================================
+# WhiteNoise serves static files directly from the WSGI app — no need for
+# Nginx/Apache to handle /static/ in production.
+#
+# In production (DEBUG=False):
+#   - CompressedManifestStaticFilesStorage adds content hashes to filenames
+#     for cache-busting and pre-compresses files with Gzip + Brotli.
+#   - Immutable cache headers (max-age=1 year) are safe because hashed
+#     filenames change whenever file content changes.
+#
+# In development (DEBUG=True):
+#   - WhiteNoise auto-refreshes files on every request (no collectstatic needed).
+#   - Uses Django's default storage to avoid manifest errors.
+# ============================================================================
 
-# WhiteNoise settings
-WHITENOISE_MAX_AGE = 31536000  # 1 year cache for hashed static files
+if not DEBUG:
+    STORAGES = {
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+
+# Cache headers for hashed static files (1 year — safe with content-hashed filenames)
+WHITENOISE_MAX_AGE = 31536000  # 1 year in seconds
+
+# Keep original (un-hashed) file names accessible as redirects
+WHITENOISE_KEEP_ONLY_HASHED_FILES = False
+
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
