@@ -27,15 +27,15 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pzxmmuvl_uvl=hhxdl#&s
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-DEBUG = os.environ.get('DEBUG', 'True') != 'False'
-
+# DEBUG = os.environ.get('DEBUG', 'True') != 'False'
+DEBUG = True  # Set to False in production using environment variable
 # Security: Set allowed hosts in production
 # Use environment variable: export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
-# INTERNAL_IPS = [
-#     '127.0.0.1',
-# ]
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
 
 
 # Application definition
@@ -66,7 +66,7 @@ INSTALLED_APPS = [
     'theme',
 ]
 
-TAILWIND_APP_NAME = 'theme'
+# TAILWIND_APP_NAME = 'theme'
 
 # Dev-only apps (safe even if packages aren't installed)
 if DEBUG:
