@@ -27,7 +27,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pzxmmuvl_uvl=hhxdl#&s
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') != 'False'
 
 # Security: Set allowed hosts in production
 # Use environment variable: export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
@@ -61,7 +61,6 @@ INSTALLED_APPS = [
     'blog',
     'user',
     'google_adsense',
-    'django_extensions',
     'tinymce',
     'tailwind',
     'theme',
@@ -69,8 +68,18 @@ INSTALLED_APPS = [
 
 TAILWIND_APP_NAME = 'theme'
 
+# Dev-only apps (safe even if packages aren't installed)
 if DEBUG:
-    INSTALLED_APPS += ['django_browser_reload']
+    try:
+        import django_extensions  # noqa: F401
+        INSTALLED_APPS += ['django_extensions']
+    except ImportError:
+        pass
+    try:
+        import django_browser_reload  # noqa: F401
+        INSTALLED_APPS += ['django_browser_reload']
+    except ImportError:
+        pass
 
 SITE_ID = 1
 
@@ -92,7 +101,11 @@ MIDDLEWARE = [
 ]
 
 if DEBUG:
-    MIDDLEWARE += ['django_browser_reload.middleware.BrowserReloadMiddleware']
+    try:
+        import django_browser_reload  # noqa: F401
+        MIDDLEWARE += ['django_browser_reload.middleware.BrowserReloadMiddleware']
+    except ImportError:
+        pass
 
 ROOT_URLCONF = 'calculator_drive.urls'
 
