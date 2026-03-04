@@ -98,8 +98,4 @@ urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 # Custom error handlers
 handler404 = 'core.views.custom_404_view'
 
-# Django Browser Reload (development only)
-if settings.DEBUG:
-    urlpatterns += [
-        path("__reload__/", include("django_browser_reload.urls")),
-    ]
+

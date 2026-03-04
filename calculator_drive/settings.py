@@ -27,8 +27,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pzxmmuvl_uvl=hhxdl#&s
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-# DEBUG = os.environ.get('DEBUG', 'True') != 'False'
-DEBUG = True  # Set to False in production using environment variable
+DEBUG = os.environ.get('DEBUG', 'True') != 'False'
+# DEBUG = True  # Set to False in production using environment variable
 # Security: Set allowed hosts in production
 # Use environment variable: export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
@@ -75,11 +75,6 @@ if DEBUG:
         INSTALLED_APPS += ['django_extensions']
     except ImportError:
         pass
-    try:
-        import django_browser_reload  # noqa: F401
-        INSTALLED_APPS += ['django_browser_reload']
-    except ImportError:
-        pass
 
 SITE_ID = 1
 
@@ -100,12 +95,7 @@ MIDDLEWARE = [
     'django.middleware.http.ConditionalGetMiddleware',  # 304 Not Modified responses
 ]
 
-if DEBUG:
-    try:
-        import django_browser_reload  # noqa: F401
-        MIDDLEWARE += ['django_browser_reload.middleware.BrowserReloadMiddleware']
-    except ImportError:
-        pass
+
 
 ROOT_URLCONF = 'calculator_drive.urls'
 
