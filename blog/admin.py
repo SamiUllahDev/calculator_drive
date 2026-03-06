@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html, strip_tags
+from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django import forms
@@ -167,7 +168,7 @@ class PostAdmin(admin.ModelAdmin):
     def seo_preview(self, obj):
         """Render a Google SERP preview snippet in the admin."""
         if not obj.pk:
-            return format_html(
+            return mark_safe(
                 '<div style="padding:16px;background:#f8f9fa;border-radius:8px;'
                 'border:1px solid #e0e0e0;color:#666;font-size:13px;">'
                 'Save the post first to see the SEO preview.</div>'

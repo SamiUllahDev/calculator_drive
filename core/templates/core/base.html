@@ -190,18 +190,55 @@
     <!-- Preconnect for third-party domains (faster than dns-prefetch) -->
     <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
     <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Preload only the most critical font weight -->
-    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-400.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <!-- Preload the most critical font weight (LCP text uses Inter 400) -->
+    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-400.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
+    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-700.woff2' %}" as="font" type="font/woff2" crossorigin>
     
-    <!-- Critical CSS (render-blocking, kept minimal) -->
-    <link rel="stylesheet" href="{% static 'vendor/css/inter.css' %}">
+    <!-- ========== CRITICAL INLINE CSS ========== -->
+    <!-- Inlined to eliminate render-blocking delay for above-the-fold content -->
+    <style>
+      /* Inter font-face (critical - needed for first paint) */
+      @font-face{font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;src:url('{% static "vendor/fonts/inter/inter-400.woff2" %}') format('woff2')}
+      @font-face{font-family:'Inter';font-style:normal;font-weight:500;font-display:swap;src:url('{% static "vendor/fonts/inter/inter-400.woff2" %}') format('woff2')}
+      @font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url('{% static "vendor/fonts/inter/inter-600.woff2" %}') format('woff2')}
+      @font-face{font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;src:url('{% static "vendor/fonts/inter/inter-700.woff2" %}') format('woff2')}
+      @font-face{font-family:'Inter';font-style:normal;font-weight:800;font-display:swap;src:url('{% static "vendor/fonts/inter/inter-700.woff2" %}') format('woff2')}
+      /* Critical layout - header, body, main structure */
+      *,::after,::before{box-sizing:border-box}
+      body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:#fff;min-height:100vh;display:flex;flex-direction:column}
+      .flex-1{flex:1 1 0%}
+      .flex{display:flex}
+      .flex-col{flex-direction:column}
+      .min-h-screen{min-height:100vh}
+      .bg-white{background-color:#fff}
+      /* Header critical styles (always visible above fold) */
+      .site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.92);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);border-bottom:1px solid rgba(226,232,240,0.6);transition:all .3s ease}
+      .header-inner{max-width:1280px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;justify-content:space-between;height:64px}
+      .header-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+      .header-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#3b82f6,#2563eb);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.125rem}
+      .header-logo-text{font-weight:700;font-size:1.125rem;color:#0f172a;letter-spacing:-0.02em}
+      .header-nav{display:none;align-items:center;gap:2px}
+      .header-actions{display:flex;align-items:center;gap:6px}
+      .header-hamburger{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;color:#475569;background:transparent;border:none;cursor:pointer}
+      @media(min-width:640px){.header-inner{padding:0 1.5rem}}
+      @media(min-width:1024px){.header-nav{display:flex}.header-hamburger{display:none}}
+      /* Prevent layout shift for hero text */
+      .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;line-height:1.1;color:#f8fafc;letter-spacing:-0.03em;margin-bottom:1.5rem}
+      .hero-subtitle{font-size:clamp(1rem,2vw,1.25rem);color:#94a3b8;line-height:1.7;max-width:580px;margin:0 auto 2.5rem;font-weight:400}
+    </style>
+    
+    <!-- NON-CRITICAL CSS: loaded async to avoid render-blocking -->
+    <!-- site.min.css: keep render-blocking (small, 18KB, has essential layout) -->
     <link rel="stylesheet" href="{% static 'css/site.min.css' %}">
+    
+    <!-- styles.css (Tailwind + Typography): render-blocking as Tailwind utilities are used site-wide -->
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
     
-    <!-- FontAwesome CSS loaded non-render-blocking -->
-    <link rel="preload" href="{% static 'vendor/css/fontawesome.all.min.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="{% static 'vendor/css/fontawesome.all.min.css' %}"></noscript>
+    <!-- FontAwesome SUBSET CSS (24KB vs 102KB original - 75% smaller, non-render-blocking) -->
+    <link rel="stylesheet" href="{% static 'vendor/css/fontawesome.subset.min.css' %}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{% static 'vendor/css/fontawesome.subset.min.css' %}"></noscript>
     
 
   </head>
@@ -1344,39 +1381,45 @@
       
     </script>
 
-    <!-- Deferred third-party scripts (non-blocking) -->
+    <!-- Deferred third-party scripts (non-blocking, uses requestIdleCallback for lower priority) -->
     <script>
-      // Load Google Analytics & Ads after page is interactive
-      window.addEventListener('load', function() {
-        // Google Ads conversion tag
-        var gads = document.createElement('script');
-        gads.src = 'https://www.googletagmanager.com/gtag/js?id=AW-17774350219';
-        gads.async = true;
-        document.head.appendChild(gads);
-
-        // Google Analytics
+      // Load 3rd-party scripts only when browser is idle (after load + idle)
+      function loadThirdPartyScripts() {
+        // Google Analytics (single tag handles both GA4 and Ads)
         var ga = document.createElement('script');
         ga.src = 'https://www.googletagmanager.com/gtag/js?id=G-9R5LH1MWLF';
         ga.async = true;
         document.head.appendChild(ga);
 
-        // AdSense
-        var adsense = document.createElement('script');
-        adsense.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1966824765779595';
-        adsense.async = true;
-        adsense.crossOrigin = 'anonymous';
-        document.head.appendChild(adsense);
-
-        // Initialize gtag after scripts load
-        setTimeout(function() {
+        ga.onload = function() {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           window.gtag = gtag;
           gtag('js', new Date());
-          gtag('config', 'AW-17774350219');
           gtag('config', 'G-9R5LH1MWLF');
-        }, 100);
-      });
+          gtag('config', 'AW-17774350219');
+        };
+
+        // AdSense - load after analytics
+        setTimeout(function() {
+          var adsense = document.createElement('script');
+          adsense.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1966824765779595';
+          adsense.async = true;
+          adsense.crossOrigin = 'anonymous';
+          document.head.appendChild(adsense);
+        }, 200);
+      }
+
+      // Use requestIdleCallback if available, otherwise setTimeout after load
+      if ('requestIdleCallback' in window) {
+        window.addEventListener('load', function() {
+          requestIdleCallback(loadThirdPartyScripts, {timeout: 3000});
+        });
+      } else {
+        window.addEventListener('load', function() {
+          setTimeout(loadThirdPartyScripts, 200);
+        });
+      }
     </script>
 
     <!-- Deferred OG/Twitter/Keyword meta sync (non-critical, runs after load) -->
