@@ -14,7 +14,7 @@ def custom_500_view(request):
     """Custom handler for 500 errors."""
     return render(request, 'core/500.html', status=500)
 
-@method_decorator(cache_page(60 * 5), name='dispatch')  # Cache homepage for 5 minutes (reduces TTFB)
+@method_decorator(cache_page(60 * 30), name='dispatch')  # Cache homepage for 30 minutes (reduces TTFB)
 class Index(View):
     def get(self, request):
         return render(request, 'core/index.html')

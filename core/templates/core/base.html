@@ -4,13 +4,6 @@
 <!doctype html>
 <html lang="{{ LANGUAGE_CODE }}" dir="{% if lang_info.bidi %}rtl{% else %}ltr{% endif %}" class="scroll-smooth">
   <head>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-MJTF2ZS4');</script>
-    <!-- End Google Tag Manager -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{% trans "Calculator Drive" %}{% endblock %}</title>
@@ -199,8 +192,9 @@
     <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Preload the most critical font weight (LCP text uses Inter 400) -->
+    <!-- Preload the most critical font weights (LCP text uses Inter 400/600) -->
     <link rel="preload" href="{% static 'vendor/fonts/inter/inter-400.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
+    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-600.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
     <link rel="preload" href="{% static 'vendor/fonts/inter/inter-700.woff2' %}" as="font" type="font/woff2" crossorigin>
     
     <!-- ========== CRITICAL INLINE CSS ========== -->
@@ -234,14 +228,26 @@
       /* Prevent layout shift for hero text */
       .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;line-height:1.1;color:#f8fafc;letter-spacing:-0.03em;margin-bottom:1.5rem}
       .hero-subtitle{font-size:clamp(1rem,2vw,1.25rem);color:#94a3b8;line-height:1.7;max-width:580px;margin:0 auto 2.5rem;font-weight:400}
+      /* Prevent CLS for quick-tags row */
+      .quick-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;min-height:36px}
+      .quick-tag{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:0.8125rem;font-weight:500;text-decoration:none;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#94a3b8}
+      /* Hero search bar dimensions to prevent layout shift */
+      .hero-search-wrap{max-width:640px;margin:0 auto 3rem;position:relative}
+      .hero-search-input{width:100%;padding:18px 140px 18px 52px;border-radius:16px;font-size:1rem;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:#f1f5f9;outline:none}
+      /* Hero badge CLS prevention */
+      .hero-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:100px;font-size:0.8125rem;font-weight:600;color:#93c5fd;margin-bottom:2rem}
+      /* Below-fold content: improve initial render by skipping off-screen layout */
+      .site-footer{content-visibility:auto;contain-intrinsic-size:auto 500px}
     </style>
     
-    <!-- NON-CRITICAL CSS: loaded async to avoid render-blocking -->
-    <!-- site.min.css: keep render-blocking (small, 18KB, has essential layout) -->
-    <link rel="stylesheet" href="{% static 'css/site.min.css' %}">
+    <!-- NON-CRITICAL CSS: loaded async to avoid render-blocking (saves ~650ms) -->
+    <!-- site.min.css: non-render-blocking (18KB, critical parts inlined above) -->
+    <link rel="stylesheet" href="{% static 'css/site.min.css' %}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{% static 'css/site.min.css' %}"></noscript>
     
-    <!-- styles.css (Tailwind + Typography): render-blocking as Tailwind utilities are used site-wide -->
-    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <!-- styles.css (Tailwind 200KB): non-render-blocking -->
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{% static 'css/dist/styles.css' %}"></noscript>
     
     <!-- FontAwesome SUBSET CSS (24KB vs 102KB original - 75% smaller, non-render-blocking) -->
     <link rel="stylesheet" href="{% static 'vendor/css/fontawesome.subset.min.css' %}" media="print" onload="this.media='all'">
@@ -256,7 +262,7 @@
     <!-- End Google Tag Manager (noscript) -->
     <!-- ======================== HEADER ======================== -->
 
-    <header class="site-header" role="navigation" aria-label="Main navigation" id="site-header">
+    <header class="site-header" role="banner" aria-label="Main navigation" id="site-header">
       <div class="header-inner">
         <!-- Logo -->
         <a href="{% url 'core:index' %}" class="header-logo" aria-label="{% trans 'CalculatorDrive - Home' %}" itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
@@ -369,7 +375,7 @@
     <div class="mobile-drawer-overlay" id="mobile-menu-overlay"></div>
 
     <!-- Mobile Menu Drawer -->
-    <div class="mobile-drawer" id="mobile-menu" role="menu" aria-label="{% trans 'Mobile navigation menu' %}">
+    <div class="mobile-drawer" id="mobile-menu" role="dialog" aria-modal="true" aria-label="{% trans 'Mobile navigation menu' %}">
       <!-- Drawer Header -->
       <div class="drawer-header">
         <a href="{% url 'core:index' %}" class="header-logo" style="pointer-events:none;" aria-hidden="true">
@@ -1391,6 +1397,26 @@
         checkFavorites();
       });
       
+    </script>
+
+    <!-- Google Tag Manager (deferred — moved from head to avoid render-blocking FCP/LCP) -->
+    <script>
+    (function() {
+      function loadGTM() {
+        var j = document.createElement('script');
+        j.async = true;
+        j.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-MJTF2ZS4';
+        document.head.appendChild(j);
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+      }
+      // Load GTM after first paint to avoid blocking LCP
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(loadGTM, {timeout: 2000});
+      } else {
+        setTimeout(loadGTM, 100);
+      }
+    })();
     </script>
 
     <!-- Deferred third-party scripts (non-blocking, uses requestIdleCallback for lower priority) -->
