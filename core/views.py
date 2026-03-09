@@ -32,6 +32,10 @@ class CookiePolicyView(TemplateView):
     template_name = 'core/cookie_policy.html'
 
 
+class AboutUsView(TemplateView):
+    template_name = 'core/about_us.html'
+
+
 class SitemapView(View):
     def get(self, request):
         # Get all calculators from all apps

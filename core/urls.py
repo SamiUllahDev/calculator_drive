@@ -1,7 +1,7 @@
 
 
 from django.urls import path
-from .views import Index, PrivacyPolicyView, TermsOfServiceView, CookiePolicyView, SitemapView, SearchView
+from .views import Index, PrivacyPolicyView, TermsOfServiceView, CookiePolicyView, AboutUsView, SitemapView, SearchView
 
 app_name = 'core'
 
@@ -12,4 +12,5 @@ urlpatterns = [
     path('terms-of-service/', TermsOfServiceView.as_view(), name='terms_of_service'),
     path('cookie-policy/', CookiePolicyView.as_view(), name='cookie_policy'),
     path('sitemap/', SitemapView.as_view(), name='sitemap'),
+    path('about/', AboutUsView.as_view(), name='about_us'),
 ]
