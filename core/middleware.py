@@ -109,9 +109,9 @@ class PerformanceHeadersMiddleware:
         if 'text/html' not in content_type:
             return response
 
-        # Add Link preload header for critical font (browser starts download before parsing HTML)
-        # This is an "Early Hint" equivalent — helps LCP by ~100-200ms on slow connections
-        font_url = '/static/vendor/fonts/inter/inter-400.woff2'
+        # Add Link preload header for the LCP font weight.
+        # Keep bytes low on mobile: only preload the weight used by the hero title (700/800).
+        font_url = '/static/vendor/fonts/inter/inter-700.woff2'
         link_value = f'<{font_url}>; rel=preload; as=font; type="font/woff2"; crossorigin'
         existing_link = response.get('Link', '')
         if existing_link:
@@ -119,10 +119,13 @@ class PerformanceHeadersMiddleware:
         else:
             response['Link'] = link_value
 
-        # For non-authenticated HTML pages, add stale-while-revalidate
+        # For non-authenticated HTML pages, enable CDN-friendly caching.
         # This tells CDN/Cloudflare to serve stale content while fetching fresh in background
         # Dramatically reduces TTFB for repeat visitors (from 1.8s to ~50ms at edge)
         if not request.user.is_authenticated and not response.get('Cache-Control'):
-            response['Cache-Control'] = 'public, max-age=60, stale-while-revalidate=86400'
+            # - max-age=0: browsers revalidate HTML (keeps content fresh)
+            # - s-maxage=600: CDN can cache HTML for 10 minutes
+            # - stale-while-revalidate: serve stale while revalidating in background
+            response['Cache-Control'] = 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400'
 
         return response
