@@ -187,15 +187,13 @@
     <!-- Page-specific Structured Data -->
     {% block structured_data %}{% endblock %}
     
-    <!-- Preconnect for third-party domains (faster than dns-prefetch) -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
-    <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
+    <!-- Preconnect: only for origins used during initial page render -->
+    <!-- Removed GTM/Ad preconnects: those scripts load after idle, preconnect wastes early connections -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Preload the most critical font weights (LCP text uses Inter 400/600) -->
+    <!-- Preload critical fonts for LCP (hero-title uses weight 800 → Inter-700) -->
     <link rel="preload" href="{% static 'vendor/fonts/inter/inter-400.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
-    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-600.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
-    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-700.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{% static 'vendor/fonts/inter/inter-700.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
     
     <!-- ========== CRITICAL INLINE CSS ========== -->
     <!-- Inlined to eliminate render-blocking delay for above-the-fold content -->
@@ -236,22 +234,47 @@
       .hero-search-input{width:100%;padding:18px 140px 18px 52px;border-radius:16px;font-size:1rem;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:#f1f5f9;outline:none}
       /* Hero badge CLS prevention */
       .hero-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:100px;font-size:0.8125rem;font-weight:600;color:#93c5fd;margin-bottom:2rem}
+      /* Hero section critical dimensions (prevents CLS 0.634 from hero-section + main) */
+      .hero-section{position:relative;overflow:hidden;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);padding:4rem 1rem 3rem;text-align:center}
+      @media(min-width:640px){.hero-section{padding:5rem 1.5rem 4rem}}
+      @media(min-width:768px){.hero-section{padding:6rem 2rem 5rem}}
+      /* Hero glow orbs: reserve space, prevent layout shift */
+      .hero-glow-1,.hero-glow-2,.hero-glow-3{position:absolute;border-radius:50%;pointer-events:none;filter:blur(60px)}
+      .hero-glow-1{width:500px;height:500px;top:-100px;right:-100px}
+      .hero-glow-2{width:400px;height:400px;bottom:-80px;left:-100px}
+      .hero-glow-3{width:300px;height:200px;bottom:20%;left:50%}
+      /* Hero content wrapper */
+      .hero-content{position:relative;z-index:2;max-width:800px;margin:0 auto}
+      /* Search button CLS prevention */
+      .hero-search-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:10px 24px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:12px;font-size:0.875rem;font-weight:600;cursor:pointer}
+      .hero-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.125rem;pointer-events:none}
+      /* Additional critical Tailwind utilities used in hero/body/main (prevent CLS when Tailwind loads) */
+      .max-w-7xl{max-width:80rem}.max-w-5xl{max-width:64rem}.mx-auto{margin-inline:auto}
+      .px-4{padding-inline:1rem}.text-center{text-align:center}
+      .w-full{width:100%}.py-16{padding-block:4rem}
+      .relative{position:relative}.overflow-hidden{overflow:hidden}
+      @media(min-width:640px){.sm\:px-6{padding-inline:1.5rem}}
+      @media(min-width:1024px){.lg\:px-8{padding-inline:2rem}}
       /* Below-fold content: improve initial render by skipping off-screen layout */
       .site-footer{content-visibility:auto;contain-intrinsic-size:auto 500px}
     </style>
     
-    <!-- NON-CRITICAL CSS: loaded async to avoid render-blocking (saves ~650ms) -->
-    <!-- site.min.css: non-render-blocking (18KB, critical parts inlined above) -->
-    <link rel="stylesheet" href="{% static 'css/site.min.css' %}" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="{% static 'css/site.min.css' %}"></noscript>
+    <!-- CSS LOADING STRATEGY:
+         - styles.css (Tailwind): MUST be render-blocking because Tailwind utility classes 
+           define layout (flex, grid, padding, widths). Async loading causes CLS ~0.67.
+         - site.min.css: Async because critical header/footer/share styles are inlined above.
+         - FontAwesome: Async because icons are decorative, not structural.
+    -->
     
-    <!-- styles.css (Tailwind 200KB): non-render-blocking -->
-    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="{% static 'css/dist/styles.css' %}"></noscript>
+    <!-- styles.css (Tailwind): render-blocking but small after gzip (~30KB) -->
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
     
-    <!-- FontAwesome SUBSET CSS (24KB vs 102KB original - 75% smaller, non-render-blocking) -->
-    <link rel="stylesheet" href="{% static 'vendor/css/fontawesome.subset.min.css' %}" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="{% static 'vendor/css/fontawesome.subset.min.css' %}"></noscript>
+    <!-- site.min.css: render-blocking (18KB / ~4KB gzip — too small to defer, causes 0.26 CLS when async) -->
+    <link rel="stylesheet" href="{% static 'css/site.min.css' %}">
+    
+    <!-- FontAwesome CSS (non-render-blocking, icons are decorative, 102KB / ~15KB gzip) -->
+    <link rel="stylesheet" href="{% static 'vendor/css/fontawesome.all.min.css' %}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{% static 'vendor/css/fontawesome.all.min.css' %}"></noscript>
     
 
   </head>
@@ -459,7 +482,7 @@
     </div>
 
     <!-- Header Scroll Effect Script -->
-    <script>
+    <script data-cfasync="false">
     (function() {
       var header = document.getElementById('site-header');
       if (!header) return;
@@ -555,7 +578,7 @@
       <i class="fas fa-share-nodes"></i>
     </button>
 
-    <script>
+    <script data-cfasync="false">
       /* ── Share Logic ── */
       function getShareData() {
         const url = window.location.href;
@@ -779,7 +802,7 @@
     
     <!-- Chart.js: loaded on-demand when canvas elements exist (saves 204KB on non-chart pages) -->
     {% block chart_js %}
-    <script>
+    <script data-cfasync="false">
       (function() {
         // Auto-detect: load Chart.js only if the page has canvas elements for charts
         function loadChartJs() {
@@ -803,18 +826,21 @@
     </script>
     {% endblock %}
     <!-- JavaScript -->
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        // Mobile Menu Functionality
-        const mobileMenuButton = document.querySelector('.mobile-menu-button');
-        const mobileMenu = document.getElementById('mobile-menu');
-        const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
-        const mobileMenuClose = document.querySelector('.mobile-menu-close');
-        
-        if (!mobileMenu || !mobileMenuOverlay) {
-          console.error('Mobile menu elements not found');
-          return;
-        }
+    <script data-cfasync="false">
+      // === YIELD HELPER: breaks long tasks into chunks to reduce TBT ===
+      function yieldToMain() {
+        return new Promise(function(resolve) {
+          setTimeout(resolve, 0);
+        });
+      }
+
+      // === PHASE 1: Critical interactivity (mobile menu) — runs immediately ===
+      (function() {
+        var mobileMenuButton = document.querySelector('.mobile-menu-button');
+        var mobileMenu = document.getElementById('mobile-menu');
+        var mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
+        var mobileMenuClose = document.querySelector('.mobile-menu-close');
+        if (!mobileMenu || !mobileMenuOverlay) return;
         
         function isMenuOpen() {
           return mobileMenu.classList.contains('active');
@@ -883,213 +909,117 @@
             closeMobileMenu();
           }
         });
-        
-      });
-      
-      // Password Toggle Function
-      function togglePassword(inputId) {
-        const input = document.getElementById(inputId);
-        const button = input.nextElementSibling;
-        const icon = button.querySelector('i');
-        
-        if (input.type === 'password') {
-          input.type = 'text';
-          icon.classList.remove('bi-eye');
-          icon.classList.add('bi-eye-slash');
-        } else {
-          input.type = 'password';
-          icon.classList.remove('bi-eye-slash');
-          icon.classList.add('bi-eye');
-        }
+      })();
+
+      // === PHASE 2: Language selectors — deferred to idle to reduce TBT ===
+      function initLanguageSelectors() {
+        // Header Language Selector
+        (function() {
+          'use strict';
+          var langBtn = document.getElementById('language-selector-btn');
+          var langDropdown = document.getElementById('language-dropdown');
+          var langChevron = document.getElementById('language-chevron');
+          var langForm = document.getElementById('language-form');
+          if (!langBtn || !langDropdown || !langForm) return;
+
+          function isDropdownOpen() { return langDropdown.classList.contains('show'); }
+          function openDropdown() {
+            langDropdown.classList.add('show');
+            if (langChevron) langChevron.style.transform = 'rotate(180deg)';
+            langBtn.setAttribute('aria-expanded', 'true');
+          }
+          function closeDropdown() {
+            langDropdown.classList.remove('show');
+            if (langChevron) langChevron.style.transform = '';
+            langBtn.setAttribute('aria-expanded', 'false');
+          }
+          function submitLanguageForm(languageCode) {
+            closeDropdown();
+            var langInput = langForm.querySelector('input[name="language"]');
+            if (!langInput) {
+              langInput = document.createElement('input');
+              langInput.type = 'hidden';
+              langInput.name = 'language';
+              langForm.appendChild(langInput);
+            }
+            langInput.value = languageCode;
+            langForm.submit();
+          }
+          langBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); e.preventDefault();
+            isDropdownOpen() ? closeDropdown() : openDropdown();
+          });
+          langForm.querySelectorAll('button[name="language"]').forEach(function(button) {
+            button.type = 'button';
+            button.addEventListener('click', function(e) {
+              e.stopPropagation(); e.preventDefault();
+              var code = this.value || this.getAttribute('value');
+              if (code) submitLanguageForm(code);
+            });
+          });
+          document.addEventListener('click', function(e) {
+            if (langBtn.contains(e.target) || langDropdown.contains(e.target) || langForm.contains(e.target)) return;
+            if (isDropdownOpen()) closeDropdown();
+          });
+        })();
+
+        // Footer Language Selector
+        (function() {
+          'use strict';
+          var btn = document.getElementById('footer-language-selector-btn');
+          var dropdown = document.getElementById('footer-language-dropdown');
+          var chevron = document.getElementById('footer-language-chevron');
+          var form = document.getElementById('footer-language-form');
+          if (!btn || !dropdown || !form) return;
+
+          function isOpen() { return dropdown.classList.contains('show'); }
+          function open() {
+            dropdown.classList.add('show');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+            btn.setAttribute('aria-expanded', 'true');
+          }
+          function close() {
+            dropdown.classList.remove('show');
+            if (chevron) chevron.style.transform = '';
+            btn.setAttribute('aria-expanded', 'false');
+          }
+          function submit(code) {
+            close();
+            var input = form.querySelector('input[name="language"]');
+            if (!input) {
+              input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = 'language';
+              form.appendChild(input);
+            }
+            input.value = code;
+            form.submit();
+          }
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation(); e.preventDefault();
+            isOpen() ? close() : open();
+          });
+          form.querySelectorAll('button[name="language"]').forEach(function(button) {
+            button.type = 'button';
+            button.addEventListener('click', function(e) {
+              e.stopPropagation(); e.preventDefault();
+              var code = this.value || this.getAttribute('value');
+              if (code) submit(code);
+            });
+          });
+          document.addEventListener('click', function(e) {
+            if (btn.contains(e.target) || dropdown.contains(e.target) || form.contains(e.target)) return;
+            if (isOpen()) close();
+          });
+        })();
       }
-      
-      // Header Language Selector - Explicit Form Submission Implementation
-      (function() {
-        'use strict';
-        
-        const langBtn = document.getElementById('language-selector-btn');
-        const langDropdown = document.getElementById('language-dropdown');
-        const langChevron = document.getElementById('language-chevron');
-        const langForm = document.getElementById('language-form');
-        
-        if (!langBtn || !langDropdown || !langForm) {
-          return;
-        }
-        
-        // Check if dropdown is visible
-        function isDropdownOpen() {
-          return langDropdown.classList.contains('show');
-        }
-        
-        // Open dropdown
-        function openDropdown() {
-          langDropdown.classList.add('show');
-          if (langChevron) langChevron.style.transform = 'rotate(180deg)';
-          langBtn.setAttribute('aria-expanded', 'true');
-        }
-        
-        // Close dropdown
-        function closeDropdown() {
-          langDropdown.classList.remove('show');
-          if (langChevron) langChevron.style.transform = '';
-          langBtn.setAttribute('aria-expanded', 'false');
-        }
-        
-        // Submit form with language code
-        function submitLanguageForm(languageCode) {
-          // Close dropdown
-          closeDropdown();
-          
-          // Ensure language input exists in form
-          let langInput = langForm.querySelector('input[name="language"]');
-          if (!langInput) {
-            langInput = document.createElement('input');
-            langInput.type = 'hidden';
-            langInput.name = 'language';
-            langForm.appendChild(langInput);
-          }
-          langInput.value = languageCode;
-          
-          // Submit the form
-          langForm.submit();
-        }
-        
-        // Toggle dropdown on button click
-        langBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          e.preventDefault();
-          if (isDropdownOpen()) {
-            closeDropdown();
-          } else {
-            openDropdown();
-          }
-        });
-        
-        // Handle all language button clicks
-        const langButtons = langForm.querySelectorAll('button[name="language"]');
-        langButtons.forEach(function(button) {
-          // Change to regular button to prevent default submit behavior
-          button.type = 'button';
-          
-          // Add click handler to submit form
-          button.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            const languageCode = this.value || this.getAttribute('value');
-            if (languageCode) {
-              submitLanguageForm(languageCode);
-            }
-          });
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-          // If click is inside the language selector area, don't close
-          if (langBtn.contains(e.target) || 
-              langDropdown.contains(e.target) || 
-              langForm.contains(e.target)) {
-            return;
-          }
-          // Click is outside - close dropdown
-          if (isDropdownOpen()) {
-            closeDropdown();
-          }
-        });
-      })();
-      
-      // Footer Language Selector - Similar Implementation
-      (function() {
-        'use strict';
-        
-        const footerLangBtn = document.getElementById('footer-language-selector-btn');
-        const footerLangDropdown = document.getElementById('footer-language-dropdown');
-        const footerLangChevron = document.getElementById('footer-language-chevron');
-        const footerLangForm = document.getElementById('footer-language-form');
-        
-        if (!footerLangBtn || !footerLangDropdown || !footerLangForm) {
-          return;
-        }
-        
-        // Check if dropdown is visible
-        function isFooterDropdownOpen() {
-          return footerLangDropdown.classList.contains('show');
-        }
-        
-        // Open dropdown
-        function openFooterDropdown() {
-          footerLangDropdown.classList.add('show');
-          if (footerLangChevron) footerLangChevron.style.transform = 'rotate(180deg)';
-          footerLangBtn.setAttribute('aria-expanded', 'true');
-        }
-        
-        // Close dropdown
-        function closeFooterDropdown() {
-          footerLangDropdown.classList.remove('show');
-          if (footerLangChevron) footerLangChevron.style.transform = '';
-          footerLangBtn.setAttribute('aria-expanded', 'false');
-        }
-        
-        // Submit form with language code
-        function submitFooterLanguageForm(languageCode) {
-          // Close dropdown
-          closeFooterDropdown();
-          
-          // Ensure language input exists in form
-          let langInput = footerLangForm.querySelector('input[name="language"]');
-          if (!langInput) {
-            langInput = document.createElement('input');
-            langInput.type = 'hidden';
-            langInput.name = 'language';
-            footerLangForm.appendChild(langInput);
-          }
-          langInput.value = languageCode;
-          
-          // Submit the form
-          footerLangForm.submit();
-        }
-        
-        // Toggle dropdown on button click
-        footerLangBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          e.preventDefault();
-          if (isFooterDropdownOpen()) {
-            closeFooterDropdown();
-          } else {
-            openFooterDropdown();
-          }
-        });
-        
-        // Handle all language button clicks
-        const footerLangButtons = footerLangForm.querySelectorAll('button[name="language"]');
-        footerLangButtons.forEach(function(button) {
-          // Change to regular button to prevent default submit behavior
-          button.type = 'button';
-          
-          // Add click handler to submit form
-          button.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            const languageCode = this.value || this.getAttribute('value');
-            if (languageCode) {
-              submitFooterLanguageForm(languageCode);
-            }
-          });
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-          // If click is inside the footer language selector area, don't close
-          if (footerLangBtn.contains(e.target) || 
-              footerLangDropdown.contains(e.target) || 
-              footerLangForm.contains(e.target)) {
-            return;
-          }
-          // Click is outside - close dropdown
-          if (isFooterDropdownOpen()) {
-            closeFooterDropdown();
-          }
-        });
-      })();
+
+      // Defer language selectors to idle
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(initLanguageSelectors, {timeout: 2000});
+      } else {
+        setTimeout(initLanguageSelectors, 100);
+      }
       
       // Notification System
       function showNotification(message, type = 'info') {
@@ -1392,15 +1322,32 @@
         return getCookie('csrftoken');
       }
       
-      // Check favorites when page loads
-      document.addEventListener('DOMContentLoaded', function() {
-        checkFavorites();
-      });
+      // Check favorites when idle (not critical for initial render)
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(function() { checkFavorites(); }, {timeout: 3000});
+      } else {
+        setTimeout(function() { checkFavorites(); }, 200);
+      }
       
+      // Password Toggle Function
+      function togglePassword(inputId) {
+        var input = document.getElementById(inputId);
+        var button = input.nextElementSibling;
+        var icon = button.querySelector('i');
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.classList.remove('bi-eye');
+          icon.classList.add('bi-eye-slash');
+        } else {
+          input.type = 'password';
+          icon.classList.remove('bi-eye-slash');
+          icon.classList.add('bi-eye');
+        }
+      }
     </script>
 
-    <!-- Google Tag Manager (deferred — moved from head to avoid render-blocking FCP/LCP) -->
-    <script>
+    <!-- Google Tag Manager (deferred — load after LCP to avoid TBT impact) -->
+    <script data-cfasync="false">
     (function() {
       function loadGTM() {
         var j = document.createElement('script');
@@ -1410,17 +1357,20 @@
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
       }
-      // Load GTM after first paint to avoid blocking LCP
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(loadGTM, {timeout: 2000});
-      } else {
-        setTimeout(loadGTM, 100);
-      }
+      // Load GTM only after page is fully loaded AND browser is idle
+      // This prevents GTM's 1,191ms of long tasks from blocking TBT
+      window.addEventListener('load', function() {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(loadGTM, {timeout: 4000});
+        } else {
+          setTimeout(loadGTM, 2000);
+        }
+      });
     })();
     </script>
 
     <!-- Deferred third-party scripts (non-blocking, uses requestIdleCallback for lower priority) -->
-    <script>
+    <script data-cfasync="false">
       // Load 3rd-party scripts only when browser is idle (after load + idle)
       function loadThirdPartyScripts() {
         // AdSense
@@ -1444,7 +1394,7 @@
     </script>
 
     <!-- Deferred OG/Twitter/Keyword meta sync (non-critical, runs after load) -->
-    <script>
+    <script data-cfasync="false">
       window.addEventListener('load', function() {
         var t = document.title || '';
         var dm = document.querySelector('meta[name="description"]');

@@ -95,6 +95,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.http.ConditionalGetMiddleware',  # 304 Not Modified responses
+    'core.middleware.PerformanceHeadersMiddleware',  # Link preload + Cache-Control headers for LCP/TTFB
 ]
 
 
@@ -166,8 +167,6 @@ LANGUAGES = [
     ('ja', '日本語'),
     ('ru', 'Pусский'),
     ('ko', '한국어'),
-    ('zh-hans', '中文 (简体)'),
-    ('zh-hant', '中文 (繁體)'),
     ('ar', 'العربية'),
     ('bg', 'Български'),
     ('ca', 'Català'),
