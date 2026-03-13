@@ -417,12 +417,12 @@ def create_notification(user, title, message, notification_type='info', icon=Non
     if not icon:
         # Default icons based on notification type
         icon_mapping = {
-            'info': 'fa-info-circle',
-            'success': 'fa-check-circle',
-            'warning': 'fa-exclamation-circle',
-            'error': 'fa-times-circle'
+            'info': '',
+            'success': '',
+            'warning': '',
+            'error': ''
         }
-        icon = icon_mapping.get(notification_type, 'fa-bell')
+        icon = icon_mapping.get(notification_type, '')
     
     notification = Notification.objects.create(
         user=user,

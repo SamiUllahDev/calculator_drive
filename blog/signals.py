@@ -68,7 +68,7 @@ def notify_users_about_new_post(post):
                     'title': post.title
                 },
                 notification_type='info',
-                icon='fa-newspaper',
+                icon='',
                 link=post.get_absolute_url()
             )
             batch_notifications.append(notification)
@@ -106,7 +106,7 @@ def notify_mentioned_users(sender, instance, **kwargs):
                         'title': instance.title
                     },
                     notification_type='info',
-                    icon='fa-at',
+                    icon='',
                     link=instance.get_absolute_url()
                 )
             except User.DoesNotExist:

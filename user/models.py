@@ -79,7 +79,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=255, verbose_name=_('Title'))
     message = models.TextField(verbose_name=_('Message'))
     notification_type = models.CharField(max_length=10, choices=NOTIFICATION_TYPES, default='info', verbose_name=_('Type'))
-    icon = models.CharField(max_length=50, default='fa-info-circle', verbose_name=_('Icon Class'))
+    icon = models.CharField(max_length=50, default='', verbose_name=_('Icon Class'))
     link = models.CharField(max_length=255, blank=True, null=True, verbose_name=_('Link'))
     is_read = models.BooleanField(default=False, verbose_name=_('Read Status'))
     created_at = models.DateTimeField(auto_now_add=True)
@@ -98,12 +98,12 @@ class Notification(models.Model):
     
     def get_icon_class(self):
         icon_mapping = {
-            'info': 'fa-info-circle text-primary',
-            'success': 'fa-check-circle text-success',
-            'warning': 'fa-exclamation-circle text-warning',
-            'error': 'fa-times-circle text-danger'
+            'info': 'text-primary',
+            'success': 'text-success',
+            'warning': 'text-warning',
+            'error': 'text-danger'
         }
-        return icon_mapping.get(self.notification_type, 'fa-bell')
+        return icon_mapping.get(self.notification_type, '')
 
 
 class UserSession(models.Model):

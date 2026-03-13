@@ -63,7 +63,7 @@ class EmailVerificationMiddleware(MiddlewareMixin):
                     message=_("Please verify your email address to access all features. Check your inbox or spam folder for the verification email."),
                     notification_type='warning',
                     link=reverse('account_email'),
-                    icon='fa-envelope'
+                    icon=''
                 )
             
             # Don't allow access to profile pages
