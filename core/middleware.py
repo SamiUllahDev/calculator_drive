@@ -143,20 +143,14 @@ class PerformanceHeadersMiddleware:
         if 'text/html' not in content_type:
             return response
 
-        # --- Link headers: preload font + preconnect third-party origins ---
+        # --- Link headers: preload critical font ---
         font_url = '/static/vendor/fonts/inter/inter-700.woff2'
-        link_parts = [
-            f'<{font_url}>; rel=preload; as=font; type="font/woff2"; crossorigin',
-            '<https://pagead2.googlesyndication.com>; rel=preconnect; crossorigin',
-            '<https://www.googletagmanager.com>; rel=preconnect; crossorigin',
-            '<https://fundingchoicesmessages.google.com>; rel=preconnect; crossorigin',
-        ]
+        link_value = f'<{font_url}>; rel=preload; as=font; type="font/woff2"; crossorigin'
         existing_link = response.get('Link', '')
-        new_link = ', '.join(link_parts)
         if existing_link:
-            response['Link'] = f'{existing_link}, {new_link}'
+            response['Link'] = f'{existing_link}, {link_value}'
         else:
-            response['Link'] = new_link
+            response['Link'] = link_value
 
         # --- Cache-Control for CDN edge caching (reduces TTFB) ---
         if not request.user.is_authenticated and not response.get('Cache-Control'):
