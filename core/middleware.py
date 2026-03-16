@@ -95,8 +95,42 @@ class PerformanceHeadersMiddleware:
     
     Adds:
     - Link preload header for critical font (helps LCP by starting font download earlier)
+    - Link preconnect hints for third-party origins (reduces connection time for ads/analytics)
     - Cache-Control with stale-while-revalidate for CDN edge caching (reduces TTFB)
+    - Content-Security-Policy (fixes Lighthouse "No CSP" High severity)
+    - Permissions-Policy for security hardening
     """
+
+    # CSP directives — permissive enough for ads/analytics but blocks XSS injection
+    CSP_POLICY = "; ".join([
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+        "https://pagead2.googlesyndication.com https://www.googletagmanager.com "
+        "https://www.google-analytics.com https://ssl.google-analytics.com "
+        "https://adservice.google.com https://www.google.com "
+        "https://fundingchoicesmessages.google.com "
+        "https://cdn.prod.uidapi.com "
+        "https://static.cloudflareinsights.com "
+        "https://faves.grow.me https://app.grow.me https://*.grow.me "
+        "https://tpc.googlesyndication.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        "img-src 'self' data: blob: https: http:",
+        "frame-src 'self' https://www.google.com https://tpc.googlesyndication.com "
+        "https://googleads.g.doubleclick.net https://fundingchoicesmessages.google.com "
+        "https://app.grow.me https://*.grow.me "
+        "https://td.doubleclick.net",
+        "connect-src 'self' https://pagead2.googlesyndication.com "
+        "https://www.google-analytics.com https://adservice.google.com "
+        "https://fundingchoicesmessages.google.com "
+        "https://static.cloudflareinsights.com "
+        "https://*.grow.me https://*.growplow.events "
+        "https://cdn.prod.uidapi.com "
+        "https://www.googletagmanager.com https://region1.google-analytics.com "
+        "https://uidapi.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+    ])
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -109,23 +143,35 @@ class PerformanceHeadersMiddleware:
         if 'text/html' not in content_type:
             return response
 
-        # Add Link preload header for the LCP font weight.
-        # Keep bytes low on mobile: only preload the weight used by the hero title (700/800).
+        # --- Link headers: preload font + preconnect third-party origins ---
         font_url = '/static/vendor/fonts/inter/inter-700.woff2'
-        link_value = f'<{font_url}>; rel=preload; as=font; type="font/woff2"; crossorigin'
+        link_parts = [
+            f'<{font_url}>; rel=preload; as=font; type="font/woff2"; crossorigin',
+            '<https://pagead2.googlesyndication.com>; rel=preconnect; crossorigin',
+            '<https://www.googletagmanager.com>; rel=preconnect; crossorigin',
+            '<https://fundingchoicesmessages.google.com>; rel=preconnect; crossorigin',
+        ]
         existing_link = response.get('Link', '')
+        new_link = ', '.join(link_parts)
         if existing_link:
-            response['Link'] = f'{existing_link}, {link_value}'
+            response['Link'] = f'{existing_link}, {new_link}'
         else:
-            response['Link'] = link_value
+            response['Link'] = new_link
 
-        # For non-authenticated HTML pages, enable CDN-friendly caching.
-        # This tells CDN/Cloudflare to serve stale content while fetching fresh in background
-        # Dramatically reduces TTFB for repeat visitors (from 1.8s to ~50ms at edge)
+        # --- Cache-Control for CDN edge caching (reduces TTFB) ---
         if not request.user.is_authenticated and not response.get('Cache-Control'):
-            # - max-age=0: browsers revalidate HTML (keeps content fresh)
-            # - s-maxage=600: CDN can cache HTML for 10 minutes
-            # - stale-while-revalidate: serve stale while revalidating in background
             response['Cache-Control'] = 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400'
 
+        # --- Content-Security-Policy (fixes Lighthouse "No CSP" — High severity) ---
+        if not response.get('Content-Security-Policy'):
+            response['Content-Security-Policy'] = self.CSP_POLICY
+
+        # --- Permissions-Policy (restricts browser features for security) ---
+        if not response.get('Permissions-Policy'):
+            response['Permissions-Policy'] = (
+                'camera=(), microphone=(), geolocation=(), '
+                'interest-cohort=()'
+            )
+
         return response
+

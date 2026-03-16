@@ -11,12 +11,13 @@ description: How to optimize Core Web Vitals and deploy performance improvements
 These items cause **160ms render-blocking** and **258KB unused JS** that we CANNOT fix in code:
 
 - **Disable Rocket Loader**: Speed → Optimization → Content Optimization → Rocket Loader → OFF
-  - Rocket Loader wraps ALL scripts and defers them, adding ~160ms delay
+  - Rocket Loader wraps ALL scripts and defers them, adding ~160ms render-blocking delay
   - We already defer 3rd party scripts manually with `requestIdleCallback`
+  - This is the #1 item causing render-blocking in Lighthouse
   
 - **Disable Email Address Obfuscation**: Scrape Shield → Email Address Obfuscation → OFF
   - `email-decode.min.js` is injected and render-blocks
-  - Only disable if you don't have email addresses exposed in HTML
+  - All email addresses in templates are now JS-obfuscated, so this CF feature is redundant
 
 - **Enable Auto Minify**: Speed → Optimization → Content Optimization → Auto Minify → JS, CSS, HTML
 
@@ -28,11 +29,12 @@ These items cause **160ms render-blocking** and **258KB unused JS** that we CANN
   - Edge Cache TTL: 2 hours
   - Browser Cache TTL: 4 hours (for HTML)
 
-### 2. Remove/Optimize Grow.me (saves 258KB)
+### 2. Remove/Optimize Grow.me (saves ~350KB)
 
 If `grow.me` widget is installed via Cloudflare Apps or a third-party integration:
 - Consider removing it or lazy-loading it
-- It contributes 258KB of unused JavaScript
+- It contributes ~350KB of unused JavaScript and causes long main-thread tasks
+- This is the single largest third-party contributor to TBT
 
 ### 3. Deploy Code Changes
 
@@ -60,6 +62,9 @@ npx lighthouse https://calculatordrive.com --only-categories=performance --outpu
 
 ### LCP Fixes (was 4.7s → target <2.5s)  
 - GTM moved from `<head>` to deferred loader at bottom of `<body>`
+- GTM + AdSense consolidated into single script with interaction-first loading on mobile
+- On mobile/touchscreen devices: scripts only load after first user interaction (scroll/tap/keypress)
+- On slow networks (3G, slow 4G, save-data): interaction-first with 12s safety timeout
 - `site.min.css` made async (critical parts inlined)
 - FontAwesome made async (icons are decorative)
 - Only Inter-400 preloaded (was preloading 3 fonts = 330KB competing with LCP)
@@ -72,6 +77,19 @@ npx lighthouse https://calculatordrive.com --only-categories=performance --outpu
 - Orb animations disabled on mobile (<768px)
 - `prefers-reduced-motion` support added
 - Content-visibility: auto on below-fold sections
+- 200ms stagger between GTM and AdSense loading to avoid single huge main-thread task
+- 300ms delay after user interaction before loading scripts (lets browser process interaction first)
+
+### Security Headers (Lighthouse Best Practices)
+- **HSTS**: Enabled with 1-year max-age, includeSubDomains, preload
+- **CSP**: Content-Security-Policy header with whitelist for ads/analytics
+- **Permissions-Policy**: camera, microphone, geolocation disabled
+- SESSION_COOKIE_SECURE and CSRF_COOKIE_SECURE enabled
+
+### Network Optimization
+- Preconnect hints for pagead2.googlesyndication.com, www.googletagmanager.com
+- DNS-prefetch hints for fundingchoicesmessages, cloudflareinsights, grow.me
+- Link header preconnect hints via middleware (works even before HTML parsing)
 
 ### Accessibility
 - `<header>` role changed to "banner"
@@ -79,4 +97,4 @@ npx lighthouse https://calculatordrive.com --only-categories=performance --outpu
 
 ### Server-Side
 - Homepage cache increased to 30 minutes
-- PerformanceHeadersMiddleware for Link preload and Cache-Control headers
+- PerformanceHeadersMiddleware for Link preload, preconnect, Cache-Control, CSP, Permissions-Policy headers

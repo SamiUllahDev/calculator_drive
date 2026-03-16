@@ -187,9 +187,13 @@
     <!-- Page-specific Structured Data -->
     {% block structured_data %}{% endblock %}
     
-    <!-- Preconnect: only for origins used during initial page render -->
-    <!-- (Fonts are self-hosted; third-party scripts are deferred to after load/idle) -->
-    
+    <!-- Preconnect hints for third-party origins used during page lifecycle -->
+    <!-- DNS + TCP + TLS handshake completed early, saving 100-300ms per origin -->
+    <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
+    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
+    <link rel="dns-prefetch" href="https://fundingchoicesmessages.google.com">
+    <link rel="dns-prefetch" href="https://static.cloudflareinsights.com">
+    <link rel="dns-prefetch" href="https://faves.grow.me">
     <!-- Preload critical font weights (LCP text uses 400 + 700/800) -->
     <link rel="preload" href="{% static 'vendor/fonts/inter/inter-400.woff2' %}" as="font" type="font/woff2" crossorigin fetchpriority="high">
     <link rel="preload" href="{% static 'vendor/fonts/inter/inter-700.woff2' %}" as="font" type="font/woff2" crossorigin>
@@ -1345,15 +1349,22 @@
       }
     </script>
 
-    <!-- Google Tag Manager (deferred — load after LCP to avoid TBT impact) -->
+    <!-- Consolidated GTM + AdSense loader (interaction-first on mobile/slow networks) -->
     <script data-cfasync="false">
     (function() {
+      /* === Shared helpers === */
       function isSlowOrSaveData() {
         try {
           var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
           if (!c) return false;
-          return !!c.saveData || (c.effectiveType && (c.effectiveType === '2g' || c.effectiveType === 'slow-2g'));
+          if (c.saveData) return true;
+          var et = c.effectiveType;
+          return et === '2g' || et === 'slow-2g' || et === '3g';
         } catch (e) { return false; }
+      }
+
+      function isMobile() {
+        return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768;
       }
 
       function onFirstInteraction(cb) {
@@ -1371,81 +1382,56 @@
         window.addEventListener('keydown', once);
       }
 
+      /* === GTM === */
       function loadGTM() {
         if (window.__gtmLoaded) return;
         window.__gtmLoaded = true;
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
         var j = document.createElement('script');
         j.async = true;
         j.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-MJTF2ZS4';
         document.head.appendChild(j);
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
       }
 
-      window.addEventListener('load', function() {
-        // On slow connections / Data Saver, wait for user interaction to protect CWV.
-        if (isSlowOrSaveData()) {
-          onFirstInteraction(function() { setTimeout(loadGTM, 500); });
-          return;
-        }
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(loadGTM, {timeout: 6000});
-        } else {
-          setTimeout(loadGTM, 2500);
-        }
-      });
-    })();
-    </script>
-
-    <!-- Deferred third-party scripts (non-blocking, uses requestIdleCallback for lower priority) -->
-    <script data-cfasync="false">
-      function isSlowOrSaveData() {
-        try {
-          var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-          if (!c) return false;
-          return !!c.saveData || (c.effectiveType && (c.effectiveType === '2g' || c.effectiveType === 'slow-2g'));
-        } catch (e) { return false; }
-      }
-
-      function onFirstInteraction(cb) {
-        var done = false;
-        function once() {
-          if (done) return;
-          done = true;
-          window.removeEventListener('scroll', once, {passive:true});
-          window.removeEventListener('pointerdown', once);
-          window.removeEventListener('keydown', once);
-          cb();
-        }
-        window.addEventListener('scroll', once, {passive:true});
-        window.addEventListener('pointerdown', once, {passive:true});
-        window.addEventListener('keydown', once);
-      }
-
+      /* === AdSense === */
       function loadAdSense() {
         if (window.__adsenseLoaded) return;
         window.__adsenseLoaded = true;
-        var adsense = document.createElement('script');
-        adsense.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1966824765779595';
-        adsense.async = true;
-        adsense.crossOrigin = 'anonymous';
-        document.head.appendChild(adsense);
+        var s = document.createElement('script');
+        s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1966824765779595';
+        s.async = true;
+        s.crossOrigin = 'anonymous';
+        document.head.appendChild(s);
       }
 
-      function scheduleThirdParty() {
-        // On slow connections / Data Saver, wait for user interaction to protect CWV.
-        if (isSlowOrSaveData()) {
-          onFirstInteraction(function() { setTimeout(loadAdSense, 800); });
+      /* === Scheduling: load both GTM + AdSense together === */
+      function loadAll() {
+        loadGTM();
+        // Stagger AdSense 200ms after GTM to avoid single huge main-thread task
+        setTimeout(loadAdSense, 200);
+      }
+
+      window.addEventListener('load', function() {
+        // On slow connections OR mobile: wait for user interaction before loading
+        // This protects LCP, FCP, TBT, and INP on the first visit
+        if (isSlowOrSaveData() || isMobile()) {
+          onFirstInteraction(function() {
+            // Small delay after interaction to let the browser handle the interaction first (INP)
+            setTimeout(loadAll, 300);
+          });
+          // Safety net: load anyway after 12s if user hasn't interacted
+          setTimeout(loadAll, 12000);
           return;
         }
+        // Desktop with fast connection: use idle callback
         if ('requestIdleCallback' in window) {
-          requestIdleCallback(loadAdSense, {timeout: 8000});
+          requestIdleCallback(loadAll, {timeout: 6000});
         } else {
-          setTimeout(loadAdSense, 3000);
+          setTimeout(loadAll, 2500);
         }
-      }
-
-      window.addEventListener('load', scheduleThirdParty);
+      });
+    })();
     </script>
 
     <!-- Deferred OG/Twitter/Keyword meta sync (non-critical, runs after load) -->

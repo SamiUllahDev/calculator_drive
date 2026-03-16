@@ -451,17 +451,18 @@ CACHES = {
 # These settings should be configured for production deployment
 # See SECURITY_REPORT.md for detailed security recommendations
 
-# HTTPS/SSL Settings (for production)
-# Set these to True when deploying with HTTPS
-SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
-SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
-CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False') == 'True'
+# HTTPS/SSL Settings (for production — site is fully HTTPS via Cloudflare)
+# Note: SECURE_SSL_REDIRECT is False because Cloudflare handles HTTP→HTTPS redirect
+# at the edge. Enabling it in Django would cause redirect loops with CF's Flexible SSL.
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 # HTTP Strict Transport Security (HSTS)
-# Only enable if your entire site is served over HTTPS
-# SECURE_HSTS_SECONDS = 31536000  # 1 year
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
+# Tells browsers to always use HTTPS — fixes Lighthouse "No HSTS header" (High severity)
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 # Security Headers
 SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME type sniffing
