@@ -268,6 +268,10 @@
       .mobile-drawer{position:fixed;top:0;bottom:0;left:0;width:320px;max-width:85vw;z-index:70;transform:translateX(-100%)}
       .mobile-drawer-overlay{position:fixed;inset:0;z-index:60;opacity:0;visibility:hidden}
       .drawer-auth{padding:0 12px 20px}
+      /* Suppress ALL transitions during initial load to prevent non-composited animation warnings.
+         When async CSS loads and changes styles (border-radius, padding, font-size), transitions
+         cause the browser to animate those non-GPU properties. This class is removed after CSS loads. */
+      .no-transitions,.no-transitions *,.no-transitions *::before,.no-transitions *::after{transition:none!important;animation:none!important}
     </style>
     
     <!-- CSS LOADING STRATEGY:
@@ -286,9 +290,33 @@
     <link rel="stylesheet" href="{% static 'css/site.min.css' %}" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="{% static 'css/site.min.css' %}"></noscript>
     
+    <!-- Re-enable transitions after async CSS has loaded and applied (prevents non-composited animation warnings) -->
+    <script data-cfasync="false">
+    (function(){
+      var pending = 2; // Wait for both styles.css and site.min.css
+      function done() {
+        if (--pending <= 0) {
+          // Wait 2 frames: 1st frame to apply CSS, 2nd frame to paint without transitions
+          requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+              document.body.classList.remove('no-transitions');
+            });
+          });
+        }
+      }
+      // Hook into the stylesheet onload events
+      var sheets = document.querySelectorAll('link[rel="stylesheet"][media="print"]');
+      sheets.forEach(function(s) {
+        if (s.media === 'all') { done(); } // Already loaded
+        else { var orig = s.onload; s.onload = function() { if (orig) orig.call(this); done(); }; }
+      });
+      // Fallback: enable transitions after 3s even if CSS load events don't fire
+      setTimeout(function() { document.body.classList.remove('no-transitions'); }, 3000);
+    })();
+    </script>
 
   </head>
-  <body class="bg-white min-h-screen flex flex-col" itemscope itemtype="https://schema.org/WebPage" style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased;">
+  <body class="bg-white min-h-screen flex flex-col no-transitions" itemscope itemtype="https://schema.org/WebPage" style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased;">
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MJTF2ZS4"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
