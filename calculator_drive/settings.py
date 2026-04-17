@@ -27,13 +27,12 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pzxmmuvl_uvl=hhxdl#&s
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-DEBUG = True
+DEBUG = False
 # Security: Set allowed hosts in production
 ALLOWED_HOSTS = [
     'calculatordrive.com',
     'www.calculatordrive.com',
-    'localhost',
-    '127.0.0.1',
+   
 ]
 
 INTERNAL_IPS = [
