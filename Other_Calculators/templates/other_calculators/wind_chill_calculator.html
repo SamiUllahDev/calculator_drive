@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Wind Chill Calculator - Calculate Feels Like Temperature in Cold Weather Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free wind chill calculator. Calculate wind chill from temperature and wind speed using the NWS formula. Find temperature or wind speed from wind chill. Risk categories with step-by-step solutions. Supports °F, °C, mph, km/h, m/s. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate wind chill, find temperature or wind speed. Free with risk categories and step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/wind_chill_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Wind Chill Calculator - Free Online Tool" %}","description":"{% trans "Free wind chill calculator using the NWS Wind Chill Index formula. Calculate feels-like temperature in cold weather, find risk categories, reverse-solve for temperature or wind speed. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.7","ratingCount":"1680"},"featureList":["{% trans 'Calculate wind chill from temperature and wind speed' %}","{% trans 'Find temperature from wind chill and wind speed' %}","{% trans 'Find wind speed from wind chill and temperature' %}","{% trans 'Risk category assessment' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Supports °F, °C, mph, km/h, m/s' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Wind Chill Calculator - Free Online Tool" %}',"description":'{% trans "Free wind chill calculator using the NWS Wind Chill Index formula. Calculate feels-like temperature in cold weather, find risk categories, reverse-solve for temperature or wind speed. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.7","ratingCount":"1680"},"featureList":["{% trans 'Calculate wind chill from temperature and wind speed' %}","{% trans 'Find temperature from wind chill and wind speed' %}","{% trans 'Find wind speed from wind chill and temperature' %}","{% trans 'Risk category assessment' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Supports °F, °C, mph, km/h, m/s' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -225,106 +226,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('wcForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const badge = document.getElementById('categoryBadge');
-            const descEl = document.getElementById('catDesc');
-            if (r.category) {
-                document.getElementById('catText').textContent = r.category + ' — ' + r.risk_level;
-                badge?.classList.remove('hidden');
-                if (r.category_desc) { descEl.textContent = r.category_desc; descEl.classList.remove('hidden'); }
-            } else {
-                badge?.classList.add('hidden');
-                descEl?.classList.add('hidden');
-            }
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            } else {
-                cc?.classList.add('hidden');
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-    document.getElementById('categoryBadge')?.classList.add('hidden');
-    document.getElementById('catDesc')?.classList.add('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 1}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'wind_chill') {
-        d.temperature = parseFloat(document.getElementById('wc_temp').value);
-        d.temp_unit = document.getElementById('wc_tu').value;
-        d.wind_speed = parseFloat(document.getElementById('wc_ws').value);
-        d.wind_unit = document.getElementById('wc_wu').value;
-    } else if (ct === 'from_wind_chill') {
-        d.wind_chill = parseFloat(document.getElementById('fwc_wc').value);
-        d.temp_unit = document.getElementById('fwc_tu').value;
-        d.wind_speed = parseFloat(document.getElementById('fwc_ws').value);
-        d.wind_unit = document.getElementById('fwc_wu').value;
-    } else if (ct === 'wind_speed') {
-        d.wind_chill = parseFloat(document.getElementById('ws_wc').value);
-        d.temp_unit = document.getElementById('ws_tu').value;
-        d.temperature = parseFloat(document.getElementById('ws_temp').value);
-        d.wind_unit = document.getElementById('ws_wu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/wind_chill_calculator.js' %}"></script>
 {% endblock %}

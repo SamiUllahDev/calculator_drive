@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "marriage tax calculator, marriage penalty, marriage bonus, filing jointly, filing separately" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/marriage_tax_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -246,142 +247,21 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-    var comparisonChart = null;
-
-    function formatCurrency(n) {
-        var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
-    }
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Marriage Tax Impact" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Marriage Tax Impact" %}';
-    }
-    function renderChart(chartData) {
-        var container = document.getElementById('chartContainer');
-        var canvas = document.getElementById('comparisonChart');
-        if (!chartData || !chartData.comparison_chart || !canvas) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (comparisonChart) comparisonChart.destroy();
-        var config = chartData.comparison_chart;
-        comparisonChart = new Chart(canvas.getContext('2d'), {
-            type: config.type || 'bar',
-            data: config.data || {},
-            options: config.options || { responsive: true, maintainAspectRatio: false }
-        });
-        container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            income1: document.getElementById('income1').value,
-            income2: document.getElementById('income2').value,
-            retirement1: document.getElementById('retirement1').value,
-            retirement2: document.getElementById('retirement2').value,
-            itemized: document.getElementById('itemized').value
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            try {
-                initialState.classList.add('hidden');
-                resultsWrapper.classList.remove('hidden');
-
-                var effect = data.marriage_effect || {};
-                var hero = document.getElementById('resultHero');
-                if (hero) {
-                    if (effect.type === 'bonus') {
-                        hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white bg-gradient-to-br from-green-600 to-emerald-600';
-                        document.getElementById('heroLabel').textContent = '{% trans "Marriage Bonus" %}';
-                    } else if (effect.type === 'penalty') {
-                        hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white bg-gradient-to-br from-red-600 to-rose-600';
-                        document.getElementById('heroLabel').textContent = '{% trans "Marriage Penalty" %}';
-                    } else {
-                        hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white bg-gradient-to-br from-gray-600 to-slate-600';
-                        document.getElementById('heroLabel').textContent = '{% trans "No Difference" %}';
-                    }
-                }
-                var heroVal = document.getElementById('heroValue');
-                var heroDesc = document.getElementById('heroDescription');
-                if (heroVal) heroVal.textContent = formatCurrency(effect.amount);
-                if (heroDesc) heroDesc.textContent = effect.description || '';
-
-                var single = data.single_filing || {};
-                var mfj = data.married_jointly || {};
-                var best = data.best_option || {};
-                var el = function(id) { return document.getElementById(id); };
-                if (el('detailSingleTax')) el('detailSingleTax').textContent = formatCurrency(single.total_tax);
-                if (el('detailMarriedTax')) el('detailMarriedTax').textContent = formatCurrency(best.tax_if_married != null ? best.tax_if_married : mfj.tax);
-                if (el('person1Tax')) el('person1Tax').textContent = formatCurrency(single.person_1 && single.person_1.tax != null ? single.person_1.tax : 0);
-                if (el('person2Tax')) el('person2Tax').textContent = formatCurrency(single.person_2 && single.person_2.tax != null ? single.person_2.tax : 0);
-                if (el('combinedSingleTax')) el('combinedSingleTax').textContent = formatCurrency(single.total_tax);
-                if (el('marriedJointlyTax')) el('marriedJointlyTax').textContent = formatCurrency(mfj.tax);
-                var expl = document.getElementById('explanation');
-                if (expl) expl.textContent = (data.analysis && data.analysis.disparity_note) || effect.description || '';
-
-                if (data.chart_data) renderChart(data.chart_data);
-                else { var cc = document.getElementById('chartContainer'); if (cc) cc.classList.add('hidden'); }
-
-                if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } catch (displayErr) {
-                showError('{% trans "Could not display results. Please try again." %}');
-            }
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateMarriageTax_1: '{% trans "Calculate Marriage Tax Impact" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_MarriageBonus_9: '{% trans "Marriage Bonus" %}',
+        trans_MarriagePenalty_10: '{% trans "Marriage Penalty" %}',
+        trans_NoDifference_11: '{% trans "No Difference" %}',
+        trans_Couldnotdisplayresul_12: '{% trans "Could not display results. Please try again." %}',
+        trans_Networkorservererror_13: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/marriage_tax_calculator.js' %}"></script>
 {% endblock %}

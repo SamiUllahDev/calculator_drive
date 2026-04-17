@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "IP Subnet Calculator - Calculate Subnet Mask, Network, CIDR, Host Range Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free IP subnet calculator. Calculate subnet info, network address, broadcast address, host range, CIDR to mask conversion, supernetting. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate IP subnets, CIDR, host range, supernetting. Free online step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/ip_subnet_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "IP Subnet Calculator - Free Online Tool" %}","description":"{% trans "Free IP subnet calculator. Subnet info, CIDR conversion, host range, supernetting with step-by-step solutions." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"4200"},"featureList":["{% trans 'Full subnet info from IP + mask/CIDR' %}","{% trans 'Find CIDR for N hosts needed' %}","{% trans 'Divide network into N subnets' %}","{% trans 'Supernet / aggregate subnets' %}","{% trans 'Convert between CIDR and dotted-decimal' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "IP Subnet Calculator - Free Online Tool" %}',"description":'{% trans "Free IP subnet calculator. Subnet info, CIDR conversion, host range, supernetting with step-by-step solutions." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"4200"},"featureList":["{% trans 'Full subnet info from IP + mask/CIDR' %}","{% trans 'Find CIDR for N hosts needed' %}","{% trans 'Divide network into N subnets' %}","{% trans 'Supernet / aggregate subnets' %}","{% trans 'Convert between CIDR and dotted-decimal' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -230,117 +231,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('subnetForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = r.result || '-';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Detail cards
-            const dc = document.getElementById('detailCards'); dc.innerHTML = '';
-            if (r.detail_cards) r.detail_cards.forEach(card => {
-                const d = document.createElement('div');
-                d.className = `bg-${card.color}-50 rounded-lg p-3 text-center border-2 border-${card.color}-200`;
-                d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${card.label}</p><p class="text-sm font-bold text-${card.color}-600 font-mono">${card.value}</p>`;
-                dc.appendChild(d);
-            });
-
-            // Subnet list for from_subnets
-            const slc = document.getElementById('subnetListCard');
-            const slContent = document.getElementById('subnetListContent');
-            if (r.subnets_list && r.subnets_list.length > 0) {
-                slContent.innerHTML = '';
-                r.subnets_list.forEach((s, i) => {
-                    const d = document.createElement('div');
-                    d.className = 'bg-gray-50 rounded p-2 border border-gray-200 text-xs';
-                    d.textContent = `#${i+1}: ${s}`;
-                    slContent.appendChild(d);
-                });
-                slc?.classList.remove('hidden');
-            } else {
-                slc?.classList.add('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-cyan-400 pl-3 py-1 bg-white rounded-r font-mono'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-cyan-700 mt-2 bg-cyan-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('subnetListCard')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'subnet_info') {
-        d.ip_address = document.getElementById('si_ip').value.trim();
-        d.subnet_mask = document.getElementById('si_mask').value.trim();
-    } else if (ct === 'subnet_from_hosts') {
-        d.ip_address = document.getElementById('fh_ip').value.trim();
-        d.hosts_needed = parseInt(document.getElementById('fh_hosts').value);
-    } else if (ct === 'subnet_from_subnets') {
-        d.ip_address = document.getElementById('fs_ip').value.trim();
-        d.original_cidr = parseInt(document.getElementById('fs_cidr').value);
-        d.subnets_needed = parseInt(document.getElementById('fs_subnets').value);
-    } else if (ct === 'supernet') {
-        d.networks = document.getElementById('sn_nets').value.trim();
-    } else if (ct === 'convert_mask') {
-        d.value = document.getElementById('cm_val').value.trim();
-        d.from_format = document.getElementById('cm_from').value;
-        d.to_format = document.getElementById('cm_to').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/ip_subnet_calculator.js' %}"></script>
 {% endblock %}

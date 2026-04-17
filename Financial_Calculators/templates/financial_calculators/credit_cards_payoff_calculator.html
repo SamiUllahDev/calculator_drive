@@ -5,6 +5,7 @@
 {% block title %}{% trans "Credit Card Payoff Calculator - Pay Off Debt Faster" %}{% endblock %}
 {% block meta_description %}{% trans "Free credit card payoff calculator. See how long to pay off debt and how much interest you'll pay. Compare snowball vs avalanche strategies. Get instant results with payoff timeline and schedule." %}{% endblock %}
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/credit_cards_payoff_calculator.css' %}">
 <meta name="keywords" content="{% trans 'credit card payoff calculator, debt payoff, debt snowball, debt avalanche, credit card interest, pay off debt' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Credit Card Payoff Calculator' %}">
@@ -458,172 +459,20 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var i18n = {
-        months: "{% trans 'months' %}",
-        cardName: "{% trans 'Card name' %}",
-        remove: "{% trans 'Remove' %}",
-        balance: "{% trans 'Balance' %}",
-        apr: "{% trans 'APR %' %}",
-        minPayment: "{% trans 'Min Payment' %}",
-        debtFreeBy: "{% trans 'Debt-free by' %}",
-        month: "{% trans 'Month' %}"
+window.djangoContext = {
+        trans_months_0: "{% trans 'months' %}",
+        trans_Cardname_1: "{% trans 'Card name' %}",
+        trans_Remove_2: "{% trans 'Remove' %}",
+        trans_Balance_3: "{% trans 'Balance' %}",
+        trans_APR_4: "{% trans 'APR %' %}",
+        trans_MinPayment_5: "{% trans 'Min Payment' %}",
+        trans_Debtfreeby_6: "{% trans 'Debt-free by' %}",
+        trans_Month_7: "{% trans 'Month' %}",
+        trans_Calculating_8: '{% trans "Calculating..." %}',
+        trans_CalculatePayoff_9: '{% trans "Calculate Payoff" %}',
+        trans_AnerroroccurredPleas_10: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_AnerroroccurredPleas_12: '{% trans "An error occurred. Please try again." %}',
     };
-    var form = document.getElementById('calculator-form');
-    var modeBtns = document.querySelectorAll('.calc-mode-btn');
-    var cardCount = 0;
-
-    function addCard(name, balance, apr, minPayment) {
-        cardCount++;
-        var container = document.getElementById('cards_container');
-        var cardDiv = document.createElement('div');
-        cardDiv.className = 'card-entry p-3 bg-gray-50 rounded-lg border-2 border-gray-200 space-y-2';
-        cardDiv.innerHTML = '<div class="flex justify-between items-center">' +
-            '<input type="text" class="card-name w-full max-w-[8rem] px-2 py-1.5 text-sm border-2 border-gray-300 rounded-lg" placeholder="' + i18n.cardName + '" value="' + (name || 'Card ' + cardCount) + '">' +
-            '<button type="button" class="remove-card text-red-600 hover:text-red-700 text-sm font-medium ml-2">✕ ' + i18n.remove + '</button>' +
-            '</div><div class="grid grid-cols-3 gap-2">' +
-            '<div><label class="block text-xs text-gray-600 mb-0.5">' + i18n.balance + '</label><input type="text" class="card-balance w-full px-2 py-1.5 text-sm border-2 border-gray-300 rounded-lg" value="' + (balance || '2,000') + '"></div>' +
-            '<div><label class="block text-xs text-gray-600 mb-0.5">' + i18n.apr + '</label><input type="text" class="card-apr w-full px-2 py-1.5 text-sm border-2 border-gray-300 rounded-lg" value="' + (apr || '19.99') + '"></div>' +
-            '<div><label class="block text-xs text-gray-600 mb-0.5">' + i18n.minPayment + '</label><input type="text" class="card-min w-full px-2 py-1.5 text-sm border-2 border-gray-300 rounded-lg" value="' + (minPayment || '50') + '"></div></div>';
-        container.appendChild(cardDiv);
-        cardDiv.querySelector('.remove-card').addEventListener('click', function() {
-            if (document.querySelectorAll('.card-entry').length > 1) cardDiv.remove();
-        });
-    }
-
-    document.getElementById('add_card_btn').addEventListener('click', function() { addCard(); });
-
-    modeBtns.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            modeBtns.forEach(function(b) {
-                b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
-                b.classList.add('border-gray-200', 'text-gray-600');
-            });
-            this.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
-            this.classList.remove('border-gray-200', 'text-gray-600');
-            var mode = this.dataset.mode;
-            document.getElementById('calc_type').value = mode;
-            document.getElementById('singleCardFields').classList.toggle('hidden', mode !== 'single_card');
-            document.getElementById('multipleCardsFields').classList.toggle('hidden', mode !== 'multiple_cards');
-            if (mode === 'multiple_cards' && document.querySelectorAll('.card-entry').length === 0) {
-                addCard('Credit Card 1', '3,000', '22.99', '75');
-                addCard('Credit Card 2', '1,500', '18.99', '50');
-            }
-        });
-    });
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        document.getElementById('errorState').classList.add('hidden');
-        document.getElementById('loadingState').classList.remove('hidden');
-        document.getElementById('calculateBtn').disabled = true;
-        document.getElementById('calculateBtnText').textContent = '{% trans "Calculating..." %}';
-
-        var calcType = document.getElementById('calc_type').value;
-        var data = { calc_type: calcType };
-        if (calcType === 'single_card') {
-            data.balance = parseNumber(document.getElementById('balance').value);
-            data.apr = parseFloat(document.getElementById('apr').value) || 0;
-            data.fixed_payment = parseNumber(document.getElementById('fixed_payment').value);
-        } else {
-            data.strategy = document.querySelector('input[name="strategy"]:checked').value;
-            data.extra_payment = parseNumber(document.getElementById('extra_payment').value);
-            data.cards = [];
-            document.querySelectorAll('.card-entry').forEach(function(entry) {
-                data.cards.push({
-                    name: entry.querySelector('.card-name').value,
-                    balance: parseNumber(entry.querySelector('.card-balance').value),
-                    apr: parseFloat(entry.querySelector('.card-apr').value) || 0,
-                    min_payment: parseNumber(entry.querySelector('.card-min').value)
-                });
-            });
-        }
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(data)
-            });
-            var result = await response.json();
-
-            document.getElementById('loadingState').classList.add('hidden');
-            document.getElementById('calculateBtn').disabled = false;
-            document.getElementById('calculateBtnText').textContent = '{% trans "Calculate Payoff" %}';
-
-            if (!result.success) {
-                document.getElementById('errorMessage').textContent = result.error || '{% trans "An error occurred. Please check your inputs." %}';
-                document.getElementById('errorState').classList.remove('hidden');
-                return;
-            }
-
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsSection').classList.remove('hidden');
-            document.getElementById('singleCardResults').classList.add('hidden');
-            document.getElementById('multipleCardsResults').classList.add('hidden');
-
-            if (calcType === 'single_card') {
-                document.getElementById('singleCardResults').classList.remove('hidden');
-                document.getElementById('minMonths').textContent = result.minimum_payment.months + ' ' + i18n.months;
-                document.getElementById('minInterest').textContent = formatCurrency(result.minimum_payment.total_interest);
-                document.getElementById('minDate').textContent = result.minimum_payment.payoff_date;
-                var fixedCard = document.getElementById('fixedPaymentCard');
-                var savingsAlert = document.getElementById('savingsAlert');
-                if (result.fixed_payment) {
-                    fixedCard.classList.remove('hidden');
-                    document.getElementById('fixedMonths').textContent = result.fixed_payment.months + ' ' + i18n.months;
-                    document.getElementById('fixedInterest').textContent = formatCurrency(result.fixed_payment.total_interest);
-                    document.getElementById('fixedDate').textContent = result.fixed_payment.payoff_date;
-                    if (result.savings && result.savings.interest_saved > 0) {
-                        savingsAlert.classList.remove('hidden');
-                        document.getElementById('interestSaved').textContent = formatCurrency(result.savings.interest_saved);
-                        document.getElementById('monthsSaved').textContent = result.savings.months_saved;
-                    } else savingsAlert.classList.add('hidden');
-                } else {
-                    fixedCard.classList.add('hidden');
-                    savingsAlert.classList.add('hidden');
-                }
-                var tbody = document.getElementById('scheduleBody');
-                tbody.innerHTML = '';
-                (result.schedule || []).forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-3 py-2">' + row.month + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.payment) + '</td><td class="px-3 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-3 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-3 py-2 text-right font-medium">' + formatCurrency(row.balance) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            } else {
-                document.getElementById('multipleCardsResults').classList.remove('hidden');
-                document.getElementById('totalMonths').textContent = result.payoff.months + ' ' + i18n.months;
-                document.getElementById('totalPayoffDate').textContent = i18n.debtFreeBy + ' ' + result.payoff.payoff_date;
-                document.getElementById('totalDebt').textContent = formatCurrency(result.total_balance);
-                document.getElementById('multiInterest').textContent = formatCurrency(result.payoff.total_interest);
-                document.getElementById('multiTotalPaid').textContent = formatCurrency(result.payoff.total_paid);
-                var orderDiv = document.getElementById('payoffOrder');
-                orderDiv.innerHTML = '';
-                (result.payoff.paid_off_order || []).forEach(function(card, idx) {
-                    var div = document.createElement('div');
-                    div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
-                    div.innerHTML = '<div class="flex items-center"><span class="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-medium mr-3">' + (idx + 1) + '</span><span class="font-medium text-gray-900">' + card.name + '</span></div><div class="text-right text-sm text-gray-600">' + i18n.month + ' ' + card.month + ' (' + card.date + ')</div>';
-                    orderDiv.appendChild(div);
-                });
-            }
-            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            document.getElementById('loadingState').classList.add('hidden');
-            document.getElementById('calculateBtn').disabled = false;
-            document.getElementById('calculateBtnText').textContent = '{% trans "Calculate Payoff" %}';
-            document.getElementById('errorMessage').textContent = '{% trans "An error occurred. Please try again." %}';
-            document.getElementById('errorState').classList.remove('hidden');
-        }
-    });
-});
 </script>
+<script src="{% static 'financial_calculators/js/credit_cards_payoff_calculator.js' %}"></script>
 {% endblock %}

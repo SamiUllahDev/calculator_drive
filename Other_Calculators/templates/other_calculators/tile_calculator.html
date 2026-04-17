@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Tile Calculator - Calculate Tiles Needed, Coverage & Cost Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free tile calculator. Calculate how many tiles you need, area coverage from tiles, and total project cost with grout and labor. Accounts for waste factor. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate tiles for any project. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/tile_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Tile Calculator - Free Online Tool" %}","description":"{% trans "Free tile calculator. Calculate tiles needed, coverage, and cost. Accounts for waste factor. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1620"},"featureList":["{% trans 'Tiles needed with waste factor' %}","{% trans 'Coverage area from tiles' %}","{% trans 'Cost with grout and labor' %}","{% trans 'Multiple tile sizes and units' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Tile Calculator - Free Online Tool" %}',"description":'{% trans "Free tile calculator. Calculate tiles needed, coverage, and cost. Accounts for waste factor. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1620"},"featureList":["{% trans 'Tiles needed with waste factor' %}","{% trans 'Coverage area from tiles' %}","{% trans 'Cost with grout and labor' %}","{% trans 'Multiple tile sizes and units' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -213,113 +214,19 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('tcForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        document.getElementById('extraGrid')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            const isUsd = r.result_unit_symbol === '$';
-            document.getElementById('resultValue').textContent = isUsd ? ('$' + Number(r.result).toLocaleString('en-US',{maximumFractionDigits:2})) : Number(r.result).toLocaleString('en-US',{maximumFractionDigits:4});
-            document.getElementById('resultUnit').textContent = isUsd ? '' : (r.result_unit_symbol || '');
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Extra info
-            const eg = document.getElementById('extraGrid'), egc = document.getElementById('extraGridContent');
-            egc.innerHTML = '';
-            if (r.calc_type === 'tiles_needed') {
-                [['{% trans "Exact Tiles" %}', r.tiles_exact, 'indigo'],['{% trans "With Waste" %}', r.tiles_with_waste, 'violet'],['{% trans "Grout (lbs)" %}', r.grout_lbs, 'amber']].forEach(([l,v,c]) => {
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-4 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-sm text-gray-600 mb-1">${l}</p><p class="text-xl font-bold text-${c}-600">${Number(v).toLocaleString('en-US',{maximumFractionDigits:2})}</p>`;
-                    egc.appendChild(d);
-                });
-                eg?.classList.remove('hidden');
-            } else if (r.calc_type === 'cost') {
-                [['{% trans "Tiles" %}', r.tiles_needed + ' tiles', 'indigo'],['{% trans "Tile Cost" %}', '$' + Number(r.tile_cost).toFixed(2), 'emerald'],['{% trans "Grout+Labor" %}', '$' + (Number(r.grout_cost_total)+Number(r.labor_cost)).toFixed(2), 'amber']].forEach(([l,v,c]) => {
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-4 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-sm text-gray-600 mb-1">${l}</p><p class="text-xl font-bold text-${c}-600">${v}</p>`;
-                    egc.appendChild(d);
-                });
-                eg?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-indigo-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'tiles_needed') {
-        d.area = parseFloat(document.getElementById('tn_area').value); d.area_unit = document.getElementById('tn_au').value;
-        d.tile_length = parseFloat(document.getElementById('tn_tl').value); d.tile_width = parseFloat(document.getElementById('tn_tw').value);
-        d.tile_unit = document.getElementById('tn_tu').value; d.waste_factor = parseFloat(document.getElementById('tn_wf').value) || 10;
-    } else if (ct === 'coverage') {
-        d.num_tiles = parseInt(document.getElementById('cv_nt').value); d.tile_length = parseFloat(document.getElementById('cv_tl').value);
-        d.tile_width = parseFloat(document.getElementById('cv_tw').value); d.tile_unit = document.getElementById('cv_tu').value;
-        d.result_unit = document.getElementById('cv_ru').value;
-    } else if (ct === 'cost') {
-        d.area = parseFloat(document.getElementById('co_area').value); d.area_unit = document.getElementById('co_au').value;
-        d.tile_length = parseFloat(document.getElementById('co_tl').value); d.tile_width = parseFloat(document.getElementById('co_tw').value);
-        d.tile_unit = document.getElementById('co_tu').value; d.price_per_tile = parseFloat(document.getElementById('co_ppt').value);
-        d.grout_cost = parseFloat(document.getElementById('co_gc').value) || 0;
-        d.labor_cost = parseFloat(document.getElementById('co_lc').value) || 0;
-        d.waste_factor = parseFloat(document.getElementById('co_wf').value) || 10;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_ExactTiles_4: '{% trans "Exact Tiles" %}',
+        trans_WithWaste_5: '{% trans "With Waste" %}',
+        trans_Groutlbs_6: '{% trans "Grout (lbs)" %}',
+        trans_Tiles_7: '{% trans "Tiles" %}',
+        trans_TileCost_8: '{% trans "Tile Cost" %}',
+        trans_GroutLabor_9: '{% trans "Grout+Labor" %}',
+        trans_Anetworkerroroccurre_11: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/tile_calculator.js' %}"></script>
 {% endblock %}

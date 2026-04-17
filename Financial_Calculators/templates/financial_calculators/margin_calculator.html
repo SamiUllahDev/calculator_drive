@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "margin calculator, markup calculator, profit margin, gross margin, price markup, business calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/margin_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -309,196 +310,29 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var comparisonChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-}
-
-function getVal(id) {
-    var el = document.getElementById(id);
-    if (!el) return '';
-    return (el.value || '').replace(/,/g, '').trim();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var mode = this.value;
-            document.getElementById('marginFromCostPriceFields').classList.toggle('hidden', mode !== 'margin_from_cost_price');
-            document.getElementById('priceFromCostMarginFields').classList.toggle('hidden', mode !== 'price_from_cost_margin');
-            document.getElementById('priceFromCostMarkupFields').classList.toggle('hidden', mode !== 'price_from_cost_markup');
-            document.getElementById('costFromPriceMarginFields').classList.toggle('hidden', mode !== 'cost_from_price_margin');
-            document.getElementById('marginMarkupConvertFields').classList.toggle('hidden', mode !== 'margin_markup_convert');
-        });
-    });
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createComparisonChart(chartData) {
-        var canvas = document.getElementById('comparisonChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return v + '%'; };
-        comparisonChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var payload = { calc_type: calcType };
-        if (calcType === 'margin_from_cost_price') {
-            payload.cost = getVal('cost');
-            payload.price = getVal('price');
-        } else if (calcType === 'price_from_cost_margin') {
-            payload.cost = getVal('cost_2');
-            payload.margin = getVal('margin_input');
-        } else if (calcType === 'price_from_cost_markup') {
-            payload.cost = getVal('cost_3');
-            payload.markup = getVal('markup_input');
-        } else if (calcType === 'cost_from_price_margin') {
-            payload.price = getVal('price_2');
-            payload.margin = getVal('margin_input_2');
-        } else if (calcType === 'margin_markup_convert') {
-            payload.value = getVal('convert_value');
-            payload.convert_from = document.querySelector('input[name="convert_from"]:checked').value;
-        }
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (err) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var margin = data.margin != null ? data.margin : 0;
-            var markup = data.markup != null ? data.markup : 0;
-            var cost = data.cost;
-            var price = data.price;
-            var profit = data.profit;
-            document.getElementById('heroLabel').textContent = calcType === 'margin_markup_convert' ? '{% trans "Result" %}' : '{% trans "Profit Margin" %}';
-            document.getElementById('heroValue').textContent = margin.toFixed(1) + '%';
-            document.getElementById('heroDetail').textContent = markup ? (markup.toFixed(1) + '% {% trans "markup" %}') : '';
-
-            document.getElementById('detailMargin').textContent = margin.toFixed(1) + '%';
-            document.getElementById('detailMarkup').textContent = (markup != null ? markup.toFixed(1) : '—') + '%';
-            document.getElementById('detailCost').textContent = cost != null ? formatCurrency(cost) : '—';
-            var pp = document.getElementById('detailProfitPrice');
-            if (calcType === 'margin_markup_convert') {
-                pp.textContent = '—';
-            } else {
-                pp.textContent = profit != null ? formatCurrency(profit) : (price != null ? formatCurrency(price) : '—');
-            }
-
-            var compBody = document.getElementById('comparisonBody');
-            compBody.innerHTML = '';
-            if (data.comparison_table) {
-                var examples = ['{% trans "Cost: $90, Profit: $10" %}', '{% trans "Cost: $85, Profit: $15" %}', '{% trans "Cost: $80, Profit: $20" %}', '{% trans "Cost: $75, Profit: $25" %}', '{% trans "Cost: $70, Profit: $30" %}', '{% trans "Cost: $65, Profit: $35" %}', '{% trans "Cost: $60, Profit: $40" %}', '{% trans "Cost: $55, Profit: $45" %}', '{% trans "Cost: $50, Profit: $50" %}'];
-                data.comparison_table.forEach(function(row, i) {
-                    var tr = document.createElement('tr');
-                    tr.className = i % 2 ? 'bg-gray-50' : '';
-                    tr.innerHTML = '<td class="px-3 py-2">' + row.margin + '%</td><td class="px-3 py-2 text-right">' + row.markup + '%</td><td class="px-3 py-2 text-gray-600">' + (examples[i] || '') + '</td>';
-                    compBody.appendChild(tr);
-                });
-            }
-
-            var formulasDiv = document.getElementById('formulasDisplay');
-            formulasDiv.innerHTML = '';
-            if (data.formulas) {
-                for (var k in data.formulas) {
-                    var p = document.createElement('p');
-                    p.textContent = data.formulas[k];
-                    formulasDiv.appendChild(p);
-                }
-            } else if (data.formula) {
-                var p = document.createElement('p');
-                p.textContent = data.formula;
-                formulasDiv.appendChild(p);
-            }
-
-            var breakdownWrap = document.getElementById('breakdownChartWrap');
-            if (data.chart_data && data.chart_data.breakdown_chart) {
-                breakdownWrap.classList.remove('hidden');
-                if (checkChartJS()) createBreakdownChart(data.chart_data.breakdown_chart);
-            } else {
-                breakdownWrap.classList.add('hidden');
-                if (breakdownChart) { breakdownChart.destroy(); breakdownChart = null; }
-            }
-            if (data.chart_data && data.chart_data.comparison_chart && checkChartJS()) {
-                createComparisonChart(data.chart_data.comparison_chart);
-            }
-
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Result_9: '{% trans "Result" %}',
+        trans_ProfitMargin_10: '{% trans "Profit Margin" %}',
+        trans_markup_11: '{% trans "markup" %}',
+        trans_Cost90Profit10_12: '{% trans "Cost: $90, Profit: $10" %}',
+        trans_Cost85Profit15_13: '{% trans "Cost: $85, Profit: $15" %}',
+        trans_Cost80Profit20_14: '{% trans "Cost: $80, Profit: $20" %}',
+        trans_Cost75Profit25_15: '{% trans "Cost: $75, Profit: $25" %}',
+        trans_Cost70Profit30_16: '{% trans "Cost: $70, Profit: $30" %}',
+        trans_Cost65Profit35_17: '{% trans "Cost: $65, Profit: $35" %}',
+        trans_Cost60Profit40_18: '{% trans "Cost: $60, Profit: $40" %}',
+        trans_Cost55Profit45_19: '{% trans "Cost: $55, Profit: $45" %}',
+        trans_Cost50Profit50_20: '{% trans "Cost: $50, Profit: $50" %}',
+        trans_Networkorservererror_21: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/margin_calculator.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Fuel Cost Calculator - Calculate Trip Cost, MPG, Gas Mileage Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free fuel cost calculator. Calculate trip fuel cost, cost per mile/km, fuel efficiency (MPG or L/100km), distance, and fuel needed. Supports miles, km, gallons, liters. Step-by-step solutions and charts. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate fuel cost, MPG, distance, and fuel needed. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/fuel_cost_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Fuel Cost Calculator - Free Online Tool" %}","description":"{% trans "Free fuel cost calculator. Calculate trip cost, cost per mile/km, MPG, L/100km, distance, and fuel needed. Supports imperial and metric units with step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"2100"},"featureList":["{% trans 'Calculate total trip fuel cost' %}","{% trans 'Cost per mile or per km' %}","{% trans 'Fuel efficiency — MPG or L/100 km' %}","{% trans 'Distance from fuel and efficiency' %}","{% trans 'Fuel needed for a trip' %}","{% trans 'Convert miles ↔ km, gallons ↔ liters' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Fuel Cost Calculator - Free Online Tool" %}',"description":'{% trans "Free fuel cost calculator. Calculate trip cost, cost per mile/km, MPG, L/100km, distance, and fuel needed. Supports imperial and metric units with step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"2100"},"featureList":["{% trans 'Calculate total trip fuel cost' %}","{% trans 'Cost per mile or per km' %}","{% trans 'Fuel efficiency — MPG or L/100 km' %}","{% trans 'Distance from fuel and efficiency' %}","{% trans 'Fuel needed for a trip' %}","{% trans 'Convert miles ↔ km, gallons ↔ liters' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -265,116 +266,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('fcForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-amber-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            } else {
-                cc?.classList.add('hidden');
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 2}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'total_cost') {
-        d.distance = parseFloat(document.getElementById('tc_dist').value);
-        d.distance_unit = document.getElementById('tc_du').value;
-        d.fuel_efficiency = parseFloat(document.getElementById('tc_eff').value);
-        d.efficiency_unit = document.getElementById('tc_eu').value;
-        d.fuel_price = parseFloat(document.getElementById('tc_price').value);
-        d.price_unit = document.getElementById('tc_pu').value;
-    } else if (ct === 'cost_per_distance') {
-        d.fuel_efficiency = parseFloat(document.getElementById('cpd_eff').value);
-        d.efficiency_unit = document.getElementById('cpd_eu').value;
-        d.fuel_price = parseFloat(document.getElementById('cpd_price').value);
-        d.price_unit = document.getElementById('cpd_pu').value;
-        d.result_unit = document.getElementById('cpd_ru').value;
-    } else if (ct === 'fuel_efficiency') {
-        d.distance = parseFloat(document.getElementById('fe_dist').value);
-        d.distance_unit = document.getElementById('fe_du').value;
-        d.fuel_used = parseFloat(document.getElementById('fe_fuel').value);
-        d.fuel_unit = document.getElementById('fe_fu').value;
-        d.result_unit = document.getElementById('fe_ru').value;
-    } else if (ct === 'distance') {
-        d.fuel_used = parseFloat(document.getElementById('d_fuel').value);
-        d.fuel_unit = document.getElementById('d_fu').value;
-        d.fuel_efficiency = parseFloat(document.getElementById('d_eff').value);
-        d.efficiency_unit = document.getElementById('d_eu').value;
-        d.result_unit = document.getElementById('d_ru').value;
-    } else if (ct === 'fuel_needed') {
-        d.distance = parseFloat(document.getElementById('fn_dist').value);
-        d.distance_unit = document.getElementById('fn_du').value;
-        d.fuel_efficiency = parseFloat(document.getElementById('fn_eff').value);
-        d.efficiency_unit = document.getElementById('fn_eu').value;
-        d.result_unit = document.getElementById('fn_ru').value;
-    } else if (ct === 'convert_distance') {
-        d.value = parseFloat(document.getElementById('cd_val').value);
-        d.from_unit = document.getElementById('cd_fu').value;
-        d.to_unit = document.getElementById('cd_tu').value;
-    } else if (ct === 'convert_fuel') {
-        d.value = parseFloat(document.getElementById('cf_val').value);
-        d.from_unit = document.getElementById('cf_fu').value;
-        d.to_unit = document.getElementById('cf_tu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/fuel_cost_calculator.js' %}"></script>
 {% endblock %}

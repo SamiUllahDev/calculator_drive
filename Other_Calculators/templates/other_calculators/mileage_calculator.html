@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Mileage Calculator - Calculate Reimbursement, Trip Cost & Cost Per Mile Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free mileage calculator. Calculate mileage reimbursement, total trip cost, cost per mile/km, distance from budget, and compare rates. Supports miles, km, meters, feet, yards, nautical miles. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate mileage reimbursement, trip cost, cost per mile. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/mileage_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Mileage Calculator - Free Online Tool" %}","description":"{% trans "Free mileage calculator. Calculate reimbursement, trip cost, cost per mile/km, distance from budget, convert distance units, and compare rates. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1900"},"featureList":["{% trans 'Calculate mileage reimbursement' %}","{% trans 'Calculate total trip cost with fuel' %}","{% trans 'Cost per mile or km' %}","{% trans 'Distance from budget and rate' %}","{% trans 'Convert miles, km, m, ft, yd, nmi' %}","{% trans 'Compare two mileage rates' %}","{% trans 'Supports USD, EUR, GBP, CAD, AUD' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Mileage Calculator - Free Online Tool" %}',"description":'{% trans "Free mileage calculator. Calculate reimbursement, trip cost, cost per mile/km, distance from budget, convert distance units, and compare rates. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1900"},"featureList":["{% trans 'Calculate mileage reimbursement' %}","{% trans 'Calculate total trip cost with fuel' %}","{% trans 'Cost per mile or km' %}","{% trans 'Distance from budget and rate' %}","{% trans 'Convert miles, km, m, ft, yd, nmi' %}","{% trans 'Compare two mileage rates' %}","{% trans 'Supports USD, EUR, GBP, CAD, AUD' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -253,115 +254,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('mcForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-indigo-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            } else {
-                cc?.classList.add('hidden');
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 4}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'reimbursement') {
-        d.distance = parseFloat(document.getElementById('r_dist').value);
-        d.distance_unit = document.getElementById('r_du').value;
-        d.rate = parseFloat(document.getElementById('r_rate').value);
-        d.rate_unit = document.getElementById('r_ru').value;
-        d.currency = document.getElementById('r_cur').value;
-    } else if (ct === 'trip_cost') {
-        d.distance = parseFloat(document.getElementById('tc_dist').value);
-        d.distance_unit = document.getElementById('tc_du').value;
-        d.fuel_cost = parseFloat(document.getElementById('tc_fp').value);
-        d.fuel_cost_unit = document.getElementById('tc_fcu').value;
-        d.fuel_efficiency = parseFloat(document.getElementById('tc_eff').value);
-        d.efficiency_unit = document.getElementById('tc_eu').value;
-        d.other_costs = parseFloat(document.getElementById('tc_other').value) || 0;
-        d.currency = document.getElementById('tc_cur').value;
-    } else if (ct === 'cost_per_mile') {
-        d.total_cost = parseFloat(document.getElementById('cpm_cost').value);
-        d.distance = parseFloat(document.getElementById('cpm_dist').value);
-        d.distance_unit = document.getElementById('cpm_du').value;
-        d.result_unit = document.getElementById('cpm_ru').value;
-        d.currency = document.getElementById('cpm_cur').value;
-    } else if (ct === 'distance_from_cost') {
-        d.total_cost = parseFloat(document.getElementById('dfc_cost').value);
-        d.cost_per_unit = parseFloat(document.getElementById('dfc_cpu').value);
-        d.cost_unit = document.getElementById('dfc_cu').value;
-        d.result_unit = document.getElementById('dfc_ru').value;
-        d.currency = document.getElementById('dfc_cur').value;
-    } else if (ct === 'convert_distance') {
-        d.value = parseFloat(document.getElementById('cd_val').value);
-        d.from_unit = document.getElementById('cd_fu').value;
-        d.to_unit = document.getElementById('cd_tu').value;
-    } else if (ct === 'compare_rates') {
-        d.distance = parseFloat(document.getElementById('cr_dist').value);
-        d.distance_unit = document.getElementById('cr_du').value;
-        d.rate1 = parseFloat(document.getElementById('cr_r1').value);
-        d.rate2 = parseFloat(document.getElementById('cr_r2').value);
-        d.rate_unit = document.getElementById('cr_ru').value;
-        d.currency = document.getElementById('cr_cur').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/mileage_calculator.js' %}"></script>
 {% endblock %}

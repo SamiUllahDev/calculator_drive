@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Voltage Drop Calculator | Calculate Wire Voltage Loss, Wire Size & Max Current - Free Tool" %}{% endblock %}
 {% block meta_description %}{% trans "Use our free voltage drop calculator to instantly calculate voltage drop, recommended wire size, maximum current, and maximum wire length for DC, single-phase, and three-phase circuits. Step-by-step NEC-compliant solutions with charts." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Need to calculate voltage drop or find the right wire size? Use our free voltage drop calculator with step-by-step solutions and NEC-compliant recommendations." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/voltage_drop_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -226,162 +227,19 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const calcTypeSelect = document.getElementById('calcType');
-    calcTypeSelect.addEventListener('change', function() { switchCalcMode(this.value); hideError(); });
-
-    document.getElementById('resetBtn').addEventListener('click', handleReset);
-
-    // Power-factor toggle for all circuit type selects
-    document.querySelectorAll('.circuit-type-select').forEach(function(sel) {
-        sel.addEventListener('change', function() {
-            const pfDiv = document.getElementById(this.dataset.pf);
-            if (pfDiv) pfDiv.classList.toggle('hidden', this.value === 'dc');
-        });
-    });
-
-    // Form submissions
-    document.getElementById('voltageDropForm').addEventListener('submit', function(e) { e.preventDefault(); submitCalc('voltage_drop'); });
-    document.getElementById('wireSizeForm').addEventListener('submit', function(e) { e.preventDefault(); submitCalc('wire_size'); });
-    document.getElementById('maxCurrentForm').addEventListener('submit', function(e) { e.preventDefault(); submitCalc('max_current'); });
-    document.getElementById('maxLengthForm').addEventListener('submit', function(e) { e.preventDefault(); submitCalc('max_length'); });
-
-    switchCalcMode('voltage_drop');
-});
-
-function switchCalcMode(mode) {
-    document.querySelectorAll('.calc-mode').forEach(el => el.classList.add('hidden'));
-    const map = {voltage_drop:'voltageDropCalc',wire_size:'wireSizeCalc',max_current:'maxCurrentCalc',max_length:'maxLengthCalc'};
-    document.getElementById(map[mode])?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('chartSection')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-    if (resultChart) { resultChart.destroy(); resultChart = null; }
-}
-
-function showError(msg) { const el=document.getElementById('errorState'),m=document.getElementById('errorMessage'); if(el&&m){m.textContent=msg;el.classList.remove('hidden');} }
-function hideError() { document.getElementById('errorState')?.classList.add('hidden'); }
-function handleReset() { hideError(); document.getElementById('initialState')?.classList.remove('hidden'); document.getElementById('results')?.classList.add('hidden'); document.getElementById('chartSection')?.classList.add('hidden'); if(resultChart){resultChart.destroy();resultChart=null;} }
-
-function collectData(type) {
-    const d = {calc_type: type};
-    if (type === 'voltage_drop') {
-        d.current=parseFloat(document.getElementById('current').value)||0;
-        d.voltage=parseFloat(document.getElementById('voltage').value)||120;
-        d.length=parseFloat(document.getElementById('length').value)||100;
-        d.wire_size=document.getElementById('wire_size').value;
-        d.wire_material=document.getElementById('wire_material').value;
-        d.circuit_type=document.getElementById('circuit_type').value;
-        d.power_factor=parseFloat(document.getElementById('power_factor').value)||1.0;
-    } else if (type === 'wire_size') {
-        d.current=parseFloat(document.getElementById('current_wire').value)||0;
-        d.voltage=parseFloat(document.getElementById('voltage_wire').value)||120;
-        d.length=parseFloat(document.getElementById('length_wire').value)||100;
-        d.max_voltage_drop=parseFloat(document.getElementById('max_voltage_drop').value)||3;
-        d.max_voltage_drop_type=document.getElementById('max_voltage_drop_type').value;
-        d.wire_material=document.getElementById('wire_material_wire').value;
-        d.circuit_type=document.getElementById('circuit_type_wire').value;
-        d.power_factor=parseFloat(document.getElementById('power_factor_wire').value)||1.0;
-    } else if (type === 'max_current') {
-        d.voltage_drop=parseFloat(document.getElementById('voltage_drop_current').value)||0;
-        d.voltage=parseFloat(document.getElementById('voltage_current').value)||120;
-        d.length=parseFloat(document.getElementById('length_current').value)||100;
-        d.wire_size=document.getElementById('wire_size_current').value;
-        d.wire_material=document.getElementById('wire_material_current').value;
-        d.circuit_type=document.getElementById('circuit_type_current').value;
-        d.power_factor=parseFloat(document.getElementById('power_factor_current').value)||1.0;
-    } else if (type === 'max_length') {
-        d.voltage_drop=parseFloat(document.getElementById('voltage_drop_length').value)||0;
-        d.voltage=parseFloat(document.getElementById('voltage_length').value)||120;
-        d.current=parseFloat(document.getElementById('current_length').value)||0;
-        d.wire_size=document.getElementById('wire_size_length').value;
-        d.wire_material=document.getElementById('wire_material_length').value;
-        d.circuit_type=document.getElementById('circuit_type_length').value;
-        d.power_factor=parseFloat(document.getElementById('power_factor_length').value)||1.0;
-    }
-    return d;
-}
-
-function getCookie(name) {
-    let v=null; if(document.cookie){document.cookie.split(';').forEach(c=>{c=c.trim();if(c.startsWith(name+'='))v=decodeURIComponent(c.substring(name.length+1))});}return v;
-}
-
-function submitCalc(type) {
-    hideError();
-    const data = collectData(type);
-    fetch(window.location.href, {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
-        body:JSON.stringify(data)
-    })
-    .then(r => r.json())
-    .then(r => {
-        if (!r.success) { showError(r.error || "{% trans 'An error occurred.' %}"); return; }
-        displayResults(r);
-    })
-    .catch(() => showError("{% trans 'A network error occurred. Please try again.' %}"));
-}
-
-function fnum(n,dp) { dp=dp||2; return n!=null ? Number(n).toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp}) : '0'; }
-
-function displayResults(data) {
-    document.getElementById('initialState')?.classList.add('hidden');
-    const rc = document.getElementById('resultContent');
-    let html = '<div class="space-y-4">';
-
-    if (data.calc_type === 'voltage_drop') {
-        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-6 shadow-lg">';
-        html += '<h3 class="text-xl font-bold mb-4">{% trans "Voltage Drop Results" %}</h3>';
-        html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
-        html += '<div class="bg-white/20 rounded-lg p-3"><p class="text-blue-100 text-sm">{% trans "Voltage Drop" %}</p><p class="text-2xl font-bold">' + fnum(data.voltage_drop) + ' V</p><p class="text-sm">' + fnum(data.voltage_drop_percent) + '%</p></div>';
-        html += '<div class="bg-white/20 rounded-lg p-3"><p class="text-blue-100 text-sm">{% trans "Voltage at Load" %}</p><p class="text-2xl font-bold">' + fnum(data.voltage_at_load) + ' V</p></div>';
-        html += '<div class="bg-white/20 rounded-lg p-3"><p class="text-blue-100 text-sm">{% trans "Power Loss" %}</p><p class="text-2xl font-bold">' + fnum(data.power_loss) + ' W</p></div>';
-        html += '<div class="bg-white/20 rounded-lg p-3"><p class="text-blue-100 text-sm">{% trans "Resistance" %}</p><p class="text-xl font-bold">' + fnum(data.resistance,4) + ' Ω</p></div>';
-        html += '</div></div>';
-    } else if (data.calc_type === 'wire_size') {
-        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-6 text-center shadow-lg">';
-        html += '<p class="text-blue-100 text-sm mb-2">{% trans "Recommended Wire Size" %}</p>';
-        html += '<p class="text-5xl font-bold mb-4">' + data.recommended_wire_size + ' AWG</p>';
-        html += '<p class="text-blue-100 text-sm">{% trans "Required Circular Mils" %}: ' + fnum(data.required_circular_mils,0) + '</p></div>';
-    } else if (data.calc_type === 'max_current') {
-        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-6 text-center shadow-lg">';
-        html += '<p class="text-blue-100 text-sm mb-2">{% trans "Maximum Current" %}</p>';
-        html += '<p class="text-5xl font-bold mb-4">' + fnum(data.max_current) + ' A</p>';
-        html += '<p class="text-blue-100 text-sm">{% trans "Voltage Drop" %}: ' + fnum(data.voltage_drop) + ' V (' + fnum(data.voltage_drop_percent) + '%)</p></div>';
-    } else if (data.calc_type === 'max_length') {
-        html += '<div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-6 text-center shadow-lg">';
-        html += '<p class="text-blue-100 text-sm mb-2">{% trans "Maximum Wire Length" %}</p>';
-        html += '<p class="text-5xl font-bold mb-4">' + fnum(data.max_length) + ' ft</p>';
-        html += '<p class="text-blue-100 text-sm">{% trans "Voltage Drop" %}: ' + fnum(data.voltage_drop) + ' V (' + fnum(data.voltage_drop_percent) + '%)</p></div>';
-    }
-    html += '</div>';
-    rc.innerHTML = html;
-
-    // Steps
-    const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-    if (data.step_by_step) data.step_by_step.forEach(s => {
-        const d = document.createElement('div');
-        if (s === '') { d.className = 'my-2'; }
-        else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d.textContent=s.trim(); }
-        else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent=s.trim(); }
-        else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent=s; }
-        sc.appendChild(d);
-    });
-
-    document.getElementById('results')?.classList.remove('hidden');
-
-    // Chart
-    if (data.chart_data && typeof Chart !== 'undefined') {
-        const cs = document.getElementById('chartSection');
-        if (resultChart) { resultChart.destroy(); resultChart = null; }
-        const key = Object.keys(data.chart_data)[0];
-        const cfg = data.chart_data[key];
-        if (cfg) { resultChart = new Chart(document.getElementById('resultChart'), cfg); cs?.classList.remove('hidden'); }
-    } else { document.getElementById('chartSection')?.classList.add('hidden'); }
-
-    setTimeout(() => document.getElementById('results')?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-}
+window.djangoContext = {
+        trans_Anerroroccurred_0: "{% trans 'An error occurred.' %}",
+        trans_Anetworkerroroccurre_1: "{% trans 'A network error occurred. Please try again.' %}",
+        trans_VoltageDropResults_2: '{% trans "Voltage Drop Results" %}',
+        trans_VoltageDrop_3: '{% trans "Voltage Drop" %}',
+        trans_VoltageatLoad_4: '{% trans "Voltage at Load" %}',
+        trans_PowerLoss_5: '{% trans "Power Loss" %}',
+        trans_Resistance_6: '{% trans "Resistance" %}',
+        trans_RecommendedWireSize_7: '{% trans "Recommended Wire Size" %}',
+        trans_RequiredCircularMils_8: '{% trans "Required Circular Mils" %}',
+        trans_MaximumCurrent_9: '{% trans "Maximum Current" %}',
+        trans_MaximumWireLength_11: '{% trans "Maximum Wire Length" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/voltage_drop_calculator.js' %}"></script>
 {% endblock %}

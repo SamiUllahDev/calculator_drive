@@ -1,8 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Female Delusion Calculator - Dating Reality Check" %}{% endblock %}
 {% block meta_description %}{% trans "Free Female Delusion Calculator. Enter your ideal partner criteria and discover the statistical probability of finding him based on real demographic data." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/female_delusion_calculator.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
@@ -339,146 +343,14 @@
 </div>
 
 <script>
-let gaugeC = null, factorC = null, funnelC = null;
-function ck() { return typeof Chart !== 'undefined'; }
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const init = document.getElementById('initialState');
-    const load = document.getElementById('loadingState');
-    const err  = document.getElementById('errorState');
-    const res  = document.getElementById('results');
-    const card = document.getElementById('resultCard');
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (init) init.classList.add('hidden');
-        if (res)  res.classList.add('hidden');
-        if (err)  err.classList.add('hidden');
-        if (load) load.classList.remove('hidden');
-
-        const payload = {
-            age_range:   document.getElementById('age_range').value,
-            min_height:  document.getElementById('min_height').value,
-            min_income:  document.getElementById('min_income').value,
-            race:        document.getElementById('race').value,
-            not_married: document.getElementById('not_married').checked,
-            not_obese:   document.getElementById('not_obese').checked,
-        };
-
-        const btn = document.getElementById('calcBtnText');
-        const orig = btn ? btn.textContent : '';
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const r = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
-                body: JSON.stringify(payload)
-            });
-            const d = await r.json();
-            if (load) load.classList.add('hidden');
-            if (btn) btn.textContent = orig;
-            if (!d.success) {
-                if (err) { document.getElementById('errorMessage').textContent = d.error || 'Error'; err.classList.remove('hidden'); }
-                return;
-            }
-            show(d);
-        } catch (ex) {
-            if (load) load.classList.add('hidden');
-            if (btn) btn.textContent = orig;
-            if (err) { document.getElementById('errorMessage').textContent = "{% trans 'Network error.' %}"; err.classList.remove('hidden'); }
-        }
-    });
-
-    function show(d) {
-        try {
-            const cat = d.category;
-            document.getElementById('probabilityValue').textContent = d.probability_display;
-            document.getElementById('categoryText').textContent = cat.name;
-            document.getElementById('categoryEmoji').textContent = cat.emoji;
-            document.getElementById('categoryDesc').textContent = cat.description;
-            document.getElementById('poolText').textContent = "{% trans 'Estimated' %}: ~" + d.estimated_pool + " {% trans 'men in the US' %}";
-
-            const bg = document.getElementById('categoryBadge');
-            if (bg && d.color_info) bg.className = 'inline-block mt-3 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + d.color_info.tailwind;
-
-            const grads = {green:'from-green-600 to-green-700',blue:'from-blue-600 to-blue-700',yellow:'from-yellow-500 to-yellow-600',orange:'from-orange-500 to-orange-600',red:'from-red-600 to-red-700',purple:'from-purple-600 to-purple-700'};
-            if (card) card.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (grads[cat.color] || 'from-pink-600 to-purple-600');
-
-            /* Scale indicator — map probability to 0-100% position */
-            const p = d.probability;
-            let pos;
-            if (p >= 20) pos = 83 + Math.min((p - 20) / 80 * 17, 17);
-            else if (p >= 10) pos = 67 + (p - 10) / 10 * 16;
-            else if (p >= 3) pos = 50 + (p - 3) / 7 * 17;
-            else if (p >= 0.5) pos = 33 + (p - 0.5) / 2.5 * 17;
-            else if (p >= 0.05) pos = 17 + (p - 0.05) / 0.45 * 16;
-            else pos = p / 0.05 * 17;
-            document.getElementById('scaleIndicator').style.left = Math.min(Math.max(pos, 0), 100) + '%';
-
-            /* Total prob */
-            document.getElementById('totalProb').textContent = d.probability_display;
-
-            /* Breakdown table */
-            const tbody = document.getElementById('breakdownBody');
-            tbody.innerHTML = '';
-            d.breakdown.forEach(r => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                let clr = r.pool_pct >= 50 ? 'text-green-700' : r.pool_pct >= 20 ? 'text-blue-700' : r.pool_pct >= 5 ? 'text-yellow-700' : 'text-red-700';
-                tr.innerHTML = `<td class="px-4 py-2 text-sm text-gray-700">${r.factor}</td><td class="px-4 py-2 text-sm text-center">${r.criteria}</td><td class="px-4 py-2 text-sm text-center font-semibold ${clr}">${r.pool_pct}%</td>`;
-                tbody.appendChild(tr);
-            });
-
-            /* Charts */
-            if (d.chart_data && ck()) {
-                if (d.chart_data.gauge_chart) mkGauge(d.chart_data.gauge_chart);
-                if (d.chart_data.factor_chart) mkFactor(d.chart_data.factor_chart);
-                if (d.chart_data.funnel_chart) mkFunnel(d.chart_data.funnel_chart);
-            }
-
-            if (res) { res.classList.remove('hidden'); setTimeout(() => res.scrollIntoView({behavior:'smooth',block:'nearest'}), 100); }
-        } catch(e) { console.error(e); }
-    }
-
-    /* ── Charts ── */
-    function mkGauge(cd) {
-        const ctx = document.getElementById('gaugeChart'); if (!ctx||!ck()) return;
-        if (gaugeC) gaugeC.destroy();
-        const ct = cd.center_text;
-        try { gaugeC = new Chart(ctx, {
-            type: cd.type, data: cd.data,
-            options: {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{animateRotate:true,duration:1500}},
-            plugins:[{id:'gc',afterDraw(ch){const c=ch.ctx;const x=ch.chartArea.left+(ch.chartArea.right-ch.chartArea.left)/2;const y=ch.chartArea.top+(ch.chartArea.bottom-ch.chartArea.top)/2;c.save();c.font='bold 28px Inter,Arial';c.fillStyle=ct.color;c.textAlign='center';c.textBaseline='middle';c.fillText(ct.value,x,y-10);c.font='14px Inter,Arial';c.fillStyle='#6b7280';c.fillText(ct.label,x,y+18);c.restore();}}]
-        }); } catch(e){ console.error(e); }
-    }
-
-    function mkFactor(cd) {
-        const ctx = document.getElementById('factorChart'); if (!ctx||!ck()) return;
-        if (factorC) factorC.destroy();
-        try { factorC = new Chart(ctx, {
-            type: cd.type, data: cd.data,
-            options: {responsive:true,maintainAspectRatio:false,indexAxis:'y',
-                plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.x.toFixed(1)}% {% trans "of men" %}`}}},
-                scales:{x:{beginAtZero:true,max:100,grid:{color:'#f3f4f6'},ticks:{callback:v=>v+'%',font:{size:11}}},y:{grid:{display:false},ticks:{font:{size:11,weight:'bold'}}}},
-                animation:{duration:1500}
-            }
-        }); } catch(e){ console.error(e); }
-    }
-
-    function mkFunnel(cd) {
-        const ctx = document.getElementById('funnelChart'); if (!ctx||!ck()) return;
-        if (funnelC) funnelC.destroy();
-        try { funnelC = new Chart(ctx, {
-            type: cd.type, data: cd.data,
-            options: {responsive:true,maintainAspectRatio:false,
-                plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(4)}% {% trans "remaining" %}`}}},
-                scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>v+'%',font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10,weight:'bold'},maxRotation:45,minRotation:20}}},
-                animation:{duration:2000}
-            }
-        }); } catch(e){ console.error(e); }
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Networkerror_1: "{% trans 'Network error.' %}",
+        trans_Estimated_2: "{% trans 'Estimated' %}",
+        trans_menintheUS_3: "{% trans 'men in the US' %}",
+        trans_ofmen_4: '{% trans "of men" %}',
+        trans_remaining_5: '{% trans "remaining" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/female_delusion_calculator.js' %}"></script>
 {% endblock %}

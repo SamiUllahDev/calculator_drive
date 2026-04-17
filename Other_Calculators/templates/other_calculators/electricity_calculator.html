@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Electricity Calculator | Calculate Power, Voltage, Current & Resistance Online - Free Tool" %}{% endblock %}
 {% block meta_description %}{% trans "Use our free electricity calculator to instantly calculate power, voltage, current, resistance, energy consumption, and electricity cost. Enter your values and get step-by-step Ohm's law solutions with charts." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Need to calculate power, voltage, current, or resistance? Use our free electricity calculator with step-by-step solutions and visual charts." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/electricity_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -250,106 +251,12 @@
 </div>
 
 <script>
-let resultChart = null;
-const methodPanels = {
-    power: {select:'power_method', panels:['pw-vi','pw-vr','pw-ir'], keys:['vi','vr','ir']},
-    voltage: {select:'voltage_method', panels:['vt-pi','vt-ir','vt-pr'], keys:['pi','ir','pr']},
-    current: {select:'current_method', panels:['cr-pv','cr-vr','cr-pr'], keys:['pv','vr','pr']},
-    resistance: {select:'resistance_method', panels:['rs-vi','rs-vp','rs-pi'], keys:['vi','vp','pi']},
-};
-
-function switchCalcType(type) {
-    ['power','voltage','current','resistance','energy','cost'].forEach(t => {
-        const el = document.getElementById('form-'+t);
-        if (el) el.classList.toggle('hidden', t !== type);
-    });
-    const mp = methodPanels[type];
-    if (mp) switchMethod(mp, mp.keys[0]);
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function switchMethod(mp, key) {
-    mp.panels.forEach((p,i) => {
-        const el = document.getElementById(p);
-        if (el) el.classList.toggle('hidden', mp.keys[i] !== key);
-    });
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    const map = {
-        power: {vi:{voltage:'pvi_v',voltage_unit:'pvi_vu',current:'pvi_i',current_unit:'pvi_iu'},vr:{voltage:'pvr_v',voltage_unit:'pvr_vu',resistance:'pvr_r',resistance_unit:'pvr_ru'},ir:{current:'pir_i',current_unit:'pir_iu',resistance:'pir_r',resistance_unit:'pir_ru'}},
-        voltage: {pi:{power:'vpi_p',power_unit:'vpi_pu',current:'vpi_i',current_unit:'vpi_iu'},ir:{current:'vir_i',current_unit:'vir_iu',resistance:'vir_r',resistance_unit:'vir_ru'},pr:{power:'vpr_p',power_unit:'vpr_pu',resistance:'vpr_r',resistance_unit:'vpr_ru'}},
-        current: {pv:{power:'cpv_p',power_unit:'cpv_pu',voltage:'cpv_v',voltage_unit:'cpv_vu'},vr:{voltage:'cvr_v',voltage_unit:'cvr_vu',resistance:'cvr_r',resistance_unit:'cvr_ru'},pr:{power:'cpr_p',power_unit:'cpr_pu',resistance:'cpr_r',resistance_unit:'cpr_ru'}},
-        resistance: {vi:{voltage:'rvi_v',voltage_unit:'rvi_vu',current:'rvi_i',current_unit:'rvi_iu'},vp:{voltage:'rvp_v',voltage_unit:'rvp_vu',power:'rvp_p',power_unit:'rvp_pu'},pi:{power:'rpi_p',power_unit:'rpi_pu',current:'rpi_i',current_unit:'rpi_iu'}},
-        energy: {_:{power:'en_p',power_unit:'en_pu',time:'en_t',time_unit:'en_tu'}},
-        cost: {_:{energy:'co_e',energy_unit:'co_eu',rate:'co_r'}},
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Anetworkerroroccurre_4: "{% trans 'A network error occurred. Please try again.' %}",
     };
-    const ms = document.getElementById(ct+'_method');
-    const method = ms ? ms.value : '_';
-    d.method = method;
-    const ruMap = {power:'pru',voltage:'vru',current:'cru',resistance:'rru',energy:'eru'};
-    if (ruMap[ct]) d.result_unit = document.getElementById(ruMap[ct])?.value;
-    const fields = map[ct]?.[method];
-    if (fields) { for (const [k,id] of Object.entries(fields)) { const el=document.getElementById(id); if(el) d[k] = el.type==='number' ? parseFloat(el.value) : el.value; } }
-    return d;
-}
-
-function esc(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
-function fnum(n) { if(n===null||n===undefined||isNaN(n)) return '0'; return n.toLocaleString('en-US',{maximumFractionDigits:6}); }
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchCalcType(e.target.value));
-    Object.keys(methodPanels).forEach(t => {
-        const sel = document.getElementById(methodPanels[t].select);
-        if (sel) sel.addEventListener('change', e => switchMethod(methodPanels[t], e.target.value));
-    });
-    document.getElementById('electricityForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const errEl=document.getElementById('errorState'), errMsg=document.getElementById('errorMsg');
-        const loading=document.getElementById('loadingState'), init=document.getElementById('initialState'), res=document.getElementById('results');
-        const btn=document.getElementById('calcBtnText');
-        errEl?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if(btn) btn.textContent="{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if(btn) btn.textContent="{% trans 'Calculate' %}";
-            if(!r.success){errMsg.textContent=r.error||"{% trans 'An error occurred.' %}";errEl?.classList.remove('hidden');return;}
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML='';
-            if(r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if(s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d.textContent=s.trim(); }
-                else if(s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent=s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent=s; }
-                sc.appendChild(d);
-            });
-            // Chart
-            if(r.chart_data && typeof Chart !== 'undefined') {
-                const cc = document.getElementById('chartCard'); cc?.classList.remove('hidden');
-                if(resultChart){resultChart.destroy();resultChart=null;}
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if(cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            }
-            res?.classList.remove('hidden');
-            setTimeout(()=>res?.scrollIntoView({behavior:'smooth',block:'nearest'}),100);
-        } catch(err) {
-            loading?.classList.add('hidden');
-            if(btn) btn.textContent="{% trans 'Calculate' %}";
-            errMsg.textContent="{% trans 'A network error occurred. Please try again.' %}";
-            errEl?.classList.remove('hidden');
-        }
-    });
-});
 </script>
+<script src="{% static 'other_calculators/js/electricity_calculator.js' %}"></script>
 {% endblock %}

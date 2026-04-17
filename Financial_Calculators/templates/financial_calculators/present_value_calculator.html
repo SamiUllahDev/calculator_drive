@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Present Value Calculator - Calculate PV of Future Cash" %}{% endblock %}
 {% block meta_description %}{% trans "Free present value calculator. See what future money is worth today. Discount rate, compounding, and comparison table. Get instant results." %}{% endblock %}
 {% block meta_keywords %}{% trans "present value calculator, PV calculator, discount cash flows, time value of money, NPV calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/present_value_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Present Value Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate the present value of future cash flows.' %}">
@@ -237,120 +238,18 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var pieChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-    document.getElementById('future_value').addEventListener('input', function() { formatInput(this); });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl) {
-            errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Present Value" %}';
-            return;
-        }
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify({
-                    future_value: document.getElementById('future_value').value.replace(/,/g, ''),
-                    interest_rate: document.getElementById('interest_rate').value,
-                    years: document.getElementById('years').value,
-                    compound_frequency: document.getElementById('compound_frequency').value
-                })
-            });
-            var data;
-            try {
-                data = await response.json();
-            } catch (parseErr) {
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate Present Value" %}';
-                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Present Value" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            document.getElementById('presentValueResult').textContent = formatCurrency(data.summary.present_value);
-            document.getElementById('futureValueResult').textContent = formatCurrency(data.summary.future_value);
-            document.getElementById('discountResult').textContent = '-' + formatCurrency(data.summary.discount) + ' {% trans "discount" %}';
-            document.getElementById('discountFactorResult').textContent = data.summary.discount_factor.toFixed(4);
-            document.getElementById('effectiveRateResult').textContent = data.summary.effective_rate.toFixed(2) + '%';
-            document.getElementById('totalDiscountResult').textContent = formatCurrency(data.summary.discount);
-
-            var compBody = document.getElementById('comparisonBody');
-            compBody.innerHTML = '';
-            data.comparison.forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = (row.rate === data.summary.interest_rate || row.rate === parseFloat(data.summary.interest_rate)) ? 'bg-blue-50' : 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-2 py-2">' + row.rate + '%</td><td class="px-2 py-2 text-right font-medium">' + formatCurrency(row.present_value) + '</td><td class="px-2 py-2 text-right text-red-600">' + formatCurrency(row.discount) + '</td>';
-                compBody.appendChild(tr);
-            });
-
-            if (pieChart) pieChart.destroy();
-            var pieEl = document.getElementById('pieChart');
-            if (pieEl && typeof Chart !== 'undefined') {
-                pieChart = new Chart(pieEl.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['{% trans "Present Value" %}', '{% trans "Discount" %}'],
-                        datasets: [{ data: [data.chart_data.breakdown.present_value, data.chart_data.breakdown.discount], backgroundColor: ['#3b82f6', '#ef4444'], borderWidth: 0 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-                });
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Present Value" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_SessionexpiredPlease_1: '{% trans "Session expired. Please refresh the page." %}',
+        trans_CalculatePresentValu_2: '{% trans "Calculate Present Value" %}',
+        trans_Invalidresponsefroms_4: '{% trans "Invalid response from server." %}',
+        trans_Servererror_5: '{% trans "Server error." %}',
+        trans_AnerroroccurredPleas_7: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_discount_8: '{% trans "discount" %}',
+        trans_PresentValue_9: '{% trans "Present Value" %}',
+        trans_Discount_10: '{% trans "Discount" %}',
+        trans_AnerroroccurredPleas_12: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/present_value_calculator.js' %}"></script>
 {% endblock %}

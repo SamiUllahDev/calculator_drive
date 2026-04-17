@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "amortization calculator, loan amortization schedule, payment schedule, principal interest breakdown, loan payoff calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/amortization_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -318,178 +319,18 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-    var breakdownChart = null;
-    var balanceChart = null;
-
-    var now = new Date();
-    document.getElementById('start_month').value = now.getMonth() + 1;
-    document.getElementById('start_year').value = now.getFullYear();
-
-    function formatCurrency(n) {
-        var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Schedule" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Schedule" %}';
-    }
-    function renderBreakdownChart(chartData) {
-        var container = document.getElementById('chartBreakdownContainer');
-        var canvas = document.getElementById('breakdownChart');
-        if (!chartData || !chartData.breakdown_chart || !canvas) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (breakdownChart) breakdownChart.destroy();
-        var config = chartData.breakdown_chart;
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: config.type || 'doughnut',
-            data: config.data || {},
-            options: config.options || {}
-        });
-        container.classList.remove('hidden');
-    }
-    function renderBalanceChart(chartData) {
-        var container = document.getElementById('chartBalanceContainer');
-        var canvas = document.getElementById('balanceChart');
-        if (!chartData || !chartData.balance_chart || !canvas) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (balanceChart) balanceChart.destroy();
-        var config = chartData.balance_chart;
-        balanceChart = new Chart(canvas.getContext('2d'), {
-            type: config.type || 'line',
-            data: config.data || {},
-            options: config.options || {}
-        });
-        container.classList.remove('hidden');
-    }
-
-    document.getElementById('viewMonthly').addEventListener('click', function() {
-        document.getElementById('monthlySchedule').classList.remove('hidden');
-        document.getElementById('yearlySchedule').classList.add('hidden');
-        this.className = 'px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white';
-        document.getElementById('viewYearly').className = 'px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200';
-    });
-    document.getElementById('viewYearly').addEventListener('click', function() {
-        document.getElementById('yearlySchedule').classList.remove('hidden');
-        document.getElementById('monthlySchedule').classList.add('hidden');
-        this.className = 'px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white';
-        document.getElementById('viewMonthly').className = 'px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200';
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            loan_amount: (document.getElementById('loan_amount').value || '').replace(/,/g, ''),
-            interest_rate: document.getElementById('interest_rate').value,
-            loan_term: document.getElementById('loan_term').value,
-            start_month: document.getElementById('start_month').value,
-            start_year: document.getElementById('start_year').value,
-            extra_payment: (document.getElementById('extra_payment').value || '').replace(/,/g, '') || 0
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            try {
-                initialState.classList.add('hidden');
-                resultsWrapper.classList.remove('hidden');
-                var s = data.summary || {};
-                var el = function(id) { return document.getElementById(id); };
-                if (el('heroValue')) el('heroValue').textContent = formatCurrency(s.monthly_payment);
-                if (el('heroPayoff')) el('heroPayoff').textContent = s.payoff_date || '-';
-                if (el('detailTotalInterest')) el('detailTotalInterest').textContent = formatCurrency(s.total_interest);
-                if (el('detailTotalPayment')) el('detailTotalPayment').textContent = formatCurrency(s.total_payment);
-                if (el('detailNumPayments')) el('detailNumPayments').textContent = s.total_payments || 0;
-                if (el('detailPayoff')) el('detailPayoff').textContent = s.payoff_date || '-';
-
-                if (s.extra_payment > 0) {
-                    document.getElementById('savingsSection').classList.remove('hidden');
-                    document.getElementById('interestSaved').textContent = formatCurrency(s.interest_savings);
-                    var months = s.time_savings_months || 0;
-                    document.getElementById('timeSaved').textContent = months >= 12 ? (Math.floor(months / 12) + ' yr ' + (months % 12) + ' mo') : (months + ' months');
-                } else {
-                    document.getElementById('savingsSection').classList.add('hidden');
-                }
-
-                var monthlyBody = document.getElementById('monthlyBody');
-                monthlyBody.innerHTML = '';
-                (data.schedule || []).forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 text-gray-500">' + row.payment_number + '</td><td class="px-4 py-2">' + row.date + '</td><td class="px-4 py-2 text-right font-medium">' + formatCurrency(row.payment) + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-4 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.balance) + '</td>';
-                    monthlyBody.appendChild(tr);
-                });
-
-                var yearlyBody = document.getElementById('yearlyBody');
-                yearlyBody.innerHTML = '';
-                (data.yearly_summary || []).forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 font-medium">' + row.year + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-4 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-4 py-2 text-right font-medium">' + formatCurrency(row.total_payment) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.ending_balance) + '</td>';
-                    yearlyBody.appendChild(tr);
-                });
-
-                if (data.chart_data) {
-                    renderBreakdownChart(data.chart_data);
-                    renderBalanceChart(data.chart_data);
-                } else {
-                    document.getElementById('chartBreakdownContainer').classList.add('hidden');
-                    document.getElementById('chartBalanceContainer').classList.add('hidden');
-                }
-                if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } catch (displayErr) {
-                showError('{% trans "Could not display results. Please try again." %}');
-            }
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateSchedule_1: '{% trans "Calculate Schedule" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Couldnotdisplayresul_9: '{% trans "Could not display results. Please try again." %}',
+        trans_Networkorservererror_10: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/amortization_calculator.js' %}"></script>
 {% endblock %}

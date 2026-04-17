@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "House Affordability Calculator - How Much House Can I Afford?" %}{% endblock %}
 {% block meta_description %}{% trans "Find out how much house you can afford based on your income and debts. Calculate DTI ratios, monthly payments, and compare affordability scenarios." %}{% endblock %}
 {% block meta_keywords %}{% trans "house affordability calculator, how much house can I afford, mortgage affordability, DTI calculator, home buying budget" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/house_affordability_calculator.css' %}">
 <meta property="og:title" content="{% trans 'House Affordability Calculator' %}">
 <meta property="og:description" content="{% trans 'Find out how much house you can afford based on your income.' %}">
 <meta property="og:type" content="website">
@@ -289,105 +290,12 @@
 </div>
 
 <script>
-(function() {
-    var paymentBreakdownChart = null;
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNum(val) {
-        return parseFloat(String(val).replace(/[,$\s]/g, '')) || 0;
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-        var form = document.getElementById('calculatorForm');
-        var initialState = document.getElementById('initialState');
-        var loadingState = document.getElementById('loadingState');
-        var errorState = document.getElementById('errorState');
-        var resultsSection = document.getElementById('resultsSection');
-        var submitBtnText = document.getElementById('calculateBtnText');
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            initialState.classList.add('hidden');
-            resultsSection.classList.add('hidden');
-            if (errorState) errorState.classList.add('hidden');
-            loadingState.classList.remove('hidden');
-            if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculating...' %}";
-
-            var payload = {
-                annual_income: parseNum(document.getElementById('annual_income').value),
-                monthly_debts: parseNum(document.getElementById('monthly_debts').value),
-                down_payment: parseNum(document.getElementById('down_payment').value),
-                interest_rate: parseFloat(document.getElementById('interest_rate').value) || 6.5,
-                loan_term: parseInt(document.getElementById('loan_term').value, 10) || 30,
-                property_tax_rate: parseNum(document.getElementById('property_tax_rate').value) || 1.2,
-                insurance_rate: parseNum(document.getElementById('insurance_rate').value) || 0.5,
-                hoa_fees: parseNum(document.getElementById('hoa_fees').value)
-            };
-
-            try {
-                var response = await fetch(window.location.href, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                    body: JSON.stringify(payload)
-                });
-                var data = await response.json();
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate' %}";
-
-                if (!data.success) {
-                    document.getElementById('errorMessage').textContent = data.error || "{% trans 'An error occurred. Please try again.' %}";
-                    if (errorState) errorState.classList.remove('hidden');
-                    initialState.classList.remove('hidden');
-                    return;
-                }
-
-                document.getElementById('maxPriceResult').textContent = formatCurrency(data.affordability.max_home_price);
-                document.getElementById('monthlyPaymentResult').textContent = formatCurrency(data.monthly_payment.total);
-                document.getElementById('loanAmountDisplay').textContent = formatCurrency(data.affordability.loan_amount);
-                document.getElementById('downPaymentDisplay').textContent = formatCurrency(data.affordability.down_payment);
-
-                var frontEnd = data.dti_ratios.front_end;
-                var backEnd = data.dti_ratios.back_end;
-                document.getElementById('frontEndRatio').textContent = frontEnd.toFixed(1) + '%';
-                document.getElementById('backEndRatio').textContent = backEnd.toFixed(1) + '%';
-
-                document.getElementById('piResult').textContent = formatCurrency(data.monthly_payment.principal_interest);
-                document.getElementById('taxResult').textContent = formatCurrency(data.monthly_payment.property_tax);
-                document.getElementById('insuranceResult').textContent = formatCurrency(data.monthly_payment.insurance);
-                document.getElementById('pmiResult').textContent = formatCurrency(data.monthly_payment.pmi);
-                document.getElementById('hoaResult').textContent = formatCurrency(data.monthly_payment.hoa);
-                document.getElementById('totalResult').textContent = formatCurrency(data.monthly_payment.total);
-
-                var tbody = document.getElementById('scenariosBody');
-                tbody.innerHTML = '';
-                data.scenarios.forEach(function(s) {
-                    var isModerate = s.name === 'Moderate';
-                    var tr = document.createElement('tr');
-                    tr.className = isModerate ? 'bg-blue-50' : 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 font-medium ' + (isModerate ? 'text-blue-800' : '') + '">' + s.name + '</td><td class="px-4 py-2 text-gray-600">' + s.description + '</td><td class="px-4 py-2 text-right font-medium">' + formatCurrency(s.home_price) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(s.monthly) + '</td>';
-                    tbody.appendChild(tr);
-                });
-
-                if (data.chart_data && data.chart_data.payment_breakdown_chart && typeof Chart !== 'undefined') {
-                    if (paymentBreakdownChart) paymentBreakdownChart.destroy();
-                    var ctx = document.getElementById('paymentBreakdownChart');
-                    if (ctx) {
-                        var cfg = data.chart_data.payment_breakdown_chart;
-                        paymentBreakdownChart = new Chart(ctx, { type: cfg.type, data: cfg.data, options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg.options || {}) });
-                    }
-                }
-
-                resultsSection.classList.remove('hidden');
-                setTimeout(function() { resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-            } catch (err) {
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate' %}";
-                if (errorState) { document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}"; errorState.classList.remove('hidden'); }
-                initialState.classList.remove('hidden');
-                console.error(err);
-            }
-        });
-    });
-})();
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_AnerroroccurredPleas_2: "{% trans 'An error occurred. Please try again.' %}",
+        trans_Anetworkerroroccurre_4: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'financial_calculators/js/house_affordability_calculator.js' %}"></script>
 {% endblock %}

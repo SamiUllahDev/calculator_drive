@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Loan Calculator - Free Monthly Payment Calculator" %}{% endblock %}
 {% block meta_description %}{% trans "Free loan calculator to compute monthly payments, total interest, and create amortization schedules. Easy to use with visual charts and extra payment analysis." %}{% endblock %}
 {% block meta_keywords %}{% trans "loan calculator, payment calculator, amortization schedule, interest calculator, extra payment, loan payoff" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/loan_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Loan Calculator - Free Monthly Payment Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate monthly payments, total interest, and view complete amortization schedules for any loan.' %}">
 <meta property="og:type" content="website">
@@ -445,254 +446,16 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const resultsSection = document.getElementById('resultsSection');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    
-    let breakdownChart = null;
-    let balanceChart = null;
-    let scheduleData = null;
-    let yearlyData = null;
-    
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(num);
-    }
-    
-    function formatInput(input) {
-        let value = input.value.replace(/[^\d.]/g, '');
-        let parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-    
-    ['loan_amount', 'extra_payment'].forEach(id => {
-        const input = document.getElementById(id);
-        input.addEventListener('input', () => formatInput(input));
-    });
-    
-    // View toggles
-    document.getElementById('monthlyViewBtn').addEventListener('click', function() {
-        document.getElementById('monthlySchedule').classList.remove('hidden');
-        document.getElementById('yearlySchedule').classList.add('hidden');
-        this.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
-        this.classList.remove('text-gray-700', 'border-gray-300');
-        document.getElementById('yearlyViewBtn').classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
-        document.getElementById('yearlyViewBtn').classList.add('text-gray-700', 'border-gray-300');
-    });
-    
-    document.getElementById('yearlyViewBtn').addEventListener('click', function() {
-        document.getElementById('yearlySchedule').classList.remove('hidden');
-        document.getElementById('monthlySchedule').classList.add('hidden');
-        this.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
-        this.classList.remove('text-gray-700', 'border-gray-300');
-        document.getElementById('monthlyViewBtn').classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
-        document.getElementById('monthlyViewBtn').classList.add('text-gray-700', 'border-gray-300');
-    });
-    
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-        
-        try {
-            const formData = {
-                loan_amount: document.getElementById('loan_amount').value.replace(/,/g, ''),
-                interest_rate: document.getElementById('interest_rate').value,
-                loan_term: document.getElementById('loan_term').value,
-                term_type: document.getElementById('term_type').value,
-                extra_payment: document.getElementById('extra_payment').value.replace(/,/g, '') || 0,
-            };
-            
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate" %}';
-                return;
-            }
-            
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-            
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            
-            // Update summary cards
-            document.getElementById('monthlyPaymentResult').textContent = formatCurrency(data.payment.monthly);
-            document.getElementById('totalInterestResult').textContent = formatCurrency(data.payment.total_interest);
-            document.getElementById('totalPaymentResult').textContent = formatCurrency(data.payment.total_paid);
-            document.getElementById('payoffDateResult').textContent = data.payment.payoff_date;
-            
-            // Show savings if applicable
-            if (data.savings) {
-                document.getElementById('savingsSection').classList.remove('hidden');
-                document.getElementById('interestSaved').textContent = formatCurrency(data.savings.interest_saved);
-                document.getElementById('monthsSaved').textContent = data.savings.months_saved;
-            } else {
-                document.getElementById('savingsSection').classList.add('hidden');
-            }
-            
-            // Store schedule data
-            scheduleData = data.schedule;
-            yearlyData = data.yearly_summary;
-            
-            // Render schedules
-            renderMonthlySchedule(scheduleData);
-            renderYearlySchedule(yearlyData);
-            
-            // Render charts
-            renderCharts(data.chart_data, data.loan_details.loan_amount);
-            
-        } catch (error) {
-            console.error('Error:', error);
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-        }
-    });
-    
-    function renderMonthlySchedule(schedule) {
-        const tbody = document.getElementById('monthlyScheduleBody');
-        tbody.innerHTML = '';
-        
-        schedule.forEach(row => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50';
-            tr.innerHTML = `
-                <td class="px-4 py-2 text-gray-900">${row.date}</td>
-                <td class="px-4 py-2 text-right text-gray-700">${formatCurrency(row.payment)}</td>
-                <td class="px-4 py-2 text-right text-green-600">${formatCurrency(row.principal)}</td>
-                <td class="px-4 py-2 text-right text-orange-600">${formatCurrency(row.interest)}</td>
-                <td class="px-4 py-2 text-right text-gray-900 font-medium">${formatCurrency(row.balance)}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-    
-    function renderYearlySchedule(yearly) {
-        const tbody = document.getElementById('yearlyScheduleBody');
-        tbody.innerHTML = '';
-        
-        yearly.forEach(row => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50';
-            tr.innerHTML = `
-                <td class="px-4 py-2 text-gray-900 font-medium">${row.year}</td>
-                <td class="px-4 py-2 text-right text-green-600">${formatCurrency(row.principal)}</td>
-                <td class="px-4 py-2 text-right text-orange-600">${formatCurrency(row.interest)}</td>
-                <td class="px-4 py-2 text-right text-gray-900 font-medium">${formatCurrency(row.end_balance)}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-    
-    function renderCharts(chartData, loanAmount) {
-        // Destroy existing charts
-        if (breakdownChart) breakdownChart.destroy();
-        if (balanceChart) balanceChart.destroy();
-        
-        // Payment Breakdown Chart
-        const breakdownCtx = document.getElementById('breakdownChart').getContext('2d');
-        breakdownChart = new Chart(breakdownCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['{% trans "Principal" %}', '{% trans "Interest" %}'],
-                datasets: [{
-                    data: [chartData.breakdown.total_principal, chartData.breakdown.total_interest],
-                    backgroundColor: ['#22c55e', '#f97316'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-        
-        // Balance Over Time Chart
-        const balanceCtx = document.getElementById('balanceChart').getContext('2d');
-        const datasets = [{
-            label: '{% trans "Balance" %}',
-            data: chartData.balance.standard,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0.4
-        }];
-        
-        if (chartData.balance.extra) {
-            datasets.push({
-                label: '{% trans "With Extra Payments" %}',
-                data: chartData.balance.extra,
-                borderColor: '#22c55e',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                fill: true,
-                tension: 0.4
-            });
-        }
-        
-        balanceChart = new Chart(balanceCtx, {
-            type: 'line',
-            data: {
-                labels: chartData.balance.labels,
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_1: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_Calculate_2: '{% trans "Calculate" %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please try again." %}',
+        trans_Principal_6: '{% trans "Principal" %}',
+        trans_Interest_7: '{% trans "Interest" %}',
+        trans_Balance_8: '{% trans "Balance" %}',
+        trans_WithExtraPayments_9: '{% trans "With Extra Payments" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/loan_calculator.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Time Calculator - Free Time Difference, Duration, Add Subtract, Convert Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free time calculator. Calculate time difference, duration between times, add or subtract hours and minutes, convert time units. 24-hour clock. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,29 +12,19 @@
 {% block twitter_description %}{% trans "Calculate time difference, duration, add/subtract hours. Free online step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/time_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Time Calculator - Free Online Tool" %}","description":"{% trans "Free time calculator. Time difference, duration, add/subtract, unit conversion. Step-by-step solutions." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"4200"},"featureList":["{% trans 'Time difference calculation' %}","{% trans 'Duration between two times' %}","{% trans 'Add or subtract hours/minutes/seconds' %}","{% trans 'Convert between time units' %}","{% trans 'Midnight crossing support' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans '24-hour clock format' %}","{% trans 'Free online — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Time Calculator - Free Online Tool" %}',"description":'{% trans "Free time calculator. Time difference, duration, add/subtract, unit conversion. Step-by-step solutions." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"4200"},"featureList":["{% trans 'Time difference calculation' %}","{% trans 'Duration between two times' %}","{% trans 'Add or subtract hours/minutes/seconds' %}","{% trans 'Convert between time units' %}","{% trans 'Midnight crossing support' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans '24-hour clock format' %}","{% trans 'Free online — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-indigo-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'other_calculators:index' %}" class="hover:text-indigo-600">{% trans "Other Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Time Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <header class="text-center mb-6 sm:mb-8">
+<header class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-indigo-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
@@ -218,102 +208,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-function setTimes(t1, t2) { document.getElementById('diff_t1').value = t1; document.getElementById('diff_t2').value = t2; }
-function setConv(v, f, t) { document.getElementById('cv_val').value = v; document.getElementById('cv_from').value = f; document.getElementById('cv_to').value = t; }
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('timeForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = r.result || '-';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Detail cards
-            const dc = document.getElementById('detailCards'); dc.innerHTML = '';
-            if (r.detail_cards) r.detail_cards.forEach(card => {
-                const d = document.createElement('div');
-                d.className = `bg-${card.color}-50 rounded-lg p-3 text-center border-2 border-${card.color}-200`;
-                d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${card.label}</p><p class="text-sm font-bold text-${card.color}-600">${card.value}</p>`;
-                dc.appendChild(d);
-            });
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-indigo-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-indigo-700 mt-2 bg-indigo-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'difference') {
-        d.time1 = document.getElementById('diff_t1').value;
-        d.time2 = document.getElementById('diff_t2').value;
-    } else if (ct === 'add_subtract') {
-        d.time = document.getElementById('as_time').value;
-        d.operation = (document.querySelector('input[name="operation"]:checked') || {value:'add'}).value;
-        d.amount = parseFloat(document.getElementById('as_amount').value);
-        d.amount_unit = document.getElementById('as_unit').value;
-    } else if (ct === 'convert') {
-        d.time = parseFloat(document.getElementById('cv_val').value);
-        d.from_unit = document.getElementById('cv_from').value;
-        d.to_unit = document.getElementById('cv_to').value;
-    } else if (ct === 'duration') {
-        d.start_time = document.getElementById('dur_start').value;
-        d.end_time = document.getElementById('dur_end').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/time_calculator.js' %}"></script>
 {% endblock %}

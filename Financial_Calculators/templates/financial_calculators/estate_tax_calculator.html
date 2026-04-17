@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "estate tax calculator, federal estate tax, state estate tax, estate exemption, net to heirs" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/estate_tax_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -243,121 +244,19 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-    var distributionChart = null;
-
-    function parseNum(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function formatCurrency(n) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-    }
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Estate Tax" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Estate Tax" %}';
-    }
-    function renderChart(chartData) {
-        var container = document.getElementById('chartContainer');
-        var canvas = document.getElementById('distributionChart');
-        if (!chartData || !chartData.distribution_chart || !canvas) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (distributionChart) distributionChart.destroy();
-        var config = chartData.distribution_chart;
-        distributionChart = new Chart(canvas.getContext('2d'), {
-            type: config.type || 'doughnut',
-            data: config.data || {},
-            options: config.options || { responsive: true, maintainAspectRatio: false }
-        });
-        container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            estate_value: document.getElementById('estate_value').value,
-            debts: document.getElementById('debts').value,
-            charitable: document.getElementById('charitable').value,
-            marital_deduction: document.getElementById('marital_deduction').value,
-            state: document.getElementById('state').value
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            initialState.classList.add('hidden');
-            resultsWrapper.classList.remove('hidden');
-
-            document.getElementById('heroLabel').textContent = '{% trans "Total Estate Tax" %}';
-            document.getElementById('heroValue').textContent = formatCurrency(data.total_taxes);
-            document.getElementById('heroNetToHeirs').textContent = formatCurrency(data.net_to_heirs);
-
-            document.getElementById('detailGrossEstate').textContent = formatCurrency(data.gross_estate);
-            document.getElementById('detailTotalDeductions').textContent = formatCurrency(data.total_deductions);
-            document.getElementById('detailExemption').textContent = formatCurrency(data.exemption && data.exemption.total_available ? data.exemption.total_available : 13610000);
-            document.getElementById('detailTaxable').textContent = formatCurrency(data.taxable_amount);
-            document.getElementById('detailFederalTax').textContent = formatCurrency(data.federal_estate_tax);
-            document.getElementById('detailStateTax').textContent = formatCurrency(data.state_tax_estimate);
-            document.getElementById('detailNetToHeirs').textContent = formatCurrency(data.net_to_heirs);
-            document.getElementById('detailEffectiveRate').textContent = '{% trans "Effective rate on net estate:" %} ' + (data.effective_rate || 0).toFixed(1) + '%';
-
-            if (data.chart_data) renderChart(data.chart_data);
-            else document.getElementById('chartContainer').classList.add('hidden');
-
-            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateEstateTax_1: '{% trans "Calculate Estate Tax" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_TotalEstateTax_9: '{% trans "Total Estate Tax" %}',
+        trans_Effectiverateonnetes_10: '{% trans "Effective rate on net estate:" %}',
+        trans_Networkorservererror_11: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/estate_tax_calculator.js' %}"></script>
 {% endblock %}

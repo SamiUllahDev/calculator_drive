@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Concrete Calculator - Calculate Volume, Materials & Cement Bags Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free concrete calculator. Calculate concrete volume for slabs, columns, footings, walls. Get material requirements — cement bags, sand, aggregate. Supports mix ratios 1:2:4, 1:1.5:3, 1:3:6. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate concrete volume and material requirements. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/concrete_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Concrete Calculator - Free Online Tool" %}","description":"{% trans "Free concrete calculator. Calculate volume for slabs, columns, footings, walls. Material requirements (cement bags, sand, aggregate) with mix ratios. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"3250"},"featureList":["{% trans 'Rectangular slab, circular slab, column, footing, wall' %}","{% trans 'Cement bags, sand, aggregate breakdown' %}","{% trans 'Mix ratios: 1:2:4, 1:1.5:3, 1:3:6, 1:2:3, 1:1:2' %}","{% trans 'Cubic feet, cubic yards, cubic meters' %}","{% trans 'Volume unit conversion' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Concrete Calculator - Free Online Tool" %}',"description":'{% trans "Free concrete calculator. Calculate volume for slabs, columns, footings, walls. Material requirements (cement bags, sand, aggregate) with mix ratios. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"3250"},"featureList":["{% trans 'Rectangular slab, circular slab, column, footing, wall' %}","{% trans 'Cement bags, sand, aggregate breakdown' %}","{% trans 'Mix ratios: 1:2:4, 1:1.5:3, 1:3:6, 1:2:3, 1:1:2' %}","{% trans 'Cubic feet, cubic yards, cubic meters' %}","{% trans 'Volume unit conversion' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"{% trans 'How do I calculate concrete volume?' %}","acceptedAnswer":{"@type":"Answer","text":"{% trans 'Multiply length × width × thickness for rectangular shapes, or π × r² × height for circular shapes. Our calculator handles multiple shapes automatically.' %}"}},{"@type":"Question","name":"{% trans 'What is a concrete mix ratio?' %}","acceptedAnswer":{"@type":"Answer","text":"{% trans 'A mix ratio like 1:2:4 means 1 part cement, 2 parts sand, 4 parts aggregate. The standard 1:2:4 is used for general construction.' %}"}},{"@type":"Question","name":"{% trans 'How many bags of cement do I need?' %}","acceptedAnswer":{"@type":"Answer","text":"{% trans 'The number depends on volume and mix ratio. Each bag weighs 94 pounds. Our calculator computes the exact number of bags needed.' %}"}},{"@type":"Question","name":"{% trans 'How do I convert cubic feet to cubic yards?' %}","acceptedAnswer":{"@type":"Answer","text":"{% trans '1 cubic yard = 27 cubic feet. Divide cubic feet by 27. Our calculator includes a volume conversion mode.' %}"}}]}
@@ -283,138 +284,23 @@
 </div>
 
 <script>
-let volChartInst = null, matChartInst = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('ccForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        ['volGrid','matCard','chartRow'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Concrete' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = Number(r.result).toLocaleString('en-US',{maximumFractionDigits:4});
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Volume grid
-            if (r.volume) {
-                const gc = document.getElementById('volGridContent'); gc.innerHTML = '';
-                const specs = [['{% trans "Cubic Feet" %}', r.volume.cubic_feet, 'blue'],['{% trans "Cubic Yards" %}', r.volume.cubic_yards, 'emerald'],['{% trans "Cubic Meters" %}', r.volume.cubic_meters, 'amber']];
-                specs.forEach(([lbl,val,clr]) => {
-                    const cell = document.createElement('div');
-                    cell.className = `bg-${clr}-50 rounded-lg p-4 text-center border-2 border-${clr}-200`;
-                    cell.innerHTML = `<p class="text-sm text-gray-600 mb-1">${lbl}</p><p class="text-xl font-bold text-${clr}-600">${Number(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>`;
-                    gc.appendChild(cell);
-                });
-                document.getElementById('volGrid')?.classList.remove('hidden');
-            }
-
-            // Materials
-            if (r.materials) {
-                const mc = document.getElementById('matContent'); mc.innerHTML = '';
-                const mat = r.materials;
-                mc.innerHTML = `
-                    <div class="flex justify-between py-2 border-b border-gray-200"><span class="font-semibold">{% trans "Cement" %}</span><span class="font-bold">${mat.cement.bags} {% trans "bags" %} (${N(mat.cement.pounds)} lbs)</span></div>
-                    <div class="flex justify-between py-2 border-b border-gray-200"><span>{% trans "Cement Weight" %}</span><span class="font-semibold">${N(mat.cement.tons)} {% trans "tons" %}</span></div>
-                    <div class="flex justify-between py-2 border-b border-gray-200"><span class="font-semibold">{% trans "Sand" %}</span><span class="font-bold">${N(mat.sand.pounds)} lbs (${N(mat.sand.tons)} {% trans "tons" %})</span></div>
-                    <div class="flex justify-between py-2 border-b border-gray-200"><span class="font-semibold">{% trans "Aggregate" %}</span><span class="font-bold">${N(mat.aggregate.pounds)} lbs (${N(mat.aggregate.tons)} {% trans "tons" %})</span></div>
-                    <div class="mt-3 pt-3 border-t border-gray-300"><p class="text-sm text-gray-600">{% trans "Mix Ratio" %}: <span class="font-semibold">${r.mix_ratio}</span></p></div>
-                `;
-                document.getElementById('matCard')?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Charts
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                if (volChartInst) { volChartInst.destroy(); volChartInst = null; }
-                if (matChartInst) { matChartInst.destroy(); matChartInst = null; }
-                if (r.chart_data.volume_chart) volChartInst = new Chart(document.getElementById('volChart'), r.chart_data.volume_chart);
-                if (r.chart_data.materials_chart) matChartInst = new Chart(document.getElementById('matChart'), r.chart_data.materials_chart);
-                document.getElementById('chartRow')?.classList.remove('hidden');
-            }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Concrete' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-function N(v) { return Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'rectangular_slab') {
-        d.length = parseFloat(document.getElementById('r_l').value);
-        d.width = parseFloat(document.getElementById('r_w').value);
-        d.thickness = parseFloat(document.getElementById('r_t').value);
-        d.unit = document.getElementById('r_u').value;
-        d.mix_ratio = document.getElementById('r_mr').value;
-    } else if (ct === 'circular_slab') {
-        d.diameter = parseFloat(document.getElementById('cs_d').value);
-        d.thickness = parseFloat(document.getElementById('cs_t').value);
-        d.unit = document.getElementById('cs_u').value;
-        d.mix_ratio = document.getElementById('cs_mr').value;
-    } else if (ct === 'column') {
-        d.diameter = parseFloat(document.getElementById('co_d').value);
-        d.height = parseFloat(document.getElementById('co_h').value);
-        d.unit = document.getElementById('co_u').value;
-        d.mix_ratio = document.getElementById('co_mr').value;
-    } else if (ct === 'footing') {
-        d.length = parseFloat(document.getElementById('fo_l').value);
-        d.width = parseFloat(document.getElementById('fo_w').value);
-        d.depth = parseFloat(document.getElementById('fo_d').value);
-        d.unit = document.getElementById('fo_u').value;
-        d.mix_ratio = document.getElementById('fo_mr').value;
-    } else if (ct === 'wall') {
-        d.length = parseFloat(document.getElementById('wa_l').value);
-        d.height = parseFloat(document.getElementById('wa_h').value);
-        d.thickness = parseFloat(document.getElementById('wa_t').value);
-        d.unit = document.getElementById('wa_u').value;
-        d.mix_ratio = document.getElementById('wa_mr').value;
-    } else if (ct === 'volume_conversion') {
-        d.volume_value = parseFloat(document.getElementById('vc_v').value);
-        d.from_unit = document.getElementById('vc_fu').value;
-        d.to_unit = document.getElementById('vc_tu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateConcrete_1: "{% trans 'Calculate Concrete' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_CubicFeet_4: '{% trans "Cubic Feet" %}',
+        trans_CubicYards_5: '{% trans "Cubic Yards" %}',
+        trans_CubicMeters_6: '{% trans "Cubic Meters" %}',
+        trans_Cement_7: '{% trans "Cement" %}',
+        trans_bags_8: '{% trans "bags" %}',
+        trans_CementWeight_9: '{% trans "Cement Weight" %}',
+        trans_tons_10: '{% trans "tons" %}',
+        trans_Sand_11: '{% trans "Sand" %}',
+        trans_Aggregate_13: '{% trans "Aggregate" %}',
+        trans_MixRatio_15: '{% trans "Mix Ratio" %}',
+        trans_Anetworkerroroccurre_17: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/concrete_calculator.js' %}"></script>
 {% endblock %}

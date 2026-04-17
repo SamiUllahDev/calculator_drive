@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Roofing Calculator - Calculate Roof Area, Materials & Cost Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free roofing calculator. Calculate roof area for gable, hip, and flat roofs. Estimate materials (shingles, tiles, metal), find pitch from rise/run, and get total project cost. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate roof area, pitch, materials, and cost. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/roofing_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Roofing Calculator - Free Online Tool" %}","description":"{% trans "Free roofing calculator. Calculate roof area, materials, pitch, and cost. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"2150"},"featureList":["{% trans 'Roof area (gable, hip, flat) with pitch' %}","{% trans 'Materials: bundles & squares (6 types)' %}","{% trans 'Pitch from rise/run (angle, slope %)' %}","{% trans 'Cost estimate (material + labor)' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Roofing Calculator - Free Online Tool" %}',"description":'{% trans "Free roofing calculator. Calculate roof area, materials, pitch, and cost. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"2150"},"featureList":["{% trans 'Roof area (gable, hip, flat) with pitch' %}","{% trans 'Materials: bundles & squares (6 types)' %}","{% trans 'Pitch from rise/run (angle, slope %)' %}","{% trans 'Cost estimate (material + labor)' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -206,126 +207,23 @@
 </div>
 
 <script>
-let resultChart = null;
-
-function togglePitch() {
-    const s = document.getElementById('ar_shape').value;
-    document.getElementById('pitchField').classList.toggle('hidden', s === 'flat');
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('rcForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        document.getElementById('extraGrid')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            const isUsd = r.result_unit_symbol === '$';
-            document.getElementById('resultValue').textContent = isUsd ? ('$' + Number(r.result).toLocaleString('en-US',{maximumFractionDigits:2})) : Number(r.result).toLocaleString('en-US',{maximumFractionDigits:4});
-            document.getElementById('resultUnit').textContent = isUsd ? '' : (r.result_unit_symbol || '');
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Extra grid
-            const eg = document.getElementById('extraGrid'), egc = document.getElementById('extraGridContent');
-            egc.innerHTML = '';
-            let extras = [];
-            if (r.calc_type === 'area') {
-                extras = [['{% trans "Squares" %}', r.squares, 'red'],['{% trans "Pitch Multi." %}', r.pitch_multiplier, 'orange'],['{% trans "Area (m²)" %}', r.area?.square_meters, 'amber']];
-            } else if (r.calc_type === 'materials') {
-                extras = [['{% trans "Squares" %}', r.squares, 'red'],['{% trans "w/ Waste (ft²)" %}', r.area_with_waste, 'orange'],['{% trans "Bundles" %}', r.result, 'amber']];
-            } else if (r.calc_type === 'pitch') {
-                extras = [['{% trans "Angle" %}', r.angle + '°', 'red'],['{% trans "Slope" %}', r.slope_percent + '%', 'orange'],['{% trans "Multiplier" %}', r.pitch_multiplier, 'amber']];
-            } else if (r.calc_type === 'cost') {
-                extras = [['{% trans "Squares" %}', r.squares, 'red'],['{% trans "Material $" %}', '$' + Number(r.material_cost).toFixed(2), 'orange'],['{% trans "Labor $" %}', '$' + Number(r.labor_cost).toFixed(2), 'emerald']];
-            }
-            if (extras.length) {
-                extras.forEach(([l,v,c]) => {
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-4 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-sm text-gray-600 mb-1">${l}</p><p class="text-xl font-bold text-${c}-600">${typeof v === 'number' ? Number(v).toLocaleString('en-US',{maximumFractionDigits:4}) : v}</p>`;
-                    egc.appendChild(d);
-                });
-                eg?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-red-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'area') {
-        d.roof_shape = document.getElementById('ar_shape').value;
-        d.length = parseFloat(document.getElementById('ar_l').value);
-        d.width = parseFloat(document.getElementById('ar_w').value);
-        d.length_unit = document.getElementById('ar_lu').value;
-        d.result_unit = document.getElementById('ar_ru').value;
-        if (d.roof_shape !== 'flat') d.pitch = parseFloat(document.getElementById('ar_p').value) || 0;
-    } else if (ct === 'materials') {
-        d.area = parseFloat(document.getElementById('mt_area').value);
-        d.area_unit = document.getElementById('mt_au').value;
-        d.material_type = document.getElementById('mt_type').value;
-        d.waste_factor = parseFloat(document.getElementById('mt_wf').value) || 10;
-    } else if (ct === 'pitch') {
-        d.rise = parseFloat(document.getElementById('pi_rise').value);
-        d.run = parseFloat(document.getElementById('pi_run').value);
-    } else if (ct === 'cost') {
-        d.area = parseFloat(document.getElementById('co_area').value);
-        d.area_unit = document.getElementById('co_au').value;
-        d.price_per_square = parseFloat(document.getElementById('co_pps').value);
-        d.labor_cost = parseFloat(document.getElementById('co_lc').value) || 0;
-        d.waste_factor = parseFloat(document.getElementById('co_wf').value) || 10;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Squares_4: '{% trans "Squares" %}',
+        trans_PitchMulti_5: '{% trans "Pitch Multi." %}',
+        trans_Aream_6: '{% trans "Area (m²)" %}',
+        trans_wWasteft_8: '{% trans "w/ Waste (ft²)" %}',
+        trans_Bundles_9: '{% trans "Bundles" %}',
+        trans_Angle_10: '{% trans "Angle" %}',
+        trans_Slope_11: '{% trans "Slope" %}',
+        trans_Multiplier_12: '{% trans "Multiplier" %}',
+        trans_Material_14: '{% trans "Material $" %}',
+        trans_Labor_15: '{% trans "Labor $" %}',
+        trans_Anetworkerroroccurre_17: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/roofing_calculator.js' %}"></script>
 {% endblock %}

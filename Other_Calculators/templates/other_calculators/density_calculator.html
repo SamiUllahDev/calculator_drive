@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Density Calculator - Calculate Density Mass Volume Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free density calculator. Calculate density from mass and volume, find mass from density and volume, or find volume from density and mass. Convert density units between kg/m³, g/cm³, lb/ft³, and more. Instant results with step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate density, mass, or volume. Convert density units. Free calculator with step-by-step solutions for students and engineers." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/density_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Density Calculator - Density Mass Volume Free" %}","description":"{% trans "Free density calculator. Calculate density from mass and volume, find mass from density, find volume from density. Convert density units. Step-by-step solutions and charts." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1850"},"featureList":["{% trans 'Calculate density from mass and volume' %}","{% trans 'Calculate mass from density and volume' %}","{% trans 'Calculate volume from density and mass' %}","{% trans 'Convert density units' %}","{% trans 'Compare with common material densities' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Density Calculator - Density Mass Volume Free" %}',"description":'{% trans "Free density calculator. Calculate density from mass and volume, find mass from density, find volume from density. Convert density units. Step-by-step solutions and charts." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1850"},"featureList":["{% trans 'Calculate density from mass and volume' %}","{% trans 'Calculate mass from density and volume' %}","{% trans 'Calculate volume from density and mass' %}","{% trans 'Convert density units' %}","{% trans 'Compare with common material densities' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -292,98 +293,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctSel = document.getElementById('calc-type');
-    ctSel.addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('densForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                const cc = document.getElementById('chartCard'); cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 6}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'density') {
-        d.mass = parseFloat(document.getElementById('d_mass').value);
-        d.mass_unit = document.getElementById('d_mu').value;
-        d.volume = parseFloat(document.getElementById('d_vol').value);
-        d.volume_unit = document.getElementById('d_vu').value;
-        d.result_unit = document.getElementById('d_ru').value;
-    } else if (ct === 'mass') {
-        d.density = parseFloat(document.getElementById('m_dens').value);
-        d.density_unit = document.getElementById('m_du').value;
-        d.volume = parseFloat(document.getElementById('m_vol').value);
-        d.volume_unit = document.getElementById('m_vu').value;
-        d.result_unit = document.getElementById('m_ru').value;
-    } else if (ct === 'volume') {
-        d.density = parseFloat(document.getElementById('v_dens').value);
-        d.density_unit = document.getElementById('v_du').value;
-        d.mass = parseFloat(document.getElementById('v_mass').value);
-        d.mass_unit = document.getElementById('v_mu').value;
-        d.result_unit = document.getElementById('v_ru').value;
-    } else if (ct === 'convert') {
-        d.value = parseFloat(document.getElementById('c_val').value);
-        d.from_unit = document.getElementById('c_fu').value;
-        d.to_unit = document.getElementById('c_tu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/density_calculator.js' %}"></script>
 {% endblock %}

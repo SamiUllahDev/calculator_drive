@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Grade Calculator - Calculate Final Exam Grade Needed & Weighted Average | Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free grade calculator to instantly find out what grade you need on your final exam, calculate your current class grade from assignments, compute weighted averages, and convert percentage to letter grade. Step-by-step solutions for students." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Free grade calculator for students. Calculate final exam grade needed, current class grade, weighted averages, and percentage to letter grade conversion." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/grade_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -175,205 +176,29 @@
 </div>
 
 <script>
-let resultChart = null;
-document.addEventListener('DOMContentLoaded', function() {
-    const calcType = document.getElementById('calcType');
-    calcType.addEventListener('change', function() { switchMode(this.value); hideError(); });
-    document.getElementById('gradeForm').addEventListener('submit', function(e) { e.preventDefault(); handleSubmit(); });
-    document.getElementById('resetBtn').addEventListener('click', handleReset);
-    document.getElementById('addAssignBtn').addEventListener('click', function() { addAssign('assignContainer', false); });
-    document.getElementById('addWAssignBtn').addEventListener('click', function() { addAssign('wAssignContainer', true); });
-    document.getElementById('assignContainer').addEventListener('click', function(e) { removeAssign(e, 'assignContainer'); });
-    document.getElementById('wAssignContainer').addEventListener('click', function(e) { removeAssign(e, 'wAssignContainer'); });
-    switchMode('final_grade_needed');
-    addAssign('assignContainer', false); addAssign('assignContainer', false);
-    addAssign('wAssignContainer', true); addAssign('wAssignContainer', true);
-});
-
-function switchMode(mode) {
-    document.querySelectorAll('.calc-mode').forEach(el => el.classList.add('hidden'));
-    const map = { final_grade_needed: 'finalNeededForm', current_grade: 'currentGradeForm', grade_percentage: 'percentageForm', weighted_grade: 'weightedForm', convert_to_letter: 'letterForm' };
-    document.getElementById(map[mode] || map.final_grade_needed).classList.remove('hidden');
-}
-
-function addAssign(containerId, isWeighted) {
-    const c = document.getElementById(containerId);
-    let html;
-    if (isWeighted) {
-        html = '<div class="assign-row flex gap-2 items-center"><input type="text" class="a-name flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm" placeholder="{% trans "Name" %}">' +
-            '<input type="number" class="a-grade w-16 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center" step="0.01" min="0" max="100" placeholder="85">' +
-            '<input type="number" class="a-weight w-16 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center" step="0.01" min="0" max="100" placeholder="20">' +
-            '<button type="button" class="rm-assign text-red-500 hover:text-red-700 p-1"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
-    } else {
-        html = '<div class="assign-row flex gap-2 items-center"><input type="text" class="a-name flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm" placeholder="{% trans "Name" %}">' +
-            '<input type="number" class="a-earned w-16 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center" step="0.01" min="0" placeholder="85">' +
-            '<span class="text-gray-400">/</span>' +
-            '<input type="number" class="a-possible w-16 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center" step="0.01" min="0.01" placeholder="100">' +
-            '<input type="number" class="a-weight w-14 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center" step="0.01" min="0" max="100" placeholder="0" title="{% trans "Weight % (0=unweighted)" %}">' +
-            '<button type="button" class="rm-assign text-red-500 hover:text-red-700 p-1"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
-    }
-    c.insertAdjacentHTML('beforeend', html);
-    updateCount(containerId);
-}
-
-function removeAssign(e, containerId) {
-    if (e.target.closest('.rm-assign')) {
-        const row = e.target.closest('.assign-row');
-        if (document.querySelectorAll('#' + containerId + ' .assign-row').length > 1) { row.remove(); updateCount(containerId); }
-    }
-}
-
-function updateCount(containerId) {
-    const n = document.querySelectorAll('#' + containerId + ' .assign-row').length;
-    const el = containerId === 'assignContainer' ? document.getElementById('assignCount') : document.getElementById('wAssignCount');
-    if (el) el.textContent = n + ' {% trans "assignments" %}';
-}
-
-function showError(msg) { document.getElementById('errorMsg').textContent = msg; document.getElementById('errorState').classList.remove('hidden'); }
-function hideError() { document.getElementById('errorState').classList.add('hidden'); }
-
-function handleReset() {
-    hideError();
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('chartSection').classList.add('hidden');
-    if (resultChart) { resultChart.destroy(); resultChart = null; }
-    ['currentGradeFinal','targetGrade','finalWeight','ptsEarned','ptsPossible','pctLetter'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    ['assignContainer','wAssignContainer'].forEach(id => { document.getElementById(id).innerHTML = ''; });
-    addAssign('assignContainer', false); addAssign('assignContainer', false);
-    addAssign('wAssignContainer', true); addAssign('wAssignContainer', true);
-}
-
-function handleSubmit() {
-    hideError();
-    const mode = document.getElementById('calcType').value;
-    let formData = { calc_type: mode };
-
-    if (mode === 'final_grade_needed') {
-        const cg = parseFloat(document.getElementById('currentGradeFinal').value);
-        const tg = parseFloat(document.getElementById('targetGrade').value);
-        const fw = parseFloat(document.getElementById('finalWeight').value);
-        if (isNaN(cg) || isNaN(tg) || isNaN(fw)) { showError('{% trans "Please fill in all required fields." %}'); return; }
-        formData.current_grade = cg; formData.target_grade = tg; formData.final_weight = fw;
-    } else if (mode === 'current_grade') {
-        const assigns = [];
-        document.querySelectorAll('#assignContainer .assign-row').forEach(row => {
-            const earned = parseFloat(row.querySelector('.a-earned').value);
-            const possible = parseFloat(row.querySelector('.a-possible').value);
-            const weight = parseFloat(row.querySelector('.a-weight')?.value) || 0;
-            if (!isNaN(earned) && !isNaN(possible) && possible > 0)
-                assigns.push({ name: row.querySelector('.a-name').value.trim() || '{% trans "Assignment" %}', points_earned: earned, points_possible: possible, weight });
-        });
-        if (!assigns.length) { showError('{% trans "Please add at least one valid assignment." %}'); return; }
-        formData.assignments = assigns;
-    } else if (mode === 'grade_percentage') {
-        const e = parseFloat(document.getElementById('ptsEarned').value);
-        const p = parseFloat(document.getElementById('ptsPossible').value);
-        if (isNaN(e) || isNaN(p)) { showError('{% trans "Please fill in all required fields." %}'); return; }
-        formData.points_earned = e; formData.points_possible = p;
-    } else if (mode === 'weighted_grade') {
-        const assigns = [];
-        document.querySelectorAll('#wAssignContainer .assign-row').forEach(row => {
-            const grade = parseFloat(row.querySelector('.a-grade').value);
-            const weight = parseFloat(row.querySelector('.a-weight').value);
-            if (!isNaN(grade) && !isNaN(weight) && weight > 0)
-                assigns.push({ name: row.querySelector('.a-name').value.trim() || '{% trans "Assignment" %}', grade, weight });
-        });
-        if (!assigns.length) { showError('{% trans "Please add at least one valid assignment." %}'); return; }
-        formData.assignments = assigns;
-    } else if (mode === 'convert_to_letter') {
-        const p = parseFloat(document.getElementById('pctLetter').value);
-        if (isNaN(p)) { showError('{% trans "Please enter a percentage." %}'); return; }
-        formData.percentage = p;
-    }
-
-    const loading = document.getElementById('loadingState');
-    loading.classList.remove('hidden');
-    document.getElementById('initialState').classList.add('hidden');
-    document.getElementById('results').classList.add('hidden');
-
-    fetch(window.location.href, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-        body: JSON.stringify(formData)
-    }).then(r => r.json()).then(data => {
-        loading.classList.add('hidden');
-        if (!data.success) { showError(data.error || '{% trans "An error occurred." %}'); return; }
-        displayResults(data);
-    }).catch(() => { loading.classList.add('hidden'); showError('{% trans "A network error occurred. Please try again." %}'); });
-}
-
-function displayResults(data) {
-    const rc = document.getElementById('resultContent');
-    const sbs = document.getElementById('stepByStep');
-    let html = '';
-
-    if (data.calc_type === 'final_grade_needed') {
-        const color = data.achievable ? 'from-blue-600 to-indigo-700' : 'from-red-500 to-red-700';
-        html += '<div class="bg-gradient-to-br ' + color + ' text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-white/80 text-sm mb-1">{% trans "Final Exam Grade Needed" %}</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.final_grade_needed + '%</p>';
-        if (!data.achievable) html += '<p class="text-white/80 text-sm mt-2">{% trans "Target not achievable. Max possible" %}: ' + data.max_possible + '%</p>';
-        html += '<div class="grid grid-cols-3 gap-4 mt-6">';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-white/70 text-xs">{% trans "Current" %}</p><p class="text-xl font-bold">' + data.current_grade + '%</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-white/70 text-xs">{% trans "Target" %}</p><p class="text-xl font-bold">' + data.target_grade + '%</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-white/70 text-xs">{% trans "Weight" %}</p><p class="text-xl font-bold">' + data.final_weight + '%</p></div>';
-        html += '</div></div>';
-    } else if (data.calc_type === 'current_grade') {
-        html += '<div class="bg-gradient-to-br from-green-600 to-emerald-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-green-100 text-sm mb-1">{% trans "Your Current Grade" %}</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.current_grade + '%</p>';
-        html += '<span class="bg-white/20 px-3 py-1 rounded-lg text-sm font-medium">' + data.letter_grade + '</span>';
-        html += '<div class="grid grid-cols-2 gap-4 mt-6">';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-green-100 text-xs">{% trans "Points Earned" %}</p><p class="text-xl font-bold">' + data.total_points_earned + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-green-100 text-xs">{% trans "Points Possible" %}</p><p class="text-xl font-bold">' + data.total_points_possible + '</p></div>';
-        html += '</div></div>';
-    } else if (data.calc_type === 'grade_percentage') {
-        html += '<div class="bg-gradient-to-br from-yellow-500 to-amber-600 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-yellow-100 text-sm mb-1">{% trans "Grade Percentage" %}</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.percentage + '%</p>';
-        html += '<span class="bg-white/20 px-3 py-1 rounded-lg text-sm font-medium">' + data.letter_grade + '</span></div>';
-    } else if (data.calc_type === 'weighted_grade') {
-        html += '<div class="bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-purple-100 text-sm mb-1">{% trans "Weighted Grade" %}</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.weighted_grade + '%</p>';
-        html += '<span class="bg-white/20 px-3 py-1 rounded-lg text-sm font-medium">' + data.letter_grade + '</span>';
-        html += '<p class="text-purple-200 text-sm mt-3">{% trans "Total Weight" %}: ' + data.total_weight + '%</p></div>';
-    } else if (data.calc_type === 'convert_to_letter') {
-        html += '<div class="bg-gradient-to-br from-indigo-600 to-blue-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-indigo-100 text-sm mb-1">' + data.percentage + '%</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.letter_grade + '</p></div>';
-    }
-    rc.innerHTML = html;
-
-    if (data.step_by_step && data.step_by_step.length > 0) {
-        let sh = '<div class="bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200 rounded-xl p-4 sm:p-6"><h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3><div class="space-y-1.5">';
-        data.step_by_step.forEach(s => {
-            if (s === '') sh += '<div class="my-2 border-t border-gray-200"></div>';
-            else if (s.startsWith('Step ') || s.startsWith('Final ') || s.startsWith('Note')) sh += '<p class="text-sm font-bold text-gray-900 mt-2">' + s + '</p>';
-            else sh += '<p class="text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r">' + s + '</p>';
-        });
-        sh += '</div></div>';
-        sbs.innerHTML = sh;
-    } else { sbs.innerHTML = ''; }
-
-    document.getElementById('results').classList.remove('hidden');
-
-    if (data.chart_data && typeof Chart !== 'undefined') {
-        const chartSection = document.getElementById('chartSection');
-        const canvas = document.getElementById('resultChart');
-        if (resultChart) { resultChart.destroy(); resultChart = null; }
-        const key = Object.keys(data.chart_data)[0];
-        const config = data.chart_data[key];
-        if (config && canvas) {
-            resultChart = new Chart(canvas.getContext('2d'), {
-                type: config.type, data: config.data,
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: config.type === 'doughnut' } }, scales: config.type !== 'doughnut' ? { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } } : {}, animation: { duration: 1500 } }
-            });
-            chartSection.classList.remove('hidden');
-        }
-    } else { document.getElementById('chartSection').classList.add('hidden'); }
-
-    setTimeout(() => { document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-}
+window.djangoContext = {
+        trans_Name_0: '{% trans "Name" %}',
+        trans_Weight0unweighted_2: '{% trans "Weight % (0=unweighted)" %}',
+        trans_assignments_3: '{% trans "assignments" %}',
+        trans_Pleasefillinallrequi_4: '{% trans "Please fill in all required fields." %}',
+        trans_Assignment_5: '{% trans "Assignment" %}',
+        trans_Pleaseaddatleastonev_6: '{% trans "Please add at least one valid assignment." %}',
+        trans_Pleaseenterapercenta_10: '{% trans "Please enter a percentage." %}',
+        trans_Anerroroccurred_11: '{% trans "An error occurred." %}',
+        trans_Anetworkerroroccurre_12: '{% trans "A network error occurred. Please try again." %}',
+        trans_FinalExamGradeNeeded_13: '{% trans "Final Exam Grade Needed" %}',
+        trans_TargetnotachievableM_14: '{% trans "Target not achievable. Max possible" %}',
+        trans_Current_15: '{% trans "Current" %}',
+        trans_Target_16: '{% trans "Target" %}',
+        trans_Weight_17: '{% trans "Weight" %}',
+        trans_YourCurrentGrade_18: '{% trans "Your Current Grade" %}',
+        trans_PointsEarned_19: '{% trans "Points Earned" %}',
+        trans_PointsPossible_20: '{% trans "Points Possible" %}',
+        trans_GradePercentage_21: '{% trans "Grade Percentage" %}',
+        trans_WeightedGrade_22: '{% trans "Weighted Grade" %}',
+        trans_TotalWeight_23: '{% trans "Total Weight" %}',
+        trans_StepbyStepSolution_24: '{% trans "Step-by-Step Solution" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/grade_calculator.js' %}"></script>
 {% endblock %}

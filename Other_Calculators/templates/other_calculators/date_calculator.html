@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Date Calculator - Days Between Dates | Add/Subtract Days | Free Online Tool" %}{% endblock %}
 {% block meta_description %}{% trans "Free date calculator to calculate days between dates, add/subtract time from dates, and find weekdays. Calculate date differences with step-by-step solutions. Perfect for planning, scheduling, and date tracking." %}{% endblock %}
@@ -14,6 +14,7 @@
 {% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}/static/images/date-calculator-twitter.jpg{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/date_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -36,19 +37,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'other_calculators:index' %}" class="hover:text-blue-600">{% trans "Other Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Date Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -416,290 +405,20 @@
 </div>
 
 <script>
-let currentMode = 'difference';
-let differenceChart = null;
-
-function switchMode(mode) {
-    if (!mode) return;
-    
-    currentMode = mode;
-    
-    // Update dropdown
-    const selector = document.getElementById('calc-mode-selector');
-    if (selector) selector.value = mode;
-    
-    // Show/hide form sections
-    document.querySelectorAll('[role="tabpanel"]').forEach(panel => panel.classList.add('hidden'));
-    const formSection = document.getElementById(`form-${mode}`);
-    if (formSection) formSection.classList.remove('hidden');
-    
-    // Reset results
-    document.getElementById('resultsSection')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function formatNumber(num) {
-    return num.toLocaleString('en-US');
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-async function calculateDate(event) {
-    if (event) event.preventDefault();
-    
-    const btn = document.getElementById('calculateBtn');
-    const btnText = document.getElementById('calculateBtnText');
-    const errorState = document.getElementById('errorState');
-    const errorEl = document.getElementById('errorMessage');
-    const spinner = document.getElementById('loadingSpinner');
-    const icon = document.getElementById('calculateIcon');
-    
-    if (!btn) return;
-    
-    if (errorState) errorState.classList.add('hidden');
-    if (errorEl) errorEl.textContent = '';
-    
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (!csrfToken) {
-        if (errorEl) errorEl.textContent = '{% trans "CSRF token not found. Please refresh." %}';
-        if (errorState) errorState.classList.remove('hidden');
-        return;
-    }
-    
-    let requestData = { calc_type: currentMode };
-    
-    // Collect data based on mode
-    if (currentMode === 'difference') {
-        requestData.start_date = document.getElementById('start_date').value;
-        requestData.end_date = document.getElementById('end_date').value;
-    } else if (currentMode === 'add_subtract') {
-        requestData.base_date = document.getElementById('base_date').value;
-        requestData.operation = document.querySelector('input[name="operation"]:checked').value;
-        requestData.years = parseInt(document.getElementById('add_years').value) || 0;
-        requestData.months = parseInt(document.getElementById('add_months').value) || 0;
-        requestData.weeks = parseInt(document.getElementById('add_weeks').value) || 0;
-        requestData.days = parseInt(document.getElementById('add_days').value) || 0;
-    } else if (currentMode === 'days_since') {
-        requestData.past_date = document.getElementById('past_date').value;
-    } else if (currentMode === 'days_until') {
-        requestData.future_date = document.getElementById('future_date').value;
-    } else if (currentMode === 'weekday') {
-        requestData.target_date = document.getElementById('target_date').value;
-    }
-    
-    btn.disabled = true;
-    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
-    if (spinner) spinner.classList.remove('hidden');
-    if (icon) icon.classList.add('hidden');
-    
-    try {
-        const response = await fetch(window.location.href, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRFToken': csrfToken.value
-            },
-            body: JSON.stringify(requestData)
-        });
-        
-        const text = await response.text();
-        let data = null;
-        try { data = text ? JSON.parse(text) : {}; } catch (err) { /* ignore */ }
-        
-        if (!data || !data.success) {
-            if (errorEl) errorEl.textContent = (data && data.error) ? data.error : '{% trans "An error occurred. Please try again." %}';
-            if (errorState) errorState.classList.remove('hidden');
-            return;
-        }
-        
-        // Show results
-        document.getElementById('initialState')?.classList.add('hidden');
-        document.getElementById('resultsSection')?.classList.remove('hidden');
-        document.getElementById('resultsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        
-        // Update result display
-        if (data.calc_type === 'difference') {
-            document.getElementById('resultValue').textContent = data.difference.formatted;
-            document.getElementById('resultDetails').textContent = `${formatNumber(data.totals.days)} {% trans "total days" %}`;
-            
-            // Details cards
-            const detailsHtml = `
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                    <div class="text-center">
-                        <p class="text-2xl font-bold text-blue-600">${formatNumber(data.totals.days)}</p>
-                        <p class="text-sm text-gray-600">{% trans "Days" %}</p>
-                    </div>
-                </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                    <div class="text-center">
-                        <p class="text-2xl font-bold text-blue-600">${formatNumber(data.totals.weeks)}</p>
-                        <p class="text-sm text-gray-600">{% trans "Weeks" %}</p>
-                    </div>
-                </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                    <div class="text-center">
-                        <p class="text-2xl font-bold text-blue-600">${formatNumber(data.totals.months)}</p>
-                        <p class="text-sm text-gray-600">{% trans "Months" %}</p>
-                    </div>
-                </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                    <div class="text-center">
-                        <p class="text-2xl font-bold text-blue-600">${formatNumber(data.totals.business_days)}</p>
-                        <p class="text-sm text-gray-600">{% trans "Business Days" %}</p>
-                    </div>
-                </div>
-            `;
-            document.getElementById('detailsSection').innerHTML = detailsHtml;
-            
-            // Chart
-            if (data.chart_data?.difference_chart) {
-                const chartEl = document.getElementById('differenceChart');
-                if (chartEl) {
-                    if (differenceChart) differenceChart.destroy();
-                    differenceChart = new Chart(chartEl.getContext('2d'), data.chart_data.difference_chart);
-                }
-                document.getElementById('chartsSection').classList.remove('hidden');
-            } else {
-                document.getElementById('chartsSection').classList.add('hidden');
-            }
-        } else if (data.calc_type === 'add_subtract') {
-            document.getElementById('resultValue').textContent = data.result_formatted;
-            document.getElementById('resultDetails').textContent = data.day_of_week;
-            document.getElementById('detailsSection').innerHTML = '';
-            document.getElementById('chartsSection').classList.add('hidden');
-        } else if (data.calc_type === 'days_since') {
-            document.getElementById('resultValue').textContent = formatNumber(data.days_since);
-            document.getElementById('resultDetails').textContent = '{% trans "days ago" %}';
-            document.getElementById('detailsSection').innerHTML = '';
-            if (data.chart_data?.days_chart && typeof Chart !== 'undefined') {
-                const chartEl = document.getElementById('differenceChart');
-                if (chartEl) {
-                    if (differenceChart) differenceChart.destroy();
-                    differenceChart = new Chart(chartEl.getContext('2d'), data.chart_data.days_chart);
-                }
-                document.getElementById('chartsSection').classList.remove('hidden');
-            } else {
-                document.getElementById('chartsSection').classList.add('hidden');
-            }
-        } else if (data.calc_type === 'days_until') {
-            document.getElementById('resultValue').textContent = formatNumber(data.days_until);
-            document.getElementById('resultDetails').textContent = '{% trans "days from now" %}';
-            document.getElementById('detailsSection').innerHTML = '';
-            if (data.chart_data?.days_chart && typeof Chart !== 'undefined') {
-                const chartEl = document.getElementById('differenceChart');
-                if (chartEl) {
-                    if (differenceChart) differenceChart.destroy();
-                    differenceChart = new Chart(chartEl.getContext('2d'), data.chart_data.days_chart);
-                }
-                document.getElementById('chartsSection').classList.remove('hidden');
-            } else {
-                document.getElementById('chartsSection').classList.add('hidden');
-            }
-        } else if (data.calc_type === 'weekday') {
-            document.getElementById('resultValue').textContent = data.day_of_week;
-            document.getElementById('resultDetails').textContent = data.date_formatted;
-            document.getElementById('detailsSection').innerHTML = '';
-            document.getElementById('chartsSection').classList.add('hidden');
-        }
-        
-        // Step-by-step
-        const stepEl = document.getElementById('stepByStep');
-        if (stepEl && data.step_by_step?.length > 0) {
-            let stepNum = 0;
-            stepEl.innerHTML = data.step_by_step.map(step => {
-                if (!step || !step.trim()) return '<div class="my-3"></div>';
-                
-                const text = escapeHtml(step);
-                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note)/i.test(text);
-                const isFormula = /[=×÷+\-*\/]/.test(text) && text.length < 100;
-                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
-                const isNote = /^(Note|Important|Remember)/i.test(text);
-                
-                if (isStep) {
-                    stepNum++;
-                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
-                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
-                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
-                    </div>`;
-                } else if (isFormula) {
-                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
-                } else if (isResult) {
-                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg">
-                        <div class="flex items-center gap-2 mb-2">
-                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="font-semibold text-green-800">{% trans "Result" %}</span>
-                        </div>
-                        <p class="text-gray-800 font-medium">${text}</p>
-                    </div>`;
-                } else if (isNote) {
-                    return `<div class="mb-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
-                        <div class="flex items-start gap-2">
-                            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <p class="text-yellow-800 text-sm">${text}</p>
-                        </div>
-                    </div>`;
-                } else {
-                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
-                }
-            }).join('');
-        }
-        
-    } catch (error) {
-        console.error('Error:', error);
-        if (errorEl) errorEl.textContent = '{% trans "An error occurred. Please try again." %}';
-        if (errorState) errorState.classList.remove('hidden');
-    } finally {
-        if (btn) btn.disabled = false;
-        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
-        if (spinner) spinner.classList.add('hidden');
-        if (icon) icon.classList.remove('hidden');
-    }
-}
-
-
-// Reset button
-document.addEventListener('DOMContentLoaded', function() {
-    const resetBtn = document.getElementById('resetBtn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('start_date').value = today;
-            document.getElementById('end_date').value = today;
-            document.getElementById('base_date').value = today;
-            document.getElementById('past_date').value = today;
-            document.getElementById('future_date').value = today;
-            document.getElementById('target_date').value = today;
-            document.getElementById('add_years').value = '0';
-            document.getElementById('add_months').value = '0';
-            document.getElementById('add_weeks').value = '0';
-            document.getElementById('add_days').value = '0';
-            document.querySelector('input[name="operation"][value="add"]').checked = true;
-            document.getElementById('calc-mode-selector').value = 'difference';
-            switchMode('difference');
-            document.getElementById('errorState').classList.add('hidden');
-            document.getElementById('initialState').classList.remove('hidden');
-            document.getElementById('resultsSection').classList.add('hidden');
-        });
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('start_date').value = today;
-    document.getElementById('end_date').value = today;
-    document.getElementById('base_date').value = today;
-    document.getElementById('past_date').value = today;
-    document.getElementById('future_date').value = today;
-    document.getElementById('target_date').value = today;
-    switchMode('difference');
-});
+window.djangoContext = {
+        trans_CSRFtokennotfoundPle_0: '{% trans "CSRF token not found. Please refresh." %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_totaldays_3: '{% trans "total days" %}',
+        trans_Days_4: '{% trans "Days" %}',
+        trans_Weeks_5: '{% trans "Weeks" %}',
+        trans_Months_6: '{% trans "Months" %}',
+        trans_BusinessDays_7: '{% trans "Business Days" %}',
+        trans_daysago_8: '{% trans "days ago" %}',
+        trans_daysfromnow_9: '{% trans "days from now" %}',
+        trans_Result_10: '{% trans "Result" %}',
+        trans_Calculate_12: '{% trans "Calculate" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/date_calculator.js' %}"></script>
 {% endblock %}

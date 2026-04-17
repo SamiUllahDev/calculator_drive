@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "BMR Calculator" %} - {% trans "Calculate Basal Metabolic Rate" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate your Basal Metabolic Rate (BMR) and daily calorie needs. Includes TDEE calculation and weight management recommendations." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/bmr_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "BMR calculator, basal metabolic rate, calorie calculator, TDEE, metabolism calculator" %}">
+<meta name="keywords" content='{% trans "BMR calculator, basal metabolic rate, calorie calculator, TDEE, metabolism calculator" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "BMR Calculator" %} - {% trans "Calculate Basal Metabolic Rate" %}">
-<meta property="og:description" content="{% trans "Calculate your Basal Metabolic Rate and daily calorie needs with TDEE." %}">
+<meta property="og:title" content='{% trans "BMR Calculator" %} - {% trans "Calculate Basal Metabolic Rate" %}'>
+<meta property="og:description" content='{% trans "Calculate your Basal Metabolic Rate and daily calorie needs with TDEE." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "BMR Calculator" %}",
-    "description": "{% trans "Calculate your Basal Metabolic Rate and daily calorie needs." %}",
+    "name": '{% trans "BMR Calculator" %}',
+    "description": '{% trans "Calculate your Basal Metabolic Rate and daily calorie needs." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "BMR Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -536,404 +525,27 @@
 </div>
 
 <script>
-// Chart instances
-let comparisonChart = null;
-let targetsChart = null;
-let macrosChart = null;
-let formulasChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitImperial = document.getElementById('unitImperial');
-    const heightMetricDiv = document.getElementById('heightMetric');
-    const heightImperialDiv = document.getElementById('heightImperial');
-    const weightLabel = document.getElementById('weightLabel');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        if (unitImperial.checked) {
-            heightMetricDiv.classList.add('hidden');
-            heightImperialDiv.classList.remove('hidden');
-            weightLabel.textContent = '{% trans "Weight" %} (lbs)';
-            document.getElementById('weight').min = '66';
-            document.getElementById('weight').max = '660';
-            document.getElementById('weight').value = '160';
-        } else {
-            heightMetricDiv.classList.remove('hidden');
-            heightImperialDiv.classList.add('hidden');
-            weightLabel.textContent = '{% trans "Weight" %} (kg)';
-            document.getElementById('weight').min = '30';
-            document.getElementById('weight').max = '300';
-            document.getElementById('weight').value = '70';
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitImperial.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
-        const formData = {
-            unit_system: unitSystem,
-            gender: document.querySelector('input[name="gender"]:checked').value,
-            age: parseInt(document.getElementById('age').value),
-            weight: parseFloat(document.getElementById('weight').value),
-            activity_level: document.getElementById('activity_level').value
-        };
-
-        if (unitSystem === 'imperial') {
-            formData.height_ft = parseInt(document.getElementById('height_ft').value);
-            formData.height_in = parseFloat(document.getElementById('height_in').value) || 0;
-        } else {
-            formData.height = parseFloat(document.getElementById('height').value);
-        }
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate BMR" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main results
-            const bmrResultEl = document.getElementById('bmrResult');
-            const tdeeResultEl = document.getElementById('tdeeResult');
-            if (bmrResultEl) bmrResultEl.textContent = Math.round(data.bmr).toLocaleString();
-            if (tdeeResultEl) tdeeResultEl.textContent = Math.round(data.tdee).toLocaleString();
-
-            // Update formula results
-            const mifflinEl = document.getElementById('mifflin');
-            const harrisEl = document.getElementById('harris');
-            const katchEl = document.getElementById('katch');
-            const activityLevelEl = document.getElementById('activityLevel');
-            
-            if (mifflinEl) mifflinEl.textContent = Math.round(data.bmr_formulas.mifflin_st_jeor).toLocaleString();
-            if (harrisEl) harrisEl.textContent = Math.round(data.bmr_formulas.harris_benedict).toLocaleString();
-            if (katchEl) katchEl.textContent = Math.round(data.bmr_formulas.katch_mcardle).toLocaleString();
-            if (activityLevelEl) {
-                const activityNames = {
-                    'sedentary': '{% trans "Sedentary" %}',
-                    'light': '{% trans "Light" %}',
-                    'moderate': '{% trans "Moderate" %}',
-                    'active': '{% trans "Active" %}',
-                    'very_active': '{% trans "Very Active" %}',
-                    'extra_active': '{% trans "Extra Active" %}'
-                };
-                activityLevelEl.textContent = activityNames[data.activity_level] || data.activity_level;
-            }
-
-            // Update calorie table
-            const targets = data.calorie_targets;
-            const calorieTable = document.getElementById('calorieTable');
-            if (calorieTable) {
-                calorieTable.innerHTML = `
-                    <tr class="border-b"><td class="py-2 px-3 text-red-600">{% trans "Extreme Loss" %}</td><td class="text-right py-2 px-3 font-medium">${Math.round(targets.extreme_loss).toLocaleString()}</td><td class="text-right py-2 px-3 text-red-600">-1000</td></tr>
-                    <tr class="border-b"><td class="py-2 px-3 text-orange-600">{% trans "Weight Loss" %}</td><td class="text-right py-2 px-3 font-medium">${Math.round(targets.weight_loss).toLocaleString()}</td><td class="text-right py-2 px-3 text-orange-600">-500</td></tr>
-                    <tr class="border-b"><td class="py-2 px-3 text-yellow-600">{% trans "Mild Loss" %}</td><td class="text-right py-2 px-3 font-medium">${Math.round(targets.mild_loss).toLocaleString()}</td><td class="text-right py-2 px-3 text-yellow-600">-250</td></tr>
-                    <tr class="border-b bg-green-50"><td class="py-2 px-3 text-green-600 font-medium">{% trans "Maintain" %}</td><td class="text-right py-2 px-3 font-bold">${Math.round(targets.maintain).toLocaleString()}</td><td class="text-right py-2 px-3 text-green-600">0</td></tr>
-                    <tr class="border-b"><td class="py-2 px-3 text-blue-600">{% trans "Mild Gain" %}</td><td class="text-right py-2 px-3 font-medium">${Math.round(targets.mild_gain).toLocaleString()}</td><td class="text-right py-2 px-3 text-blue-600">+250</td></tr>
-                    <tr><td class="py-2 px-3 text-indigo-600">{% trans "Weight Gain" %}</td><td class="text-right py-2 px-3 font-medium">${Math.round(targets.weight_gain).toLocaleString()}</td><td class="text-right py-2 px-3 text-indigo-600">+500</td></tr>
-                `;
-            }
-
-            // Update macros
-            const proteinGEl = document.getElementById('proteinG');
-            const carbsGEl = document.getElementById('carbsG');
-            const fatGEl = document.getElementById('fatG');
-            const proteinCalEl = document.getElementById('proteinCal');
-            const carbsCalEl = document.getElementById('carbsCal');
-            const fatCalEl = document.getElementById('fatCal');
-
-            if (proteinGEl) proteinGEl.textContent = Math.round(data.macros.protein.grams) + 'g';
-            if (carbsGEl) carbsGEl.textContent = Math.round(data.macros.carbs.grams) + 'g';
-            if (fatGEl) fatGEl.textContent = Math.round(data.macros.fat.grams) + 'g';
-            if (proteinCalEl) proteinCalEl.textContent = Math.round(data.macros.protein.calories) + ' cal';
-            if (carbsCalEl) carbsCalEl.textContent = Math.round(data.macros.carbs.calories) + ' cal';
-            if (fatCalEl) fatCalEl.textContent = Math.round(data.macros.fat.calories) + ' cal';
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.comparison_chart) {
-                    createComparisonChart(data.chart_data.comparison_chart);
-                }
-                if (data.chart_data.targets_chart) {
-                    createTargetsChart(data.chart_data.targets_chart);
-                }
-                if (data.chart_data.macros_chart) {
-                    createMacrosChart(data.chart_data.macros_chart);
-                }
-                if (data.chart_data.formulas_chart) {
-                    createFormulasChart(data.chart_data.formulas_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createComparisonChart(chartData) {
-        const ctx = document.getElementById('comparisonChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            comparisonChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { size: 11, weight: 'bold' } }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating comparison chart:', error);
-        }
-    }
-
-    function createTargetsChart(chartData) {
-        const ctx = document.getElementById('targetsChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (targetsChart) targetsChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            targetsChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.x.toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: { color: '#f3f4f6' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { font: { size: 11, weight: 'bold' } }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating targets chart:', error);
-        }
-    }
-
-    function createMacrosChart(chartData) {
-        const ctx = document.getElementById('macrosChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (macrosChart) macrosChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            macrosChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return `${label}: ${Math.round(value).toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating macros chart:', error);
-        }
-    }
-
-    function createFormulasChart(chartData) {
-        const ctx = document.getElementById('formulasChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (formulasChart) formulasChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            formulasChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { size: 11, weight: 'bold' } }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating formulas chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_Weight_0: '{% trans "Weight" %}',
+        trans_CalculateBMR_2: '{% trans "Calculate BMR" %}',
+        trans_Calculating_3: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_5: '{% trans "A network error occurred. Please try again." %}',
+        trans_Sedentary_6: '{% trans "Sedentary" %}',
+        trans_Light_7: '{% trans "Light" %}',
+        trans_Moderate_8: '{% trans "Moderate" %}',
+        trans_Active_9: '{% trans "Active" %}',
+        trans_VeryActive_10: '{% trans "Very Active" %}',
+        trans_ExtraActive_11: '{% trans "Extra Active" %}',
+        trans_ExtremeLoss_12: '{% trans "Extreme Loss" %}',
+        trans_WeightLoss_13: '{% trans "Weight Loss" %}',
+        trans_MildLoss_14: '{% trans "Mild Loss" %}',
+        trans_Maintain_15: '{% trans "Maintain" %}',
+        trans_MildGain_16: '{% trans "Mild Gain" %}',
+        trans_WeightGain_17: '{% trans "Weight Gain" %}',
+        trans_Errordisplayingresul_18: '{% trans "Error displaying results. Please try again." %}',
+        trans_calories_19: '{% trans "calories" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/bmr_calculator.js' %}"></script>
 {% endblock %}

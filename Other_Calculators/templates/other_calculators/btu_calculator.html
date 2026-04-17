@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "BTU Calculator - Heating & Cooling Load Calculator Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free BTU calculator to find heating and cooling requirements for any room. Calculate BTU from room size or area, estimate cooling load with windows and occupants, and convert energy units. Instant results with step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Need to size your HVAC system? Use our free BTU calculator — enter room dimensions or area, get instant BTU requirements with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/btu_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "BTU Calculator - Heating & Cooling Load Calculator Free" %}","description":"{% trans "Free BTU calculator. Calculate heating and cooling BTU from room dimensions or area, estimate cooling load with windows and occupants, and convert between energy units with step-by-step solutions and visual charts." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"2850"},"featureList":["{% trans 'Calculate BTU from room length, width, and height' %}","{% trans 'Calculate BTU from total area in sq ft or m²' %}","{% trans 'Estimate cooling load with windows, occupants, and appliances' %}","{% trans 'Convert between BTU, kWh, Joules, Calories, and Foot-Pounds' %}","{% trans 'Accounts for room type, insulation, and climate zone' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "BTU Calculator - Heating & Cooling Load Calculator Free" %}',"description":'{% trans "Free BTU calculator. Calculate heating and cooling BTU from room dimensions or area, estimate cooling load with windows and occupants, and convert between energy units with step-by-step solutions and visual charts." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"2850"},"featureList":["{% trans 'Calculate BTU from room length, width, and height' %}","{% trans 'Calculate BTU from total area in sq ft or m²' %}","{% trans 'Estimate cooling load with windows, occupants, and appliances' %}","{% trans 'Convert between BTU, kWh, Joules, Calories, and Foot-Pounds' %}","{% trans 'Accounts for room type, insulation, and climate zone' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -280,128 +281,20 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctSel = document.getElementById('calc-type');
-    ctSel.addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('btuForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const extra = document.getElementById('resultExtra');
-            extra.innerHTML = '';
-            if (r.tons != null) {
-                extra.innerHTML = '<p>{% trans "Cooling Tons" %}: ' + r.tons + '</p>';
-            }
-            if (r.btu_equivalent != null && r.calc_type === 'unit_conversion') {
-                extra.innerHTML = '<p>{% trans "BTU Equivalent" %}: ' + fnum(r.btu_equivalent) + '</p>';
-            }
-
-            // Conversions grid
-            const convCard = document.getElementById('conversionsCard');
-            const convGrid = document.getElementById('conversionsGrid');
-            if (r.conversions) {
-                convCard?.classList.remove('hidden');
-                convGrid.innerHTML = `
-                    <div class="bg-sky-50 rounded-lg p-3 text-center border border-sky-200"><p class="text-xs text-gray-600 mb-1">{% trans "BTU" %}</p><p class="text-lg font-bold text-sky-600">${fnum(r.conversions.btu)}</p></div>
-                    <div class="bg-green-50 rounded-lg p-3 text-center border border-green-200"><p class="text-xs text-gray-600 mb-1">{% trans "kWh" %}</p><p class="text-lg font-bold text-green-600">${fnum(r.conversions.kwh)}</p></div>
-                    <div class="bg-amber-50 rounded-lg p-3 text-center border border-amber-200"><p class="text-xs text-gray-600 mb-1">{% trans "Joules" %}</p><p class="text-lg font-bold text-amber-600">${fnum(r.conversions.joules)}</p></div>
-                    <div class="bg-red-50 rounded-lg p-3 text-center border border-red-200"><p class="text-xs text-gray-600 mb-1">{% trans "Calories" %}</p><p class="text-lg font-bold text-red-600">${fnum(r.conversions.calories)}</p></div>
-                    <div class="bg-purple-50 rounded-lg p-3 text-center border border-purple-200"><p class="text-xs text-gray-600 mb-1">{% trans "ft·lb" %}</p><p class="text-lg font-bold text-purple-600">${fnum(r.conversions.foot_pounds)}</p></div>
-                `;
-            } else {
-                convCard?.classList.add('hidden');
-            }
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-sky-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                const cc = document.getElementById('chartCard'); cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 6}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'room_size') {
-        d.length = parseFloat(document.getElementById('rs_length').value);
-        d.width = parseFloat(document.getElementById('rs_width').value);
-        d.height = parseFloat(document.getElementById('rs_height').value);
-        d.unit = document.getElementById('rs_unit').value;
-        d.room_type = document.getElementById('rs_room').value;
-        d.insulation = document.getElementById('rs_ins').value;
-        d.climate_zone = document.getElementById('rs_clim').value;
-    } else if (ct === 'area_btu') {
-        d.area = parseFloat(document.getElementById('ab_area').value);
-        d.unit = document.getElementById('ab_unit').value;
-        d.room_type = document.getElementById('ab_room').value;
-        d.insulation = document.getElementById('ab_ins').value;
-        d.climate_zone = document.getElementById('ab_clim').value;
-    } else if (ct === 'cooling_load') {
-        d.area = parseFloat(document.getElementById('cl_area').value);
-        d.unit = document.getElementById('cl_unit').value;
-        d.room_type = document.getElementById('cl_room').value;
-        d.insulation = document.getElementById('cl_ins').value;
-        d.climate_zone = document.getElementById('cl_clim').value;
-        d.windows = parseInt(document.getElementById('cl_windows').value) || 0;
-        d.occupants = parseInt(document.getElementById('cl_occupants').value) || 1;
-        d.appliances = parseFloat(document.getElementById('cl_appliances').value) || 0;
-    } else if (ct === 'unit_conversion') {
-        d.btu_value = parseFloat(document.getElementById('uc_value').value);
-        d.from_unit = document.getElementById('uc_from').value;
-        d.to_unit = document.getElementById('uc_to').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_CoolingTons_4: '{% trans "Cooling Tons" %}',
+        trans_BTUEquivalent_5: '{% trans "BTU Equivalent" %}',
+        trans_BTU_6: '{% trans "BTU" %}',
+        trans_kWh_7: '{% trans "kWh" %}',
+        trans_Joules_8: '{% trans "Joules" %}',
+        trans_Calories_9: '{% trans "Calories" %}',
+        trans_ftlb_10: '{% trans "ft·lb" %}',
+        trans_Anetworkerroroccurre_12: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/btu_calculator.js' %}"></script>
 {% endblock %}

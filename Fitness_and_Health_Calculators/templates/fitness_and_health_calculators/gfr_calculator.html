@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "GFR Calculator" %} - {% trans "Glomerular Filtration Rate" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/gfr_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "GFR calculator, eGFR calculator, kidney function, CKD-EPI, MDRD, glomerular filtration rate" %}">
+<meta name="keywords" content='{% trans "GFR calculator, eGFR calculator, kidney function, CKD-EPI, MDRD, glomerular filtration rate" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "GFR Calculator" %} - {% trans "Glomerular Filtration Rate" %}">
-<meta property="og:description" content="{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}">
+<meta property="og:title" content='{% trans "GFR Calculator" %} - {% trans "Glomerular Filtration Rate" %}'>
+<meta property="og:description" content='{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "GFR Calculator" %}",
-    "description": "{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}",
+    "name": '{% trans "GFR Calculator" %}',
+    "description": '{% trans "Calculate estimated glomerular filtration rate (eGFR) using CKD-EPI formula for kidney function assessment." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "GFR Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -556,349 +545,15 @@
 </div>
 
 <script>
-// Chart instances
-let formulasChart = null;
-let stagesChart = null;
-let rangeChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitSI = document.getElementById('unitSI');
-    const creatinineUnit = document.getElementById('creatinineUnit');
-    const creatinineInput = document.getElementById('creatinine');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        if (unitSI.checked) {
-            creatinineUnit.textContent = 'μmol/L';
-            creatinineInput.min = '8.84';
-            creatinineInput.max = '884';
-            creatinineInput.value = '88.4';
-            creatinineInput.step = '0.1';
-        } else {
-            creatinineUnit.textContent = 'mg/dL';
-            creatinineInput.min = '0.1';
-            creatinineInput.max = '10';
-            creatinineInput.value = '1.0';
-            creatinineInput.step = '0.01';
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitSI.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const formData = {
-            age: parseInt(document.getElementById('age').value),
-            gender: document.querySelector('input[name="gender"]:checked').value,
-            race: document.querySelector('input[name="race"]:checked').value,
-            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
-            creatinine: parseFloat(creatinineInput.value)
-        };
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate eGFR" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const egfrResultEl = document.getElementById('egfrResult');
-            const stageTextEl = document.getElementById('stageText');
-            const ckdepiValueEl = document.getElementById('ckdepiValue');
-            const mdrdValueEl = document.getElementById('mdrdValue');
-            const stageDisplayEl = document.getElementById('stageDisplay');
-
-            if (egfrResultEl) egfrResultEl.textContent = Math.round(data.egfr);
-            if (stageTextEl) stageTextEl.textContent = data.stage + ' - ' + data.stage_desc;
-            if (ckdepiValueEl) ckdepiValueEl.textContent = Math.round(data.egfr_ckdepi);
-            if (mdrdValueEl) mdrdValueEl.textContent = Math.round(data.egfr_mdrd);
-            if (stageDisplayEl) stageDisplayEl.textContent = data.stage;
-
-            // Update result card color
-            const colors = {
-                'green': 'bg-gradient-to-br from-green-600 to-green-700',
-                'yellow': 'bg-gradient-to-br from-yellow-600 to-yellow-700',
-                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
-                'red': 'bg-gradient-to-br from-red-600 to-red-700'
-            };
-            const resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.stage_color] || 'bg-gradient-to-br from-green-600 to-green-700');
-            }
-
-            // Update scale indicator
-            const scaleIndicator = document.getElementById('scaleIndicator');
-            if (scaleIndicator && data.scale_position !== undefined) {
-                scaleIndicator.style.left = data.scale_position + '%';
-            }
-
-            // Highlight current stage in table
-            const stagesTable = document.getElementById('stagesTable');
-            if (stagesTable) {
-                const rows = stagesTable.querySelectorAll('tr');
-                rows.forEach(row => {
-                    row.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500');
-                    const stageCell = row.querySelector('td');
-                    if (stageCell && stageCell.textContent.trim() === data.stage) {
-                        row.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
-                    }
-                });
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.formulas_chart) {
-                    createFormulasChart(data.chart_data.formulas_chart);
-                }
-                if (data.chart_data.stages_chart) {
-                    createStagesChart(data.chart_data.stages_chart);
-                }
-                if (data.chart_data.range_chart) {
-                    createRangeChart(data.chart_data.range_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createFormulasChart(chartData) {
-        const ctx = document.getElementById('formulasChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (formulasChart) formulasChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            formulasChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toFixed(1)} {% trans "mL/min/1.73m²" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value);
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating formulas chart:', error);
-        }
-    }
-
-    function createStagesChart(chartData) {
-        const ctx = document.getElementById('stagesChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (stagesChart) stagesChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            stagesChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.parsed.y === 0) return '';
-                                    return '{% trans "Your Stage" %}';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 10, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating stages chart:', error);
-        }
-    }
-
-    function createRangeChart(chartData) {
-        const ctx = document.getElementById('rangeChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (rangeChart) rangeChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            rangeChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toFixed(1)} {% trans "mL/min/1.73m²" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value);
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating range chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_CalculateeGFR_0: '{% trans "Calculate eGFR" %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_3: '{% trans "A network error occurred. Please try again." %}',
+        trans_Errordisplayingresul_4: '{% trans "Error displaying results. Please try again." %}',
+        trans_mLmin173m_5: '{% trans "mL/min/1.73m²" %}',
+        trans_YourStage_6: '{% trans "Your Stage" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/gfr_calculator.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Golf Handicap Calculator - Calculate Handicap Index, Course Handicap & Score Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free golf handicap calculator. Calculate Handicap Index (WHS), Course Handicap, Score Differential, Net Score, and Playing Handicap. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate golf handicap using World Handicap System. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/golf_handicap_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Golf Handicap Calculator - Free Online Tool" %}","description":"{% trans "Free golf handicap calculator. WHS-compliant Handicap Index, Course Handicap, Score Differential, Net Score, Playing Handicap." %}","applicationCategory":"SportsApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1980"},"featureList":["{% trans 'Handicap Index (WHS): best differentials × 0.96' %}","{% trans 'Course Handicap: HI × SR/113 + (CR−Par)' %}","{% trans 'Score Differential: (AGS−CR) × 113/SR' %}","{% trans 'Net Score & Playing Handicap' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Golf Handicap Calculator - Free Online Tool" %}',"description":'{% trans "Free golf handicap calculator. WHS-compliant Handicap Index, Course Handicap, Score Differential, Net Score, Playing Handicap." %}',"applicationCategory":"SportsApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1980"},"featureList":["{% trans 'Handicap Index (WHS): best differentials × 0.96' %}","{% trans 'Course Handicap: HI × SR/113 + (CR−Par)' %}","{% trans 'Score Differential: (AGS−CR) × 113/SR' %}","{% trans 'Net Score & Playing Handicap' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -210,124 +211,27 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('golfForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        document.getElementById('extraGrid')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = Number(r.result).toLocaleString('en-US',{maximumFractionDigits:1});
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Extra info grid
-            const eg = document.getElementById('extraGrid'), egc = document.getElementById('extraGridContent');
-            egc.innerHTML = '';
-            let extras = [];
-            const ct = r.calc_type;
-            if (ct === 'handicap_index') {
-                extras = [['{% trans "Rounds" %}', r.num_differentials, 'green'],['{% trans "Best Used" %}', r.best_count, 'emerald'],['{% trans "Avg Diff" %}', r.average_differential, 'teal']];
-            } else if (ct === 'course_handicap') {
-                extras = [['{% trans "HI" %}', r.handicap_index, 'green'],['{% trans "Slope" %}', r.slope_rating, 'emerald'],['{% trans "CR" %}', r.course_rating, 'teal']];
-            } else if (ct === 'score_differential') {
-                extras = [['{% trans "AGS" %}', r.adjusted_gross_score, 'green'],['{% trans "CR" %}', r.course_rating, 'emerald'],['{% trans "SR" %}', r.slope_rating, 'teal']];
-            } else if (ct === 'net_score') {
-                extras = [['{% trans "Gross" %}', r.gross_score, 'green'],['{% trans "HC" %}', r.course_handicap, 'emerald'],['{% trans "Net" %}', r.net_score, 'teal']];
-            } else if (ct === 'playing_handicap') {
-                extras = [['{% trans "Course HC" %}', r.course_handicap, 'green'],['{% trans "Allow" %}', r.handicap_allowance+'%', 'emerald'],['{% trans "Playing HC" %}', r.playing_handicap, 'teal']];
-            }
-            if (extras.length) {
-                extras.forEach(([l,v,c]) => {
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-3 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${l}</p><p class="text-lg font-bold text-${c}-600">${v}</p>`;
-                    egc.appendChild(d);
-                });
-                eg?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •') || s.startsWith('  ')) {
-                    const isValue = s.includes('=') || s.includes('×') || s.includes('/');
-                    if (isValue) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; }
-                    else { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-green-400 pl-3 py-1 bg-white rounded-r'; }
-                    d2.textContent = s.trim();
-                }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-green-700 mt-2 bg-green-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'handicap_index') {
-        const txt = document.getElementById('hi_diffs').value.trim();
-        d.differentials = txt.split(',').map(s => s.trim()).filter(s => s).map(Number);
-    } else if (ct === 'course_handicap') {
-        d.handicap_index = parseFloat(document.getElementById('ch_hi').value);
-        d.slope_rating = parseFloat(document.getElementById('ch_sr').value);
-        d.course_rating = parseFloat(document.getElementById('ch_cr').value);
-        d.par = parseFloat(document.getElementById('ch_par').value);
-    } else if (ct === 'score_differential') {
-        d.adjusted_gross_score = parseFloat(document.getElementById('sd_ags').value);
-        d.course_rating = parseFloat(document.getElementById('sd_cr').value);
-        d.slope_rating = parseFloat(document.getElementById('sd_sr').value);
-    } else if (ct === 'net_score') {
-        d.gross_score = parseFloat(document.getElementById('ns_gross').value);
-        d.course_handicap = parseFloat(document.getElementById('ns_ch').value);
-    } else if (ct === 'playing_handicap') {
-        d.course_handicap = parseFloat(document.getElementById('ph_ch').value);
-        d.handicap_allowance = parseFloat(document.getElementById('ph_allow').value);
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Rounds_4: '{% trans "Rounds" %}',
+        trans_BestUsed_5: '{% trans "Best Used" %}',
+        trans_AvgDiff_6: '{% trans "Avg Diff" %}',
+        trans_HI_7: '{% trans "HI" %}',
+        trans_Slope_8: '{% trans "Slope" %}',
+        trans_CR_9: '{% trans "CR" %}',
+        trans_AGS_10: '{% trans "AGS" %}',
+        trans_SR_12: '{% trans "SR" %}',
+        trans_Gross_13: '{% trans "Gross" %}',
+        trans_HC_14: '{% trans "HC" %}',
+        trans_Net_15: '{% trans "Net" %}',
+        trans_CourseHC_16: '{% trans "Course HC" %}',
+        trans_Allow_17: '{% trans "Allow" %}',
+        trans_PlayingHC_18: '{% trans "Playing HC" %}',
+        trans_Anetworkerroroccurre_20: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/golf_handicap_calculator.js' %}"></script>
 {% endblock %}

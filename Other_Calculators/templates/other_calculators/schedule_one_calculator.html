@@ -1,8 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Schedule 1 Mix Calculator - Maximize Your Profits" %}{% endblock %}
 {% block meta_description %}{% trans "Free Schedule 1 Calculator. Build your optimal drug mix recipe, calculate selling prices, profit margins, and effects to maximize profits in the game Schedule I." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/schedule_one_calculator.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
@@ -307,121 +311,14 @@
 </style>
 
 <script>
-let profitC=null, effectC=null, waterC=null;
-function ck(){return typeof Chart!=='undefined';}
-const chartDefaults = { color: '#9ca3af', borderColor: '#374151' };
-
-document.addEventListener('DOMContentLoaded', function(){
-    if (typeof Chart !== 'undefined') {
-        Chart.defaults.color = '#9ca3af';
-        Chart.defaults.borderColor = '#374151';
-    }
-
-    const form=document.getElementById('calculatorForm');
-    const init=document.getElementById('initialState');
-    const load=document.getElementById('loadingState');
-    const err=document.getElementById('errorState');
-    const res=document.getElementById('results');
-    const card=document.getElementById('resultCard');
-
-    form.addEventListener('submit', async function(e){
-        e.preventDefault();
-        if(init) init.classList.add('hidden');
-        if(res) res.classList.add('hidden');
-        if(err) err.classList.add('hidden');
-        if(load) load.classList.remove('hidden');
-
-        const ings = Array.from(document.querySelectorAll('.ing-cb:checked')).map(c=>c.value);
-        const payload = {
-            product: document.getElementById('productSelect').value,
-            ingredients: ings,
-            quantity: parseInt(document.getElementById('quantity').value)||10,
-        };
-
-        const btn=document.getElementById('calcBtnText');
-        const orig=btn?btn.textContent:'';
-        if(btn) btn.textContent="{% trans 'Calculating...' %}";
-
-        try {
-            const r = await fetch(window.location.href, {
-                method:'POST',
-                headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},
-                body: JSON.stringify(payload)
-            });
-            const d = await r.json();
-            if(load) load.classList.add('hidden');
-            if(btn) btn.textContent=orig;
-            if(!d.success){if(err){document.getElementById('errorMessage').textContent=d.error||'Error';err.classList.remove('hidden');}return;}
-            show(d);
-        } catch(ex){
-            if(load) load.classList.add('hidden');
-            if(btn) btn.textContent=orig;
-            if(err){document.getElementById('errorMessage').textContent="{% trans 'Network error.' %}";err.classList.remove('hidden');}
-        }
-    });
-
-    function show(d){
-        try{
-            const u=d.per_unit, b=d.batch;
-            document.getElementById('productTitle').textContent=d.product_name+' ('+d.product_category+')';
-            document.getElementById('effectsText').textContent=d.effects.length?'{% trans "Effects" %}: '+d.effects.join(', '):'{% trans "No effects" %}';
-            document.getElementById('sellPrice').textContent='$'+u.sell_price.toFixed(2);
-            document.getElementById('multiplierText').textContent='{% trans "Total multiplier" %}: '+u.multiplier;
-            document.getElementById('ratingEmoji').textContent=d.rating.emoji;
-            document.getElementById('ratingText').textContent=d.rating.label;
-            document.getElementById('ratingDesc').textContent=d.rating.description;
-            const bg=document.getElementById('ratingBadge');
-            if(bg&&d.color_info) bg.className='inline-block px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 '+d.color_info.tailwind;
-            const grads={green:'from-green-700 to-green-800',blue:'from-blue-700 to-blue-800',yellow:'from-yellow-600 to-yellow-700',orange:'from-orange-600 to-orange-700',red:'from-red-700 to-red-800'};
-            if(card) card.className='bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white '+(grads[d.rating.color]||'from-purple-700 to-cyan-700');
-
-            document.getElementById('sCost').textContent='$'+u.cost.toFixed(2);
-            document.getElementById('sProfit').textContent='$'+u.profit.toFixed(2);
-            document.getElementById('sMargin').textContent=u.margin+'%';
-            document.getElementById('sScore').textContent=d.rating.score+'/100';
-
-            document.getElementById('batchQty').textContent=b.quantity;
-            document.getElementById('bRevenue').textContent='$'+b.revenue.toFixed(2);
-            document.getElementById('bCost').textContent='$'+b.cost.toFixed(2);
-            document.getElementById('bProfit').textContent='$'+b.profit.toFixed(2);
-
-            /* Breakdown table */
-            const tbody=document.getElementById('breakdownBody');tbody.innerHTML='';
-            if(d.breakdown.length===0){
-                tbody.innerHTML='<tr><td colspan="5" class="px-4 py-3 text-sm text-center text-gray-500">{% trans "No ingredients selected" %}</td></tr>';
-            } else {
-                d.breakdown.forEach(r=>{
-                    const tr=document.createElement('tr');tr.className='hover:bg-gray-700/30';
-                    tr.innerHTML=`<td class="px-4 py-2 text-sm text-gray-300">${r.name}</td><td class="px-4 py-2 text-sm text-center text-purple-400">${r.effect}</td><td class="px-4 py-2 text-sm text-center text-red-400">$${r.cost}</td><td class="px-4 py-2 text-sm text-center text-cyan-400">${r.multiplier}</td><td class="px-4 py-2 text-sm text-center text-green-400 font-semibold">+$${r.price_added.toFixed(2)}</td>`;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            /* Charts */
-            if(d.chart_data&&ck()){
-                if(d.chart_data.profit_chart) mkProfit(d.chart_data.profit_chart);
-                if(d.chart_data.effect_chart) mkEffect(d.chart_data.effect_chart);
-                if(d.chart_data.waterfall_chart) mkWaterfall(d.chart_data.waterfall_chart);
-            }
-            if(res){res.classList.remove('hidden');setTimeout(()=>res.scrollIntoView({behavior:'smooth',block:'nearest'}),100);}
-        }catch(e){console.error(e);}
-    }
-
-    function mkProfit(cd){
-        const ctx=document.getElementById('profitChart');if(!ctx||!ck())return;if(profitC)profitC.destroy();
-        const ct=cd.center_text;
-        try{profitC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{padding:12,usePointStyle:true,font:{size:11},color:'#9ca3af'}},tooltip:{callbacks:{label:c=>`${c.label}: $${c.raw}`}}},animation:{animateRotate:true,duration:1500}},plugins:[{id:'pc',afterDraw(ch){const c=ch.ctx;const x=ch.chartArea.left+(ch.chartArea.right-ch.chartArea.left)/2;const y=ch.chartArea.top+(ch.chartArea.bottom-ch.chartArea.top)/2;c.save();c.font='bold 24px Inter,Arial';c.fillStyle=ct.color;c.textAlign='center';c.textBaseline='middle';c.fillText(ct.value,x,y-10);c.font='12px Inter,Arial';c.fillStyle='#9ca3af';c.fillText(ct.label,x,y+14);c.restore();}}]});}catch(e){console.error(e);}
-    }
-
-    function mkEffect(cd){
-        const ctx=document.getElementById('effectChart');if(!ctx||!ck())return;if(effectC)effectC.destroy();
-        try{effectC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`+$${c.parsed.x.toFixed(2)}`}}},scales:{x:{beginAtZero:true,grid:{color:'rgba(75,85,99,0.3)'},ticks:{callback:v=>'$'+v,font:{size:11},color:'#9ca3af'}},y:{grid:{display:false},ticks:{font:{size:11,weight:'bold'},color:'#d1d5db'}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-
-    function mkWaterfall(cd){
-        const ctx=document.getElementById('waterfallChart');if(!ctx||!ck())return;if(waterC)waterC.destroy();
-        try{waterC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${c.parsed.y.toFixed(2)}`}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(75,85,99,0.3)'},ticks:{callback:v=>'$'+v,font:{size:11},color:'#9ca3af'}},x:{grid:{display:false},ticks:{font:{size:10,weight:'bold'},color:'#d1d5db',maxRotation:45,minRotation:20}}},animation:{duration:2000}}});}catch(e){console.error(e);}
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Networkerror_1: "{% trans 'Network error.' %}",
+        trans_Effects_2: '{% trans "Effects" %}',
+        trans_Noeffects_3: '{% trans "No effects" %}',
+        trans_Totalmultiplier_4: '{% trans "Total multiplier" %}',
+        trans_Noingredientsselecte_5: '{% trans "No ingredients selected" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/schedule_one_calculator.js' %}"></script>
 {% endblock %}

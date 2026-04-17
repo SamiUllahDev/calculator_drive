@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Shoe Size Converter - Convert US, UK, EU, CM & JP Shoe Sizes Instantly | Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free shoe size converter to instantly convert between US, UK, EU, CM, and Japanese shoe sizes for men and women. Includes step-by-step conversion formulas, size comparison chart, and complete shoe size guide with common conversion examples." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Instantly convert shoe sizes between US, UK, EU, CM, and Japanese for men and women. Free with step-by-step formulas." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/shoe_size_conversion.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -185,113 +186,23 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('shoeForm').addEventListener('submit', function(e) { e.preventDefault(); handleConvert(); });
-    document.getElementById('resetBtn').addEventListener('click', handleReset);
-    document.getElementById('fromSystem').addEventListener('change', updateHint);
-    document.querySelectorAll('input[name="gender"]').forEach(r => r.addEventListener('change', updateHint));
-    updateHint();
-});
-
-function updateHint() {
-    const sys = document.getElementById('fromSystem').value;
-    const g = document.querySelector('input[name="gender"]:checked').value;
-    const h = document.getElementById('fromHint');
-    const hints = {
-        us: { men: "{% trans "Men's US: 4 – 16 (half sizes)" %}", women: "{% trans "Women's US: 4 – 14 (half sizes)" %}" },
-        uk: { men: "{% trans "Men's UK: 3 – 15 (half sizes)" %}", women: "{% trans "Women's UK: 3 – 13 (half sizes)" %}" },
-        eu: { men: "{% trans "EU: 35 – 50 (whole sizes)" %}", women: "{% trans "EU: 35 – 50 (whole sizes)" %}" },
-        cm: { men: "{% trans "Foot length: 20 – 35 cm" %}", women: "{% trans "Foot length: 20 – 35 cm" %}" },
-        jp: { men: "{% trans "JP: 20 – 35 cm" %}", women: "{% trans "JP: 20 – 35 cm" %}" }
+window.djangoContext = {
+        trans_MensUS416halfsizes_0: '{% trans "Men's US: 4 – 16 (half sizes)" %}',
+        trans_WomensUS414halfsizes_1: '{% trans "Women's US: 4 – 14 (half sizes)" %}',
+        trans_MensUK315halfsizes_2: '{% trans "Men's UK: 3 – 15 (half sizes)" %}',
+        trans_WomensUK313halfsizes_3: '{% trans "Women's UK: 3 – 13 (half sizes)" %}',
+        trans_EU3550wholesizes_4: '{% trans "EU: 35 – 50 (whole sizes)" %}',
+        trans_Footlength2035cm_6: '{% trans "Foot length: 20 – 35 cm" %}',
+        trans_JP2035cm_8: '{% trans "JP: 20 – 35 cm" %}',
+        trans_Pleaseenterashoesize_10: '{% trans "Please enter a shoe size." %}',
+        trans_Pleaseselectdifferen_11: '{% trans "Please select different size systems." %}',
+        trans_Anerroroccurred_12: '{% trans "An error occurred." %}',
+        trans_Anetworkerroroccurre_13: '{% trans "A network error occurred. Please try again." %}',
+        trans_Mens_14: '{% trans "Men's" %}',
+        trans_Womens_15: '{% trans "Women's" %}',
+        trans_FootLength_16: '{% trans "Foot Length" %}',
+        trans_StepbyStepConversion_17: '{% trans "Step-by-Step Conversion" %}',
     };
-    h.textContent = (hints[sys] && hints[sys][g]) || '';
-    document.getElementById('fromSize').step = (sys === 'us' || sys === 'uk') ? '0.5' : '1';
-}
-
-function showError(msg) { document.getElementById('errorMsg').textContent = msg; document.getElementById('errorState').classList.remove('hidden'); }
-function hideError() { document.getElementById('errorState').classList.add('hidden'); }
-
-function handleReset() {
-    hideError();
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('chartSection').classList.add('hidden');
-    if (resultChart) { resultChart.destroy(); resultChart = null; }
-    document.getElementById('fromSize').value = '';
-}
-
-function handleConvert() {
-    hideError();
-    const fromSize = parseFloat(document.getElementById('fromSize').value);
-    const fromSystem = document.getElementById('fromSystem').value;
-    const toSystem = document.getElementById('toSystem').value;
-    const gender = document.querySelector('input[name="gender"]:checked').value;
-
-    if (isNaN(fromSize)) { showError('{% trans "Please enter a shoe size." %}'); return; }
-    if (fromSystem === toSystem) { showError('{% trans "Please select different size systems." %}'); return; }
-
-    const loading = document.getElementById('loadingState');
-    loading.classList.remove('hidden');
-    document.getElementById('initialState').classList.add('hidden');
-    document.getElementById('results').classList.add('hidden');
-
-    fetch(window.location.href, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-        body: JSON.stringify({ from_size: fromSize, from_system: fromSystem, to_system: toSystem, gender: gender })
-    }).then(r => r.json()).then(data => {
-        loading.classList.add('hidden');
-        if (!data.success) { showError(data.error || '{% trans "An error occurred." %}'); return; }
-        displayResults(data);
-    }).catch(() => { loading.classList.add('hidden'); showError('{% trans "A network error occurred. Please try again." %}'); });
-}
-
-function displayResults(data) {
-    const rc = document.getElementById('resultContent');
-    const sbs = document.getElementById('stepByStep');
-    const sysNames = { us: 'US', uk: 'UK', eu: 'EU', cm: 'CM', jp: 'JP' };
-    const gLabel = data.gender === 'men' ? "{% trans "Men's" %}" : "{% trans "Women's" %}";
-
-    let html = '<div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-    html += '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">';
-    html += '<div><p class="text-blue-200 text-xs mb-1">' + sysNames[data.from_system] + ' ' + gLabel + '</p><p class="text-4xl sm:text-5xl font-bold">' + data.from_size + '</p></div>';
-    html += '<div class="flex justify-center"><svg class="w-8 h-8 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></div>';
-    html += '<div><p class="text-blue-200 text-xs mb-1">' + sysNames[data.to_system] + ' ' + gLabel + '</p><p class="text-4xl sm:text-5xl font-bold">' + data.to_size + '</p></div>';
-    html += '</div>';
-    html += '<div class="mt-4 bg-white/15 rounded-lg p-2 inline-block"><p class="text-sm">{% trans "Foot Length" %}: ' + data.cm_size + ' cm</p></div></div>';
-    rc.innerHTML = html;
-
-    if (data.step_by_step && data.step_by_step.length > 0) {
-        let sh = '<div class="bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200 rounded-xl p-4 sm:p-6"><h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Step-by-Step Conversion" %}</h3><div class="space-y-1.5">';
-        data.step_by_step.forEach(s => {
-            if (s === '') sh += '<div class="my-2 border-t border-gray-200"></div>';
-            else if (s.startsWith('Step ') || s.startsWith('Final ')) sh += '<p class="text-sm font-bold text-gray-900 mt-2">' + s + '</p>';
-            else sh += '<p class="text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r">' + s + '</p>';
-        });
-        sh += '</div></div>';
-        sbs.innerHTML = sh;
-    } else { sbs.innerHTML = ''; }
-
-    document.getElementById('results').classList.remove('hidden');
-
-    if (data.chart_data && typeof Chart !== 'undefined') {
-        const chartSection = document.getElementById('chartSection');
-        const canvas = document.getElementById('resultChart');
-        if (resultChart) { resultChart.destroy(); resultChart = null; }
-        const key = Object.keys(data.chart_data)[0];
-        const config = data.chart_data[key];
-        if (config && canvas) {
-            resultChart = new Chart(canvas.getContext('2d'), {
-                type: config.type, data: config.data,
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false }, x: { grid: { display: false } } }, animation: { duration: 1500 } }
-            });
-            chartSection.classList.remove('hidden');
-        }
-    } else { document.getElementById('chartSection').classList.add('hidden'); }
-
-    setTimeout(() => { document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-}
 </script>
+<script src="{% static 'other_calculators/js/shoe_size_conversion.js' %}"></script>
 {% endblock %}

@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "percent off calculator, sale price, percentage discount, stacked discounts, buy one get one" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/percent_off_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -285,185 +286,29 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var comparisonChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-}
-
-function getVal(id) {
-    var el = document.getElementById(id);
-    return (el && el.value ? el.value.replace(/,/g, '').trim() : '') || '0';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var mode = this.value;
-            document.getElementById('salePriceFields').classList.toggle('hidden', mode !== 'calculate_sale_price');
-            document.getElementById('percentOffFields').classList.toggle('hidden', mode !== 'calculate_percent_off');
-            document.getElementById('originalFields').classList.toggle('hidden', mode !== 'calculate_original');
-            document.getElementById('stackedFields').classList.toggle('hidden', mode !== 'stacked_discounts');
-            document.getElementById('buyXGetYFields').classList.toggle('hidden', mode !== 'buy_x_get_y');
-        });
-    });
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), { type: chartData.type || 'doughnut', data: chartData.data || {}, options: chartData.options || {} });
-    }
-    function createComparisonChart(chartData) {
-        var canvas = document.getElementById('comparisonChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        var opts = chartData.options || {};
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v); };
-        comparisonChart = new Chart(canvas.getContext('2d'), { type: chartData.type || 'bar', data: chartData.data || {}, options: opts });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var payload = { calc_type: calcType };
-        if (calcType === 'calculate_sale_price') {
-            payload.original_price = getVal('original_price');
-            payload.percent_off = getVal('percent_off');
-        } else if (calcType === 'calculate_percent_off') {
-            payload.original_price = getVal('original_price_2');
-            payload.sale_price = getVal('sale_price');
-        } else if (calcType === 'calculate_original') {
-            payload.sale_price = getVal('sale_price_2');
-            payload.percent_off = getVal('percent_off_2');
-        } else if (calcType === 'stacked_discounts') {
-            payload.original_price = getVal('original_price_3');
-            var d = document.getElementById('discounts').value;
-            payload.discounts = d ? d.split(',').map(function(x) { return x.trim(); }).filter(Boolean) : [20, 10];
-        } else if (calcType === 'buy_x_get_y') {
-            payload.original_price = getVal('original_price_4');
-            payload.buy_quantity = document.getElementById('buy_quantity').value || 2;
-            payload.get_quantity = document.getElementById('get_quantity').value || 1;
-            payload.get_discount = getVal('get_discount');
-        }
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) { showError('{% trans "Session expired. Please refresh the page and try again." %}'); return; }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value }, body: JSON.stringify(payload) });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (err) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) { showError(data.error || '{% trans "Invalid response." %}'); return; }
-
-            var ct = data.calc_type;
-            var salePrice = data.sale_price != null ? data.sale_price : data.final_price != null ? data.final_price : data.deal_price;
-            var savings = data.savings != null ? data.savings : data.total_savings;
-            var orig = data.original_price;
-            var pct = data.percent_off != null ? data.percent_off : data.effective_discount;
-
-            document.getElementById('heroLabel').textContent = ct === 'calculate_sale_price' ? '{% trans "Sale Price" %}' : (ct === 'calculate_percent_off' ? '{% trans "Percent Off" %}' : (ct === 'calculate_original' ? '{% trans "Original Price" %}' : (ct === 'stacked_discounts' ? '{% trans "Final Price" %}' : '{% trans "Deal Price" %}')));
-            if (ct === 'calculate_percent_off') document.getElementById('heroValue').textContent = (pct != null ? pct.toFixed(1) : 0) + '%';
-            else document.getElementById('heroValue').textContent = formatCurrency(salePrice != null ? salePrice : orig);
-            document.getElementById('heroDetail').textContent = orig != null ? ('{% trans "Original" %}: ' + formatCurrency(orig)) : (data.deal ? data.deal : '');
-
-            document.getElementById('detailPay').textContent = formatCurrency(salePrice);
-            document.getElementById('detailSave').textContent = formatCurrency(savings);
-            document.getElementById('detailOriginal').textContent = formatCurrency(orig);
-            document.getElementById('detailDiscount').textContent = (pct != null ? (typeof pct === 'number' ? pct.toFixed(1) : pct) : '0') + '%';
-
-            document.getElementById('formulaBlock').classList.add('hidden');
-            if (data.formula) {
-                document.getElementById('formulaBlock').classList.remove('hidden');
-                document.getElementById('formulaText').textContent = data.formula;
-            }
-
-            document.getElementById('stackedBreakdown').classList.add('hidden');
-            if (ct === 'stacked_discounts' && data.breakdown && data.breakdown.length) {
-                document.getElementById('stackedBreakdown').classList.remove('hidden');
-                var sb = document.getElementById('stackedBreakdownBody');
-                sb.innerHTML = '';
-                data.breakdown.forEach(function(row) {
-                    var div = document.createElement('div');
-                    div.className = 'flex justify-between p-2 bg-gray-50 rounded';
-                    div.innerHTML = '<span>{% trans "Step" %} ' + row.step + ': -' + row.discount + '%</span><span>' + formatCurrency(row.price_before) + ' → ' + formatCurrency(row.price_after) + ' (' + formatCurrency(row.savings) + ' {% trans "saved" %})</span>';
-                    sb.appendChild(div);
-                });
-                if (data.note) document.getElementById('stackedNote').textContent = data.note;
-            }
-
-            document.getElementById('buyXGetYBlock').classList.add('hidden');
-            if (ct === 'buy_x_get_y') {
-                document.getElementById('buyXGetYBlock').classList.remove('hidden');
-                var by = document.getElementById('buyXGetYBody');
-                by.innerHTML = '<p><strong>' + (data.deal || '') + '</strong></p><p>{% trans "Regular total" %}: ' + formatCurrency(data.regular_total) + ' → {% trans "Deal total" %}: ' + formatCurrency(data.deal_price) + '</p><p>{% trans "You save" %}: ' + formatCurrency(data.savings) + ' (' + (data.effective_discount != null ? data.effective_discount.toFixed(1) : 0) + '%%)</p><p>{% trans "Effective per item" %}: ' + formatCurrency(data.effective_per_item) + '</p>';
-            }
-
-            document.getElementById('comparisonTableWrap').classList.add('hidden');
-            if (data.comparison && data.comparison.length) {
-                document.getElementById('comparisonTableWrap').classList.remove('hidden');
-                var tbody = document.getElementById('comparisonBody');
-                tbody.innerHTML = '';
-                data.comparison.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-3 py-2">' + row.percent + '%</td><td class="px-3 py-2 text-right">' + formatCurrency(row.savings) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.final_price) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (data.chart_data) {
-                if (data.chart_data.breakdown_chart && checkChartJS()) createBreakdownChart(data.chart_data.breakdown_chart);
-                else if (breakdownChart) { breakdownChart.destroy(); breakdownChart = null; }
-                if (data.chart_data.comparison_chart && checkChartJS()) { document.getElementById('comparisonChartWrap').classList.remove('hidden'); createComparisonChart(data.chart_data.comparison_chart); }
-                else document.getElementById('comparisonChartWrap').classList.add('hidden');
-            }
-
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_SalePrice_9: '{% trans "Sale Price" %}',
+        trans_PercentOff_10: '{% trans "Percent Off" %}',
+        trans_OriginalPrice_11: '{% trans "Original Price" %}',
+        trans_FinalPrice_12: '{% trans "Final Price" %}',
+        trans_DealPrice_13: '{% trans "Deal Price" %}',
+        trans_Original_14: '{% trans "Original" %}',
+        trans_Step_15: '{% trans "Step" %}',
+        trans_saved_16: '{% trans "saved" %}',
+        trans_Regulartotal_17: '{% trans "Regular total" %}',
+        trans_Dealtotal_18: '{% trans "Deal total" %}',
+        trans_Yousave_19: '{% trans "You save" %}',
+        trans_Effectiveperitem_20: '{% trans "Effective per item" %}',
+        trans_Networkorservererror_21: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/percent_off_calculator.js' %}"></script>
 {% endblock %}

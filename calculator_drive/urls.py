@@ -15,7 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.views.generic import RedirectView
 from django.conf.urls.i18n import i18n_patterns
 from django.views.i18n import set_language
 from django.conf import settings
@@ -65,6 +66,11 @@ def robots_txt(request):
 
 # URLs that should NOT have language prefix
 urlpatterns = [
+    # Legacy redirects to solve 404s in GSC
+    re_path(r'^zh-hans/(?P<path>.*)$', RedirectView.as_view(url='/%(path)s', permanent=True)),
+    re_path(r'^zh-hant/(?P<path>.*)$', RedirectView.as_view(url='/%(path)s', permanent=True)),
+    re_path(r'^financial-calculators/(?P<path>.*)$', RedirectView.as_view(url='/finance/%(path)s', permanent=True)),
+
     path('admin/', admin.site.urls),
     path('i18n/setlang/', set_language, name='set_language'),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),

@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "GPA Calculator - Calculate Your Grade Point Average Instantly | Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free GPA calculator to instantly calculate your semester and cumulative Grade Point Average. Supports 4.0, 4.3, and 5.0 GPA scales. Add courses, enter grades, get your GPA with step-by-step solutions. Perfect for college, university, and high school students." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Free GPA calculator for college and high school students. Calculate semester and cumulative GPA with step-by-step solutions. Supports 4.0, 4.3, and 5.0 scales." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/gpa_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -209,165 +210,26 @@
 </div>
 
 <script>
-const GRADES = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'];
-let gradeChart = null, gpaChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('addCourseBtn').addEventListener('click', addCourse);
-    document.getElementById('gpaForm').addEventListener('submit', function(e) { e.preventDefault(); handleSubmit(); });
-    document.getElementById('resetBtn').addEventListener('click', handleReset);
-    document.getElementById('coursesContainer').addEventListener('click', function(e) {
-        if (e.target.closest('.remove-course')) {
-            const row = e.target.closest('.course-row');
-            if (document.querySelectorAll('.course-row').length > 1) { row.remove(); updateCount(); }
-        }
-    });
-    addCourse(); addCourse(); addCourse();
-});
-
-function addCourse() {
-    const c = document.getElementById('coursesContainer');
-    const html = '<div class="course-row flex gap-2 items-center"><input type="text" class="course-name flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="{% trans "Course Name" %}">' +
-        '<select class="course-grade w-20 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500">' +
-        GRADES.map(g => '<option value="'+g+'">'+g+'</option>').join('') + '</select>' +
-        '<input type="number" class="course-credits w-20 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500" value="3" min="0.5" max="20" step="0.5">' +
-        '<button type="button" class="remove-course text-red-500 hover:text-red-700 p-1"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
-    c.insertAdjacentHTML('beforeend', html);
-    updateCount();
-}
-
-function updateCount() { document.getElementById('courseCount').textContent = document.querySelectorAll('.course-row').length + ' {% trans "courses" %}'; }
-function showError(msg) { const el=document.getElementById('errorState'); document.getElementById('errorMessage').textContent=msg; el.classList.remove('hidden'); }
-function hideError() { document.getElementById('errorState').classList.add('hidden'); }
-
-function handleReset() {
-    hideError();
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('chartSection').classList.add('hidden');
-    if(gradeChart){gradeChart.destroy();gradeChart=null;}
-    if(gpaChart){gpaChart.destroy();gpaChart=null;}
-    document.getElementById('coursesContainer').innerHTML = '';
-    document.getElementById('currentGpa').value = '';
-    document.getElementById('currentCredits').value = '';
-    addCourse(); addCourse(); addCourse();
-}
-
-function handleSubmit() {
-    hideError();
-    const courses = [];
-    document.querySelectorAll('.course-row').forEach(row => {
-        const name = row.querySelector('.course-name').value.trim();
-        const grade = row.querySelector('.course-grade').value;
-        const credits = parseFloat(row.querySelector('.course-credits').value);
-        if (grade && credits > 0) courses.push({ name: name || '{% trans "Course" %}', grade, credits });
-    });
-    if (courses.length === 0) { showError('{% trans "Please add at least one valid course with credits." %}'); return; }
-
-    const currentGpa = document.getElementById('currentGpa').value || null;
-    const currentCredits = document.getElementById('currentCredits').value || null;
-    const loading = document.getElementById('loadingState');
-    loading.classList.remove('hidden');
-    document.getElementById('initialState').classList.add('hidden');
-    document.getElementById('results').classList.add('hidden');
-
-    fetch(window.location.href, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-        body: JSON.stringify({ courses, scale: document.getElementById('scale').value, current_gpa: currentGpa, current_credits: currentCredits })
-    }).then(r => r.json()).then(data => {
-        loading.classList.add('hidden');
-        if (!data.success) { showError(data.error || '{% trans "An error occurred." %}'); return; }
-        displayResults(data);
-    }).catch(() => { loading.classList.add('hidden'); showError('{% trans "A network error occurred. Please try again." %}'); });
-}
-
-function displayResults(data) {
-    const rc = document.getElementById('resultContent');
-    const sbs = document.getElementById('stepByStep');
-    let html = '';
-
-    // Main GPA card
-    html += '<div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-    html += '<p class="text-blue-100 text-sm mb-1">{% trans "Semester GPA" %}</p>';
-    html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.semester_gpa + '</p>';
-    html += '<div class="flex items-center justify-center gap-3 mt-3">';
-    html += '<span class="bg-white/20 px-3 py-1 rounded-lg text-sm font-medium">' + data.letter_grade + '</span>';
-    html += '<span class="text-blue-100 text-sm">' + data.standing + '</span></div>';
-    html += '<div class="grid grid-cols-2 gap-4 mt-6">';
-    html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-blue-100 text-xs">{% trans "Total Credits" %}</p><p class="text-xl font-bold">' + data.total_credits + '</p></div>';
-    html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-blue-100 text-xs">{% trans "Quality Points" %}</p><p class="text-xl font-bold">' + data.total_quality_points + '</p></div>';
-    html += '</div></div>';
-
-    // Cumulative GPA
-    if (data.cumulative_gpa) {
-        html += '<div class="bg-gradient-to-br from-green-600 to-emerald-700 text-white rounded-xl p-6 shadow-xl">';
-        html += '<p class="text-green-100 text-sm mb-1">{% trans "Cumulative GPA" %}</p>';
-        html += '<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3">';
-        html += '<div class="bg-white/15 rounded-lg p-3 text-center"><p class="text-green-100 text-xs">{% trans "Cumulative GPA" %}</p><p class="text-2xl font-bold">' + data.cumulative_gpa + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3 text-center"><p class="text-green-100 text-xs">{% trans "Total Credits" %}</p><p class="text-2xl font-bold">' + data.cumulative_credits + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3 text-center"><p class="text-green-100 text-xs">{% trans "Letter Grade" %}</p><p class="text-2xl font-bold">' + (data.cumulative_letter||'-') + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3 text-center"><p class="text-green-100 text-xs">{% trans "Standing" %}</p><p class="text-lg font-bold">' + (data.cumulative_standing||'-') + '</p></div>';
-        html += '</div></div>';
-    }
-
-    // Course details table
-    if (data.courses && data.courses.length > 0) {
-        html += '<div class="bg-white rounded-xl border-2 border-gray-200 p-4 sm:p-6 shadow-lg"><h4 class="font-bold text-gray-900 mb-3">{% trans "Course Details" %}</h4>';
-        html += '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>';
-        html += '<th class="px-3 py-2 text-left text-xs font-semibold text-gray-600">{% trans "Course" %}</th>';
-        html += '<th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">{% trans "Grade" %}</th>';
-        html += '<th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">{% trans "Credits" %}</th>';
-        html += '<th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">{% trans "Points" %}</th>';
-        html += '<th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">{% trans "Quality Pts" %}</th></tr></thead><tbody class="divide-y divide-gray-200">';
-        data.courses.forEach(c => {
-            html += '<tr class="hover:bg-gray-50"><td class="px-3 py-2 text-sm">' + c.name + '</td>';
-            html += '<td class="px-3 py-2 text-sm text-center font-medium">' + c.grade + '</td>';
-            html += '<td class="px-3 py-2 text-sm text-center">' + c.credits + '</td>';
-            html += '<td class="px-3 py-2 text-sm text-center">' + c.points + '</td>';
-            html += '<td class="px-3 py-2 text-sm text-center font-bold">' + c.quality_points + '</td></tr>';
-        });
-        html += '</tbody></table></div></div>';
-    }
-    rc.innerHTML = html;
-
-    // Step-by-step
-    if (data.step_by_step && data.step_by_step.length > 0) {
-        let sh = '<div class="bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200 rounded-xl p-4 sm:p-6"><h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center"><svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>{% trans "Step-by-Step Solution" %}</h3><div class="space-y-1.5">';
-        data.step_by_step.forEach(function(s) {
-            if (s === '') sh += '<div class="my-2 border-t border-gray-200"></div>';
-            else if (s.startsWith('Step ') || s.startsWith('Final ')) sh += '<p class="text-sm font-bold text-gray-900 mt-2">' + s + '</p>';
-            else sh += '<p class="text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r">' + s + '</p>';
-        });
-        sh += '</div></div>';
-        sbs.innerHTML = sh;
-    } else { sbs.innerHTML = ''; }
-
-    document.getElementById('results').classList.remove('hidden');
-
-    // Charts
-    if (data.chart_data && typeof Chart !== 'undefined') {
-        const chartSection = document.getElementById('chartSection');
-        if (data.chart_data.grade_distribution) {
-            const canvas = document.getElementById('gradeChart');
-            if (gradeChart) { gradeChart.destroy(); gradeChart = null; }
-            gradeChart = new Chart(canvas.getContext('2d'), {
-                type: data.chart_data.grade_distribution.type, data: data.chart_data.grade_distribution.data,
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }, animation: { duration: 1500 } }
-            });
-        }
-        if (data.chart_data.gpa_comparison) {
-            const canvas = document.getElementById('gpaChart');
-            if (gpaChart) { gpaChart.destroy(); gpaChart = null; }
-            gpaChart = new Chart(canvas.getContext('2d'), {
-                type: data.chart_data.gpa_comparison.type, data: data.chart_data.gpa_comparison.data,
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: parseFloat(data.scale) }, x: { grid: { display: false } } }, animation: { duration: 1500 } }
-            });
-        }
-        chartSection.classList.remove('hidden');
-    } else { document.getElementById('chartSection').classList.add('hidden'); }
-
-    setTimeout(() => { document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-}
+window.djangoContext = {
+        trans_CourseName_0: '{% trans "Course Name" %}',
+        trans_courses_1: '{% trans "courses" %}',
+        trans_Course_2: '{% trans "Course" %}',
+        trans_Pleaseaddatleastonev_3: '{% trans "Please add at least one valid course with credits." %}',
+        trans_Anerroroccurred_4: '{% trans "An error occurred." %}',
+        trans_Anetworkerroroccurre_5: '{% trans "A network error occurred. Please try again." %}',
+        trans_SemesterGPA_6: '{% trans "Semester GPA" %}',
+        trans_TotalCredits_7: '{% trans "Total Credits" %}',
+        trans_QualityPoints_8: '{% trans "Quality Points" %}',
+        trans_CumulativeGPA_9: '{% trans "Cumulative GPA" %}',
+        trans_LetterGrade_12: '{% trans "Letter Grade" %}',
+        trans_Standing_13: '{% trans "Standing" %}',
+        trans_CourseDetails_14: '{% trans "Course Details" %}',
+        trans_Grade_16: '{% trans "Grade" %}',
+        trans_Credits_17: '{% trans "Credits" %}',
+        trans_Points_18: '{% trans "Points" %}',
+        trans_QualityPts_19: '{% trans "Quality Pts" %}',
+        trans_StepbyStepSolution_20: '{% trans "Step-by-Step Solution" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/gpa_calculator.js' %}"></script>
 {% endblock %}

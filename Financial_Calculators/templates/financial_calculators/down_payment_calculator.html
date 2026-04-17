@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Down Payment Calculator - Home Purchase Calculator" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate how much down payment you need for a home. See PMI impact, closing costs, and create a savings plan to reach your goal." %}{% endblock %}
 {% block meta_keywords %}{% trans "down payment calculator, home down payment, PMI calculator, closing costs, home buying calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/down_payment_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Down Payment Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate your down payment and create a savings plan for your home purchase.' %}">
 <meta property="og:type" content="website">
@@ -269,120 +270,13 @@
 </div>
 
 <script>
-(function() {
-    var breakdownChart = null;
-    var savingsChart = null;
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNum(val) {
-        return parseFloat(String(val).replace(/[,$\s]/g, '')) || 0;
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-        var form = document.getElementById('calculatorForm');
-        var initialState = document.getElementById('initialState');
-        var loadingState = document.getElementById('loadingState');
-        var errorState = document.getElementById('errorState');
-        var resultsSection = document.getElementById('resultsSection');
-        var submitBtnText = document.getElementById('calculateBtnText');
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            initialState.classList.add('hidden');
-            resultsSection.classList.add('hidden');
-            if (errorState) errorState.classList.add('hidden');
-            loadingState.classList.remove('hidden');
-            if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculating...' %}";
-
-            var payload = {
-                home_price: parseNum(document.getElementById('home_price').value),
-                down_payment_percent: parseNum(document.getElementById('down_payment_percent').value) || 20,
-                interest_rate: parseFloat(document.getElementById('interest_rate').value) || 6.5,
-                loan_term: parseInt(document.getElementById('loan_term').value, 10) || 30,
-                closing_cost_percent: parseNum(document.getElementById('closing_cost_percent').value) || 3,
-                current_savings: parseNum(document.getElementById('current_savings').value),
-                monthly_savings: parseNum(document.getElementById('monthly_savings').value),
-                savings_rate: parseNum(document.getElementById('savings_rate').value) || 4
-            };
-
-            try {
-                var response = await fetch(window.location.href, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                    body: JSON.stringify(payload)
-                });
-                var data = await response.json();
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate' %}";
-
-                if (!data.success) {
-                    document.getElementById('errorMessage').textContent = data.error || "{% trans 'An error occurred. Please try again.' %}";
-                    if (errorState) errorState.classList.remove('hidden');
-                    initialState.classList.remove('hidden');
-                    return;
-                }
-
-                document.getElementById('downPaymentResult').textContent = formatCurrency(data.down_payment.amount);
-                document.getElementById('closingCostsResult').textContent = formatCurrency(data.closing_costs);
-                document.getElementById('totalNeededResult').textContent = formatCurrency(data.total_needed);
-                document.getElementById('goalDateResult').textContent = data.savings_goal.goal_date;
-                document.getElementById('loanAmountResult').textContent = formatCurrency(data.loan_amount);
-                document.getElementById('monthlyPaymentResult').textContent = formatCurrency(data.monthly_payment);
-                document.getElementById('totalMonthlyResult').textContent = formatCurrency(data.total_monthly_with_pmi);
-
-                if (data.pmi.required) {
-                    document.getElementById('pmiAlert').classList.remove('hidden');
-                    document.getElementById('pmiAmount').textContent = formatCurrency(data.pmi.monthly);
-                    document.getElementById('pmiTotal').textContent = formatCurrency(data.pmi.total);
-                } else {
-                    document.getElementById('pmiAlert').classList.add('hidden');
-                }
-
-                var tbody = document.getElementById('scenariosBody');
-                tbody.innerHTML = '';
-                data.scenarios.forEach(function(s) {
-                    var isSelected = s.percent === data.down_payment.percent;
-                    var tr = document.createElement('tr');
-                    tr.className = isSelected ? 'bg-blue-50' : 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 ' + (isSelected ? 'font-medium' : '') + '">' + s.percent + '%</td><td class="px-4 py-2 text-right">' + formatCurrency(s.down_payment) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(s.total_upfront) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(s.monthly_payment) + '</td><td class="px-4 py-2 text-right ' + (s.pmi > 0 ? 'text-yellow-600' : 'text-green-600') + '">' + (s.pmi > 0 ? formatCurrency(s.pmi) : "{% trans 'None' %}") + '</td>';
-                    tbody.appendChild(tr);
-                });
-
-                if (data.chart_data && typeof Chart !== 'undefined') {
-                    if (data.chart_data.breakdown_chart) {
-                        if (breakdownChart) breakdownChart.destroy();
-                        var ctx1 = document.getElementById('breakdownChart');
-                        if (ctx1) {
-                            var cfg = data.chart_data.breakdown_chart;
-                            breakdownChart = new Chart(ctx1, { type: cfg.type, data: cfg.data, options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg.options || {}) });
-                        }
-                    }
-                    if (data.chart_data.savings_projection_chart) {
-                        if (savingsChart) savingsChart.destroy();
-                        var ctx2 = document.getElementById('savingsChart');
-                        if (ctx2) {
-                            var cfg2 = data.chart_data.savings_projection_chart;
-                            var opts = Object.assign({ responsive: true, maintainAspectRatio: false }, cfg2.options || {});
-                            opts.scales = opts.scales || {};
-                            opts.scales.y = opts.scales.y || {};
-                            opts.scales.y.ticks = opts.scales.y.ticks || {};
-                            opts.scales.y.ticks.callback = function(v) { return '$' + v.toLocaleString(); };
-                            savingsChart = new Chart(ctx2, { type: cfg2.type, data: cfg2.data, options: opts });
-                        }
-                    }
-                }
-
-                resultsSection.classList.remove('hidden');
-                setTimeout(function() { resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-            } catch (err) {
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate' %}";
-                if (errorState) { document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}"; errorState.classList.remove('hidden'); }
-                initialState.classList.remove('hidden');
-                console.error(err);
-            }
-        });
-    });
-})();
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_AnerroroccurredPleas_2: "{% trans 'An error occurred. Please try again.' %}",
+        trans_None_3: "{% trans 'None' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'financial_calculators/js/down_payment_calculator.js' %}"></script>
 {% endblock %}

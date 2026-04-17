@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Time Zone Calculator - Convert Time Between Time Zones" %}{% endblock %}
 {% block meta_description %}{% trans "Free online Time Zone Calculator. Convert time between different time zones, calculate time differences, and view current time in multiple zones." %}{% endblock %}
@@ -13,6 +13,7 @@
 {% block twitter_description %}{% trans "Convert time between different time zones and calculate time differences. Free online calculator." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/time_zone_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -386,222 +387,21 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calcType').addEventListener('change', function() {
-        switchCalcMode(this.value);
-    });
-    document.getElementById('timeZoneForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitCalculation();
-    });
-    document.getElementById('resetBtn').addEventListener('click', resetTimeZone);
-    switchCalcMode('convert');
-});
-
-function switchCalcMode(mode) {
-    document.querySelectorAll('.calc-mode').forEach(el => el.classList.add('hidden'));
-    if (mode === 'convert') {
-        document.getElementById('convertCalc').classList.remove('hidden');
-    } else if (mode === 'difference') {
-        document.getElementById('differenceCalc').classList.remove('hidden');
-    } else if (mode === 'current') {
-        document.getElementById('currentCalc').classList.remove('hidden');
-    }
-    document.getElementById('resultsSection')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-    document.getElementById('errorState')?.classList.add('hidden');
-    if (resultChart) {
-        resultChart.destroy();
-        resultChart = null;
-    }
-}
-
-function resetTimeZone() {
-    document.getElementById('time').value = '';
-    switchCalcMode('convert');
-    document.getElementById('resultsSection').classList.add('hidden');
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('errorState').classList.add('hidden');
-    if (resultChart) {
-        resultChart.destroy();
-        resultChart = null;
-    }
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function buildRequestData() {
-    const mode = document.getElementById('calcType').value;
-    const data = { calc_type: mode };
-    if (mode === 'convert') {
-        data.time = document.getElementById('time').value.trim();
-        data.from_timezone = document.getElementById('fromTimezone').value;
-        data.to_timezone = document.getElementById('toTimezone').value;
-    } else if (mode === 'difference') {
-        data.timezone1 = document.getElementById('timezone1').value;
-        data.timezone2 = document.getElementById('timezone2').value;
-    } else if (mode === 'current') {
-        const checkboxes = document.querySelectorAll('#timezoneCheckboxes input[type="checkbox"]:checked');
-        data.timezones = Array.from(checkboxes).map(cb => cb.value);
-    }
-    return data;
-}
-
-async function submitCalculation() {
-    const mode = document.getElementById('calcType').value;
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    if (!errorState || !errorMessage) return;
-    errorState.classList.add('hidden');
-
-    if (mode === 'convert') {
-        const d = buildRequestData();
-        if (!d.time) {
-            errorMessage.textContent = '{% trans "Please enter a time" %}';
-            errorState.classList.remove('hidden');
-            return;
-        }
-    } else if (mode === 'current') {
-        const d = buildRequestData();
-        if (!d.timezones || d.timezones.length === 0) {
-            errorMessage.textContent = '{% trans "Please select at least one timezone" %}';
-            errorState.classList.remove('hidden');
-            return;
-        }
-    }
-
-    const btn = document.getElementById('calculateBtn');
-    const btnText = document.getElementById('calculateBtnText');
-    const spinner = document.getElementById('loadingSpinner');
-    const icon = document.getElementById('calculateIcon');
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-
-    if (!csrfToken) {
-        errorMessage.textContent = '{% trans "CSRF token not found. Please refresh." %}';
-        errorState.classList.remove('hidden');
-        return;
-    }
-
-    const requestData = buildRequestData();
-    btn.disabled = true;
-    if (btnText) btnText.textContent = '{% trans "Calculating..." %}';
-    if (spinner) spinner.classList.remove('hidden');
-    if (icon) icon.classList.add('hidden');
-
-    try {
-        const response = await fetch('{% url "other_calculators:time_zone_calculator" %}', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRFToken': csrfToken.value
-            },
-            body: JSON.stringify(requestData)
-        });
-
-        const text = await response.text();
-        let data = null;
-        try { data = text ? JSON.parse(text) : {}; } catch (err) { /* ignore */ }
-
-        if (!data || !data.success) {
-            errorMessage.textContent = (data && data.error) ? data.error : '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-            return;
-        }
-
-        document.getElementById('initialState')?.classList.add('hidden');
-        document.getElementById('resultsSection')?.classList.remove('hidden');
-        document.getElementById('resultsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        if (data.calc_type === 'convert') {
-            document.getElementById('resultValue').textContent = data.result_time;
-            document.getElementById('resultDetails').textContent = data.time + ' ' + data.from_timezone + ' → ' + data.to_timezone;
-            document.getElementById('resultContent').innerHTML = `
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center"><p class="text-sm text-gray-600 mb-1">{% trans "Time Difference" %}</p><p class="text-lg font-bold text-blue-600">${data.time_diff_hours > 0 ? '+' : ''}${data.time_diff_hours} {% trans "hours" %}</p></div>
-            `;
-        } else if (data.calc_type === 'difference') {
-            document.getElementById('resultValue').textContent = (data.difference_hours > 0 ? '+' : '') + data.difference_hours + ' {% trans "hours" %}';
-            document.getElementById('resultDetails').textContent = data.timezone1 + ' → ' + data.timezone2;
-            document.getElementById('resultContent').innerHTML = `
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center"><p class="text-sm text-gray-600 mb-1">{% trans "Minutes" %}</p><p class="text-lg font-bold text-blue-600">${data.difference_minutes}</p></div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center"><p class="text-sm text-gray-600 mb-1">{% trans "Seconds" %}</p><p class="text-lg font-bold text-blue-600">${data.difference_seconds}</p></div>
-            `;
-        } else if (data.calc_type === 'current') {
-            document.getElementById('resultValue').textContent = data.current_times.length ? data.current_times[0].time : '-';
-            document.getElementById('resultDetails').textContent = data.current_times.length ? data.current_times[0].timezone + ' (UTC' + (data.current_times[0].offset >= 0 ? '+' : '') + data.current_times[0].offset + ')' : '';
-            let html = '';
-            data.current_times.forEach(tzInfo => {
-                html += `<div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm flex justify-between items-center">
-                    <div><p class="font-semibold text-gray-900">${tzInfo.timezone}</p><p class="text-xs text-gray-500">UTC${tzInfo.offset > 0 ? '+' : ''}${tzInfo.offset}</p></div>
-                    <p class="text-xl font-bold text-blue-600">${tzInfo.time}</p>
-                </div>`;
-            });
-            document.getElementById('resultContent').innerHTML = html || '<div class="col-span-full text-gray-500">{% trans "Current time" %}</div>';
-        }
-
-        if (data.chart_data) {
-            const chartKey = Object.keys(data.chart_data)[0];
-            const config = data.chart_data[chartKey];
-            if (config) {
-                const chartEl = document.getElementById('resultChart');
-                if (chartEl && typeof Chart !== 'undefined') {
-                    if (resultChart) resultChart.destroy();
-                    resultChart = new Chart(chartEl.getContext('2d'), config);
-                }
-                document.getElementById('chartSection').classList.remove('hidden');
-            } else {
-                document.getElementById('chartSection').classList.add('hidden');
-            }
-        } else {
-            document.getElementById('chartSection').classList.add('hidden');
-        }
-
-        const stepEl = document.getElementById('stepByStep');
-        if (stepEl && data.step_by_step && data.step_by_step.length > 0) {
-            let stepNum = 0;
-            stepEl.innerHTML = data.step_by_step.map(step => {
-                if (!step || !String(step).trim()) return '<div class="my-3"></div>';
-                const text = escapeHtml(step);
-                const isStep = /^(Step\s*\d+|Step|Formula|Calculation|Result|Note)/i.test(text);
-                const isFormula = /[=×÷+\-*\/]/.test(text) && text.length < 100;
-                const isResult = /^(Result|Total|Final|Answer)/i.test(text);
-                const isNote = /^(Note|Important|Remember)/i.test(text);
-                if (isStep) {
-                    stepNum++;
-                    return `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm">
-                        <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div>
-                        <div class="flex-1"><p class="text-gray-800 leading-relaxed">${text}</p></div>
-                    </div>`;
-                } else if (isFormula) {
-                    return `<div class="mb-3 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm overflow-x-auto"><code>${text}</code></div>`;
-                } else if (isResult) {
-                    return `<div class="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg"><div class="flex items-center gap-2 mb-2"><svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="font-semibold text-green-800">{% trans "Result" %}</span></div><p class="text-gray-800 font-medium">${text}</p></div>`;
-                } else if (isNote) {
-                    return `<div class="mb-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg"><div class="flex items-start gap-2"><svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><p class="text-yellow-800 text-sm">${text}</p></div></div>`;
-                } else {
-                    return `<div class="mb-2 p-3 bg-white rounded-lg border border-gray-200"><p class="text-gray-700 leading-relaxed">${text}</p></div>`;
-                }
-            }).join('');
-        }
-    } catch (err) {
-        console.error('Error:', err);
-        if (errorState && errorMessage) {
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    } finally {
-        if (btn) btn.disabled = false;
-        if (btnText) btnText.textContent = '{% trans "Calculate" %}';
-        if (spinner) spinner.classList.add('hidden');
-        if (icon) icon.classList.remove('hidden');
-    }
-}
+window.djangoContext = {
+        trans_Pleaseenteratime_0: '{% trans "Please enter a time" %}',
+        trans_Pleaseselectatleasto_1: '{% trans "Please select at least one timezone" %}',
+        trans_CSRFtokennotfoundPle_2: '{% trans "CSRF token not found. Please refresh." %}',
+        trans_Calculating_3: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please try again." %}',
+        trans_TimeDifference_5: '{% trans "Time Difference" %}',
+        trans_hours_6: '{% trans "hours" %}',
+        trans_Minutes_8: '{% trans "Minutes" %}',
+        trans_Seconds_9: '{% trans "Seconds" %}',
+        trans_Currenttime_10: '{% trans "Current time" %}',
+        trans_Result_11: '{% trans "Result" %}',
+        trans_Calculate_13: '{% trans "Calculate" %}',
+        url_other_calculatorstim_0: '{% url "other_calculators:time_zone_calculator" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/time_zone_calculator.js' %}"></script>
 {% endblock %}

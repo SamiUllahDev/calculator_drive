@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
-{% block title %}{% trans "Age Calculator - How Old Am I? Calculate Exact Age" %} | Free Online{% endblock %}
+{% block title %}{% trans "Age Calculator - How Old Am I? Calculate Exact Age" %} | {% trans "Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free age calculator to find out exactly how old you are in years, months, days, hours, and seconds. Calculate age from date of birth, find zodiac sign, generation, and upcoming milestones. Instant results." %}{% endblock %}
 {% block meta_keywords %}{% trans "age calculator, how old am I, calculate age, age calculator online, birthday calculator, age in days, age in years, exact age calculator, date of birth calculator, how old am I calculator, age finder, age in months, age in seconds, age calculator by date of birth, zodiac sign calculator, generation calculator" %}{% endblock %}
 
@@ -13,6 +13,7 @@
 {% block twitter_description %}{% trans "Free age calculator to find out exactly how old you are. Calculate age from date of birth in years, months, days, hours, and seconds." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/age_calculator.css' %}">
 <style>
     .fade-in {
         animation: fadeIn 0.5s ease-in;
@@ -93,16 +94,6 @@
 <div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto">
         
-        <nav class="mb-6">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'other_calculators:index' %}" class="hover:text-blue-600">{% trans "Other Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Age Calculator" %}</li>
-            </ol>
-        </nav>
-
         <div class="text-center mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -606,194 +597,18 @@
 </div>
 
 <script>
-let timeUnitsChart = null;
-let ageBreakdownChart = null;
-let lifeGaugeChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    
-    function formatNumber(num) {
-        return num.toLocaleString('en-US');
-    }
-    
-    function showError(message) {
-        const errorEl = document.getElementById('errorMessage');
-        errorEl.textContent = message;
-        errorEl.style.display = 'block';
-        setTimeout(() => {
-            errorEl.style.display = 'none';
-        }, 5000);
-    }
-    
-    // Set current date as default for target
-    const today = new Date();
-    document.getElementById('target_month').placeholder = today.getMonth() + 1;
-    document.getElementById('target_day').placeholder = today.getDate();
-    document.getElementById('target_year').placeholder = today.getFullYear();
-    
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const btn = document.getElementById('calculateBtn');
-        const btnText = document.getElementById('calculateBtnText');
-        const errorEl = document.getElementById('errorMessage');
-        errorEl.style.display = 'none';
-        
-        // Basic validation
-        const birthDay = parseInt(document.getElementById('birth_day').value);
-        const birthMonth = parseInt(document.getElementById('birth_month').value);
-        const birthYear = parseInt(document.getElementById('birth_year').value);
-        
-        if (!birthDay || !birthMonth || !birthYear) {
-            showError('{% trans "Please enter a complete birth date." %}');
-            return;
-        }
-        
-        if (birthDay < 1 || birthDay > 31 || birthMonth < 1 || birthMonth > 12 || birthYear < 1900 || birthYear > 2030) {
-            showError('{% trans "Please enter a valid date." %}');
-            return;
-        }
-        
-        btn.disabled = true;
-        btnText.textContent = '{% trans "Calculating..." %}';
-        
-        const targetMonth = document.getElementById('target_month').value || today.getMonth() + 1;
-        const targetDay = document.getElementById('target_day').value || today.getDate();
-        const targetYear = document.getElementById('target_year').value || today.getFullYear();
-        
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
-                body: JSON.stringify({
-                    birth_month: document.getElementById('birth_month').value,
-                    birth_day: document.getElementById('birth_day').value,
-                    birth_year: document.getElementById('birth_year').value,
-                    target_month: targetMonth,
-                    target_day: targetDay,
-                    target_year: targetYear
-                })
-            });
-            
-            const data = await response.json();
-            if (!data.success) { 
-                showError(data.error || '{% trans "An error occurred. Please try again." %}');
-                return; 
-            }
-            
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsSection').classList.remove('hidden');
-            
-            // Update main age
-            document.getElementById('ageFormatted').textContent = data.age.formatted;
-            document.getElementById('nextBirthday').innerHTML = 
-                `🎂 {% trans "Next birthday in" %} <strong>${data.next_birthday.days_until}</strong> {% trans "days" %} ({% trans "turning" %} ${data.next_birthday.turning})`;
-            
-            // Update totals
-            document.getElementById('totalYears').textContent = formatNumber(data.totals.years);
-            document.getElementById('totalMonths').textContent = formatNumber(data.totals.months);
-            document.getElementById('totalWeeks').textContent = formatNumber(data.totals.weeks);
-            document.getElementById('totalDays').textContent = formatNumber(data.totals.days);
-            document.getElementById('totalHours').textContent = formatNumber(data.totals.hours);
-            document.getElementById('totalMinutes').textContent = formatNumber(data.totals.minutes);
-            document.getElementById('totalSeconds').textContent = formatNumber(data.totals.seconds);
-            
-            // Update birth info
-            document.getElementById('birthDayOfWeek').textContent = data.birth_info.day_of_week;
-            document.getElementById('zodiac').textContent = data.birth_info.zodiac;
-            document.getElementById('chineseZodiac').textContent = data.birth_info.chinese_zodiac;
-            document.getElementById('generation').textContent = data.birth_info.generation;
-            
-            // Update milestones
-            const milestonesEl = document.getElementById('milestones');
-            if (data.milestones.upcoming && data.milestones.upcoming.length > 0) {
-                milestonesEl.innerHTML = data.milestones.upcoming.map(m => 
-                    `<div class="flex justify-between py-2 border-b border-gray-100">
-                        <span class="text-gray-600">${m.event}</span>
-                        <span class="font-medium text-gray-900">Age ${m.age}</span>
-                    </div>`
-                ).join('');
-            } else {
-                milestonesEl.innerHTML = '<p class="text-gray-500 text-sm">{% trans "All major milestones passed!" %}</p>';
-            }
-            
-            // Update life percentage
-            document.getElementById('lifePercentage').textContent = data.life_percentage + '%';
-            
-            // Update step-by-step solution
-            const stepByStepEl = document.getElementById('stepByStep');
-            if (data.step_by_step && data.step_by_step.length > 0) {
-                stepByStepEl.innerHTML = data.step_by_step.map(step => {
-                    if (step.trim() === '') {
-                        return '<br>';
-                    }
-                    return `<div class="py-1">${step}</div>`;
-                }).join('');
-            }
-            
-            // Update charts
-            if (data.chart_data) {
-                // Time Units Chart
-                if (data.chart_data.time_units_chart) {
-                    const ctx1 = document.getElementById('timeUnitsChart').getContext('2d');
-                    if (timeUnitsChart) timeUnitsChart.destroy();
-                    timeUnitsChart = new Chart(ctx1, data.chart_data.time_units_chart);
-                }
-                
-                // Age Breakdown Chart
-                if (data.chart_data.age_breakdown_chart) {
-                    const ctx2 = document.getElementById('ageBreakdownChart').getContext('2d');
-                    if (ageBreakdownChart) ageBreakdownChart.destroy();
-                    ageBreakdownChart = new Chart(ctx2, data.chart_data.age_breakdown_chart);
-                }
-                
-                // Life Gauge Chart
-                if (data.chart_data.life_percentage) {
-                    const ctx3 = document.getElementById('lifeGaugeChart').getContext('2d');
-                    if (lifeGaugeChart) lifeGaugeChart.destroy();
-                    const percentage = data.chart_data.life_percentage.percentage;
-                    lifeGaugeChart = new Chart(ctx3, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Lived', 'Remaining'],
-                            datasets: [{
-                                data: [percentage, 100 - percentage],
-                                backgroundColor: [
-                                    'rgba(59, 130, 246, 0.8)',
-                                    'rgba(229, 231, 235, 0.3)'
-                                ],
-                                borderColor: [
-                                    '#3b82f6',
-                                    '#e5e7eb'
-                                ],
-                                borderWidth: 2
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            cutout: '75%',
-                            plugins: {
-                                legend: {
-                                    display: false
-                                },
-                                tooltip: {
-                                    enabled: false
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-            
-        } catch (error) {
-            console.error('Error:', error);
-            showError('{% trans "An error occurred. Please check your connection and try again." %}');
-        } finally {
-            btn.disabled = false;
-            btnText.textContent = '{% trans "Calculate Age" %}';
-        }
-    });
-});
+window.djangoContext = {
+        trans_Pleaseenteracomplete_0: '{% trans "Please enter a complete birth date." %}',
+        trans_Pleaseenteravaliddat_1: '{% trans "Please enter a valid date." %}',
+        trans_Calculating_2: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_3: '{% trans "An error occurred. Please try again." %}',
+        trans_Nextbirthdayin_4: '{% trans "Next birthday in" %}',
+        trans_days_5: '{% trans "days" %}',
+        trans_turning_6: '{% trans "turning" %}',
+        trans_Allmajormilestonespa_7: '{% trans "All major milestones passed!" %}',
+        trans_AnerroroccurredPleas_8: '{% trans "An error occurred. Please check your connection and try again." %}',
+        trans_CalculateAge_9: '{% trans "Calculate Age" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/age_calculator.js' %}"></script>
 {% endblock %}

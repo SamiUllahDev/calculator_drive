@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Free debt-to-income (DTI) calculator. Check front-end and back-end DTI ratios for mortgage qualification. Get instant results with lender guidelines and affordability estimates." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/debt_to_income_calculator.css' %}">
 <meta name="keywords" content="{% trans 'DTI calculator, debt to income ratio, mortgage qualification, housing ratio, front end DTI, back end DTI' %}">
 <meta name="robots" content="index, follow">
 
@@ -440,158 +441,19 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var i18n = { qualifies: "{% trans 'Qualifies' %}", exceeds: "{% trans 'Exceeds' %}", conventional: "{% trans 'Conventional' %}", fha: "{% trans 'FHA' %}", va: "{% trans 'VA' %}", qmLimit: "{% trans 'QM Limit' %}", na: "{% trans 'N/A' %}" };
-
-    document.querySelectorAll('input[type="text"]').forEach(function(input) {
-        input.addEventListener('blur', function() {
-            var value = parseFloat(this.value.replace(/[^0-9.-]/g, ''));
-            if (!isNaN(value)) this.value = value.toLocaleString('en-US', { maximumFractionDigits: 0 });
-        });
-    });
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function getStatusColor(status) {
-        switch(status) {
-            case 'excellent': return { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-600' };
-            case 'good': return { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-600' };
-            case 'fair': return { bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-600' };
-            case 'poor': return { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-600' };
-            default: return { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-600' };
-        }
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-        var data = {
-            gross_monthly_income: parseNumber(document.getElementById('gross_monthly_income').value),
-            other_income: parseNumber(document.getElementById('other_income').value),
-            mortgage_payment: parseNumber(document.getElementById('mortgage_payment').value),
-            property_tax: parseNumber(document.getElementById('property_tax').value),
-            home_insurance: parseNumber(document.getElementById('home_insurance').value),
-            hoa_fees: parseNumber(document.getElementById('hoa_fees').value),
-            car_payment: parseNumber(document.getElementById('car_payment').value),
-            student_loans: parseNumber(document.getElementById('student_loans').value),
-            credit_cards: parseNumber(document.getElementById('credit_cards').value),
-            personal_loans: parseNumber(document.getElementById('personal_loans').value),
-            child_support: parseNumber(document.getElementById('child_support').value),
-            other_debts: parseNumber(document.getElementById('other_debts').value)
-        };
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(data)
-            });
-            var result = await response.json();
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate DTI Ratio" %}';
-            if (!result.success) {
-                errorMessage.textContent = result.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-            displayResults(result);
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsState').classList.remove('hidden');
-            document.getElementById('resultsState').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate DTI Ratio" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-    
-    function displayResults(result) {
-        var frontEnd = result.dti_ratios.front_end;
-        var backEnd = result.dti_ratios.back_end;
-
-        document.getElementById('frontEndRatio').textContent = frontEnd.toFixed(1) + '%';
-        document.getElementById('backEndRatio').textContent = backEnd.toFixed(1) + '%';
-
-        var frontStatus = getStatusColor(result.dti_ratios.front_end_status.status);
-        var backStatus = getStatusColor(result.dti_ratios.back_end_status.status);
-
-        var frontCard = document.getElementById('frontEndCard');
-        frontCard.className = 'bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center border-2 ' + frontStatus.bg + ' ' + frontStatus.border;
-        document.getElementById('frontEndRatio').className = 'text-4xl font-bold mb-2 ' + frontStatus.text;
-        document.getElementById('frontEndStatus').textContent = result.dti_ratios.front_end_status.message;
-
-        var backCard = document.getElementById('backEndCard');
-        backCard.className = 'bg-white rounded-lg p-4 border border-gray-200 shadow-sm text-center border-2 ' + backStatus.bg + ' ' + backStatus.border;
-        document.getElementById('backEndRatio').className = 'text-4xl font-bold mb-2 ' + backStatus.text;
-        document.getElementById('backEndStatus').textContent = result.dti_ratios.back_end_status.message;
-
-        var markerPos = Math.min(backEnd, 100);
-        document.getElementById('dtiMarker').style.left = markerPos + '%';
-
-        document.getElementById('totalIncome').textContent = formatCurrency(result.income.total);
-        document.getElementById('totalHousing').textContent = formatCurrency(result.housing_costs.total);
-        document.getElementById('totalDebts').textContent = formatCurrency(result.total_debts);
-
-        var loanBody = document.getElementById('loanComparisonBody');
-        loanBody.innerHTML = '';
-
-        var loanPrograms = [
-            { name: i18n.conventional, frontMax: 28, backMax: 36 },
-            { name: i18n.fha, frontMax: 31, backMax: 43 },
-            { name: i18n.va, frontMax: 41, backMax: 41 },
-            { name: i18n.qmLimit, frontMax: null, backMax: 43 }
-        ];
-        loanPrograms.forEach(function(prog) {
-            var frontOk = prog.frontMax === null || frontEnd <= prog.frontMax;
-            var backOk = backEnd <= prog.backMax;
-            var qualified = frontOk && backOk;
-            var tr = document.createElement('tr');
-            tr.innerHTML = '<td class="px-3 py-2 font-medium">' + prog.name + '</td>' +
-                '<td class="px-3 py-2 text-center">' + (prog.frontMax ? prog.frontMax + '%' : i18n.na) + '</td>' +
-                '<td class="px-3 py-2 text-center">' + prog.backMax + '%</td>' +
-                '<td class="px-3 py-2 text-center">' + (qualified ?
-                    '<span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">✓ ' + i18n.qualifies + '</span>' :
-                    '<span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">✗ ' + i18n.exceeds + '</span>') + '</td>';
-            loanBody.appendChild(tr);
-        });
-        
-        // Recommendations
-        const recList = document.getElementById('recommendationsList');
-        recList.innerHTML = '';
-        result.recommendations.forEach(rec => {
-            const li = document.createElement('li');
-            li.className = 'flex items-start p-2 bg-blue-50 rounded-lg';
-            li.innerHTML = `
-                <svg class="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                </svg>
-                <span class="text-sm text-gray-700">${rec}</span>
-            `;
-            recList.appendChild(li);
-        });
-        
-        // Affordability
-        document.getElementById('maxHousing28').textContent = formatCurrency(result.affordability.max_housing_28);
-        document.getElementById('maxHousing31').textContent = formatCurrency(result.affordability.max_housing_31);
-        document.getElementById('maxHousing36').textContent = formatCurrency(result.affordability.max_housing_36);
-        document.getElementById('roomForDebt').textContent = formatCurrency(result.affordability.room_to_43);
-    }
-        });
-    </script>
+window.djangoContext = {
+        trans_Qualifies_0: "{% trans 'Qualifies' %}",
+        trans_Exceeds_1: "{% trans 'Exceeds' %}",
+        trans_Conventional_2: "{% trans 'Conventional' %}",
+        trans_FHA_3: "{% trans 'FHA' %}",
+        trans_VA_4: "{% trans 'VA' %}",
+        trans_QMLimit_5: "{% trans 'QM Limit' %}",
+        trans_NA_6: "{% trans 'N/A' %}",
+        trans_Calculating_7: '{% trans "Calculating..." %}',
+        trans_CalculateDTIRatio_8: '{% trans "Calculate DTI Ratio" %}',
+        trans_AnerroroccurredPleas_9: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_AnerroroccurredPleas_11: '{% trans "An error occurred. Please try again." %}',
+    };
+</script>
+<script src="{% static 'financial_calculators/js/debt_to_income_calculator.js' %}"></script>
 {% endblock %}

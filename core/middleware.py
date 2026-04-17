@@ -143,6 +143,12 @@ class PerformanceHeadersMiddleware:
         if 'text/html' not in content_type:
             return response
 
+        # --- Content-Language header (reinforces html lang= for search engines) ---
+        from django.utils.translation import get_language
+        current_lang = get_language()
+        if current_lang and not response.get('Content-Language'):
+            response['Content-Language'] = current_lang
+
         # --- Link headers: preload critical font ---
         font_url = '/static/vendor/fonts/inter/inter-700.woff2'
         link_value = f'<{font_url}>; rel=preload; as=font; type="font/woff2"; crossorigin'

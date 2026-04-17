@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Body Type Calculator" %} - {% trans "Ectomorph, Mesomorph, Endomorph" %}{% endblock %}
 {% block meta_description %}{% trans "Determine your body type (ectomorph, mesomorph, or endomorph) based on frame size measurements." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/body_type_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "body type calculator, ectomorph, mesomorph, endomorph, body frame size" %}">
+<meta name="keywords" content='{% trans "body type calculator, ectomorph, mesomorph, endomorph, body frame size" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Body Type Calculator" %} - {% trans "Ectomorph, Mesomorph, Endomorph" %}">
-<meta property="og:description" content="{% trans "Determine your body type based on frame size measurements." %}">
+<meta property="og:title" content='{% trans "Body Type Calculator" %} - {% trans "Ectomorph, Mesomorph, Endomorph" %}'>
+<meta property="og:description" content='{% trans "Determine your body type based on frame size measurements." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Body Type Calculator" %}",
-    "description": "{% trans "Determine your body type (ectomorph, mesomorph, or endomorph) based on frame size measurements." %}",
+    "name": '{% trans "Body Type Calculator" %}',
+    "description": '{% trans "Determine your body type (ectomorph, mesomorph, or endomorph) based on frame size measurements." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Body Type Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -530,367 +519,15 @@
 </div>
 
 <script>
-// Chart instances
-let bodyTypeChart = null;
-let frameSizeChart = null;
-let ratiosChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitImperial = document.getElementById('unitImperial');
-    const wristUnit = document.getElementById('wristUnit');
-    const ankleUnit = document.getElementById('ankleUnit');
-    const heightUnit = document.getElementById('heightUnit');
-    const wristInput = document.getElementById('wrist');
-    const ankleInput = document.getElementById('ankle');
-    const heightInput = document.getElementById('height');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        const unit = unitImperial.checked ? 'in' : 'cm';
-        wristUnit.textContent = unit;
-        ankleUnit.textContent = unit;
-        heightUnit.textContent = unit;
-        
-        if (unitImperial.checked) {
-            wristInput.min = '4';
-            wristInput.max = '12';
-            wristInput.value = '6.7';
-            ankleInput.min = '6';
-            ankleInput.max = '16';
-            ankleInput.value = '8.7';
-            heightInput.min = '39';
-            heightInput.max = '98';
-            heightInput.value = '67';
-        } else {
-            wristInput.min = '10';
-            wristInput.max = '30';
-            wristInput.value = '17';
-            ankleInput.min = '15';
-            ankleInput.max = '40';
-            ankleInput.value = '22';
-            heightInput.min = '100';
-            heightInput.max = '250';
-            heightInput.value = '170';
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitImperial.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const formData = {
-            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
-            wrist: parseFloat(wristInput.value),
-            ankle: parseFloat(ankleInput.value),
-            height: parseFloat(heightInput.value)
-        };
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Body Type" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update body type result
-            const bodyTypeEl = document.getElementById('bodyType');
-            if (bodyTypeEl) bodyTypeEl.textContent = data.body_type_name;
-
-            // Update body type badge
-            const bodyTypeBadge = document.getElementById('bodyTypeBadge');
-            const descriptionEl = document.getElementById('description');
-            if (descriptionEl) descriptionEl.textContent = data.description;
-            if (bodyTypeBadge && data.color_info) {
-                bodyTypeBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
-            }
-
-            // Update stats
-            const frameSizeEl = document.getElementById('frameSize');
-            const wristRatioEl = document.getElementById('wristRatio');
-            const ankleRatioEl = document.getElementById('ankleRatio');
-            const bodyTypeDisplayEl = document.getElementById('bodyTypeDisplay');
-
-            if (frameSizeEl) frameSizeEl.textContent = data.frame_size_name;
-            if (wristRatioEl) wristRatioEl.textContent = data.wrist_ratio.toFixed(2) + '%';
-            if (ankleRatioEl) ankleRatioEl.textContent = data.ankle_ratio.toFixed(2) + '%';
-            if (bodyTypeDisplayEl) bodyTypeDisplayEl.textContent = data.body_type_name;
-
-            // Update result card color
-            const colors = {
-                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
-                'green': 'bg-gradient-to-br from-green-600 to-green-700',
-                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700'
-            };
-            const resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.body_type_color] || 'bg-gradient-to-br from-blue-600 to-blue-700');
-            }
-
-            // Update characteristics list
-            const characteristicsList = document.getElementById('characteristicsList');
-            if (characteristicsList && data.characteristics) {
-                characteristicsList.innerHTML = data.characteristics.map(char => `
-                    <li class="flex items-start">
-                        <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span>${char}</span>
-                    </li>
-                `).join('');
-            }
-
-            // Update characteristics card border color
-            const characteristicsCard = document.getElementById('characteristicsCard');
-            if (characteristicsCard && data.color_info) {
-                const borderColors = {
-                    'blue': 'border-blue-300',
-                    'green': 'border-green-300',
-                    'orange': 'border-orange-300'
-                };
-                characteristicsCard.className = 'bg-white rounded-xl p-4 sm:p-6 border-2 shadow-lg ' + (borderColors[data.body_type_color] || 'border-gray-200');
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.body_type_chart) {
-                    createBodyTypeChart(data.chart_data.body_type_chart);
-                }
-                if (data.chart_data.frame_size_chart) {
-                    createFrameSizeChart(data.chart_data.frame_size_chart);
-                }
-                if (data.chart_data.ratios_chart) {
-                    createRatiosChart(data.chart_data.ratios_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createBodyTypeChart(chartData) {
-        const ctx = document.getElementById('bodyTypeChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (bodyTypeChart) bodyTypeChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            bodyTypeChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.parsed === 0) return '';
-                                    return context.label + ': ' + (context.parsed === 100 ? '{% trans "Your Type" %}' : '');
-                                }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating body type chart:', error);
-        }
-    }
-
-    function createFrameSizeChart(chartData) {
-        const ctx = document.getElementById('frameSizeChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (frameSizeChart) frameSizeChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            frameSizeChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.parsed.y === 0) return '';
-                                    return context.label + ': {% trans "Your Frame Size" %}';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating frame size chart:', error);
-        }
-    }
-
-    function createRatiosChart(chartData) {
-        const ctx = document.getElementById('ratiosChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (ratiosChart) ratiosChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            ratiosChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `Ratio: ${context.parsed.y.toFixed(2)}%`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating ratios chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_CalculateBodyType_0: '{% trans "Calculate Body Type" %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_3: '{% trans "A network error occurred. Please try again." %}',
+        trans_Errordisplayingresul_4: '{% trans "Error displaying results. Please try again." %}',
+        trans_YourType_5: '{% trans "Your Type" %}',
+        trans_YourFrameSize_6: '{% trans "Your Frame Size" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/body_type_calculator.js' %}"></script>
 {% endblock %}

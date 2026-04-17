@@ -462,7 +462,7 @@ class Command(BaseCommand):
             try:
                 # Get a random placeholder image
                 image_id = random.randint(1, 1000)
-                response = requests.get(f'https://picsum.photos/800/450?random={image_id}')
+                response = requests.get(f'https://picsum.photos/800/450?random={image_id}', timeout=10)
                 if response.status_code == 200:
                     # Save the image
                     file_name = f'blog_post_{slug}.jpg'

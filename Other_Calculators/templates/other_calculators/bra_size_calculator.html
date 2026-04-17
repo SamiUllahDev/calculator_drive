@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Bra Size Calculator - Find Your Perfect Fit Instantly | Free Online Tool" %}{% endblock %}
 {% block meta_description %}{% trans "Free bra size calculator to instantly find your perfect bra size. Measure underbust and bust, get your size in US, UK, EU, FR, AU, and 17+ international sizing systems. Includes sister sizes, size conversion chart, and step-by-step fitting guide." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Free bra size calculator with 17+ international sizing systems. Get your size, sister sizes, and conversion chart instantly." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/bra_size_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -269,159 +270,42 @@
 </div>
 
 <script>
-let resultChart = null;
-const COUNTRY_NAMES = { US:'{% trans "United States" %}', UK:'{% trans "United Kingdom" %}', EU:'{% trans "Europe" %}', FR:'{% trans "France" %}', AU:'{% trans "Australia" %}', PK:'{% trans "Pakistan" %}', CA:'{% trans "Canada" %}', IN:'{% trans "India" %}', NZ:'{% trans "New Zealand" %}', IT:'{% trans "Italy" %}', ES:'{% trans "Spain" %}', DE:'{% trans "Germany" %}', JP:'{% trans "Japan" %}', CN:'{% trans "China" %}', BR:'{% trans "Brazil" %}', MX:'{% trans "Mexico" %}', ZA:'{% trans "South Africa" %}' };
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calcType').addEventListener('change', function() { switchMode(this.value); hideError(); });
-    document.getElementById('braForm').addEventListener('submit', function(e) { e.preventDefault(); handleSubmit(); });
-    document.getElementById('resetBtn').addEventListener('click', handleReset);
-    document.getElementById('unit').addEventListener('change', function() { document.getElementById('unit2').value = this.value; });
-    document.getElementById('unit2').addEventListener('change', function() { document.getElementById('unit').value = this.value; });
-});
-
-function switchMode(mode) {
-    document.querySelectorAll('.calc-mode').forEach(el => el.classList.add('hidden'));
-    const map = { bra_size: 'braSizeMode', size_conversion: 'conversionMode', sister_sizes: 'sisterMode' };
-    document.getElementById(map[mode] || 'braSizeMode').classList.remove('hidden');
-}
-
-function showError(msg) { document.getElementById('errorMsg').textContent = msg; document.getElementById('errorState').classList.remove('hidden'); }
-function hideError() { document.getElementById('errorState').classList.add('hidden'); }
-
-function handleReset() {
-    hideError();
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('chartSection').classList.add('hidden');
-    if (resultChart) { resultChart.destroy(); resultChart = null; }
-    ['underbust','bust','convSize','sisterSize'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-}
-
-function handleSubmit() {
-    hideError();
-    const mode = document.getElementById('calcType').value;
-    let formData = { calc_type: mode };
-
-    if (mode === 'bra_size') {
-        const ub = parseFloat(document.getElementById('underbust').value);
-        const b = parseFloat(document.getElementById('bust').value);
-        if (isNaN(ub) || isNaN(b)) { showError('{% trans "Please enter valid measurements." %}'); return; }
-        formData.underbust = ub; formData.bust = b;
-        formData.unit = document.getElementById('unit').value;
-        formData.sizing_system = document.getElementById('sizingSystem').value;
-    } else if (mode === 'size_conversion') {
-        const s = document.getElementById('convSize').value.trim();
-        if (!s) { showError('{% trans "Please enter a bra size." %}'); return; }
-        formData.size = s; formData.from_system = document.getElementById('fromSystem').value;
-        formData.to_system = document.getElementById('toSystem').value;
-    } else if (mode === 'sister_sizes') {
-        const s = document.getElementById('sisterSize').value.trim();
-        if (!s) { showError('{% trans "Please enter a bra size." %}'); return; }
-        formData.size = s; formData.sizing_system = document.getElementById('sisterSystem').value;
-    }
-
-    const loading = document.getElementById('loadingState');
-    loading.classList.remove('hidden');
-    document.getElementById('initialState').classList.add('hidden');
-    document.getElementById('results').classList.add('hidden');
-
-    fetch(window.location.href, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-        body: JSON.stringify(formData)
-    }).then(r => r.json()).then(data => {
-        loading.classList.add('hidden');
-        if (!data.success) { showError(data.error || '{% trans "An error occurred." %}'); return; }
-        displayResults(data);
-    }).catch(() => { loading.classList.add('hidden'); showError('{% trans "A network error occurred. Please try again." %}'); });
-}
-
-function displayResults(data) {
-    const rc = document.getElementById('resultContent');
-    const sbs = document.getElementById('stepByStep');
-    let html = '';
-
-    if (data.calc_type === 'bra_size') {
-        html += '<div class="bg-gradient-to-br from-pink-600 to-rose-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-pink-100 text-sm mb-1">{% trans "Your Bra Size" %}</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.bra_size.full_size + '</p>';
-        html += '<span class="bg-white/20 px-3 py-1 rounded-lg text-sm font-medium">' + data.bra_size.sizing_system + ' {% trans "System" %}</span>';
-        html += '<div class="grid grid-cols-3 gap-4 mt-6">';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-pink-100 text-xs">{% trans "Band" %}</p><p class="text-xl font-bold">' + data.bra_size.band + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-pink-100 text-xs">{% trans "Cup" %}</p><p class="text-xl font-bold">' + data.bra_size.cup + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-pink-100 text-xs">{% trans "Difference" %}</p><p class="text-xl font-bold">' + data.cup_difference + '"</p></div>';
-        html += '</div></div>';
-
-        // All sizes
-        if (data.all_sizes) {
-            html += '<div class="bg-white rounded-xl border-2 border-gray-200 p-4 sm:p-6 shadow-lg"><h4 class="font-bold text-gray-900 mb-3">{% trans "Your Size in All Systems" %}</h4>';
-            html += '<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">';
-            Object.entries(data.all_sizes).forEach(([sys, sz]) => {
-                html += '<div class="text-center p-3 bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200 hover:shadow-md transition-shadow">';
-                html += '<p class="text-xs font-semibold text-gray-600">' + sys + '</p>';
-                html += '<p class="text-lg font-bold text-pink-600">' + sz + '</p>';
-                html += '<p class="text-xs text-gray-500">' + (COUNTRY_NAMES[sys] || sys) + '</p></div>';
-            });
-            html += '</div></div>';
-        }
-
-        // Sister sizes
-        if (data.sister_sizes && data.sister_sizes.length > 0) {
-            html += '<div class="bg-white rounded-xl border-2 border-gray-200 p-4 sm:p-6 shadow-lg"><h4 class="font-bold text-gray-900 mb-2">{% trans "Sister Sizes" %}</h4>';
-            html += '<p class="text-sm text-gray-500 mb-3">{% trans "Same cup volume, different band/cup combinations" %}</p>';
-            html += '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">';
-            data.sister_sizes.forEach(s => {
-                html += '<div class="text-center p-3 bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200"><p class="text-xl font-bold text-pink-600">' + s.size + '</p></div>';
-            });
-            html += '</div></div>';
-        }
-    } else if (data.calc_type === 'size_conversion') {
-        html += '<div class="bg-gradient-to-br from-rose-600 to-pink-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-rose-100 text-sm mb-1">{% trans "Size Conversion" %}</p>';
-        html += '<p class="text-5xl sm:text-6xl font-bold mb-2">' + data.converted_size + '</p>';
-        html += '<p class="text-rose-200 text-sm mt-2">' + data.original_size + ' (' + data.from_system + ') → ' + data.to_system + '</p>';
-        html += '<div class="grid grid-cols-2 gap-4 mt-6">';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-rose-100 text-xs">{% trans "Original" %}</p><p class="text-xl font-bold">' + data.original_size + '</p><p class="text-rose-200 text-xs">' + data.from_system + '</p></div>';
-        html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-rose-100 text-xs">{% trans "Converted" %}</p><p class="text-xl font-bold">' + data.converted_size + '</p><p class="text-rose-200 text-xs">' + data.to_system + '</p></div>';
-        html += '</div></div>';
-    } else if (data.calc_type === 'sister_sizes') {
-        html += '<div class="bg-gradient-to-br from-fuchsia-600 to-pink-700 text-white rounded-xl p-6 sm:p-8 shadow-xl text-center">';
-        html += '<p class="text-fuchsia-100 text-sm mb-1">{% trans "Sister Sizes for" %} ' + data.original_size + '</p>';
-        html += '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">';
-        if (data.sister_sizes) data.sister_sizes.forEach(s => {
-            html += '<div class="bg-white/15 rounded-lg p-3"><p class="text-xl font-bold">' + s.size + '</p></div>';
-        });
-        html += '</div></div>';
-    }
-    rc.innerHTML = html;
-
-    // Steps
-    if (data.step_by_step && data.step_by_step.length > 0) {
-        let sh = '<div class="bg-gradient-to-br from-gray-50 to-pink-50 border-2 border-gray-200 rounded-xl p-4 sm:p-6"><h3 class="text-lg font-bold text-gray-900 mb-4">{% trans "Step-by-Step Solution" %}</h3><div class="space-y-1.5">';
-        data.step_by_step.forEach(s => {
-            if (s === '') sh += '<div class="my-2 border-t border-gray-200"></div>';
-            else if (s.startsWith('Step ') || s.startsWith('Final ')) sh += '<p class="text-sm font-bold text-gray-900 mt-2">' + s + '</p>';
-            else sh += '<p class="text-sm text-gray-700 border-l-4 border-pink-400 pl-3 py-1 bg-white rounded-r">' + s + '</p>';
-        });
-        sh += '</div></div>';
-        sbs.innerHTML = sh;
-    } else { sbs.innerHTML = ''; }
-
-    document.getElementById('results').classList.remove('hidden');
-
-    // Chart
-    if (data.chart_data && data.chart_data.band_chart && typeof Chart !== 'undefined') {
-        const chartSection = document.getElementById('chartSection');
-        const canvas = document.getElementById('resultChart');
-        if (resultChart) { resultChart.destroy(); resultChart = null; }
-        resultChart = new Chart(canvas.getContext('2d'), {
-            type: data.chart_data.band_chart.type, data: data.chart_data.band_chart.data,
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false }, x: { grid: { display: false } } }, animation: { duration: 1500 } }
-        });
-        chartSection.classList.remove('hidden');
-    } else { document.getElementById('chartSection').classList.add('hidden'); }
-
-    setTimeout(() => { document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-}
+window.djangoContext = {
+        trans_UnitedStates_0: '{% trans "United States" %}',
+        trans_UnitedKingdom_1: '{% trans "United Kingdom" %}',
+        trans_Europe_2: '{% trans "Europe" %}',
+        trans_France_3: '{% trans "France" %}',
+        trans_Australia_4: '{% trans "Australia" %}',
+        trans_Pakistan_5: '{% trans "Pakistan" %}',
+        trans_Canada_6: '{% trans "Canada" %}',
+        trans_India_7: '{% trans "India" %}',
+        trans_NewZealand_8: '{% trans "New Zealand" %}',
+        trans_Italy_9: '{% trans "Italy" %}',
+        trans_Spain_10: '{% trans "Spain" %}',
+        trans_Germany_11: '{% trans "Germany" %}',
+        trans_Japan_12: '{% trans "Japan" %}',
+        trans_China_13: '{% trans "China" %}',
+        trans_Brazil_14: '{% trans "Brazil" %}',
+        trans_Mexico_15: '{% trans "Mexico" %}',
+        trans_SouthAfrica_16: '{% trans "South Africa" %}',
+        trans_Pleaseentervalidmeas_17: '{% trans "Please enter valid measurements." %}',
+        trans_Pleaseenterabrasize_18: '{% trans "Please enter a bra size." %}',
+        trans_Anerroroccurred_20: '{% trans "An error occurred." %}',
+        trans_Anetworkerroroccurre_21: '{% trans "A network error occurred. Please try again." %}',
+        trans_YourBraSize_22: '{% trans "Your Bra Size" %}',
+        trans_System_23: '{% trans "System" %}',
+        trans_Band_24: '{% trans "Band" %}',
+        trans_Cup_25: '{% trans "Cup" %}',
+        trans_Difference_26: '{% trans "Difference" %}',
+        trans_YourSizeinAllSystems_27: '{% trans "Your Size in All Systems" %}',
+        trans_SisterSizes_28: '{% trans "Sister Sizes" %}',
+        trans_Samecupvolumediffere_29: '{% trans "Same cup volume, different band/cup combinations" %}',
+        trans_SizeConversion_30: '{% trans "Size Conversion" %}',
+        trans_Original_31: '{% trans "Original" %}',
+        trans_Converted_32: '{% trans "Converted" %}',
+        trans_SisterSizesfor_33: '{% trans "Sister Sizes for" %}',
+        trans_StepbyStepSolution_34: '{% trans "Step-by-Step Solution" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/bra_size_calculator.js' %}"></script>
 {% endblock %}

@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Body Surface Area Calculator" %} - {% trans "BSA Calculation" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate body surface area (BSA) using multiple formulas including Du Bois, Mosteller, Haycock, and Gehan & George." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/body_surface_area_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "BSA calculator, body surface area, Du Bois formula, Mosteller formula, medical calculator" %}">
+<meta name="keywords" content='{% trans "BSA calculator, body surface area, Du Bois formula, Mosteller formula, medical calculator" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Body Surface Area Calculator" %} - {% trans "BSA Calculation" %}">
-<meta property="og:description" content="{% trans "Calculate body surface area using multiple proven formulas including Du Bois, Mosteller, Haycock, and Gehan & George." %}">
+<meta property="og:title" content='{% trans "Body Surface Area Calculator" %} - {% trans "BSA Calculation" %}'>
+<meta property="og:description" content='{% trans "Calculate body surface area using multiple proven formulas including Du Bois, Mosteller, Haycock, and Gehan & George." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Body Surface Area Calculator" %}",
-    "description": "{% trans "Calculate body surface area (BSA) using multiple proven formulas." %}",
+    "name": '{% trans "Body Surface Area Calculator" %}',
+    "description": '{% trans "Calculate body surface area (BSA) using multiple proven formulas." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Body Surface Area Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -457,288 +446,23 @@
 </div>
 
 <script>
-// Chart instances
-let formulasChart = null;
-let rangeChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitImperial = document.getElementById('unitImperial');
-    const heightUnit = document.getElementById('heightUnit');
-    const weightUnit = document.getElementById('weightUnit');
-    const heightInput = document.getElementById('height');
-    const weightInput = document.getElementById('weight');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        if (unitImperial.checked) {
-            heightUnit.textContent = 'in';
-            weightUnit.textContent = 'lbs';
-            heightInput.min = '20';
-            heightInput.max = '100';
-            heightInput.value = '67';
-            weightInput.min = '2';
-            weightInput.max = '1100';
-            weightInput.value = '154';
-        } else {
-            heightUnit.textContent = 'cm';
-            weightUnit.textContent = 'kg';
-            heightInput.min = '50';
-            heightInput.max = '250';
-            heightInput.value = '170';
-            weightInput.min = '1';
-            weightInput.max = '500';
-            weightInput.value = '70';
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitImperial.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const formData = {
-            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
-            height: parseFloat(heightInput.value),
-            weight: parseFloat(weightInput.value)
-        };
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate BSA" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const averageBsaEl = document.getElementById('averageBsa');
-            if (averageBsaEl) averageBsaEl.textContent = data.formulas.average.toFixed(3) + ' m²';
-
-            // Update individual formulas
-            const duBoisEl = document.getElementById('duBois');
-            const mostellerEl = document.getElementById('mosteller');
-            const haycockEl = document.getElementById('haycock');
-            const gehanEl = document.getElementById('gehan');
-
-            if (duBoisEl) duBoisEl.textContent = data.formulas.du_bois.toFixed(3) + ' m²';
-            if (mostellerEl) mostellerEl.textContent = data.formulas.mosteller.toFixed(3) + ' m²';
-            if (haycockEl) haycockEl.textContent = data.formulas.haycock.toFixed(3) + ' m²';
-            if (gehanEl) gehanEl.textContent = data.formulas.gehan.toFixed(3) + ' m²';
-
-            // Update formulas table
-            const formulasTable = document.getElementById('formulasTable');
-            if (formulasTable) {
-                const formulas = [
-                    { name: '{% trans "Du Bois" %}', value: data.formulas.du_bois, note: '{% trans "Gold standard, most accurate" %}' },
-                    { name: '{% trans "Mosteller" %}', value: data.formulas.mosteller, note: '{% trans "Simplest, commonly used" %}' },
-                    { name: '{% trans "Haycock" %}', value: data.formulas.haycock, note: '{% trans "Good for pediatric populations" %}' },
-                    { name: '{% trans "Gehan & George" %}', value: data.formulas.gehan, note: '{% trans "Used in oncology" %}' },
-                    { name: '{% trans "Average" %}', value: data.formulas.average, note: '{% trans "Balanced estimate" %}' }
-                ];
-                
-                formulasTable.innerHTML = formulas.map(formula => `
-                    <tr class="${formula.name === '{% trans "Average" %}' ? 'bg-blue-50' : ''}">
-                        <td class="py-2 px-3 font-medium ${formula.name === '{% trans "Average" %}' ? 'text-blue-900' : 'text-gray-900'}">${formula.name}</td>
-                        <td class="py-2 px-3 text-right font-bold ${formula.name === '{% trans "Average" %}' ? 'text-blue-900' : 'text-gray-900'}">${formula.value.toFixed(3)} m²</td>
-                        <td class="py-2 px-3 text-sm ${formula.name === '{% trans "Average" %}' ? 'text-blue-800' : 'text-gray-600'}">${formula.note}</td>
-                    </tr>
-                `).join('');
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.formulas_chart) {
-                    createFormulasChart(data.chart_data.formulas_chart);
-                }
-                if (data.chart_data.range_chart) {
-                    createRangeChart(data.chart_data.range_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createFormulasChart(chartData) {
-        const ctx = document.getElementById('formulasChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (formulasChart) formulasChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            formulasChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `BSA: ${context.parsed.y.toFixed(3)} m²`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(3) + ' m²';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating formulas chart:', error);
-        }
-    }
-
-    function createRangeChart(chartData) {
-        const ctx = document.getElementById('rangeChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (rangeChart) rangeChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            rangeChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `BSA: ${context.parsed.y.toFixed(3)} m²`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(3) + ' m²';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating range chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_CalculateBSA_0: '{% trans "Calculate BSA" %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_3: '{% trans "A network error occurred. Please try again." %}',
+        trans_DuBois_4: '{% trans "Du Bois" %}',
+        trans_Goldstandardmostaccu_5: '{% trans "Gold standard, most accurate" %}',
+        trans_Mosteller_6: '{% trans "Mosteller" %}',
+        trans_Simplestcommonlyused_7: '{% trans "Simplest, commonly used" %}',
+        trans_Haycock_8: '{% trans "Haycock" %}',
+        trans_Goodforpediatricpopu_9: '{% trans "Good for pediatric populations" %}',
+        trans_GehanGeorge_10: '{% trans "Gehan & George" %}',
+        trans_Usedinoncology_11: '{% trans "Used in oncology" %}',
+        trans_Average_12: '{% trans "Average" %}',
+        trans_Balancedestimate_13: '{% trans "Balanced estimate" %}',
+        trans_Errordisplayingresul_18: '{% trans "Error displaying results. Please try again." %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/body_surface_area_calculator.js' %}"></script>
 {% endblock %}

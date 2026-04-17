@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Lease Calculator - Equipment & Property Lease Payments" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate equipment lease payments. See monthly payment, total cost, principal vs interest breakdown, and payment schedule." %}{% endblock %}
 {% block meta_keywords %}{% trans "lease calculator, equipment lease, lease payment, fair market value, dollar buyout" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/lease_calculator.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -279,152 +280,17 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var scheduleChart = null;
-
-function checkChartJS() {
-    if (typeof Chart === 'undefined') { console.error('Chart.js is not loaded.'); return false; }
-    return true;
-}
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Lease" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Lease" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createScheduleChart(chartData) {
-        var container = document.getElementById('scheduleChartContainer');
-        var canvas = document.getElementById('scheduleChart');
-        if (!canvas || !chartData || !checkChartJS()) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (scheduleChart) scheduleChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.plugins = opts.plugins || {};
-        opts.plugins.tooltip = opts.plugins.tooltip || {};
-        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
-        opts.plugins.tooltip.callbacks.label = function(c) { return (c.dataset.label || '') + ': $' + (c.raw != null ? Number(c.raw).toLocaleString('en-US', { minimumFractionDigits: 2 }) : ''); };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
-        scheduleChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-        if (container) container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            calc_type: 'equipment_lease',
-            equipment_cost: (document.getElementById('equipment_cost').value || '').replace(/,/g, ''),
-            lease_term: document.getElementById('lease_term').value,
-            interest_rate: document.getElementById('interest_rate').value,
-            residual_value: (document.getElementById('residual_value').value || '').replace(/,/g, ''),
-            lease_type: document.getElementById('lease_type').value,
-            advance_payments: document.getElementById('advance_payments').value,
-            security_deposit: (document.getElementById('security_deposit').value || '').replace(/,/g, '')
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            document.getElementById('heroValue').textContent = formatCurrency(s.monthly_payment);
-            document.getElementById('leaseTypeDisplay').textContent = data.lease_type || '';
-            document.getElementById('heroDueAtSigning').textContent = formatCurrency(s.due_at_signing);
-            document.getElementById('detailEquipmentCost').textContent = formatCurrency(s.equipment_cost);
-            document.getElementById('detailTotalPayments').textContent = formatCurrency(s.total_payments);
-            document.getElementById('detailTotalInterest').textContent = formatCurrency(s.total_interest);
-            document.getElementById('detailInterestPct').textContent = (s.interest_pct != null ? s.interest_pct : 0) + '%';
-            document.getElementById('advanceAmount').textContent = formatCurrency((s.monthly_payment || 0) * (s.advance_payments || 0));
-            document.getElementById('depositAmount').textContent = formatCurrency(s.security_deposit);
-            document.getElementById('dueAtSigning').textContent = formatCurrency(s.due_at_signing);
-            document.getElementById('buyoutAmount').textContent = formatCurrency(s.buyout_at_end);
-            var scheduleBody = document.getElementById('scheduleBody');
-            if (scheduleBody && data.schedule_12) {
-                scheduleBody.innerHTML = '';
-                data.schedule_12.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-2 py-2">' + row.month + '</td><td class="px-2 py-2 text-right">' + formatCurrency(row.payment) + '</td><td class="px-2 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-2 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-2 py-2 text-right">' + formatCurrency(row.balance) + '</td>';
-                    scheduleBody.appendChild(tr);
-                });
-            }
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.schedule_chart) createScheduleChart(data.chart_data.schedule_chart);
-            }
-            resultsWrapper.classList.remove('hidden');
-            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateLease_1: '{% trans "Calculate Lease" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Networkorservererror_9: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/lease_calculator.js' %}"></script>
 {% endblock %}

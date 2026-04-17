@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Calories Burned Calculator" %} - {% trans "Calculate Calories Burned During Exercise" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate calories burned during various activities using MET values. Free online calculator for exercise calorie tracking." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/calories_burned_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "calories burned calculator, exercise calories, MET calculator, activity calories" %}">
+<meta name="keywords" content='{% trans "calories burned calculator, exercise calories, MET calculator, activity calories" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Calories Burned Calculator" %} - {% trans "Calculate Calories Burned During Exercise" %}">
-<meta property="og:description" content="{% trans "Calculate calories burned during various activities using MET values." %}">
+<meta property="og:title" content='{% trans "Calories Burned Calculator" %} - {% trans "Calculate Calories Burned During Exercise" %}'>
+<meta property="og:description" content='{% trans "Calculate calories burned during various activities using MET values." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Calories Burned Calculator" %}",
-    "description": "{% trans "Calculate calories burned during various activities using MET values." %}",
+    "name": '{% trans "Calories Burned Calculator" %}',
+    "description": '{% trans "Calculate calories burned during various activities using MET values." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Calories Burned Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,404 +504,33 @@
 </div>
 
 <script>
-// Chart instances
-let durationChart = null;
-let intensityChart = null;
-let activityChart = null;
-
-// Activity intensity mappings
-const activityIntensities = {
-    'walking': ['slow', 'moderate', 'fast', 'very_fast'],
-    'running': ['jogging', 'moderate', 'fast', 'very_fast'],
-    'cycling': ['leisure', 'moderate', 'vigorous', 'racing'],
-    'swimming': ['leisure', 'moderate', 'vigorous', 'butterfly'],
-    'weightlifting': ['light', 'moderate', 'vigorous'],
-    'yoga': ['hatha', 'power', 'ashtanga'],
-    'dancing': ['slow', 'moderate', 'fast'],
-    'basketball': ['casual', 'competitive'],
-    'tennis': ['doubles', 'singles'],
-    'soccer': ['casual', 'competitive']
-};
-
-// Intensity display names
-const intensityNames = {
-    'slow': '{% trans "Slow" %}',
-    'moderate': '{% trans "Moderate" %}',
-    'fast': '{% trans "Fast" %}',
-    'very_fast': '{% trans "Very Fast" %}',
-    'jogging': '{% trans "Jogging" %}',
-    'leisure': '{% trans "Leisure" %}',
-    'vigorous': '{% trans "Vigorous" %}',
-    'racing': '{% trans "Racing" %}',
-    'light': '{% trans "Light" %}',
-    'hatha': '{% trans "Hatha" %}',
-    'power': '{% trans "Power" %}',
-    'ashtanga': '{% trans "Ashtanga" %}',
-    'casual': '{% trans "Casual" %}',
-    'competitive': '{% trans "Competitive" %}',
-    'doubles': '{% trans "Doubles" %}',
-    'singles': '{% trans "Singles" %}',
-    'butterfly': '{% trans "Butterfly" %}'
-};
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitImperial = document.getElementById('unitImperial');
-    const weightUnit = document.getElementById('weightUnit');
-    const activitySelect = document.getElementById('activity');
-    const intensitySelect = document.getElementById('intensity');
-    const intensityHint = document.getElementById('intensityHint');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Update intensity options based on activity
-    function updateIntensityOptions() {
-        const activity = activitySelect.value;
-        const availableIntensities = activityIntensities[activity] || ['moderate'];
-        const currentIntensity = intensitySelect.value;
-        
-        intensitySelect.innerHTML = '';
-        availableIntensities.forEach(intensity => {
-            const option = document.createElement('option');
-            option.value = intensity;
-            option.textContent = intensityNames[intensity] || intensity.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-            if (intensity === currentIntensity || (intensity === 'moderate' && !availableIntensities.includes(currentIntensity))) {
-                option.selected = true;
-            }
-            intensitySelect.appendChild(option);
-        });
-        
-        intensityHint.textContent = `{% trans "Available intensities for" %} ${activitySelect.options[activitySelect.selectedIndex].textContent}`;
-    }
-
-    activitySelect.addEventListener('change', updateIntensityOptions);
-    updateIntensityOptions();
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        if (unitImperial.checked) {
-            weightUnit.textContent = 'lbs';
-            document.getElementById('weight').min = '2';
-            document.getElementById('weight').max = '660';
-            document.getElementById('weight').value = '160';
-        } else {
-            weightUnit.textContent = 'kg';
-            document.getElementById('weight').min = '1';
-            document.getElementById('weight').max = '300';
-            document.getElementById('weight').value = '70';
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitImperial.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const formData = {
-            unit_system: document.querySelector('input[name="unit_system"]:checked').value,
-            weight: parseFloat(document.getElementById('weight').value),
-            activity: activitySelect.value,
-            intensity: intensitySelect.value,
-            duration: parseFloat(document.getElementById('duration').value)
-        };
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Calories Burned" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const caloriesBurnedEl = document.getElementById('caloriesBurned');
-            const activityDisplayEl = document.getElementById('activityDisplay');
-            const caloriesPerMinuteEl = document.getElementById('caloriesPerMinute');
-            const metValueEl = document.getElementById('metValue');
-            const durationDisplayEl = document.getElementById('durationDisplay');
-
-            if (caloriesBurnedEl) caloriesBurnedEl.textContent = Math.round(data.calories_burned).toLocaleString();
-            if (activityDisplayEl) {
-                activityDisplayEl.textContent = `${data.activity_name} - ${intensityNames[data.intensity] || data.intensity.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
-            }
-            if (caloriesPerMinuteEl) caloriesPerMinuteEl.textContent = data.calories_per_minute.toFixed(2);
-            if (metValueEl) metValueEl.textContent = data.met_value;
-            if (durationDisplayEl) durationDisplayEl.textContent = Math.round(data.duration_minutes) + ' {% trans "min" %}';
-
-            // Update duration breakdown
-            const duration15El = document.getElementById('duration15');
-            const duration30El = document.getElementById('duration30');
-            const duration45El = document.getElementById('duration45');
-            const duration60El = document.getElementById('duration60');
-            const duration90El = document.getElementById('duration90');
-            const duration120El = document.getElementById('duration120');
-
-            if (duration15El) duration15El.textContent = Math.round(data.durations['15min']).toLocaleString();
-            if (duration30El) duration30El.textContent = Math.round(data.durations['30min']).toLocaleString();
-            if (duration45El) duration45El.textContent = Math.round(data.durations['45min']).toLocaleString();
-            if (duration60El) duration60El.textContent = Math.round(data.durations['60min']).toLocaleString();
-            if (duration90El) duration90El.textContent = Math.round(data.durations['90min']).toLocaleString();
-            if (duration120El) duration120El.textContent = Math.round(data.durations['120min']).toLocaleString();
-
-            // Update result card color
-            const colors = {
-                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
-                'green': 'bg-gradient-to-br from-green-600 to-green-700',
-                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
-                'red': 'bg-gradient-to-br from-red-600 to-red-700'
-            };
-            const resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.activity_color] || 'bg-gradient-to-br from-blue-600 to-indigo-600');
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.duration_chart) {
-                    createDurationChart(data.chart_data.duration_chart);
-                }
-                if (data.chart_data.intensity_chart) {
-                    createIntensityChart(data.chart_data.intensity_chart);
-                }
-                if (data.chart_data.activity_chart) {
-                    createActivityChart(data.chart_data.activity_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createDurationChart(chartData) {
-        const ctx = document.getElementById('durationChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (durationChart) durationChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            durationChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${Math.round(context.parsed.y).toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value).toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating duration chart:', error);
-        }
-    }
-
-    function createIntensityChart(chartData) {
-        const ctx = document.getElementById('intensityChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (intensityChart) intensityChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            intensityChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${Math.round(context.parsed.y).toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value).toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating intensity chart:', error);
-        }
-    }
-
-    function createActivityChart(chartData) {
-        const ctx = document.getElementById('activityChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (activityChart) activityChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            activityChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${Math.round(context.parsed.x).toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: { color: '#f3f4f6' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value).toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating activity chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_Slow_0: '{% trans "Slow" %}',
+        trans_Moderate_1: '{% trans "Moderate" %}',
+        trans_Fast_2: '{% trans "Fast" %}',
+        trans_VeryFast_3: '{% trans "Very Fast" %}',
+        trans_Jogging_4: '{% trans "Jogging" %}',
+        trans_Leisure_5: '{% trans "Leisure" %}',
+        trans_Vigorous_6: '{% trans "Vigorous" %}',
+        trans_Racing_7: '{% trans "Racing" %}',
+        trans_Light_8: '{% trans "Light" %}',
+        trans_Hatha_9: '{% trans "Hatha" %}',
+        trans_Power_10: '{% trans "Power" %}',
+        trans_Ashtanga_11: '{% trans "Ashtanga" %}',
+        trans_Casual_12: '{% trans "Casual" %}',
+        trans_Competitive_13: '{% trans "Competitive" %}',
+        trans_Doubles_14: '{% trans "Doubles" %}',
+        trans_Singles_15: '{% trans "Singles" %}',
+        trans_Butterfly_16: '{% trans "Butterfly" %}',
+        trans_Availableintensities_17: '{% trans "Available intensities for" %}',
+        trans_CalculateCaloriesBur_18: '{% trans "Calculate Calories Burned" %}',
+        trans_Calculating_19: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_20: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_21: '{% trans "A network error occurred. Please try again." %}',
+        trans_min_22: '{% trans "min" %}',
+        trans_Errordisplayingresul_23: '{% trans "Error displaying results. Please try again." %}',
+        trans_calories_24: '{% trans "calories" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/calories_burned_calculator.js' %}"></script>
 {% endblock %}

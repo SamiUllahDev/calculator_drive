@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Annuity Calculator - Present & Future Value" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate annuity present value, future value, and payments. Plan retirement income with our free annuity calculator." %}{% endblock %}
 {% block meta_keywords %}{% trans "annuity calculator, present value annuity, future value annuity, retirement calculator, annuity payment" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/annuity_calculator.css' %}">
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -24,17 +25,7 @@
     <div class="max-w-7xl mx-auto">
 
         <!-- Breadcrumb -->
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Annuity Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header (BMI-style) -->
+<!-- Header (BMI-style) -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,126 +237,11 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const calcType = document.getElementById('calc_type');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    let breakdownChartInstance = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-
-    function formatInput(input) {
-        let value = input.value.replace(/[^\d.]/g, '');
-        let parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    ['payment', 'present_value', 'future_value'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() { formatInput(this); });
-    });
-
-    calcType.addEventListener('change', function() {
-        var type = this.value;
-        document.getElementById('paymentField').classList.toggle('hidden', type.startsWith('pmt'));
-        document.getElementById('pvField').classList.toggle('hidden', type !== 'pmt_pv');
-        document.getElementById('fvField').classList.toggle('hidden', type !== 'pmt_fv');
-    });
-
-    function showLoading(show) {
-        form.style.display = show ? 'none' : 'block';
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        form.style.display = 'block';
-        errorState.classList.remove('hidden');
-        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function buildChartFromBackend(canvasId, chartSpec) {
-        if (!chartSpec || !window.Chart) return;
-        var ctx = document.getElementById(canvasId);
-        if (!ctx) return;
-        if (breakdownChartInstance) breakdownChartInstance.destroy();
-        breakdownChartInstance = new Chart(ctx.getContext('2d'), {
-            type: chartSpec.type || 'doughnut',
-            data: chartSpec.data || {},
-            options: chartSpec.options || {}
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var btn = document.getElementById('calculateBtn');
-        if (btn) btn.disabled = true;
-        showLoading(true);
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify({
-                    calc_type: calcType.value,
-                    annuity_type: document.querySelector('input[name="annuity_type"]:checked').value,
-                    payment: document.getElementById('payment').value.replace(/,/g, ''),
-                    present_value: document.getElementById('present_value').value.replace(/,/g, ''),
-                    future_value: document.getElementById('future_value').value.replace(/,/g, ''),
-                    interest_rate: document.getElementById('interest_rate').value,
-                    periods: document.getElementById('periods').value
-                })
-            });
-            var data = await response.json();
-
-            if (!data.success) {
-                showError(data.error || '{% trans "An error occurred." %}');
-                return;
-            }
-
-            showLoading(false);
-            if (btn) btn.disabled = false;
-
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsSection').classList.remove('hidden');
-
-            document.getElementById('resultLabel').textContent = data.result_label;
-            document.getElementById('resultValue').textContent = formatCurrency(data.result);
-            document.getElementById('paymentResult').textContent = formatCurrency(data.summary.payment);
-            document.getElementById('totalPaymentsResult').textContent = formatCurrency(data.summary.total_payments);
-            document.getElementById('totalInterestResult').textContent = formatCurrency(data.summary.total_interest);
-            document.getElementById('periodsResult').textContent = data.summary.periods;
-
-            var tbody = document.getElementById('comparisonBody');
-            if (tbody && data.comparison) {
-                tbody.innerHTML = '';
-                data.comparison.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = row.periods === data.summary.periods ? 'bg-blue-50' : '';
-                    tr.innerHTML = '<td class="px-2 py-1">' + row.periods + '</td><td class="px-2 py-1 text-right">' + formatCurrency(row.pv) + '</td><td class="px-2 py-1 text-right">' + formatCurrency(row.fv) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (data.chart_data && data.chart_data.breakdown_chart) {
-                buildChartFromBackend('breakdownChart', data.chart_data.breakdown_chart);
-            }
-
-            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred." %}');
-            if (btn) btn.disabled = false;
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/annuity_calculator.js' %}"></script>
 {% endblock %}

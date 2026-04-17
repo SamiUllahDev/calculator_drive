@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Rental Property Calculator - Cash Flow & ROI Analysis" %}{% endblock %}
 {% block meta_description %}{% trans "Analyze rental property investments. Calculate cash flow, cap rate, NOI, and key investment metrics." %}{% endblock %}
 {% block meta_keywords %}{% trans "rental property calculator, cap rate, NOI, cash flow, rental income, investment" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/rental_property_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Rental Property Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate cash flow, cap rate, and NOI for rental properties.' %}">
 <meta property="og:type" content="website">
@@ -314,111 +315,12 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const resultsSection = document.getElementById('resultsSection');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const loadingState = document.getElementById('loadingState');
-    let breakdownChart = null;
-
-    function parseNum(id) {
-        const el = document.getElementById(id);
-        if (!el) return null;
-        const v = (el.value || '').replace(/,/g, '').replace(/\$/g, '').replace(/%/g, '').trim();
-        return v === '' ? null : parseFloat(v);
-    }
-
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-    }
-
-    function showError(msg) {
-        errorMessage.textContent = msg || '{% trans "Please check your inputs." %}';
-        errorState.classList.remove('hidden');
-        initialState.classList.remove('hidden');
-        resultsSection.classList.add('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        document.getElementById('calculateBtn').disabled = true;
-        document.getElementById('calculateBtnText').textContent = '{% trans "Calculating..." %}';
-        loadingState.classList.remove('hidden');
-        initialState.classList.add('hidden');
-        resultsSection.classList.add('hidden');
-
-        const payload = {
-            property_price: parseNum('property_price') || 0,
-            monthly_rent: parseNum('monthly_rent') ?? 0,
-            monthly_expenses: parseNum('monthly_expenses') ?? 0,
-            vacancy_rate: parseNum('vacancy_rate') ?? 5,
-            monthly_mortgage: parseNum('monthly_mortgage') ?? 0
-        };
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                showError(data.error || '{% trans "An error occurred. Please try again." %}');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            document.getElementById('annual_cash_flow').textContent = formatCurrency(data.annual_cash_flow);
-            document.getElementById('monthly_cash_flow').textContent = formatCurrency(data.monthly_cash_flow);
-            document.getElementById('cap_rate').textContent = data.cap_rate + '%';
-            document.getElementById('gross_yield').textContent = data.gross_yield + '%';
-            document.getElementById('noi').textContent = formatCurrency(data.noi);
-            document.getElementById('effective_income').textContent = formatCurrency(data.effective_annual_income);
-
-            if (breakdownChart) breakdownChart.destroy();
-            const chartConfig = data.chart_data && data.chart_data.breakdown_chart ? data.chart_data.breakdown_chart : {
-                type: 'bar',
-                data: {
-                    labels: ['Effective Income', 'Operating Expenses', 'Mortgage', 'Net Cash Flow'],
-                    datasets: [{
-                        label: 'Annual ($)',
-                        data: [
-                            data.effective_annual_income,
-                            -data.annual_expenses,
-                            -(data.monthly_mortgage * 12),
-                            data.annual_cash_flow
-                        ],
-                        backgroundColor: ['rgba(37, 99, 235, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(5, 150, 105, 0.8)'],
-                        borderColor: ['#2563eb', '#ef4444', '#f59e0b', '#059669'],
-                        borderWidth: 1
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-            };
-            breakdownChart = new Chart(document.getElementById('breakdownChart').getContext('2d'), {
-                type: chartConfig.type,
-                data: chartConfig.data,
-                options: Object.assign({ responsive: true, maintainAspectRatio: false }, chartConfig.options || {})
-            });
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred. Please try again." %}');
-        } finally {
-            document.getElementById('calculateBtn').disabled = false;
-            document.getElementById('calculateBtnText').textContent = '{% trans "Calculate" %}';
-            loadingState.classList.add('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Pleasecheckyourinput_0: '{% trans "Please check your inputs." %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Calculate_4: '{% trans "Calculate" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/rental_property_calculator.js' %}"></script>
 {% endblock %}

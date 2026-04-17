@@ -23,16 +23,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 # Use environment variable in production: export SECRET_KEY='your-secret-key'
 # Generate a new key: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&rmp=')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'development-fallback-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&rmp=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
 DEBUG = False
+
 # Security: Set allowed hosts in production
 ALLOWED_HOSTS = [
     'calculatordrive.com',
     'www.calculatordrive.com',
-   
 ]
 
 INTERNAL_IPS = [
@@ -72,7 +72,7 @@ if DEBUG:
     INSTALLED_APPS += ['tailwind', 'theme']
     TAILWIND_APP_NAME = 'theme'
     try:
-        import django_extensions  # noqa: F401
+        import django_extensions  # type: ignore  # noqa: F401
         INSTALLED_APPS += ['django_extensions']
     except ImportError:
         pass
@@ -316,7 +316,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'samiullahkhialb@gmail.com'
-EMAIL_HOST_PASSWORD = 'ifaw nvpq jnpq aihb'  # Gmail App Password
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # Gmail App Password
 DEFAULT_FROM_EMAIL = 'noreply@CalculatorDrive.com'
 SERVER_EMAIL = 'noreply@CalculatorDrive.com'
 

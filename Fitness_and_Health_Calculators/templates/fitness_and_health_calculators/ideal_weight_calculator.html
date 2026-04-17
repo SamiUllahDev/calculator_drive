@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Calculate your ideal body weight using multiple formulas (Robinson, Miller, Devine, Hamwi). Get personalized weight recommendations." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/ideal_weight_calculator.css' %}">
 <meta name="keywords" content="{% trans 'ideal weight calculator, ideal body weight, healthy weight, weight calculator' %}">
 <meta name="robots" content="index, follow">
 
@@ -32,19 +33,7 @@
 {% block content %}
 <div class="min-h-screen bg-gray-50">
     <!-- Breadcrumb -->
-    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
-                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="flex-shrink-0"><a href="{% url 'fitness_and_health_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Health Calculators" %}</a></li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Ideal Weight Calculator" %}</li>
-            </ol>
-        </div>
-    </nav>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <!-- Header -->
         <header class="mb-6 lg:mb-8">
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Ideal Weight Calculator" %}</h1>
@@ -379,87 +368,9 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const resultsState = document.getElementById('resultsState');
-    
-    // Unit system toggle
-    document.querySelectorAll('input[name="unit_system"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.value === 'metric') {
-                document.getElementById('heightMetric').classList.remove('hidden');
-                document.getElementById('heightImperial').classList.add('hidden');
-            } else {
-                document.getElementById('heightMetric').classList.add('hidden');
-                document.getElementById('heightImperial').classList.remove('hidden');
-            }
-        });
-    });
-    
-    function showState(state) {
-        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
-        state.classList.remove('hidden');
-    }
-    
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        form.reset();
-        document.getElementById('height').value = '170';
-        document.getElementById('height_ft').value = '5';
-        document.getElementById('height_in').value = '10';
-        showState(initialState);
-    });
-    
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        showState(loadingState);
-        
-        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
-        const formData = {
-            unit_system: unitSystem,
-            gender: document.querySelector('input[name="gender"]:checked').value,
-            height: parseFloat(document.getElementById('height').value) || parseFloat(document.getElementById('height_ft').value),
-            height_in: unitSystem === 'imperial' ? parseFloat(document.getElementById('height_in').value) : 0
-        };
-        
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                document.getElementById('errorMessage').textContent = data.error;
-                showState(errorState);
-                return;
-            }
-            
-            // Update results
-            const unit = data.unit;
-            document.getElementById('averageWeight').innerHTML = data.formulas.average + ' <span id="weightUnit">' + unit + '</span>';
-            document.getElementById('robinsonWeight').innerHTML = data.formulas.robinson + ' <span class="text-sm unit">' + unit + '</span>';
-            document.getElementById('millerWeight').innerHTML = data.formulas.miller + ' <span class="text-sm unit">' + unit + '</span>';
-            document.getElementById('devineWeight').innerHTML = data.formulas.devine + ' <span class="text-sm unit">' + unit + '</span>';
-            document.getElementById('hamwiWeight').innerHTML = data.formulas.hamwi + ' <span class="text-sm unit">' + unit + '</span>';
-            document.getElementById('minWeight').innerHTML = data.bmi_range.min + ' <span class="text-sm unit">' + unit + '</span>';
-            document.getElementById('maxWeight').innerHTML = data.bmi_range.max + ' <span class="text-sm unit">' + unit + '</span>';
-            
-            showState(resultsState);
-            
-            if (window.innerWidth < 1280) {
-                resultsState.scrollIntoView({ behavior: 'smooth' });
-            }
-            
-        } catch (err) {
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-            showState(errorState);
-        }
-    });
-});
+window.djangoContext = {
+        trans_Anetworkerroroccurre_0: '{% trans "A network error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/ideal_weight_calculator.js' %}"></script>
 {% endblock %}

@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "cash back calculator, rewards calculator, credit card cash back, rebate calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/cash_back_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -207,138 +208,19 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var comparisonChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-}
-
-function getVal(id) {
-    var el = document.getElementById(id);
-    return (el && el.value ? el.value.replace(/,/g, '').trim() : '') || '0';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-    function createComparisonChart(chartData) {
-        var canvas = document.getElementById('comparisonChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v); };
-        comparisonChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            purchase_amount: getVal('purchase_amount'),
-            cash_back_rate: getVal('cash_back_rate')
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (err) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            document.getElementById('heroLabel').textContent = '{% trans "Cash Back" %}';
-            document.getElementById('heroValue').textContent = formatCurrency(s.cash_back);
-            document.getElementById('heroDetail').textContent = (s.cash_back_rate != null ? s.cash_back_rate : 0) + '% {% trans "on" %} ' + formatCurrency(s.purchase_amount);
-
-            document.getElementById('detailPurchase').textContent = formatCurrency(s.purchase_amount);
-            document.getElementById('detailRate').textContent = (s.cash_back_rate != null ? s.cash_back_rate : 0) + '%';
-            document.getElementById('detailCashBack').textContent = formatCurrency(s.cash_back);
-            document.getElementById('detailNetCost').textContent = formatCurrency(s.net_cost);
-
-            var tbody = document.getElementById('comparisonBody');
-            tbody.innerHTML = '';
-            if (data.comparison) {
-                data.comparison.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = row.rate === s.cash_back_rate ? 'bg-emerald-50' : 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-3 py-2 font-medium">' + row.rate + '%</td><td class="px-3 py-2 text-right text-emerald-600">' + formatCurrency(row.cash_back) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.net_cost) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.comparison_chart) createComparisonChart(data.chart_data.comparison_chart);
-            }
-
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_CashBack_9: '{% trans "Cash Back" %}',
+        trans_on_10: '{% trans "on" %}',
+        trans_Networkorservererror_11: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/cash_back_calculator.js' %}"></script>
 {% endblock %}

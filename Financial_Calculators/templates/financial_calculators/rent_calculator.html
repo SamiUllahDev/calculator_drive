@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "rent calculator, rent affordability, how much rent can I afford, 30 percent rule" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/rent_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -296,148 +297,18 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var rangesChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Affordable Rent" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Affordable Rent" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createRangesChart(chartData) {
-        var canvas = document.getElementById('rangesChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (rangesChart) rangesChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
-        rangesChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            monthly_income: (document.getElementById('monthly_income').value || '').replace(/,/g, ''),
-            additional_income: (document.getElementById('additional_income').value || '').replace(/,/g, ''),
-            car_payment: (document.getElementById('car_payment').value || '').replace(/,/g, ''),
-            student_loans: (document.getElementById('student_loans').value || '').replace(/,/g, ''),
-            credit_card_payments: (document.getElementById('credit_cards').value || '').replace(/,/g, ''),
-            other_debt: (document.getElementById('other_debts').value || '').replace(/,/g, ''),
-            rent_percent: document.getElementById('budget_rule').value,
-            utilities: (document.getElementById('utilities').value || '').replace(/,/g, '')
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            var heroVal = document.getElementById('heroValue');
-            var heroSub = document.getElementById('heroSub');
-            if (heroVal) heroVal.textContent = formatCurrency(s.rent_custom != null ? s.rent_custom : s.recommended_rent);
-            if (heroSub) heroSub.textContent = (s.custom_percent != null ? s.custom_percent : 30) + '% {% trans "of gross monthly income" %}';
-
-            document.getElementById('detailGrossMonthly').textContent = formatCurrency(s.gross_monthly);
-            document.getElementById('detailTotalDebt').textContent = formatCurrency(s.total_debt);
-            document.getElementById('detailAfterRent').textContent = formatCurrency(s.after_rent);
-            document.getElementById('detailUtilities').textContent = formatCurrency(s.utilities);
-
-            var tbody = document.getElementById('rentRangesBody');
-            if (tbody && data.rent_ranges) {
-                tbody.innerHTML = '';
-                data.rent_ranges.forEach(function(r) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-3 py-2 text-gray-700">' + (r.label || r.percent + '%') + '</td><td class="px-3 py-2 text-right font-medium">' + formatCurrency(r.monthly) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.ranges_chart) createRangesChart(data.chart_data.ranges_chart);
-            }
-
-            initialState.classList.add('hidden');
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateAffordableR_1: '{% trans "Calculate Affordable Rent" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_ofgrossmonthlyincome_9: '{% trans "of gross monthly income" %}',
+        trans_Networkorservererror_10: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/rent_calculator.js' %}"></script>
 {% endblock %}

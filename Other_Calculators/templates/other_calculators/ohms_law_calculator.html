@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Ohm's Law Calculator - Calculate Voltage, Current, Resistance & Power Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Use our free Ohm's law calculator to quickly find voltage, current, resistance, and power. Just enter two values and get instant results with step-by-step solutions and charts. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Need to find voltage, current, or resistance? Use our free Ohm's law calculator — enter two values, get instant answers with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/ohms_law_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Ohm's Law Calculator - Calculate Voltage, Current, Resistance & Power Free" %}","description":"{% trans "Free Ohm s law calculator. Enter any two electrical values to find the other two instantly. Supports volts, amps, ohms, watts with step-by-step solutions and visual charts." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3250"},"featureList":["{% trans 'Calculate voltage from current and resistance' %}","{% trans 'Calculate current from voltage and resistance' %}","{% trans 'Calculate resistance from voltage and current' %}","{% trans 'Calculate power three ways (V×I, I²×R, V²/R)' %}","{% trans 'Unit conversion for volts, amps, ohms, watts' %}","{% trans 'Step-by-step Ohm s law solutions' %}","{% trans 'Interactive charts and visualizations' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Ohm's Law Calculator - Calculate Voltage, Current, Resistance & Power Free" %}',"description":'{% trans "Free Ohm s law calculator. Enter any two electrical values to find the other two instantly. Supports volts, amps, ohms, watts with step-by-step solutions and visual charts." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3250"},"featureList":["{% trans 'Calculate voltage from current and resistance' %}","{% trans 'Calculate current from voltage and resistance' %}","{% trans 'Calculate resistance from voltage and current' %}","{% trans 'Calculate power three ways (V×I, I²×R, V²/R)' %}","{% trans 'Unit conversion for volts, amps, ohms, watts' %}","{% trans 'Step-by-step Ohm s law solutions' %}","{% trans 'Interactive charts and visualizations' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -198,120 +199,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctSel = document.getElementById('calc-type');
-    ctSel.addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('power_mode').addEventListener('change', function() {
-        ['pw-vi','pw-ir','pw-vr'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
-        const m = {'from_voltage_current':'pw-vi','from_current_resistance':'pw-ir','from_voltage_resistance':'pw-vr'};
-        document.getElementById(m[this.value])?.classList.remove('hidden');
-    });
-
-    document.getElementById('ohmsForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-amber-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                const cc = document.getElementById('chartCard'); cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 6}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'voltage') {
-        d.current = parseFloat(document.getElementById('v_i').value);
-        d.current_unit = document.getElementById('v_iu').value;
-        d.resistance = parseFloat(document.getElementById('v_r').value);
-        d.resistance_unit = document.getElementById('v_ru').value;
-        d.result_unit = document.getElementById('v_resu').value;
-    } else if (ct === 'current') {
-        d.voltage = parseFloat(document.getElementById('c_v').value);
-        d.voltage_unit = document.getElementById('c_vu').value;
-        d.resistance = parseFloat(document.getElementById('c_r').value);
-        d.resistance_unit = document.getElementById('c_ru').value;
-        d.result_unit = document.getElementById('c_resu').value;
-    } else if (ct === 'resistance') {
-        d.voltage = parseFloat(document.getElementById('r_v').value);
-        d.voltage_unit = document.getElementById('r_vu').value;
-        d.current = parseFloat(document.getElementById('r_i').value);
-        d.current_unit = document.getElementById('r_iu').value;
-        d.result_unit = document.getElementById('r_resu').value;
-    } else if (ct === 'power') {
-        const pm = document.getElementById('power_mode').value;
-        d.power_mode = pm;
-        d.result_unit = document.getElementById('p_resu').value;
-        if (pm === 'from_voltage_current') {
-            d.voltage = parseFloat(document.getElementById('pvi_v').value);
-            d.voltage_unit = document.getElementById('pvi_vu').value;
-            d.current = parseFloat(document.getElementById('pvi_i').value);
-            d.current_unit = document.getElementById('pvi_iu').value;
-        } else if (pm === 'from_current_resistance') {
-            d.current = parseFloat(document.getElementById('pir_i').value);
-            d.current_unit = document.getElementById('pir_iu').value;
-            d.resistance = parseFloat(document.getElementById('pir_r').value);
-            d.resistance_unit = document.getElementById('pir_ru').value;
-        } else {
-            d.voltage = parseFloat(document.getElementById('pvr_v').value);
-            d.voltage_unit = document.getElementById('pvr_vu').value;
-            d.resistance = parseFloat(document.getElementById('pvr_r').value);
-            d.resistance_unit = document.getElementById('pvr_ru').value;
-        }
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/ohms_law_calculator.js' %}"></script>
 {% endblock %}

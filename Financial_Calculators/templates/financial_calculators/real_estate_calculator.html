@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Real Estate Investment Calculator - ROI & Cash Flow Analysis" %}{% endblock %}
 {% block meta_description %}{% trans "Complete real estate investment analysis with ROI, cash flow, cap rate, and rent vs buy comparison." %}{% endblock %}
 {% block meta_keywords %}{% trans "real estate calculator, investment calculator, ROI, cap rate, cash flow, rent vs buy" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/real_estate_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Real Estate Investment Calculator' %}">
 <meta property="og:description" content="{% trans 'Analyze ROI, cash flow, cap rate, and compare rent vs buy.' %}">
 <meta property="og:type" content="website">
@@ -418,171 +419,12 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const panelInvestment = document.getElementById('panelInvestment');
-    const panelRentVsBuy = document.getElementById('panelRentVsBuy');
-    const initialState = document.getElementById('initialState');
-    const resultsInvestment = document.getElementById('resultsInvestment');
-    const resultsRentVsBuy = document.getElementById('resultsRentVsBuy');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const loadingState = document.getElementById('loadingState');
-    let equityChart = null;
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            if (this.value === 'rent_vs_buy') {
-                panelInvestment.classList.add('hidden');
-                panelRentVsBuy.classList.remove('hidden');
-            } else {
-                panelInvestment.classList.remove('hidden');
-                panelRentVsBuy.classList.add('hidden');
-            }
-            resultsInvestment.classList.add('hidden');
-            resultsRentVsBuy.classList.add('hidden');
-            initialState.classList.remove('hidden');
-        });
-    });
-
-    function parseNum(id) {
-        const el = document.getElementById(id);
-        if (!el) return null;
-        const v = (el.value || '').replace(/,/g, '').replace(/\$/g, '').replace(/%/g, '').trim();
-        return v === '' ? null : parseFloat(v);
-    }
-
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-    }
-
-    function showError(msg) {
-        errorMessage.textContent = msg || '{% trans "Please check your inputs." %}';
-        errorState.classList.remove('hidden');
-        initialState.classList.remove('hidden');
-        resultsInvestment.classList.add('hidden');
-        resultsRentVsBuy.classList.add('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        document.getElementById('calculateBtn').disabled = true;
-        document.getElementById('calculateBtnText').textContent = '{% trans "Calculating..." %}';
-        loadingState.classList.remove('hidden');
-        initialState.classList.add('hidden');
-        resultsInvestment.classList.add('hidden');
-        resultsRentVsBuy.classList.add('hidden');
-
-        const calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        let payload = { calc_type: calcType };
-
-        if (calcType === 'investment_analysis') {
-            payload = {
-                calc_type: 'investment_analysis',
-                purchase_price: parseNum('purchase_price') || 0,
-                down_payment_percent: parseNum('down_payment_percent') ?? 20,
-                loan_term: parseInt(document.getElementById('loan_term').value, 10) || 30,
-                interest_rate: parseNum('interest_rate') ?? 7,
-                closing_costs: parseNum('closing_costs') ?? 0,
-                repair_costs: parseNum('repair_costs') ?? 0,
-                monthly_rent: parseNum('monthly_rent') ?? 0,
-                other_income: parseNum('other_income') ?? 0,
-                vacancy_rate: parseNum('vacancy_rate') ?? 5,
-                property_tax: parseNum('property_tax') ?? 0,
-                insurance: parseNum('insurance') ?? 0,
-                hoa: parseNum('hoa') ?? 0,
-                utilities: parseNum('utilities') ?? 0,
-                maintenance_percent: parseNum('maintenance_percent') ?? 5,
-                management_percent: parseNum('management_percent') ?? 0,
-                appreciation_rate: parseNum('appreciation_rate') ?? 3,
-                rent_increase_rate: parseNum('rent_increase_rate') ?? 2
-            };
-        } else {
-            payload = {
-                calc_type: 'rent_vs_buy',
-                home_price: parseNum('rvb_home_price') || 0,
-                down_payment_percent: parseNum('rvb_down_payment_percent') ?? 20,
-                interest_rate: parseNum('rvb_interest_rate') ?? 7,
-                property_tax_rate: parseNum('rvb_property_tax_rate') ?? 1.2,
-                insurance: parseNum('rvb_insurance') ?? 1200,
-                maintenance_rate: parseNum('rvb_maintenance_rate') ?? 1,
-                appreciation_rate: parseNum('rvb_appreciation_rate') ?? 3,
-                monthly_rent: parseNum('rvb_monthly_rent') || 0,
-                rent_increase_rate: parseNum('rvb_rent_increase_rate') ?? 3,
-                investment_return: parseNum('rvb_investment_return') ?? 7,
-                years: parseInt(document.getElementById('rvb_years').value, 10) || 10
-            };
-        }
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                showError(data.error || '{% trans "An error occurred. Please try again." %}');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            if (data.calc_type === 'investment_analysis') {
-                document.getElementById('annual_cash_flow').textContent = formatCurrency(data.analysis.annual_cash_flow);
-                document.getElementById('monthly_cash_flow').textContent = formatCurrency(data.analysis.monthly_cash_flow);
-                document.getElementById('cap_rate').textContent = data.analysis.cap_rate + '%';
-                document.getElementById('cash_on_cash').textContent = data.analysis.cash_on_cash_return + '%';
-                document.getElementById('noi').textContent = formatCurrency(data.analysis.noi);
-                document.getElementById('total_investment').textContent = formatCurrency(data.purchase.total_cash_needed);
-                const tbody = document.getElementById('projection_table');
-                tbody.innerHTML = '';
-                data.projections.forEach(function(proj) {
-                    const row = document.createElement('tr');
-                    row.className = 'border-b border-gray-100';
-                    row.innerHTML = '<td class="py-2">' + proj.year + '</td><td class="text-right">' + formatCurrency(proj.property_value) + '</td><td class="text-right">' + formatCurrency(proj.cash_flow) + '</td><td class="text-right">' + formatCurrency(proj.equity) + '</td>';
-                    tbody.appendChild(row);
-                });
-                if (equityChart) equityChart.destroy();
-                const chartConfig = (data.chart_data && data.chart_data.equity_chart) ? data.chart_data.equity_chart : {
-                    type: 'line',
-                    data: {
-                        labels: data.projections.map(function(p) { return 'Year ' + p.year; }),
-                        datasets: [
-                            { label: 'Equity', data: data.projections.map(function(p) { return p.equity; }), borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true, tension: 0.4 },
-                            { label: 'Cumulative Cash Flow', data: data.projections.map(function(p) { return p.cumulative_cash_flow; }), borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.1)', fill: true, tension: 0.4 }
-                        ]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
-                };
-                equityChart = new Chart(document.getElementById('equityChart').getContext('2d'), {
-                    type: chartConfig.type,
-                    data: chartConfig.data,
-                    options: Object.assign({ responsive: true, maintainAspectRatio: false }, chartConfig.options || {})
-                });
-                resultsInvestment.classList.remove('hidden');
-            } else {
-                document.getElementById('rvb_recommendation').textContent = data.final_analysis.recommendation;
-                document.getElementById('rvb_difference').textContent = formatCurrency(Math.abs(data.final_analysis.difference));
-                document.getElementById('rvb_buyer_worth').textContent = formatCurrency(data.final_analysis.buyer_net_worth);
-                document.getElementById('rvb_renter_worth').textContent = formatCurrency(data.final_analysis.renter_net_worth);
-                const card = document.getElementById('rvbResultCard');
-                card.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white text-center ' + (data.final_analysis.recommendation.indexOf('Buying') >= 0 ? 'from-blue-600 to-blue-700' : 'from-amber-500 to-amber-600');
-                resultsRentVsBuy.classList.remove('hidden');
-            }
-            (data.calc_type === 'investment_analysis' ? resultsInvestment : resultsRentVsBuy).scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred. Please try again." %}');
-        } finally {
-            document.getElementById('calculateBtn').disabled = false;
-            document.getElementById('calculateBtnText').textContent = '{% trans "Analyze Investment" %}';
-            loadingState.classList.add('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Pleasecheckyourinput_0: '{% trans "Please check your inputs." %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_AnalyzeInvestment_4: '{% trans "Analyze Investment" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/real_estate_calculator.js' %}"></script>
 {% endblock %}

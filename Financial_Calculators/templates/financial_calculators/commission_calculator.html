@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Commission Calculator - Calculate Sales Commission" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate sales commissions with simple, tiered, base plus commission, and draw against structures. Find sales needed for target earnings." %}{% endblock %}
 {% block meta_keywords %}{% trans "commission calculator, sales commission, tiered commission, base salary plus commission, sales calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/commission_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Commission Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate sales commissions with various compensation structures.' %}">
 <meta property="og:type" content="website">
@@ -17,18 +18,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Commission Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <div class="text-center mb-6 sm:mb-8">
+<div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-indigo-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -291,166 +281,28 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var modeBtns = document.querySelectorAll('.calc-mode-btn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var breakdownChartInstance = null;
-
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(num);
-    }
-
-    modeBtns.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            modeBtns.forEach(function(b) {
-                b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
-                b.classList.add('border-gray-200', 'text-gray-600');
-            });
-            this.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
-            this.classList.remove('border-gray-200', 'text-gray-600');
-            var mode = this.getAttribute('data-mode');
-            document.getElementById('calc_type').value = mode;
-            document.getElementById('simpleFields').classList.toggle('hidden', mode !== 'simple');
-            document.getElementById('tieredFields').classList.toggle('hidden', mode !== 'tiered');
-            document.getElementById('baseFields').classList.toggle('hidden', mode !== 'base_plus_commission');
-            document.getElementById('reverseFields').classList.toggle('hidden', mode !== 'reverse');
-        });
-    });
-
-    ['sales_amount', 'sales_amount_tiered', 'base_salary', 'sales_amount_base', 'quota', 'desired_commission'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('blur', function() {
-            var v = parseNumber(this.value);
-            if (!isNaN(v)) this.value = v.toLocaleString('en-US', { maximumFractionDigits: 0 });
-        });
-    });
-
-    function showLoading(show) {
-        form.style.display = show ? 'none' : 'block';
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Commission" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        form.style.display = 'block';
-        errorState.classList.remove('hidden');
-        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate Commission" %}';
-    }
-
-    function buildChart(canvasId, chartSpec) {
-        if (!chartSpec || !window.Chart) return;
-        var ctx = document.getElementById(canvasId);
-        if (!ctx) return;
-        if (breakdownChartInstance) breakdownChartInstance.destroy();
-        breakdownChartInstance = new Chart(ctx.getContext('2d'), {
-            type: chartSpec.type || 'doughnut',
-            data: chartSpec.data || {},
-            options: chartSpec.options || {}
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var btn = document.getElementById('calculateBtn');
-        if (btn) btn.disabled = true;
-        showLoading(true);
-
-        var calcType = document.getElementById('calc_type').value;
-        var data = { calc_type: calcType };
-        if (calcType === 'simple') {
-            data.sales_amount = parseNumber(document.getElementById('sales_amount').value);
-            data.commission_rate = parseFloat(document.getElementById('commission_rate').value) || 0;
-        } else if (calcType === 'tiered') {
-            data.sales_amount = parseNumber(document.getElementById('sales_amount_tiered').value);
-        } else if (calcType === 'base_plus_commission') {
-            data.base_salary = parseNumber(document.getElementById('base_salary').value);
-            data.sales_amount = parseNumber(document.getElementById('sales_amount_base').value);
-            data.commission_rate = parseFloat(document.getElementById('commission_rate_base').value) || 0;
-            data.quota = parseNumber(document.getElementById('quota').value);
-        } else if (calcType === 'reverse') {
-            data.desired_commission = parseNumber(document.getElementById('desired_commission').value);
-            data.commission_rate = parseFloat(document.getElementById('commission_rate_reverse').value) || 0;
-        }
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(data)
-            });
-            var result = await response.json();
-
-            if (!result.success) {
-                showError(result.error || '{% trans "An error occurred." %}');
-                if (btn) btn.disabled = false;
-                return;
-            }
-            showLoading(false);
-            if (btn) btn.disabled = false;
-
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsState').classList.remove('hidden');
-
-            var breakdown = document.getElementById('breakdownContent');
-            var tieredDiv = document.getElementById('tieredBreakdown');
-            var formulaWrapper = document.getElementById('formulaWrapper');
-            var chartWrapper = document.getElementById('chartWrapper');
-            tieredDiv.classList.add('hidden');
-            formulaWrapper.classList.add('hidden');
-
-            if (result.calc_type === 'simple') {
-                document.getElementById('resultLabel').textContent = '{% trans "Your Commission" %}';
-                document.getElementById('mainResult').textContent = formatCurrency(result.commission);
-                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Sales Amount" %}:</span><span class="font-medium">' + formatCurrency(result.sales_amount) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Commission Rate" %}:</span><span class="font-medium">' + result.commission_rate + '%</span></div><div class="flex justify-between border-t pt-2"><span class="text-gray-600">{% trans "Net to Company" %}:</span><span class="font-medium">' + formatCurrency(result.net_to_company) + '</span></div>';
-                document.getElementById('formulaDisplay').textContent = result.formula || '';
-                formulaWrapper.classList.remove('hidden');
-            } else if (result.calc_type === 'tiered') {
-                document.getElementById('resultLabel').textContent = '{% trans "Total Commission" %}';
-                document.getElementById('mainResult').textContent = formatCurrency(result.total_commission);
-                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Sales Amount" %}:</span><span class="font-medium">' + formatCurrency(result.sales_amount) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Effective Rate" %}:</span><span class="font-medium">' + result.effective_rate + '%</span></div>';
-                tieredDiv.classList.remove('hidden');
-                var table = document.getElementById('tieredTable');
-                var html = '<table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left">{% trans "Tier" %}</th><th class="px-3 py-2 text-right">{% trans "Amount" %}</th><th class="px-3 py-2 text-right">{% trans "Rate" %}</th><th class="px-3 py-2 text-right">{% trans "Commission" %}</th></tr></thead><tbody>';
-                (result.breakdown || []).forEach(function(tier) {
-                    html += '<tr class="border-t"><td class="px-3 py-2">' + tier.range + '</td><td class="px-3 py-2 text-right">' + formatCurrency(tier.amount) + '</td><td class="px-3 py-2 text-right">' + tier.rate + '%</td><td class="px-3 py-2 text-right font-medium">' + formatCurrency(tier.commission) + '</td></tr>';
-                });
-                html += '</tbody></table>';
-                table.innerHTML = html;
-            } else if (result.calc_type === 'base_plus_commission') {
-                document.getElementById('resultLabel').textContent = '{% trans "Total Earnings" %}';
-                document.getElementById('mainResult').textContent = formatCurrency(result.total_earnings);
-                var bonusLine = result.bonus > 0 ? '<div class="flex justify-between"><span class="text-gray-600">{% trans "Bonus" %}:</span><span class="font-medium text-green-600">' + formatCurrency(result.bonus) + '</span></div>' : '';
-                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Base Salary" %}:</span><span class="font-medium">' + formatCurrency(result.base_salary) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Commission" %} (' + result.commission_rate + '%):</span><span class="font-medium">' + formatCurrency(result.commission) + '</span></div>' + bonusLine + '<div class="flex justify-between border-t pt-2"><span class="text-gray-600">{% trans "Quota Achievement" %}:</span><span class="font-medium ' + (result.quota_achievement >= 100 ? 'text-green-600' : 'text-yellow-600') + '">' + result.quota_achievement + '%</span></div>';
-            } else if (result.calc_type === 'reverse') {
-                document.getElementById('resultLabel').textContent = '{% trans "Sales Needed" %}';
-                document.getElementById('mainResult').textContent = formatCurrency(result.sales_needed);
-                breakdown.innerHTML = '<div class="flex justify-between"><span class="text-gray-600">{% trans "Desired Commission" %}:</span><span class="font-medium">' + formatCurrency(result.desired_commission) + '</span></div><div class="flex justify-between"><span class="text-gray-600">{% trans "Commission Rate" %}:</span><span class="font-medium">' + result.commission_rate + '%</span></div>';
-                document.getElementById('formulaDisplay').textContent = result.formula || '';
-                formulaWrapper.classList.remove('hidden');
-            }
-
-            if (result.chart_data && result.chart_data.breakdown_chart) {
-                chartWrapper.classList.remove('hidden');
-                buildChart('breakdownChart', result.chart_data.breakdown_chart);
-            } else {
-                chartWrapper.classList.add('hidden');
-            }
-
-            document.getElementById('resultsState').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred. Please try again." %}');
-            if (btn) btn.disabled = false;
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateCommission_1: '{% trans "Calculate Commission" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_YourCommission_5: '{% trans "Your Commission" %}',
+        trans_SalesAmount_6: '{% trans "Sales Amount" %}',
+        trans_CommissionRate_7: '{% trans "Commission Rate" %}',
+        trans_NettoCompany_8: '{% trans "Net to Company" %}',
+        trans_TotalCommission_9: '{% trans "Total Commission" %}',
+        trans_EffectiveRate_11: '{% trans "Effective Rate" %}',
+        trans_Tier_12: '{% trans "Tier" %}',
+        trans_Amount_13: '{% trans "Amount" %}',
+        trans_Rate_14: '{% trans "Rate" %}',
+        trans_Commission_15: '{% trans "Commission" %}',
+        trans_TotalEarnings_16: '{% trans "Total Earnings" %}',
+        trans_Bonus_17: '{% trans "Bonus" %}',
+        trans_BaseSalary_18: '{% trans "Base Salary" %}',
+        trans_QuotaAchievement_20: '{% trans "Quota Achievement" %}',
+        trans_SalesNeeded_21: '{% trans "Sales Needed" %}',
+        trans_DesiredCommission_22: '{% trans "Desired Commission" %}',
+        trans_AnerroroccurredPleas_24: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/commission_calculator.js' %}"></script>
 {% endblock %}

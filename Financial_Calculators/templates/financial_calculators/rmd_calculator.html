@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Calculate your Required Minimum Distribution (RMD) from Traditional IRAs, 401(k)s, and other retirement accounts. Updated for SECURE Act 2.0 rules." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/rmd_calculator.css' %}">
 <meta name="keywords" content="{% trans 'RMD calculator, required minimum distribution, IRA RMD, 401k RMD, retirement distribution, SECURE Act 2.0' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'RMD Calculator' %}">
@@ -44,17 +45,7 @@
     <div class="max-w-7xl mx-auto">
 
         <!-- Breadcrumb -->
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "RMD Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header (BMI-style) -->
+<!-- Header (BMI-style) -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,269 +330,20 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var resultsSection = document.getElementById('resultsSection');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var rmdChart = null;
-    var balanceChart = null;
-
-    var spouseCb = document.getElementById('spouse_sole_beneficiary');
-    if (spouseCb) {
-        spouseCb.addEventListener('change', function() {
-            var spouseAgeField = document.getElementById('spouseAgeField');
-            if (spouseAgeField) {
-                if (this.checked) spouseAgeField.classList.remove('hidden');
-                else spouseAgeField.classList.add('hidden');
-            }
-        });
-    }
-
-    var birthYearEl = document.getElementById('birth_year');
-    if (birthYearEl) {
-        birthYearEl.addEventListener('change', function() {
-            var birthYear = parseInt(this.value, 10);
-            var infoEl = document.getElementById('rmdStartInfo');
-            if (!infoEl) return;
-            if (birthYear <= 1950) {
-                infoEl.textContent = '{% trans "RMD start age: 72 (already required)" %}';
-            } else if (birthYear <= 1959) {
-                infoEl.textContent = '{% trans "RMD start age: 73 (SECURE Act 2.0)" %}';
-            } else {
-                infoEl.textContent = '{% trans "RMD start age: 75 (SECURE Act 2.0)" %}';
-            }
-        });
-    }
-
-    var balanceInput = document.getElementById('account_balance');
-    if (balanceInput) {
-        balanceInput.addEventListener('blur', function() {
-            var value = parseFloat(this.value.replace(/[^0-9.-]/g, ''));
-            if (!isNaN(value)) {
-                this.value = value.toLocaleString('en-US', { maximumFractionDigits: 0 });
-            }
-        });
-    }
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function showState(state) {
-        if (initialState) initialState.classList.add('hidden');
-        if (loadingState) loadingState.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (resultsSection) resultsSection.classList.add('hidden');
-        if (state === 'initial' && initialState) initialState.classList.remove('hidden');
-        else if (state === 'loading' && loadingState) loadingState.classList.remove('hidden');
-        else if (state === 'error' && errorState) errorState.classList.remove('hidden');
-        else if (state === 'results' && resultsSection) resultsSection.classList.remove('hidden');
-    }
-
-    function safeVal(id, def) {
-        var el = document.getElementById(id);
-        return el && el.value !== undefined ? el.value : def;
-    }
-
-    if (!form) form = document.querySelector('form[id="calculatorForm"]');
-    if (form) form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (initialState) initialState.classList.add('hidden');
-        if (resultsSection) resultsSection.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-        if (calculateBtn) calculateBtn.disabled = true;
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl) {
-            if (errorMessage) errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
-            if (loadingState) loadingState.classList.add('hidden');
-            if (errorState) errorState.classList.remove('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate RMD" %}';
-            return;
-        }
-
-        var data = {
-            birth_year: parseInt(safeVal('birth_year', 1955), 10) || 1955,
-            account_type: safeVal('account_type', 'traditional_ira'),
-            account_balance: parseNumber(safeVal('account_balance', '500000')),
-            expected_return: parseFloat(safeVal('expected_return', 5), 10) || 5,
-            spouse_sole_beneficiary: (function(){ var e = document.getElementById('spouse_sole_beneficiary'); return e ? e.checked : false; })(),
-            spouse_age: parseInt(safeVal('spouse_age', 0), 10) || 0
-        };
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(data)
-            });
-            var result;
-            try {
-                result = await response.json();
-            } catch (parseErr) {
-                if (loadingState) loadingState.classList.add('hidden');
-                if (calculateBtn) calculateBtn.disabled = false;
-                if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate RMD" %}';
-                if (errorMessage) errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
-                if (errorState) errorState.classList.remove('hidden');
-                return;
-            }
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate RMD" %}';
-
-            if (result.success) {
-                displayResults(result);
-                if (resultsSection) {
-                    resultsSection.classList.remove('hidden');
-                    setTimeout(function() { resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-                }
-            } else {
-                if (errorMessage) errorMessage.textContent = result.error || '{% trans "An error occurred. Please try again." %}';
-                if (errorState) errorState.classList.remove('hidden');
-            }
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate RMD" %}';
-            if (errorMessage) errorMessage.textContent = '{% trans "A network error occurred. Please try again." %}';
-            if (errorState) errorState.classList.remove('hidden');
-        }
-    });
-
-    function displayResults(result) {
-        // Status alert: backend-controlled via status_info (BMI-style)
-        var statusAlert = document.getElementById('rmdStatusAlert');
-        var statusIcon = document.getElementById('rmdStatusIcon');
-        var statusTitle = document.getElementById('rmdStatusTitle');
-        var statusMessage = document.getElementById('rmdStatusMessage');
-        var statusInfo = result.status_info;
-        if (statusAlert && statusIcon && statusTitle && statusMessage && statusInfo) {
-            statusAlert.className = 'rounded-xl p-4 border-2 ' + (statusInfo.color_info.tailwind_classes || '');
-            statusIcon.className = 'w-6 h-6 mr-3 flex-shrink-0 ' + (statusInfo.color_info.icon_classes || '');
-            statusIcon.innerHTML = statusInfo.status === 'required'
-                ? '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>'
-                : '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>';
-            statusTitle.className = 'font-semibold';
-            statusTitle.textContent = statusInfo.title;
-            statusMessage.className = 'text-sm';
-            statusMessage.textContent = statusInfo.message;
-        }
-
-        var el;
-        if ((el = document.getElementById('currentRmd'))) el.textContent = formatCurrency(result.current_rmd);
-        if ((el = document.getElementById('monthlyRmd'))) el.textContent = formatCurrency(result.monthly_rmd);
-        if ((el = document.getElementById('distributionPeriod'))) el.textContent = result.distribution_period || '-';
-        if ((el = document.getElementById('rmdYearLabel'))) el.textContent = result.rmd_has_started ? '{% trans "Current Year RMD" %}' : '{% trans "First Year RMD (Projected)" %}';
-        if ((el = document.getElementById('currentAge'))) el.textContent = result.current_age;
-        if ((el = document.getElementById('rmdStartAge'))) el.textContent = result.rmd_start_age;
-        if ((el = document.getElementById('accountBalance'))) el.textContent = formatCurrency(result.account_balance);
-        if ((el = document.getElementById('estimatedTax'))) el.textContent = formatCurrency(result.current_rmd_tax);
-
-        updateCharts(result);
-        updateYearlyBreakdown(result.yearly_breakdown);
-    }
-
-    function updateCharts(result) {
-        var chartData = result.chart_data;
-        if (!chartData) return;
-
-        var rmdEl = document.getElementById('rmdChart');
-        var balanceEl = document.getElementById('balanceChart');
-        if (rmdChart) { rmdChart.destroy(); rmdChart = null; }
-        if (balanceChart) { balanceChart.destroy(); balanceChart = null; }
-        if (!rmdEl || !balanceEl || typeof Chart === 'undefined') return;
-
-        var defaultBarOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: { label: function(ctx) { return formatCurrency(ctx.raw); } }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            if (value >= 1000) return '$' + (value/1000).toFixed(0) + 'K';
-                            return '$' + value;
-                        }
-                    }
-                }
-            }
-        };
-
-        var defaultLineOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: { label: function(ctx) { return formatCurrency(ctx.raw); } }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            if (value >= 1000000) return '$' + (value/1000000).toFixed(1) + 'M';
-                            if (value >= 1000) return '$' + (value/1000).toFixed(0) + 'K';
-                            return '$' + value;
-                        }
-                    }
-                }
-            }
-        };
-
-        if (chartData.rmd_chart && chartData.rmd_chart.data) {
-            rmdChart = new Chart(rmdEl.getContext('2d'), {
-                type: chartData.rmd_chart.type,
-                data: chartData.rmd_chart.data,
-                options: defaultBarOptions
-            });
-        }
-        if (chartData.balance_chart && chartData.balance_chart.data) {
-            balanceChart = new Chart(balanceEl.getContext('2d'), {
-                type: chartData.balance_chart.type,
-                data: chartData.balance_chart.data,
-                options: defaultLineOptions
-            });
-        }
-    }
-
-    function updateYearlyBreakdown(breakdown) {
-        var tbody = document.getElementById('yearlyBreakdown');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        (breakdown || []).forEach(function(year, index) {
-            var row = document.createElement('tr');
-            row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-            row.innerHTML = [
-                '<td class="px-4 py-3 text-gray-900 font-medium">' + year.year + '</td>',
-                '<td class="px-4 py-3 text-center text-gray-700">' + year.age + '</td>',
-                '<td class="px-4 py-3 text-right text-gray-700">' + formatCurrency(year.starting_balance) + '</td>',
-                '<td class="px-4 py-3 text-center text-gray-600">' + (year.distribution_period || '-') + '</td>',
-                '<td class="px-4 py-3 text-right ' + (year.rmd > 0 ? 'text-blue-600 font-medium' : 'text-gray-400') + '">' + (year.rmd > 0 ? formatCurrency(year.rmd) : '-') + '</td>',
-                '<td class="px-4 py-3 text-right text-gray-900 font-medium">' + formatCurrency(year.ending_balance) + '</td>'
-            ].join('');
-            tbody.appendChild(row);
-        });
-    }
-});
+window.djangoContext = {
+        trans_RMDstartage72already_0: '{% trans "RMD start age: 72 (already required)" %}',
+        trans_RMDstartage73SECUREA_1: '{% trans "RMD start age: 73 (SECURE Act 2.0)" %}',
+        trans_RMDstartage75SECUREA_2: '{% trans "RMD start age: 75 (SECURE Act 2.0)" %}',
+        trans_Calculating_3: '{% trans "Calculating..." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page." %}',
+        trans_CalculateRMD_5: '{% trans "Calculate RMD" %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server." %}',
+        trans_Servererror_8: '{% trans "Server error." %}',
+        trans_AnerroroccurredPleas_10: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_12: '{% trans "A network error occurred. Please try again." %}',
+        trans_CurrentYearRMD_13: '{% trans "Current Year RMD" %}',
+        trans_FirstYearRMDProjecte_14: '{% trans "First Year RMD (Projected)" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/rmd_calculator.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Square Footage Calculator - Calculate Area for Any Shape Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free square footage calculator. Calculate area for rectangle, square, circle, triangle, trapezoid, and ellipse in ft², m², yd², acres, and hectares. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate area for any shape. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/square_footage_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Square Footage Calculator - Free Online Tool" %}","description":"{% trans "Free square footage calculator. Calculate area for 6 shapes in multiple units. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1950"},"featureList":["{% trans '6 shapes: rectangle, square, circle, triangle, trapezoid, ellipse' %}","{% trans '6 area units: ft², m², yd², in², acres, hectares' %}","{% trans '4 length units: ft, m, in, yd' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Square Footage Calculator - Free Online Tool" %}',"description":'{% trans "Free square footage calculator. Calculate area for 6 shapes in multiple units. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1950"},"featureList":["{% trans '6 shapes: rectangle, square, circle, triangle, trapezoid, ellipse' %}","{% trans '6 area units: ft², m², yd², in², acres, hectares' %}","{% trans '4 length units: ft, m, in, yd' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -216,99 +217,13 @@
 </div>
 
 <script>
-let resultChart = null;
-const unitLabels = {'square_feet':'ft²','square_meters':'m²','square_yards':'yd²','square_inches':'in²','acres':'acres','hectares':'ha'};
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('shape').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('sfForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        document.getElementById('extraGrid')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Area' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Area' %}";
-            document.getElementById('resultValue').textContent = Number(r.result).toLocaleString('en-US',{maximumFractionDigits:6});
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // All-units grid
-            const eg = document.getElementById('extraGrid'), egc = document.getElementById('extraGridContent');
-            egc.innerHTML = '';
-            if (r.area_all) {
-                const colors = ['violet','fuchsia','pink','purple','indigo','blue'];
-                let i = 0;
-                for (const [unit, val] of Object.entries(r.area_all)) {
-                    const c = colors[i % colors.length];
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-3 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${unitLabels[unit] || unit}</p><p class="text-lg font-bold text-${c}-600">${Number(val).toLocaleString('en-US',{maximumFractionDigits:6})}</p>`;
-                    egc.appendChild(d);
-                    i++;
-                }
-                eg?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-violet-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Area' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(shape) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + shape)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const shape = document.getElementById('shape').value;
-    const d = {shape, length_unit: document.getElementById('lengthUnit').value, result_unit: document.getElementById('resultUnit').value};
-    if (shape === 'rectangle') { d.length = parseFloat(document.getElementById('rc_l').value); d.width = parseFloat(document.getElementById('rc_w').value); }
-    else if (shape === 'square') { d.side = parseFloat(document.getElementById('sq_s').value); }
-    else if (shape === 'circle') { d.radius = parseFloat(document.getElementById('ci_r').value); }
-    else if (shape === 'triangle') { d.base = parseFloat(document.getElementById('tr_b').value); d.height = parseFloat(document.getElementById('tr_h').value); }
-    else if (shape === 'trapezoid') { d.base1 = parseFloat(document.getElementById('tz_b1').value); d.base2 = parseFloat(document.getElementById('tz_b2').value); d.height = parseFloat(document.getElementById('tz_h').value); }
-    else if (shape === 'ellipse') { d.radius_a = parseFloat(document.getElementById('el_a').value); d.radius_b = parseFloat(document.getElementById('el_b').value); }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateArea_1: "{% trans 'Calculate Area' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Area_3: "{% trans 'Area' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/square_footage_calculator.js' %}"></script>
 {% endblock %}

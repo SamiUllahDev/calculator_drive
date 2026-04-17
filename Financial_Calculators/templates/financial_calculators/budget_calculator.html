@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "budget calculator, personal budget, monthly budget planner, expense tracker, budget planning tool" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/budget_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -372,186 +373,30 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var comparisonChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-function getValue(id) {
-    var el = document.getElementById(id);
-    if (!el) return '0';
-    return (el.value || '').replace(/,/g, '').trim() || '0';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Budget" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Budget" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createComparisonChart(chartData) {
-        var canvas = document.getElementById('comparisonChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v); };
-        comparisonChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            salary: getValue('salary'),
-            other_income: getValue('other_income'),
-            rent_mortgage: getValue('rent_mortgage'),
-            utilities: getValue('utilities'),
-            insurance_home: getValue('insurance_home'),
-            car_payment: getValue('car_payment'),
-            gas: getValue('gas'),
-            car_insurance: getValue('car_insurance'),
-            groceries: getValue('groceries'),
-            dining: getValue('dining'),
-            entertainment: getValue('entertainment'),
-            credit_cards: getValue('credit_cards'),
-            student_loans: getValue('student_loans'),
-            other_debt: getValue('other_debt'),
-            savings: getValue('savings'),
-            retirement: getValue('retirement'),
-            healthcare: getValue('healthcare'),
-            other_expenses: getValue('other_expenses')
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            var hero = document.getElementById('resultHero');
-            hero.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white ';
-            if (s.status === 'healthy') hero.classList.add('bg-gradient-to-br from-teal-600 to-emerald-600');
-            else if (s.status === 'warning') hero.classList.add('bg-gradient-to-br from-amber-500 to-orange-500');
-            else hero.classList.add('bg-gradient-to-br from-red-600 to-rose-600');
-            document.getElementById('heroLabel').textContent = '{% trans "Monthly Remaining" %}';
-            document.getElementById('heroValue').textContent = formatCurrency(s.remaining);
-            document.getElementById('heroStatus').textContent = s.status === 'healthy' ? '{% trans "Healthy budget" %}' : (s.status === 'warning' ? '{% trans "Review recommendations" %}' : '{% trans "Deficit — reduce expenses" %}');
-
-            document.getElementById('detailIncome').textContent = formatCurrency(s.total_income);
-            document.getElementById('detailExpenses').textContent = formatCurrency(s.total_expenses);
-            var remEl = document.getElementById('detailRemaining');
-            remEl.textContent = formatCurrency(s.remaining);
-            remEl.className = 'text-sm font-bold ' + (s.remaining >= 0 ? 'text-green-600' : 'text-red-600');
-            document.getElementById('detailStatus').textContent = s.status === 'healthy' ? '{% trans "Healthy" %}' : (s.status === 'warning' ? '{% trans "Warning" %}' : '{% trans "Deficit" %}');
-
-            var recBlock = document.getElementById('recommendationsBlock');
-            var recList = document.getElementById('recommendationsList');
-            recList.innerHTML = '';
-            if (s.recommendations && s.recommendations.length) {
-                recBlock.classList.remove('hidden');
-                s.recommendations.forEach(function(r) {
-                    var li = document.createElement('li');
-                    li.className = 'flex items-start gap-2';
-                    li.innerHTML = '<span class="text-teal-600">•</span><span>' + r + '</span>';
-                    recList.appendChild(li);
-                });
-            } else {
-                recBlock.classList.add('hidden');
-            }
-
-            var catNames = { housing: '{% trans "Housing" %}', transportation: '{% trans "Transportation" %}', living: '{% trans "Living" %}', debt: '{% trans "Debt" %}', savings: '{% trans "Savings" %}', other: '{% trans "Other" %}' };
-            var catColors = { housing: 'bg-blue-500', transportation: 'bg-amber-500', living: 'bg-emerald-500', debt: 'bg-red-500', savings: 'bg-purple-500', other: 'bg-gray-500' };
-            var catDetails = document.getElementById('categoryDetails');
-            catDetails.innerHTML = '';
-            if (data.categories) {
-                for (var key in data.categories) {
-                    var cat = data.categories[key];
-                    var div = document.createElement('div');
-                    div.innerHTML = '<div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-gray-700">' + (catNames[key] || key) + '</span><span class="text-sm text-gray-600">' + formatCurrency(cat.amount) + ' (' + (cat.percentage || 0) + '%)</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="' + (catColors[key] || 'bg-gray-500') + ' h-2 rounded-full" style="width:' + Math.min(cat.percentage || 0, 100) + '%"></div></div>';
-                    catDetails.appendChild(div);
-                }
-            }
-
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.comparison_chart) createComparisonChart(data.chart_data.comparison_chart);
-            }
-
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateBudget_1: '{% trans "Calculate Budget" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_MonthlyRemaining_9: '{% trans "Monthly Remaining" %}',
+        trans_Healthybudget_10: '{% trans "Healthy budget" %}',
+        trans_Reviewrecommendation_11: '{% trans "Review recommendations" %}',
+        trans_Deficitreduceexpense_12: '{% trans "Deficit — reduce expenses" %}',
+        trans_Healthy_13: '{% trans "Healthy" %}',
+        trans_Warning_14: '{% trans "Warning" %}',
+        trans_Deficit_15: '{% trans "Deficit" %}',
+        trans_Housing_16: '{% trans "Housing" %}',
+        trans_Transportation_17: '{% trans "Transportation" %}',
+        trans_Living_18: '{% trans "Living" %}',
+        trans_Debt_19: '{% trans "Debt" %}',
+        trans_Savings_20: '{% trans "Savings" %}',
+        trans_Other_21: '{% trans "Other" %}',
+        trans_Networkorservererror_22: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/budget_calculator.js' %}"></script>
 {% endblock %}

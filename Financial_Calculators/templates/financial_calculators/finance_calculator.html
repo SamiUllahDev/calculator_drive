@@ -1,10 +1,11 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Finance Calculator - Compound Interest & Future Value" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate compound interest and future value. Enter principal, rate, and time to see growth over time with charts and scenarios." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/finance_calculator.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -238,144 +239,18 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var growthChart = null;
-
-function checkChartJS() {
-    if (typeof Chart === 'undefined') { console.error('Chart.js is not loaded.'); return false; }
-    return true;
-}
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createGrowthChart(chartData) {
-        var container = document.getElementById('growthChartContainer');
-        var canvas = document.getElementById('growthChart');
-        if (!canvas || !chartData || !checkChartJS()) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (growthChart) growthChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
-        growthChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'line',
-            data: chartData.data || {},
-            options: opts
-        });
-        if (container) container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var amountVal = (document.getElementById('amount_').value || '').replace(/,/g, '');
-        var payload = {
-            amount_: amountVal,
-            rate_: document.getElementById('rate_').value,
-            time_years: document.getElementById('time_years').value
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            var heroVal = document.getElementById('heroValue');
-            var heroPrincipal = document.getElementById('heroPrincipal');
-            var heroInterest = document.getElementById('heroInterest');
-            if (heroVal) heroVal.textContent = formatCurrency(s.future_value);
-            if (heroPrincipal) heroPrincipal.textContent = formatCurrency(s.principal);
-            if (heroInterest) heroInterest.textContent = formatCurrency(s.total_interest);
-            var el = function(id) { return document.getElementById(id); };
-            if (el('detailPrincipal')) el('detailPrincipal').textContent = formatCurrency(s.principal);
-            if (el('detailFutureValue')) el('detailFutureValue').textContent = formatCurrency(s.future_value);
-            if (el('detailTotalInterest')) el('detailTotalInterest').textContent = formatCurrency(s.total_interest);
-            if (el('detailInterestPct')) el('detailInterestPct').textContent = (s.interest_pct != null ? s.interest_pct : 0) + '%';
-            var scenariosBody = document.getElementById('scenariosBody');
-            if (scenariosBody && data.scenarios) {
-                scenariosBody.innerHTML = '';
-                data.scenarios.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-2 py-2">' + row.years + ' {% trans "years" %}</td><td class="px-2 py-2 text-right font-medium">' + formatCurrency(row.future_value) + '</td><td class="px-2 py-2 text-right text-green-600">' + formatCurrency(row.total_interest) + '</td>';
-                    scenariosBody.appendChild(tr);
-                });
-            }
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.growth_chart) createGrowthChart(data.chart_data.growth_chart);
-            }
-            resultsWrapper.classList.remove('hidden');
-            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_years_9: '{% trans "years" %}',
+        trans_Networkorservererror_10: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/finance_calculator.js' %}"></script>
 {% endblock %}

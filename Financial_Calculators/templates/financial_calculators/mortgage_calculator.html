@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Free mortgage calculator to estimate monthly payments, total interest, and amortization schedule. Calculate home loan costs including property tax, insurance, PMI, and HOA fees." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/mortgage_calculator.css' %}">
 <meta name="keywords" content="{% trans 'mortgage calculator, home loan calculator, monthly payment calculator, amortization schedule, PMI calculator, property tax calculator, PITI calculator' %}">
 <meta name="robots" content="index, follow">
 
@@ -69,19 +70,7 @@
 {% block content %}
 <div class="min-h-screen bg-gray-50">
     <!-- Breadcrumb -->
-    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
-                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="flex-shrink-0"><a href="{% url 'financial_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Financial Calculators" %}</a></li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Mortgage Calculator" %}</li>
-            </ol>
-        </div>
-    </nav>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <!-- Header -->
         <header class="mb-6 lg:mb-8">
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Mortgage Calculator" %}</h1>
@@ -661,282 +650,17 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const resultsState = document.getElementById('resultsState');
-    
-    // Toggle sections
-    document.getElementById('toggleTaxes').addEventListener('click', function() {
-        document.getElementById('taxesSection').classList.toggle('hidden');
-        document.getElementById('taxesIcon').classList.toggle('rotate-180');
-    });
-    
-    document.getElementById('toggleExtra').addEventListener('click', function() {
-        document.getElementById('extraSection').classList.toggle('hidden');
-        document.getElementById('extraIcon').classList.toggle('rotate-180');
-    });
-    
-    // Format number
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
-    }
-    
-    function parseNumber(val) {
-        return parseFloat(String(val).replace(/[,$\s]/g, '')) || 0;
-    }
-    
-    // Down payment sync
-    const homePrice = document.getElementById('home_price');
-    const downPayment = document.getElementById('down_payment');
-    const downPaymentPct = document.getElementById('down_payment_pct');
-    
-    homePrice.addEventListener('input', function() {
-        const price = parseNumber(this.value);
-        const pct = parseFloat(downPaymentPct.value) || 20;
-        downPayment.value = (price * pct / 100).toLocaleString();
-    });
-    
-    downPaymentPct.addEventListener('input', function() {
-        const price = parseNumber(homePrice.value);
-        const pct = parseFloat(this.value) || 0;
-        downPayment.value = (price * pct / 100).toLocaleString();
-    });
-    
-    downPayment.addEventListener('input', function() {
-        const price = parseNumber(homePrice.value);
-        const dp = parseNumber(this.value);
-        if (price > 0) {
-            downPaymentPct.value = (dp / price * 100).toFixed(1);
-        }
-    });
-    
-    // State management
-    function showState(state) {
-        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
-        state.classList.remove('hidden');
-    }
-    
-    // Chart
-    let paymentChart = null;
-    
-    // Pagination
-    let scheduleData = [];
-    let yearlySummaryData = [];
-    let currentPage = 1;
-    let viewMode = 'monthly';
-    const itemsPerPage = 12;
-    
-    document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderSchedule(); } });
-    document.getElementById('nextPage').addEventListener('click', () => { 
-        const data = viewMode === 'monthly' ? scheduleData : yearlySummaryData;
-        if (currentPage < Math.ceil(data.length / itemsPerPage)) { currentPage++; renderSchedule(); } 
-    });
-    
-    // Monthly/Yearly toggle
-    document.getElementById('viewMonthly').addEventListener('click', function() {
-        viewMode = 'monthly';
-        currentPage = 1;
-        this.classList.add('bg-blue-100', 'text-blue-700');
-        this.classList.remove('text-gray-600');
-        document.getElementById('viewYearly').classList.remove('bg-blue-100', 'text-blue-700');
-        document.getElementById('viewYearly').classList.add('text-gray-600');
-        renderSchedule();
-    });
-    
-    document.getElementById('viewYearly').addEventListener('click', function() {
-        viewMode = 'yearly';
-        currentPage = 1;
-        this.classList.add('bg-blue-100', 'text-blue-700');
-        this.classList.remove('text-gray-600');
-        document.getElementById('viewMonthly').classList.remove('bg-blue-100', 'text-blue-700');
-        document.getElementById('viewMonthly').classList.add('text-gray-600');
-        renderSchedule();
-    });
-    
-    function renderSchedule() {
-        const data = viewMode === 'monthly' ? scheduleData : yearlySummaryData;
-        const start = (currentPage - 1) * itemsPerPage;
-        const end = Math.min(start + itemsPerPage, data.length);
-        const tbody = document.getElementById('scheduleBody');
-        
-        if (viewMode === 'monthly') {
-            tbody.innerHTML = data.slice(start, end).map(row => `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-500">${row.month}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${row.date}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.payment)}</td>
-                    <td class="px-4 py-3 text-sm text-green-600 text-right">${formatCurrency((row.principal || 0) + (row.extra || 0))}</td>
-                    <td class="px-4 py-3 text-sm text-red-600 text-right">${formatCurrency(row.interest)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.balance)}</td>
-                </tr>
-            `).join('');
-        } else {
-            tbody.innerHTML = data.slice(start, end).map(row => `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-500">${row.year}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${row.year}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.principal + row.interest)}</td>
-                    <td class="px-4 py-3 text-sm text-green-600 text-right">${formatCurrency(row.principal)}</td>
-                    <td class="px-4 py-3 text-sm text-red-600 text-right">${formatCurrency(row.interest)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.end_balance)}</td>
-                </tr>
-            `).join('');
-        }
-        
-        document.getElementById('paginationInfo').textContent = `{% trans "Showing" %} ${start + 1}-${end} {% trans "of" %} ${data.length}`;
-        document.getElementById('prevPage').disabled = currentPage === 1;
-        document.getElementById('nextPage').disabled = currentPage >= Math.ceil(data.length / itemsPerPage);
-    }
-    
-    // Clear
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        form.reset();
-        homePrice.value = '400,000';
-        downPayment.value = '80,000';
-        downPaymentPct.value = '20';
-        showState(initialState);
-    });
-    
-    // Calculate
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        showState(loadingState);
-        
-        const formData = {
-            home_price: parseNumber(homePrice.value),
-            down_payment: parseNumber(downPayment.value),
-            down_payment_type: 'dollar',
-            loan_term: parseInt(document.getElementById('loan_term').value),
-            interest_rate: parseNumber(document.getElementById('interest_rate').value),
-            property_tax: parseNumber(document.getElementById('property_tax').value),
-            home_insurance: parseNumber(document.getElementById('home_insurance').value),
-            hoa_fee: parseNumber(document.getElementById('hoa').value),
-            pmi_rate: parseNumber(document.getElementById('pmi_rate').value),
-            extra_monthly: parseNumber(document.getElementById('extra_monthly').value),
-            extra_yearly: parseNumber(document.getElementById('extra_yearly').value),
-        };
-        
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                document.getElementById('errorMessage').textContent = data.error;
-                showState(errorState);
-                return;
-            }
-            
-            // Update results - using correct nested structure from backend
-            const mp = data.monthly_payment;
-            const ld = data.loan_details;
-            const totals = data.totals;
-            
-            document.getElementById('monthlyPayment').textContent = formatCurrency(mp.total);
-            document.getElementById('principalInterest').textContent = formatCurrency(mp.principal_interest);
-            document.getElementById('loanAmount').textContent = formatCurrency(ld.loan_amount);
-            document.getElementById('totalInterest').textContent = formatCurrency(totals.interest);
-            document.getElementById('totalCost').textContent = formatCurrency(totals.all_payments);
-            document.getElementById('payoffDate').textContent = ld.payoff_date;
-            
-            // PMI
-            if (mp.pmi > 0) {
-                document.getElementById('pmiContainer').classList.remove('hidden');
-                document.getElementById('pmiAmount').textContent = formatCurrency(mp.pmi);
-            } else {
-                document.getElementById('pmiContainer').classList.add('hidden');
-            }
-            
-            // Savings from extra payments
-            const actualPayments = ld.total_payments;
-            const scheduledPayments = formData.loan_term * 12;
-            const monthsSaved = scheduledPayments - actualPayments;
-            const standardTotalInterest = (mp.principal_interest * scheduledPayments) - ld.loan_amount;
-            const interestSaved = standardTotalInterest - totals.interest;
-            if (monthsSaved > 0 && interestSaved > 0) {
-                document.getElementById('savingsAlert').classList.remove('hidden');
-                document.getElementById('interestSaved').textContent = formatCurrency(interestSaved);
-                document.getElementById('monthsSaved').textContent = monthsSaved;
-            } else {
-                document.getElementById('savingsAlert').classList.add('hidden');
-            }
-            
-            // Build payment breakdown for chart
-            const breakdown = [];
-            if (mp.principal_interest > 0) breakdown.push({ label: '{% trans "Principal & Interest" %}', value: mp.principal_interest, color: '#3B82F6' });
-            if (mp.property_tax > 0) breakdown.push({ label: '{% trans "Property Tax" %}', value: mp.property_tax, color: '#F59E0B' });
-            if (mp.home_insurance > 0) breakdown.push({ label: '{% trans "Insurance" %}', value: mp.home_insurance, color: '#10B981' });
-            if (mp.pmi > 0) breakdown.push({ label: '{% trans "PMI" %}', value: mp.pmi, color: '#8B5CF6' });
-            if (mp.hoa > 0) breakdown.push({ label: '{% trans "HOA" %}', value: mp.hoa, color: '#EC4899' });
-            if (mp.other > 0) breakdown.push({ label: '{% trans "Other" %}', value: mp.other, color: '#6B7280' });
-            
-            // Chart - only create if we have data
-            if (paymentChart) paymentChart.destroy();
-            if (breakdown.length > 0) {
-                const ctx = document.getElementById('paymentChart').getContext('2d');
-                paymentChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: breakdown.map(d => d.label),
-                        datasets: [{ data: breakdown.map(d => d.value), backgroundColor: breakdown.map(d => d.color) }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { position: 'bottom' },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + formatCurrency(context.raw);
-                                    }
-                                }
-                            }
-                        } 
-                    }
-                });
-            }
-            
-            // Breakdown list
-            document.getElementById('breakdownList').innerHTML = breakdown.map(d => `
-                <div class="flex items-center justify-between py-2 border-b border-gray-100">
-                    <div class="flex items-center">
-                        <span class="w-3 h-3 rounded-full mr-2" style="background-color: ${d.color}"></span>
-                        <span class="text-sm text-gray-600">${d.label}</span>
-                    </div>
-                    <span class="text-sm font-semibold text-gray-900">${formatCurrency(d.value)}</span>
-                </div>
-            `).join('');
-            
-            // Schedule - use amortization_schedule from backend
-            scheduleData = data.amortization_schedule || [];
-            yearlySummaryData = data.yearly_summary || [];
-            currentPage = 1;
-            viewMode = 'monthly';
-            document.getElementById('viewMonthly').classList.add('bg-blue-100', 'text-blue-700');
-            document.getElementById('viewMonthly').classList.remove('text-gray-600');
-            document.getElementById('viewYearly').classList.remove('bg-blue-100', 'text-blue-700');
-            document.getElementById('viewYearly').classList.add('text-gray-600');
-            renderSchedule();
-            
-            showState(resultsState);
-            
-            if (window.innerWidth < 1280) {
-                resultsState.scrollIntoView({ behavior: 'smooth' });
-            }
-            
-        } catch (err) {
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-            showState(errorState);
-        }
-    });
-});
+window.djangoContext = {
+        trans_Showing_0: '{% trans "Showing" %}',
+        trans_of_1: '{% trans "of" %}',
+        trans_PrincipalInterest_2: '{% trans "Principal & Interest" %}',
+        trans_PropertyTax_3: '{% trans "Property Tax" %}',
+        trans_Insurance_4: '{% trans "Insurance" %}',
+        trans_PMI_5: '{% trans "PMI" %}',
+        trans_HOA_6: '{% trans "HOA" %}',
+        trans_Other_7: '{% trans "Other" %}',
+        trans_Anetworkerroroccurre_8: '{% trans "A network error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/mortgage_calculator.js' %}"></script>
 {% endblock %}

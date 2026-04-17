@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Calorie Calculator" %} - {% trans "Daily Calorie Needs" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle. Free calorie calculator with macro breakdown." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/calorie_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "calorie calculator, daily calories, weight loss calories, calorie intake, macro calculator" %}">
+<meta name="keywords" content='{% trans "calorie calculator, daily calories, weight loss calories, calorie intake, macro calculator" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Calorie Calculator" %} - {% trans "Daily Calorie Needs" %}">
-<meta property="og:description" content="{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle." %}">
+<meta property="og:title" content='{% trans "Calorie Calculator" %} - {% trans "Daily Calorie Needs" %}'>
+<meta property="og:description" content='{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Calorie Calculator" %}",
-    "description": "{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle." %}",
+    "name": '{% trans "Calorie Calculator" %}',
+    "description": '{% trans "Calculate how many calories you need per day to lose weight, maintain, or gain muscle." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Calorie Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -590,459 +579,22 @@
 </div>
 
 <script>
-// Chart instances
-let comparisonChart = null;
-let macrosChart = null;
-let mealChart = null;
-let goalsChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitImperial = document.getElementById('unitImperial');
-    const heightMetricDiv = document.getElementById('heightMetric');
-    const heightImperialDiv = document.getElementById('heightImperial');
-    const weightLabel = document.getElementById('weightLabel');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        if (unitImperial.checked) {
-            heightMetricDiv.classList.add('hidden');
-            heightImperialDiv.classList.remove('hidden');
-            weightLabel.textContent = '{% trans "Weight" %} (lbs)';
-            document.getElementById('weight').min = '66';
-            document.getElementById('weight').max = '660';
-            document.getElementById('weight').value = '160';
-        } else {
-            heightMetricDiv.classList.remove('hidden');
-            heightImperialDiv.classList.add('hidden');
-            weightLabel.textContent = '{% trans "Weight" %} (kg)';
-            document.getElementById('weight').min = '30';
-            document.getElementById('weight').max = '300';
-            document.getElementById('weight').value = '70';
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitImperial.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
-        const formData = {
-            unit_system: unitSystem,
-            gender: document.querySelector('input[name="gender"]:checked').value,
-            age: parseInt(document.getElementById('age').value),
-            weight: parseFloat(document.getElementById('weight').value),
-            activity_level: document.getElementById('activity_level').value,
-            goal: document.getElementById('goal').value
-        };
-
-        if (unitSystem === 'imperial') {
-            formData.height_ft = parseInt(document.getElementById('height_ft').value);
-            formData.height_in = parseFloat(document.getElementById('height_in').value) || 0;
-        } else {
-            formData.height = parseFloat(document.getElementById('height').value);
-        }
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Calories" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const targetCaloriesEl = document.getElementById('targetCalories');
-            const projectionTextEl = document.getElementById('projectionText');
-            if (targetCaloriesEl) targetCaloriesEl.textContent = Math.round(data.target_calories).toLocaleString();
-            if (projectionTextEl) projectionTextEl.textContent = data.weekly_projection.text;
-
-            // Update stats
-            const bmrValueEl = document.getElementById('bmrValue');
-            const tdeeValueEl = document.getElementById('tdeeValue');
-            const goalDisplayEl = document.getElementById('goalDisplay');
-
-            if (bmrValueEl) bmrValueEl.textContent = Math.round(data.bmr).toLocaleString();
-            if (tdeeValueEl) tdeeValueEl.textContent = Math.round(data.tdee).toLocaleString();
-            if (goalDisplayEl) {
-                const goalNames = {
-                    'lose_fast': '{% trans "Lose Fast" %}',
-                    'lose': '{% trans "Lose" %}',
-                    'lose_slow': '{% trans "Lose Slow" %}',
-                    'maintain': '{% trans "Maintain" %}',
-                    'gain_slow': '{% trans "Gain Slow" %}',
-                    'gain': '{% trans "Gain" %}',
-                    'gain_fast': '{% trans "Gain Fast" %}'
-                };
-                goalDisplayEl.textContent = goalNames[data.goal] || data.goal;
-            }
-
-            // Update macros
-            const proteinGEl = document.getElementById('proteinG');
-            const carbsGEl = document.getElementById('carbsG');
-            const fatGEl = document.getElementById('fatG');
-            const proteinPercentEl = document.getElementById('proteinPercent');
-            const carbsPercentEl = document.getElementById('carbsPercent');
-            const fatPercentEl = document.getElementById('fatPercent');
-            const proteinCalEl = document.getElementById('proteinCal');
-            const carbsCalEl = document.getElementById('carbsCal');
-            const fatCalEl = document.getElementById('fatCal');
-
-            if (proteinGEl) proteinGEl.textContent = Math.round(data.macros.protein.grams) + 'g';
-            if (carbsGEl) carbsGEl.textContent = Math.round(data.macros.carbs.grams) + 'g';
-            if (fatGEl) fatGEl.textContent = Math.round(data.macros.fat.grams) + 'g';
-            if (proteinPercentEl) proteinPercentEl.textContent = data.macros.protein.percent + '%';
-            if (carbsPercentEl) carbsPercentEl.textContent = data.macros.carbs.percent + '%';
-            if (fatPercentEl) fatPercentEl.textContent = data.macros.fat.percent + '%';
-            if (proteinCalEl) proteinCalEl.textContent = Math.round(data.macros.protein.calories) + ' cal';
-            if (carbsCalEl) carbsCalEl.textContent = Math.round(data.macros.carbs.calories) + ' cal';
-            if (fatCalEl) fatCalEl.textContent = Math.round(data.macros.fat.calories) + ' cal';
-
-            // Update meals
-            const breakfastEl = document.getElementById('breakfast');
-            const lunchEl = document.getElementById('lunch');
-            const dinnerEl = document.getElementById('dinner');
-            const snacksEl = document.getElementById('snacks');
-
-            if (breakfastEl) breakfastEl.textContent = data.meals.breakfast.toLocaleString();
-            if (lunchEl) lunchEl.textContent = data.meals.lunch.toLocaleString();
-            if (dinnerEl) dinnerEl.textContent = data.meals.dinner.toLocaleString();
-            if (snacksEl) snacksEl.textContent = data.meals.snacks.toLocaleString();
-
-            // Update result card color
-            const colors = {
-                'red': 'bg-gradient-to-br from-red-600 to-red-700',
-                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
-                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
-                'green': 'bg-gradient-to-br from-green-600 to-teal-600',
-                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
-                'indigo': 'bg-gradient-to-br from-indigo-600 to-indigo-700',
-                'purple': 'bg-gradient-to-br from-purple-600 to-purple-700'
-            };
-            const resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.goal_color] || 'bg-gradient-to-br from-green-600 to-teal-600');
-            }
-
-            // Update goals table
-            const goalsTable = document.getElementById('goalsTable');
-            if (goalsTable) {
-                const goals = [
-                    {key: 'lose_fast', label: '{% trans "Lose Fast" %}', change: '-1000'},
-                    {key: 'lose', label: '{% trans "Lose" %}', change: '-500'},
-                    {key: 'lose_slow', label: '{% trans "Lose Slow" %}', change: '-250'},
-                    {key: 'maintain', label: '{% trans "Maintain" %}', change: '0'},
-                    {key: 'gain_slow', label: '{% trans "Gain Slow" %}', change: '+250'},
-                    {key: 'gain', label: '{% trans "Gain" %}', change: '+500'},
-                    {key: 'gain_fast', label: '{% trans "Gain Fast" %}', change: '+1000'}
-                ];
-                
-                goalsTable.innerHTML = goals.map(g => {
-                    const isActive = g.key === data.goal;
-                    return `
-                        <tr class="${isActive ? 'bg-green-50' : ''}">
-                            <td class="py-2 px-3 ${isActive ? 'font-bold text-green-900' : 'text-gray-900'}">${g.label}</td>
-                            <td class="py-2 px-3 text-right font-medium ${isActive ? 'text-green-900' : 'text-gray-900'}">${Math.round(data.all_targets[g.key]).toLocaleString()}</td>
-                            <td class="py-2 px-3 text-right ${isActive ? 'text-green-700 font-bold' : 'text-gray-600'}">${g.change}</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.comparison_chart) {
-                    createComparisonChart(data.chart_data.comparison_chart);
-                }
-                if (data.chart_data.macros_chart) {
-                    createMacrosChart(data.chart_data.macros_chart);
-                }
-                if (data.chart_data.meal_chart) {
-                    createMealChart(data.chart_data.meal_chart);
-                }
-                if (data.chart_data.goals_chart) {
-                    createGoalsChart(data.chart_data.goals_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createComparisonChart(chartData) {
-        const ctx = document.getElementById('comparisonChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            comparisonChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating comparison chart:', error);
-        }
-    }
-
-    function createMacrosChart(chartData) {
-        const ctx = document.getElementById('macrosChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (macrosChart) macrosChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            macrosChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return `${label}: ${Math.round(value).toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating macros chart:', error);
-        }
-    }
-
-    function createMealChart(chartData) {
-        const ctx = document.getElementById('mealChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (mealChart) mealChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            mealChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating meal chart:', error);
-        }
-    }
-
-    function createGoalsChart(chartData) {
-        const ctx = document.getElementById('goalsChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (goalsChart) goalsChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            goalsChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.x.toLocaleString()} {% trans "calories" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: { color: '#f3f4f6' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating goals chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_Weight_0: '{% trans "Weight" %}',
+        trans_CalculateCalories_2: '{% trans "Calculate Calories" %}',
+        trans_Calculating_3: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_5: '{% trans "A network error occurred. Please try again." %}',
+        trans_LoseFast_6: '{% trans "Lose Fast" %}',
+        trans_Lose_7: '{% trans "Lose" %}',
+        trans_LoseSlow_8: '{% trans "Lose Slow" %}',
+        trans_Maintain_9: '{% trans "Maintain" %}',
+        trans_GainSlow_10: '{% trans "Gain Slow" %}',
+        trans_Gain_11: '{% trans "Gain" %}',
+        trans_GainFast_12: '{% trans "Gain Fast" %}',
+        trans_Errordisplayingresul_20: '{% trans "Error displaying results. Please try again." %}',
+        trans_calories_21: '{% trans "calories" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/calorie_calculator.js' %}"></script>
 {% endblock %}

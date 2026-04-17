@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Future Value Calculator - Calculate Investment Growth" %}{% endblock %}
 {% block meta_description %}{% trans "Free future value calculator. See how your money grows with compound interest and regular contributions. Get instant results with charts and year-by-year breakdown." %}{% endblock %}
 {% block meta_keywords %}{% trans "future value calculator, investment calculator, compound interest, FV calculator, investment growth" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/future_value_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Future Value Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate the future value of investments with compound interest.' %}">
@@ -256,155 +257,19 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var pieChart = null;
-    var growthChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-    ['present_value', 'periodic_payment'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() { formatInput(el); });
-    });
-    document.getElementById('toggleYearly').addEventListener('click', function() {
-        document.getElementById('yearlySection').classList.toggle('hidden');
-        this.querySelector('svg').classList.toggle('rotate-180');
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        try {
-            var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-            if (!csrfEl) {
-                errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
-                errorState.classList.remove('hidden');
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate Future Value" %}';
-                return;
-            }
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify({
-                    present_value: document.getElementById('present_value').value.replace(/,/g, ''),
-                    periodic_payment: document.getElementById('periodic_payment').value.replace(/,/g, '') || 0,
-                    interest_rate: document.getElementById('interest_rate').value,
-                    years: document.getElementById('years').value
-                })
-            });
-            var data;
-            try {
-                data = await response.json();
-            } catch (parseErr) {
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate Future Value" %}';
-                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Future Value" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            document.getElementById('futureValueResult').textContent = formatCurrency(data.summary.future_value);
-            document.getElementById('totalContributedResult').textContent = formatCurrency(data.summary.total_contributions);
-            document.getElementById('totalInterestResult').textContent = formatCurrency(data.summary.total_interest);
-            var multiple = data.summary.total_contributions > 0 ? (data.summary.future_value / data.summary.total_contributions).toFixed(1) : 0;
-            document.getElementById('growthMultipleResult').textContent = multiple + 'x';
-
-            var scenariosBody = document.getElementById('scenariosBody');
-            scenariosBody.innerHTML = '';
-            data.scenarios.forEach(function(s) {
-                var tr = document.createElement('tr');
-                tr.className = (s.payment === data.summary.periodic_payment || s.payment === parseFloat(data.summary.periodic_payment)) ? 'bg-blue-50' : 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-4 py-2">$' + s.payment + '</td><td class="px-4 py-2 text-right">' + formatCurrency(s.total_contributed) + '</td><td class="px-4 py-2 text-right font-medium text-blue-600">' + formatCurrency(s.future_value) + '</td>';
-                scenariosBody.appendChild(tr);
-            });
-
-            var yearlyBody = document.getElementById('yearlyBody');
-            yearlyBody.innerHTML = '';
-            data.yearly_data.forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-4 py-2">' + row.year + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.contributions) + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.interest) + '</td><td class="px-4 py-2 text-right font-medium">' + formatCurrency(row.balance) + '</td>';
-                yearlyBody.appendChild(tr);
-            });
-
-            if (pieChart) pieChart.destroy();
-            if (growthChart) growthChart.destroy();
-            var pieEl = document.getElementById('pieChart');
-            if (pieEl && typeof Chart !== 'undefined') {
-                pieChart = new Chart(pieEl.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['{% trans "Contributions" %}', '{% trans "Interest" %}'],
-                        datasets: [{ data: [data.chart_data.breakdown.contributions, data.chart_data.breakdown.interest], backgroundColor: ['#3b82f6', '#10b981'], borderWidth: 0 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-                });
-            }
-            var growthEl = document.getElementById('growthChart');
-            if (growthEl && typeof Chart !== 'undefined') {
-                growthChart = new Chart(growthEl.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: data.chart_data.growth.labels,
-                        datasets: [
-                            { label: '{% trans "Balance" %}', data: data.chart_data.growth.balances, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
-                            { label: '{% trans "Contributed" %}', data: data.chart_data.growth.contributions, borderColor: '#9ca3af', borderDash: [5, 5], fill: false, tension: 0.3 }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } },
-                        scales: { y: { ticks: { callback: function(v) { return '$' + (v/1000).toFixed(0) + 'k'; } } } }
-                    }
-                });
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Future Value" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_SessionexpiredPlease_1: '{% trans "Session expired. Please refresh the page." %}',
+        trans_CalculateFutureValue_2: '{% trans "Calculate Future Value" %}',
+        trans_Invalidresponsefroms_4: '{% trans "Invalid response from server." %}',
+        trans_Servererror_5: '{% trans "Server error." %}',
+        trans_AnerroroccurredPleas_7: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_Contributions_8: '{% trans "Contributions" %}',
+        trans_Interest_9: '{% trans "Interest" %}',
+        trans_Balance_10: '{% trans "Balance" %}',
+        trans_Contributed_11: '{% trans "Contributed" %}',
+        trans_AnerroroccurredPleas_13: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/future_value_calculator.js' %}"></script>
 {% endblock %}

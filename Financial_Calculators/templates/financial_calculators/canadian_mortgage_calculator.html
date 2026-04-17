@@ -7,6 +7,7 @@
 {% block meta_description %}Calculate Canadian mortgage payments with semi-annual compounding, CMHC insurance, and multiple payment frequencies. Best free Canadian mortgage tool.{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/canadian_mortgage_calculator.css' %}">
 <!-- Chart.js CDN -->
 {% endblock %}
 
@@ -417,148 +418,9 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('calculator-form');
-        const initialState = document.getElementById('initialState');
-        const loadingState = document.getElementById('loadingState');
-        const results = document.getElementById('results');
-        const costsToggle = document.getElementById('toggleCosts');
-        const costsSection = document.getElementById('costsSection');
-        
-        // Toggle Costs
-        if (costsToggle) {
-            costsToggle.addEventListener('click', function() {
-                costsSection.classList.toggle('hidden');
-                document.getElementById('costsArrow').classList.toggle('rotate-180');
-            });
-        }
-
-        // Chart
-        let paymentChart = null;
-        
-        function formatMoney(val) {
-            return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(val);
-        }
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            // UI States
-            if (initialState) initialState.classList.add('hidden');
-            if (results) results.classList.add('hidden');
-            if (loadingState) loadingState.classList.remove('hidden');
-
-            const formData = new FormData(form);
-            const payload = Object.fromEntries(formData.entries());
-            
-            // Parse Numbers
-            ['home_price', 'down_payment', 'property_tax', 'home_insurance', 'condo_fees'].forEach(k => {
-                payload[k] = parseFloat(String(payload[k]).replace(/[,$\s]/g, '')) || 0;
-            });
-
-            try {
-                const response = await fetch("{% url 'financial_calculators:canadian_mortgage_calculator' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-                if (loadingState) loadingState.classList.add('hidden');
-
-                if (data.success) {
-                    if (results) results.classList.remove('hidden');
-                    updateUI(data, payload);
-                    if (results) results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else {
-                    alert(data.error);
-                    if (initialState) initialState.classList.remove('hidden');
-                }
-            } catch (err) {
-                if (loadingState) loadingState.classList.add('hidden');
-                if (initialState) initialState.classList.remove('hidden');
-                alert('An error occurred. Please check your inputs.');
-            }
-        });
-
-        function updateUI(data, inputs) {
-            // Update Text Elements
-            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-            
-            setText('payment_label', data.payment_details.payment_frequency + ' Payment');
-            setText('payment_display', formatMoney(data.payment_details.regular_payment));
-            setText('total_monthly', formatMoney(data.monthly_costs.total));
-            
-            setText('mortgage_amount', formatMoney(data.mortgage_details.total_mortgage));
-            setText('cmhc_premium', formatMoney(data.mortgage_details.cmhc_premium));
-            setText('balance_renewal', formatMoney(data.term_summary.balance_at_renewal));
-            
-            setText('term_years', data.term_summary.term_years);
-            setText('term_payments', formatMoney(data.term_summary.total_payments_term));
-            setText('principal_paid', formatMoney(data.term_summary.principal_paid_term));
-            setText('interest_paid', formatMoney(data.term_summary.interest_paid_term));
-
-            // Savings
-            const savingsAlert = document.getElementById('savings_alert');
-            if (savingsAlert) {
-                if (data.amortization_summary.time_saved_years > 0.1) {
-                    savingsAlert.classList.remove('hidden');
-                    setText('interest_saved', formatMoney(data.amortization_summary.interest_saved));
-                    setText('time_saved', data.amortization_summary.time_saved_years.toFixed(1));
-                } else {
-                    savingsAlert.classList.add('hidden');
-                }
-            }
-
-            // Chart
-            updateChart(data, inputs);
-        }
-
-        function updateChart(data, inputs) {
-            const canvas = document.getElementById('paymentChart');
-            if(!canvas) return;
-            
-            const ctx = canvas.getContext('2d');
-            
-            // Calculate components
-            const taxMo = inputs.property_tax / 12;
-            const insMo = inputs.home_insurance / 12;
-            const condoMo = inputs.condo_fees;
-            // Mortgage part is total monthly - extras
-            const mortgageMo = Math.max(0, data.monthly_costs.total - taxMo - insMo - condoMo);
-
-            if (paymentChart) paymentChart.destroy();
-
-            paymentChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Mortgage', 'Tax', 'Insurance', 'Fees'],
-                    datasets: [{
-                        data: [mortgageMo, taxMo, insMo, condoMo],
-                        backgroundColor: [
-                            'rgba(37, 99, 235, 0.8)',  // Blue-600
-                            'rgba(239, 68, 68, 0.8)',   // Red-500
-                            'rgba(34, 197, 94, 0.8)',   // Green-500
-                            'rgba(168, 85, 247, 0.8)'   // Purple-500
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
-                        tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + formatMoney(c.parsed) } }
-                    },
-                    cutout: '75%'
-                }
-            });
-        }
-    });
+window.djangoContext = {
+        url_financial_calculator_0: "{% url 'financial_calculators:canadian_mortgage_calculator' %}",
+    };
 </script>
+<script src="{% static 'financial_calculators/js/canadian_mortgage_calculator.js' %}"></script>
 {% endblock %}

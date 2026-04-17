@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Calculate VA loan payments including funding fee for veterans. No PMI, no down payment required." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/va_mortgage_calculator.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -480,149 +481,12 @@
 </div>
 
 <script>
-(function() {
-    var paymentBreakdownChart = null;
-    var totalCostChart = null;
-
-    function formatMoney(val) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
-    }
-
-    function setText(id, val) {
-        var el = document.getElementById(id);
-        if (el) el.textContent = val;
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        var form = document.getElementById('calculatorForm');
-        var initialState = document.getElementById('initialState');
-        var loadingState = document.getElementById('loadingState');
-        var errorState = document.getElementById('errorState');
-        var results = document.getElementById('results');
-        var costsToggle = document.getElementById('toggleCosts');
-        var costsSection = document.getElementById('costsSection');
-
-        if (costsToggle) {
-            costsToggle.addEventListener('click', function() {
-                costsSection.classList.toggle('hidden');
-                var arrow = document.getElementById('costsArrow');
-                if (arrow) arrow.classList.toggle('rotate-180');
-            });
-        }
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            initialState.classList.add('hidden');
-            results.classList.add('hidden');
-            if (errorState) errorState.classList.add('hidden');
-            loadingState.classList.remove('hidden');
-            var submitBtnText = document.getElementById('calculateBtnText');
-            if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculating...' %}";
-
-            var payload = {
-                home_price: parseFloat(String(document.getElementById('home_price').value).replace(/[,$\s]/g, '')) || 0,
-                down_payment: parseFloat(String(document.getElementById('down_payment').value).replace(/[,$\s]/g, '')) || 0,
-                down_payment_type: document.getElementById('down_payment_type').value,
-                interest_rate: parseFloat(document.getElementById('interest_rate').value) || 0,
-                loan_term: parseInt(document.getElementById('loan_term').value, 10) || 360,
-                service_type: document.getElementById('service_type').value,
-                first_time_use: document.getElementById('first_time_use').checked,
-                disability_exempt: document.getElementById('disability_exempt').checked,
-                finance_funding_fee: document.getElementById('finance_funding_fee').checked,
-                property_tax: parseFloat(String(document.getElementById('property_tax').value).replace(/[,$\s]/g, '')) || 0,
-                home_insurance: parseFloat(String(document.getElementById('home_insurance').value).replace(/[,$\s]/g, '')) || 0,
-                hoa: parseFloat(String(document.getElementById('hoa').value).replace(/[,$\s]/g, '')) || 0
-            };
-
-            try {
-                var response = await fetch(window.location.href, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                    },
-                    body: JSON.stringify(payload)
-                });
-                var data = await response.json();
-
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate VA Loan' %}";
-
-                if (!data.success) {
-                    setText('errorMessage', data.error || "{% trans 'An error occurred. Please try again.' %}");
-                    if (errorState) errorState.classList.remove('hidden');
-                    initialState.classList.remove('hidden');
-                    return;
-                }
-
-                updateResults(data);
-                results.classList.remove('hidden');
-                setTimeout(function() { results.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-            } catch (err) {
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate VA Loan' %}";
-                if (errorState) {
-                    setText('errorMessage', "{% trans 'A network error occurred. Please try again.' %}");
-                    errorState.classList.remove('hidden');
-                }
-                initialState.classList.remove('hidden');
-                console.error(err);
-            }
-        });
-
-        function updateResults(data) {
-            setText('monthly_payment_display', formatMoney(data.monthly_payment.total));
-            setText('total_loan', formatMoney(data.loan_details.total_loan_amount));
-            setText('funding_fee_display', formatMoney(data.loan_details.funding_fee));
-            setText('pi_display', formatMoney(data.monthly_payment.principal_interest));
-            setText('tax_display', formatMoney(data.monthly_payment.property_tax));
-            setText('insurance_display', formatMoney(data.monthly_payment.home_insurance));
-            setText('fee_rate', data.loan_details.funding_fee_rate + '%');
-            setText('fee_amount', formatMoney(data.loan_details.funding_fee));
-            setText('fee_note', data.loan_details.funding_fee_note);
-
-            setText('total_interest_display', formatMoney(data.totals.total_interest));
-            setText('total_funding_fee_display', formatMoney(data.totals.funding_fee));
-            setText('total_cost_display', formatMoney(data.totals.total_cost));
-            setText('down_payment_display', formatMoney(data.property.down_payment));
-
-            var hoaRow = document.getElementById('hoa_row');
-            var hoaDisplay = document.getElementById('hoa_display');
-            if (data.monthly_payment.hoa && parseFloat(data.monthly_payment.hoa) > 0) {
-                if (hoaRow) { hoaRow.classList.remove('hidden'); hoaRow.classList.add('flex'); }
-                if (hoaDisplay) hoaDisplay.textContent = formatMoney(data.monthly_payment.hoa);
-            } else {
-                if (hoaRow) hoaRow.classList.add('hidden');
-            }
-
-            if (data.chart_data && typeof Chart !== 'undefined') {
-                if (data.chart_data.payment_breakdown_chart) {
-                    if (paymentBreakdownChart) paymentBreakdownChart.destroy();
-                    var ctx1 = document.getElementById('paymentBreakdownChart');
-                    if (ctx1) {
-                        var cfg = data.chart_data.payment_breakdown_chart;
-                        paymentBreakdownChart = new Chart(ctx1, {
-                            type: cfg.type,
-                            data: cfg.data,
-                            options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg.options || {})
-                        });
-                    }
-                }
-                if (data.chart_data.total_cost_chart) {
-                    if (totalCostChart) totalCostChart.destroy();
-                    var ctx2 = document.getElementById('totalCostChart');
-                    if (ctx2) {
-                        var cfg2 = data.chart_data.total_cost_chart;
-                        totalCostChart = new Chart(ctx2, {
-                            type: cfg2.type,
-                            data: cfg2.data,
-                            options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg2.options || {})
-                        });
-                    }
-                }
-            }
-        }
-    });
-})();
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateVALoan_1: "{% trans 'Calculate VA Loan' %}",
+        trans_AnerroroccurredPleas_2: "{% trans 'An error occurred. Please try again.' %}",
+        trans_Anetworkerroroccurre_4: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'financial_calculators/js/va_mortgage_calculator.js' %}"></script>
 {% endblock %}

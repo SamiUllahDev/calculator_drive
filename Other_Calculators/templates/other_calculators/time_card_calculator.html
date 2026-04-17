@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Time Card Calculator - Free Work Hours, Payroll, Overtime Calculator Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free time card calculator. Track weekly work hours, calculate daily clock in/out with breaks, compute payroll and overtime pay. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Weekly time card, daily hours, payroll, overtime analysis. Free online calculator." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/time_card_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Time Card Calculator - Free Online Tool" %}","description":"{% trans "Free time card calculator. Weekly hours tracking, daily clock in/out, payroll computation, overtime analysis." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3800"},"featureList":["{% trans 'Weekly timecard with up to 7 days' %}","{% trans 'Daily hours with breaks' %}","{% trans 'Payroll calculation with deductions' %}","{% trans 'Overtime analysis with double-time' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Time Card Calculator - Free Online Tool" %}',"description":'{% trans "Free time card calculator. Weekly hours tracking, daily clock in/out, payroll computation, overtime analysis." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3800"},"featureList":["{% trans 'Weekly timecard with up to 7 days' %}","{% trans 'Daily hours with breaks' %}","{% trans 'Payroll calculation with deductions' %}","{% trans 'Overtime analysis with double-time' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -206,175 +207,13 @@
 </div>
 
 <script>
-let resultChart = null;
-const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-let dayCount = 0;
-
-function setDaily(i, o, b) { document.getElementById('dy_in').value=i; document.getElementById('dy_out').value=o; document.getElementById('dy_brk').value=b; }
-
-function addDay() {
-    if (dayCount >= 7) return;
-    const container = document.getElementById('weekEntries');
-    const idx = dayCount;
-    const name = DAYS[idx] || `Day ${idx+1}`;
-    const div = document.createElement('div');
-    div.className = 'bg-gray-50 rounded-lg p-2 border border-gray-200';
-    div.id = `dayEntry${idx}`;
-    div.innerHTML = `
-        <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-bold text-gray-700">${name}</span>
-            <button type="button" onclick="removeDay(${idx})" class="text-red-400 hover:text-red-600 text-xs">✕</button>
-        </div>
-        <div class="grid grid-cols-3 gap-1">
-            <input type="text" id="wk_in_${idx}" class="px-2 py-1.5 border border-gray-300 rounded text-xs" placeholder="09:00">
-            <input type="text" id="wk_out_${idx}" class="px-2 py-1.5 border border-gray-300 rounded text-xs" placeholder="17:00">
-            <input type="number" id="wk_brk_${idx}" value="30" min="0" class="px-2 py-1.5 border border-gray-300 rounded text-xs" placeholder="30m">
-        </div>
-        <div class="grid grid-cols-3 gap-1 mt-0.5 text-[9px] text-gray-400"><span class="text-center">In</span><span class="text-center">Out</span><span class="text-center">Break(m)</span></div>
-    `;
-    container.appendChild(div);
-    dayCount++;
-    if (dayCount >= 7) document.getElementById('addDayBtn').classList.add('hidden');
-}
-
-function removeDay(idx) {
-    const el = document.getElementById(`dayEntry${idx}`);
-    if(el) el.remove();
-}
-
-function initWeek() {
-    for(let i=0;i<5;i++) addDay();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    initWeek();
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('tcForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = r.result || '-';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Detail cards
-            const dc = document.getElementById('detailCards'); dc.innerHTML = '';
-            if (r.detail_cards) r.detail_cards.forEach(card => {
-                const d = document.createElement('div');
-                d.className = `bg-${card.color}-50 rounded-lg p-3 text-center border-2 border-${card.color}-200`;
-                d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${card.label}</p><p class="text-sm font-bold text-${card.color}-600">${card.value}</p>`;
-                dc.appendChild(d);
-            });
-
-            // Weekly table
-            const wt = document.getElementById('weeklyTable');
-            const wb = document.getElementById('weeklyBody');
-            if (r.daily_results && r.daily_results.length > 0) {
-                wb.innerHTML = '';
-                r.daily_results.forEach(day => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b hover:bg-gray-50';
-                    tr.innerHTML = `<td class="py-2 px-2 font-medium text-sm">${day.day}</td><td class="py-2 px-2 text-center font-mono text-sm">${day.clock_in}</td><td class="py-2 px-2 text-center font-mono text-sm">${day.clock_out}</td><td class="py-2 px-2 text-center text-sm">${day.break}m</td><td class="py-2 px-2 text-center font-bold text-sm text-emerald-700">${day.net}</td>`;
-                    wb.appendChild(tr);
-                });
-                wt?.classList.remove('hidden');
-            } else { wt?.classList.add('hidden'); }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-emerald-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-emerald-700 mt-2 bg-emerald-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('weeklyTable')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'weekly') {
-        const entries = [];
-        for (let i = 0; i < 7; i++) {
-            const inEl = document.getElementById(`wk_in_${i}`);
-            const outEl = document.getElementById(`wk_out_${i}`);
-            if (!inEl || !outEl) continue;
-            const ci = inEl.value.trim();
-            const co = outEl.value.trim();
-            if (!ci && !co) continue;
-            entries.push({
-                day: DAYS[i] || `Day ${i+1}`,
-                clock_in: ci,
-                clock_out: co,
-                break_minutes: parseFloat(document.getElementById(`wk_brk_${i}`)?.value || 0),
-            });
-        }
-        d.entries = entries;
-        d.overtime_threshold = parseFloat(document.getElementById('wk_ot').value) || 40;
-        d.overtime_rate = parseFloat(document.getElementById('wk_rate').value) || 1.5;
-        d.hourly_rate = parseFloat(document.getElementById('wk_pay').value) || 0;
-    } else if (ct === 'daily') {
-        d.clock_in = document.getElementById('dy_in').value;
-        d.clock_out = document.getElementById('dy_out').value;
-        d.break_minutes = parseFloat(document.getElementById('dy_brk').value) || 0;
-        d.overtime_after = parseFloat(document.getElementById('dy_ot').value) || 8;
-    } else if (ct === 'payroll') {
-        d.regular_hours = parseFloat(document.getElementById('pr_reg').value) || 0;
-        d.overtime_hours = parseFloat(document.getElementById('pr_ot').value) || 0;
-        d.hourly_rate = parseFloat(document.getElementById('pr_rate').value) || 0;
-        d.overtime_rate = parseFloat(document.getElementById('pr_mult').value) || 1.5;
-    } else if (ct === 'overtime') {
-        d.total_hours = parseFloat(document.getElementById('ot_total').value) || 0;
-        d.threshold = parseFloat(document.getElementById('ot_thresh').value) || 40;
-        d.overtime_rate = parseFloat(document.getElementById('ot_rate').value) || 1.5;
-        d.double_threshold = parseFloat(document.getElementById('ot_dbl').value) || 60;
-        d.double_rate = parseFloat(document.getElementById('ot_drate').value) || 2.0;
-        d.hourly_rate = parseFloat(document.getElementById('ot_pay').value) || 0;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/time_card_calculator.js' %}"></script>
 {% endblock %}

@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Free mortgage amortization calculator with detailed payment schedule. See how much goes to principal vs interest each month and how extra payments save money." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/mortgage_amortization_calculator.css' %}">
 <meta name="keywords" content="{% trans 'mortgage amortization calculator, amortization schedule, loan payoff schedule, mortgage payment breakdown, principal vs interest, extra payment calculator' %}">
 <meta name="robots" content="index, follow">
 
@@ -56,19 +57,7 @@
 {% block content %}
 <div class="min-h-screen bg-gray-50">
     <!-- Breadcrumb -->
-    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
-                <li class="flex-shrink-0"><a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a></li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="flex-shrink-0"><a href="{% url 'financial_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Financial Calculators" %}</a></li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "Mortgage Amortization Calculator" %}</li>
-            </ol>
-        </div>
-    </nav>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <!-- Header -->
         <header class="mb-6 lg:mb-8">
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{% trans "Mortgage Amortization Calculator" %}</h1>
@@ -596,241 +585,14 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const resultsState = document.getElementById('resultsState');
-    
-    // Toggle extra
-    document.getElementById('toggleExtra').addEventListener('click', function() {
-        document.getElementById('extraSection').classList.toggle('hidden');
-        document.getElementById('extraIcon').classList.toggle('rotate-180');
-    });
-    
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
-    }
-    
-    function parseNumber(val) {
-        return parseFloat(String(val).replace(/[,$\s]/g, '')) || 0;
-    }
-    
-    function showState(state) {
-        [initialState, loadingState, errorState, resultsState].forEach(s => s.classList.add('hidden'));
-        state.classList.remove('hidden');
-    }
-    
-    // Charts
-    let balanceChart = null;
-    let pieChart = null;
-    
-    // Tabs
-    document.getElementById('tabBalance').addEventListener('click', function() {
-        this.classList.add('text-blue-600', 'border-blue-600');
-        this.classList.remove('text-gray-500', 'border-transparent');
-        document.getElementById('tabBreakdown').classList.remove('text-blue-600', 'border-blue-600');
-        document.getElementById('tabBreakdown').classList.add('text-gray-500', 'border-transparent');
-        document.getElementById('balanceChartContainer').classList.remove('hidden');
-        document.getElementById('breakdownChartContainer').classList.add('hidden');
-    });
-    
-    document.getElementById('tabBreakdown').addEventListener('click', function() {
-        this.classList.add('text-blue-600', 'border-blue-600');
-        this.classList.remove('text-gray-500', 'border-transparent');
-        document.getElementById('tabBalance').classList.remove('text-blue-600', 'border-blue-600');
-        document.getElementById('tabBalance').classList.add('text-gray-500', 'border-transparent');
-        document.getElementById('breakdownChartContainer').classList.remove('hidden');
-        document.getElementById('balanceChartContainer').classList.add('hidden');
-    });
-    
-    // View toggle
-    const viewMonthly = document.getElementById('viewMonthly');
-    const viewYearly = document.getElementById('viewYearly');
-    const monthlySchedule = document.getElementById('monthlySchedule');
-    const yearlySchedule = document.getElementById('yearlySchedule');
-    const pagination = document.getElementById('pagination');
-    
-    viewMonthly.addEventListener('click', function() {
-        viewMonthly.classList.add('bg-blue-100', 'text-blue-700');
-        viewMonthly.classList.remove('text-gray-600');
-        viewYearly.classList.remove('bg-blue-100', 'text-blue-700');
-        viewYearly.classList.add('text-gray-600');
-        monthlySchedule.classList.remove('hidden');
-        yearlySchedule.classList.add('hidden');
-        pagination.classList.remove('hidden');
-    });
-    
-    viewYearly.addEventListener('click', function() {
-        viewYearly.classList.add('bg-blue-100', 'text-blue-700');
-        viewYearly.classList.remove('text-gray-600');
-        viewMonthly.classList.remove('bg-blue-100', 'text-blue-700');
-        viewMonthly.classList.add('text-gray-600');
-        yearlySchedule.classList.remove('hidden');
-        monthlySchedule.classList.add('hidden');
-        pagination.classList.add('hidden');
-    });
-    
-    // Pagination
-    let scheduleData = [];
-    let yearlyData = [];
-    let currentPage = 1;
-    const itemsPerPage = 12;
-    
-    document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderMonthly(); } });
-    document.getElementById('nextPage').addEventListener('click', () => { 
-        if (currentPage < Math.ceil(scheduleData.length / itemsPerPage)) { currentPage++; renderMonthly(); } 
-    });
-    
-    function renderMonthly() {
-        const start = (currentPage - 1) * itemsPerPage;
-        const end = Math.min(start + itemsPerPage, scheduleData.length);
-        document.getElementById('monthlyBody').innerHTML = scheduleData.slice(start, end).map(row => `
-            <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-gray-500">${row.month}</td>
-                <td class="px-4 py-3 text-sm text-gray-900">${row.date}</td>
-                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.payment)}</td>
-                <td class="px-4 py-3 text-sm text-green-600 text-right">${formatCurrency(row.total_principal)}</td>
-                <td class="px-4 py-3 text-sm text-red-600 text-right">${formatCurrency(row.interest)}</td>
-                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.balance)}</td>
-            </tr>
-        `).join('');
-        document.getElementById('paginationInfo').textContent = `{% trans "Showing" %} ${start + 1}-${end} {% trans "of" %} ${scheduleData.length}`;
-        document.getElementById('prevPage').disabled = currentPage === 1;
-        document.getElementById('nextPage').disabled = currentPage >= Math.ceil(scheduleData.length / itemsPerPage);
-    }
-    
-    function renderYearly() {
-        document.getElementById('yearlyBody').innerHTML = yearlyData.map(row => `
-            <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm font-medium text-gray-900">${row.year}</td>
-                <td class="px-4 py-3 text-sm text-green-600 text-right">${formatCurrency(row.principal)}</td>
-                <td class="px-4 py-3 text-sm text-red-600 text-right">${formatCurrency(row.interest)}</td>
-                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${formatCurrency(row.end_balance)}</td>
-            </tr>
-        `).join('');
-    }
-    
-    // Export CSV
-    document.getElementById('exportBtn').addEventListener('click', function() {
-        if (!scheduleData.length) return;
-        const csv = ['Month,Date,Payment,Principal,Interest,Balance', ...scheduleData.map(r => 
-            `${r.month},${r.date},${r.payment},${r.total_principal},${r.interest},${r.balance}`
-        )].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'amortization-schedule.csv';
-        a.click();
-    });
-    
-    // Clear
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        form.reset();
-        showState(initialState);
-    });
-    
-    // Calculate
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        showState(loadingState);
-        
-        const formData = {
-            loan_amount: parseNumber(document.getElementById('loan_amount').value),
-            interest_rate: parseNumber(document.getElementById('interest_rate').value),
-            loan_term: parseInt(document.getElementById('loan_term').value),
-            start_month: parseInt(document.getElementById('start_month').value),
-            start_year: parseInt(document.getElementById('start_year').value),
-            extra_monthly: parseNumber(document.getElementById('extra_monthly').value),
-            extra_yearly: parseNumber(document.getElementById('extra_yearly').value),
-            extra_yearly_month: 1,  // Default to January
-        };
-        
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                document.getElementById('errorMessage').textContent = data.error;
-                showState(errorState);
-                return;
-            }
-            
-            // Update results
-            document.getElementById('monthlyPayment').textContent = formatCurrency(data.loan_details.monthly_payment);
-            document.getElementById('totalInterest').textContent = formatCurrency(data.loan_details.total_interest);
-            document.getElementById('totalPaid').textContent = formatCurrency(data.loan_details.total_paid);
-            document.getElementById('payoffDate').textContent = data.loan_details.payoff_date;
-            
-            // Savings
-            if (data.savings) {
-                document.getElementById('savingsAlert').classList.remove('hidden');
-                document.getElementById('interestSaved').textContent = formatCurrency(data.savings.interest_saved);
-                document.getElementById('monthsSaved').textContent = data.savings.months_saved;
-            } else {
-                document.getElementById('savingsAlert').classList.add('hidden');
-            }
-            
-            // Charts
-            if (balanceChart) balanceChart.destroy();
-            if (pieChart) pieChart.destroy();
-            
-            const chartData = data.chart_data || {};
-            const balanceData = chartData.balance_data || { labels: [], standard_balance: [] };
-            const breakdown = chartData.payment_breakdown || { principal: 0, interest: 0 };
-            
-            // Only create charts if we have data
-            if (balanceData.labels && balanceData.labels.length > 0) {
-                balanceChart = new Chart(document.getElementById('balanceChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: balanceData.labels,
-                        datasets: [{
-                            label: '{% trans "Balance" %}',
-                            data: balanceData.standard_balance,
-                            borderColor: '#3B82F6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                });
-            }
-            
-            if (breakdown.principal > 0 || breakdown.interest > 0) {
-                pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['{% trans "Principal" %}', '{% trans "Interest" %}'],
-                        datasets: [{ data: [breakdown.principal, breakdown.interest], backgroundColor: ['#10B981', '#EF4444'] }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom' } } }
-                });
-            }
-            
-            // Tables
-            scheduleData = data.schedule;
-            yearlyData = data.yearly_summary;
-            currentPage = 1;
-            renderMonthly();
-            renderYearly();
-            
-            showState(resultsState);
-            
-            if (window.innerWidth < 1280) resultsState.scrollIntoView({ behavior: 'smooth' });
-            
-        } catch (err) {
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred." %}';
-            showState(errorState);
-        }
-    });
-});
+window.djangoContext = {
+        trans_Showing_0: '{% trans "Showing" %}',
+        trans_of_1: '{% trans "of" %}',
+        trans_Balance_2: '{% trans "Balance" %}',
+        trans_Principal_3: '{% trans "Principal" %}',
+        trans_Interest_4: '{% trans "Interest" %}',
+        trans_Anetworkerroroccurre_5: '{% trans "A network error occurred." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/mortgage_amortization_calculator.js' %}"></script>
 {% endblock %}

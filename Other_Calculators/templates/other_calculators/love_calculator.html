@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{{ page_title }}{% endblock %}
 {% block meta_description %}{% if is_shared %}{{ shared_name1 }} & {{ shared_name2 }}: {{ share_love_pct }}% Love Compatibility! {{ share_category }}. {{ share_description }} Test your love compatibility now!{% else %}{% trans "Free Love Calculator to test your love compatibility. Get your love percentage, FLAMES analysis, zodiac compatibility, love languages, and numerology reading. Fun and accurate!" %}{% endif %}{% endblock %}
@@ -13,6 +13,7 @@
 {% block twitter_image_alt %}{% if is_shared %}{{ shared_name1 }} & {{ shared_name2 }} Love Compatibility{% else %}{% trans "Love Calculator" %}{% endif %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/love_calculator.css' %}">
 <!-- Chart.js is loaded globally from base.html -->
 {% endblock %}
 
@@ -412,243 +413,12 @@
 </div>
 
 <script>
-let loveGaugeChart = null, compatibilityRadarChart = null, flamesChartInstance = null;
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-
-    // Toggle optional details
-    document.getElementById('toggleDetails').addEventListener('click', function() {
-        const d = document.getElementById('optionalDetails');
-        const t = document.getElementById('toggleText');
-        const i = document.getElementById('toggleIcon');
-        d.classList.toggle('hidden');
-        if (d.classList.contains('hidden')) { t.textContent = "{% trans '+ More Details (Optional)' %}"; i.style.transform = ''; }
-        else { t.textContent = "{% trans '− Hide Details' %}"; i.style.transform = 'rotate(180deg)'; }
-    });
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-    const resultCard = document.getElementById('resultCard');
-    let lastData = null;
-
-    // Auto-calculate if shared URL
-    if (form.dataset.shared === '1') {
-        setTimeout(() => form.dispatchEvent(new Event('submit', {cancelable: true})), 500);
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-        document.getElementById('shareSection').classList.add('hidden');
-
-        const gv = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-        const formData = { name1: gv('name1'), name2: gv('name2'), age1: gv('age1'), age2: gv('age2'), color1: gv('color1'), color2: gv('color2'), food1: gv('food1'), food2: gv('food2'), hobby1: gv('hobby1'), hobby2: gv('hobby2'), personality1: gv('personality1'), personality2: gv('personality2') };
-        const submitBtn = document.getElementById('calculateBtnText');
-        const origText = submitBtn.textContent;
-        submitBtn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-            loadingState.classList.add('hidden');
-            submitBtn.textContent = origText;
-            if (!data.success) { document.getElementById('errorMessage').textContent = data.error; errorState.classList.remove('hidden'); return; }
-            lastData = data;
-            displayResults(data);
-        } catch (err) {
-            loadingState.classList.add('hidden');
-            submitBtn.textContent = origText;
-            document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            errorState.classList.remove('hidden');
-        }
-    });
-
-    function displayResults(data) {
-        document.getElementById('loveValue').textContent = data.love_percentage + '%';
-        document.getElementById('resultName1').textContent = data.name1;
-        document.getElementById('resultName2').textContent = data.name2;
-        document.getElementById('categoryTextBadge').textContent = data.category;
-        const cb = document.getElementById('categoryBadge');
-        if (cb && data.color_info) cb.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
-
-        const gradients = { red:'from-red-600 to-red-700', yellow:'from-yellow-500 to-yellow-600', blue:'from-blue-600 to-blue-700', purple:'from-purple-600 to-purple-700', pink:'from-pink-600 to-purple-700' };
-        resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (gradients[data.category_color] || 'from-pink-600 to-purple-700');
-
-        // Stats cards
-        document.getElementById('flamesEmoji').textContent = data.flames.emoji;
-        document.getElementById('flamesLabel').textContent = data.flames.label;
-        document.getElementById('zodiacScore').textContent = data.zodiac.score + '%';
-        document.getElementById('zodiacSigns').textContent = data.zodiac.sign1 + ' & ' + data.zodiac.sign2;
-        document.getElementById('numerologyScore').textContent = data.numerology.score + '%';
-        document.getElementById('numerologyNumbers').textContent = data.numerology.number1 + ' & ' + data.numerology.number2;
-        document.getElementById('loveLangScore').textContent = data.love_languages.match_score + '%';
-        document.getElementById('loveLangMatch').textContent = data.love_languages.language1.split(' ')[0];
-
-        // Scale
-        document.getElementById('loveIndicator').style.left = data.scale_position + '%';
-        document.getElementById('categoryDescription').textContent = data.description;
-
-        // FLAMES detail card
-        const fc = document.getElementById('flamesDetailCard');
-        fc.style.backgroundColor = data.flames.color + '15';
-        fc.style.borderColor = data.flames.color;
-        document.getElementById('flamesDetailEmoji').textContent = data.flames.emoji;
-        document.getElementById('flamesDetailLabel').textContent = data.flames.label;
-        document.getElementById('flamesDetailLabel').style.color = data.flames.color;
-        document.getElementById('flamesDetailDesc').textContent = data.flames.description;
-
-        // Zodiac & Love Language details
-        document.getElementById('zodiacDetail').textContent = data.name1 + ': ' + data.zodiac.sign1 + ' (' + data.zodiac.element1 + ') • ' + data.name2 + ': ' + data.zodiac.sign2 + ' (' + data.zodiac.element2 + ')';
-        document.getElementById('zodiacElementDesc').textContent = data.zodiac.element_description;
-        document.getElementById('loveLangDetail').textContent = data.name1 + ': ' + data.love_languages.language1 + ' • ' + data.name2 + ': ' + data.love_languages.language2;
-        document.getElementById('loveLangDesc').textContent = data.love_languages.match_description;
-        document.getElementById('numerologyDetail').textContent = data.name1 + ': Life Path ' + data.numerology.number1 + ' • ' + data.name2 + ': Life Path ' + data.numerology.number2 + ' • Combined: ' + data.numerology.combined;
-        document.getElementById('numerologyDesc').textContent = data.numerology.description;
-
-        // Charts
-        if (data.chart_data && checkChartJS()) {
-            if (data.chart_data.gauge_chart) createGaugeChart(data.chart_data.gauge_chart);
-            if (data.chart_data.radar_chart) createRadarChart(data.chart_data.radar_chart);
-            if (data.chart_data.flames_chart) createFlamesChart(data.chart_data.flames_chart);
-        }
-
-        // === NEW OPTIONAL RESULTS ===
-        function showOptCard(id, d, fn) { const el = document.getElementById(id); if (d) { fn(d); el.classList.remove('hidden'); } else { el.classList.add('hidden'); } }
-        showOptCard('ageCompatCard', data.age_compatibility, d => {
-            document.getElementById('ageVal1').textContent = d.age1; document.getElementById('ageVal2').textContent = d.age2;
-            document.getElementById('ageScoreText').textContent = d.score + '%'; document.getElementById('ageScoreBar').style.width = d.score + '%';
-            document.getElementById('ageDesc').textContent = d.description;
-        });
-        showOptCard('colorChemCard', data.color_chemistry, d => {
-            document.getElementById('colorEmoji1').textContent = d.color1.emoji; document.getElementById('colorName1').textContent = d.color1.name;
-            document.getElementById('colorMeaning1').textContent = d.color1.meaning; document.getElementById('colorBox1').style.backgroundColor = d.color1.hex + '20';
-            document.getElementById('colorEmoji2').textContent = d.color2.emoji; document.getElementById('colorName2').textContent = d.color2.name;
-            document.getElementById('colorMeaning2').textContent = d.color2.meaning; document.getElementById('colorBox2').style.backgroundColor = d.color2.hex + '20';
-            document.getElementById('colorScoreText').textContent = d.score + '%'; document.getElementById('colorScoreBar').style.width = d.score + '%'; document.getElementById('colorDesc').textContent = d.description;
-        });
-        showOptCard('foodPairCard', data.food_pairing, d => {
-            document.getElementById('foodEmoji1').textContent = d.food1.emoji; document.getElementById('foodName1').textContent = d.food1.name; document.getElementById('foodType1').textContent = d.food1.type;
-            document.getElementById('foodEmoji2').textContent = d.food2.emoji; document.getElementById('foodName2').textContent = d.food2.name; document.getElementById('foodType2').textContent = d.food2.type;
-            document.getElementById('foodScoreText').textContent = d.score + '%'; document.getElementById('foodScoreBar').style.width = d.score + '%'; document.getElementById('foodDesc').textContent = d.description;
-        });
-        showOptCard('hobbyMatchCard', data.hobby_match, d => {
-            document.getElementById('hobbyEmoji1').textContent = d.hobby1.emoji; document.getElementById('hobbyName1').textContent = d.hobby1.name; document.getElementById('hobbyType1').textContent = d.hobby1.type;
-            document.getElementById('hobbyEmoji2').textContent = d.hobby2.emoji; document.getElementById('hobbyName2').textContent = d.hobby2.name; document.getElementById('hobbyType2').textContent = d.hobby2.type;
-            document.getElementById('hobbyScoreText').textContent = d.score + '%'; document.getElementById('hobbyScoreBar').style.width = d.score + '%'; document.getElementById('hobbyDesc').textContent = d.description;
-        });
-        showOptCard('personalityCard', data.personality_match, d => {
-            document.getElementById('persEmoji1').textContent = d.personality1.emoji; document.getElementById('persType1').textContent = d.personality1.type; document.getElementById('persDesc1').textContent = d.personality1.desc;
-            document.getElementById('persEmoji2').textContent = d.personality2.emoji; document.getElementById('persType2').textContent = d.personality2.type; document.getElementById('persDesc2').textContent = d.personality2.desc;
-            document.getElementById('persScoreText').textContent = d.score + '%'; document.getElementById('persScoreBar').style.width = d.score + '%'; document.getElementById('persMatchDesc').textContent = d.description;
-        });
-        // Tips
-        const tipsList = document.getElementById('tipsList'); tipsList.innerHTML = '';
-        if (data.relationship_tips) data.relationship_tips.forEach(t => { const li = document.createElement('li'); li.className = 'flex items-start gap-2'; li.innerHTML = '<span class="text-pink-500 mt-0.5">💡</span><span>' + t + '</span>'; tipsList.appendChild(li); });
-        // Date Ideas
-        const dateList = document.getElementById('dateIdeasList'); dateList.innerHTML = '';
-        if (data.ideal_date) data.ideal_date.forEach(d => { const li = document.createElement('li'); li.className = 'flex items-start gap-2'; li.innerHTML = '<span>' + d + '</span>'; dateList.appendChild(li); });
-
-        // === PREMIUM FEATURES ===
-        // Love Story
-        if (data.love_story) {
-            document.getElementById('storyTitle').textContent = data.love_story.title;
-            document.getElementById('storyContent').textContent = data.love_story.story;
-        }
-        // Couple Nicknames
-        if (data.couple_nickname) {
-            const nl = document.getElementById('nicknameList'); nl.innerHTML = '';
-            data.couple_nickname.forEach(nn => { const s = document.createElement('span'); s.className = 'inline-block px-4 py-2 bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 font-bold rounded-full text-sm border border-pink-200 shadow-sm hover:scale-105 transition-transform cursor-default'; s.textContent = nn; nl.appendChild(s); });
-        }
-        // Celebrity Match
-        if (data.celebrity_match) {
-            document.getElementById('celebEmoji').textContent = data.celebrity_match.emoji;
-            document.getElementById('celebCouple').textContent = data.celebrity_match.couple;
-            document.getElementById('celebDesc').textContent = data.celebrity_match.description;
-            document.getElementById('celebSimilarity').textContent = data.celebrity_match.similarity + '% match similarity';
-        }
-        // Emotional Weather
-        if (data.emotional_weather) {
-            const w = data.emotional_weather;
-            document.getElementById('weatherIcon').textContent = w.icon;
-            document.getElementById('weatherTemp').textContent = w.temp;
-            document.getElementById('weatherTemp').style.color = w.color;
-            document.getElementById('weatherCondition').textContent = w.condition;
-            document.getElementById('weatherCondition').style.color = w.color;
-            document.getElementById('weatherForecast').textContent = w.forecast;
-            document.getElementById('weatherAdvice').textContent = w.advice;
-            document.getElementById('weatherCard').style.backgroundColor = w.color + '10';
-            document.getElementById('weatherCard').style.borderColor = w.color;
-        }
-        // Relationship Timeline
-        if (data.relationship_timeline && data.relationship_timeline.length) {
-            const tl = document.getElementById('timelineList'); tl.innerHTML = '';
-            data.relationship_timeline.forEach((m, i) => {
-                const div = document.createElement('div');
-                div.className = 'relative';
-                div.style.animationDelay = (i * 0.1) + 's';
-                div.innerHTML = '<div class="absolute -left-[25px] w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow"></div>' +
-                    '<div class="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow">' +
-                    '<div class="flex items-center justify-between mb-1"><span class="font-bold text-sm text-gray-900">' + m.icon + ' ' + m.title + '</span><span class="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-medium">' + m.time + '</span></div>' +
-                    '<p class="text-xs text-gray-600">' + m.desc + '</p></div>';
-                tl.appendChild(div);
-            });
-        }
-        // Love Recipe
-        if (data.love_recipe) {
-            document.getElementById('recipeName').textContent = data.love_recipe.dish_name;
-            const ri = document.getElementById('recipeIngredients'); ri.innerHTML = '';
-            data.love_recipe.ingredients.forEach(ing => { const li = document.createElement('li'); li.textContent = ing; ri.appendChild(li); });
-            const rs = document.getElementById('recipeInstructions'); rs.innerHTML = '';
-            data.love_recipe.instructions.forEach(ins => { const li = document.createElement('li'); li.textContent = ins; rs.appendChild(li); });
-            document.getElementById('recipeServing').textContent = data.love_recipe.serving;
-        }
-
-        // Share — include detailed data for rich social sharing
-        const baseUrl = window.location.origin + data.share_url;
-        const shareText = `💕 ${data.name1} & ${data.name2}: ${data.love_percentage}% Love Compatibility!\n${data.flames.emoji} FLAMES: ${data.flames.label}\n⭐ Category: ${data.category}\n${data.description}\n\nTest your love compatibility too! 👇`;
-        const shortShareText = `${data.name1} & ${data.name2}: ${data.love_percentage}% Love! ${data.flames.emoji} ${data.category} 💕`;
-        document.getElementById('shareWhatsApp').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(shareText + '\n' + baseUrl));
-        document.getElementById('shareTwitter').onclick = () => window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shortShareText) + '&url=' + encodeURIComponent(baseUrl));
-        document.getElementById('shareCopy').onclick = () => { navigator.clipboard.writeText(shareText + '\n' + baseUrl); document.getElementById('shareCopy').innerHTML = 'Copied!'; setTimeout(() => document.getElementById('shareCopy').innerHTML = 'Copy', 2000); };
-        document.getElementById('shareSection').classList.remove('hidden');
-
-        results.classList.remove('hidden');
-        setTimeout(() => results.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
-    }
-
-    function createGaugeChart(cd) {
-        const ctx = document.getElementById('loveGaugeChart');
-        if (!ctx || !cd.center_text) return;
-        if (loveGaugeChart) loveGaugeChart.destroy();
-        const ct = cd.center_text;
-        loveGaugeChart = new Chart(ctx, { type: cd.type, data: cd.data, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { animateRotate: true, duration: 1500 } },
-            plugins: [{ id: 'centerText', afterDraw(chart) { const c = chart.ctx, cx = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2, cy = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2; c.save(); c.font = 'bold 36px Inter, Arial'; c.fillStyle = ct.color; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(ct.value + '%', cx, cy - 10); c.font = '14px Inter, Arial'; c.fillStyle = '#6b7280'; c.fillText(ct.label, cx, cy + 20); c.restore(); } }]
-        });
-    }
-
-    function createRadarChart(cd) {
-        const ctx = document.getElementById('compatibilityRadarChart');
-        if (!ctx) return;
-        if (compatibilityRadarChart) compatibilityRadarChart.destroy();
-        compatibilityRadarChart = new Chart(ctx, { type: cd.type, data: cd.data, options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, pointLabels: { font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } }, animation: { duration: 1500 } } });
-    }
-
-    function createFlamesChart(cd) {
-        const ctx = document.getElementById('flamesChart');
-        if (!ctx) return;
-        if (flamesChartInstance) flamesChartInstance.destroy();
-        flamesChartInstance = new Chart(ctx, { type: cd.type, data: cd.data, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100, grid: { color: '#f3f4f6' } }, y: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' } } } }, animation: { duration: 1500 } } });
-    }
-});
+window.djangoContext = {
+        trans_MoreDetailsOptional_0: "{% trans '+ More Details (Optional)' %}",
+        trans_HideDetails_1: "{% trans '− Hide Details' %}",
+        trans_Calculating_2: "{% trans 'Calculating...' %}",
+        trans_Anetworkerroroccurre_3: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/love_calculator.js' %}"></script>
 {% endblock %}

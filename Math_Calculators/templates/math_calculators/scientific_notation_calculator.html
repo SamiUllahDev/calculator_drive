@@ -2,11 +2,12 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "Scientific Notation Calculator - Convert & Calculate" %} | Free Online{% endblock %}
+{% block title %}{% trans "Scientific Notation Calculator - Convert & Calculate" %} | {% trans "Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free scientific notation calculator to convert numbers to and from scientific notation, perform calculations, and work with very large or small numbers. Perfect for science, engineering, and math homework." %}{% endblock %}
 {% block meta_keywords %}{% trans "scientific notation calculator, scientific notation converter, convert to scientific notation, e notation calculator, standard form calculator, exponential notation calculator, how to convert scientific notation, scientific notation converter online, scientific notation finder, convert scientific notation" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'math_calculators/css/scientific_notation_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -210,127 +211,21 @@
 </div>
 
 <script>
-var magnitudeChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatNumber(n) {
-    if (n === undefined || n === null || isNaN(n)) return '—';
-    var num = Number(n);
-    if (Math.abs(num) >= 1e15 || (Math.abs(num) < 1e-6 && num !== 0)) return num.toExponential(4);
-    if (Number.isInteger(num)) return num.toString();
-    return num.toLocaleString(undefined, { maximumFractionDigits: 10 });
-}
-
-function getVal(id) {
-    var el = document.getElementById(id);
-    return (el && el.value ? el.value.replace(/,/g, '').trim() : '') || '';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-    var singleValueWrap = document.getElementById('singleValueWrap');
-    var twoValuesWrap = document.getElementById('twoValuesWrap');
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var v = this.value;
-            var isSingle = (v === 'to_scientific' || v === 'from_scientific');
-            singleValueWrap.classList.toggle('hidden', !isSingle);
-            twoValuesWrap.classList.toggle('hidden', isSingle);
-        });
-    });
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function createMagnitudeChart(chartData) {
-        var canvas = document.getElementById('magnitudeChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (magnitudeChart) magnitudeChart.destroy();
-        magnitudeChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: chartData.options || {}
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var payload = { calc_type: calcType };
-        if (calcType === 'to_scientific' || calcType === 'from_scientific') {
-            payload.value = getVal('value') || '0';
-        } else {
-            payload.value = getVal('input1') || '0';
-            payload.value2 = getVal('input2') || '0';
-        }
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) { showError('{% trans "Session expired. Please refresh the page and try again." %}'); return; }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value }, body: JSON.stringify(payload) });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (err) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) { showError(data.error || '{% trans "Invalid response." %}'); return; }
-
-            var s = data.summary || {};
-            var ct = data.calc_type;
-            if (ct === 'from_scientific') {
-                document.getElementById('heroLabel').textContent = '{% trans "Result (decimal)" %}';
-                document.getElementById('heroValue').textContent = formatNumber(data.result_decimal);
-                document.getElementById('heroDetail').textContent = data.result_scientific ? ('{% trans "Scientific:" %} ' + data.result_scientific) : '';
-            } else {
-                document.getElementById('heroLabel').textContent = '{% trans "Result (scientific)" %}';
-                document.getElementById('heroValue').textContent = data.result_scientific != null ? data.result_scientific : formatNumber(data.result_decimal);
-                document.getElementById('heroDetail').textContent = data.result_decimal != null ? ('{% trans "Decimal:" %} ' + formatNumber(data.result_decimal)) : '';
-            }
-            document.getElementById('detailMantissa').textContent = data.mantissa != null ? formatNumber(data.mantissa) : '—';
-            document.getElementById('detailExponent').textContent = data.exponent != null ? data.exponent : '—';
-            document.getElementById('detailDecimal').textContent = (data.calc_type === 'to_scientific' ? data.input_decimal : data.result_decimal) != null ? formatNumber(data.calc_type === 'to_scientific' ? data.input_decimal : data.result_decimal) : '—';
-            document.getElementById('detailScientific').textContent = data.result_scientific != null ? data.result_scientific : '—';
-
-            if (data.chart_data && data.chart_data.magnitude_chart && checkChartJS()) {
-                document.getElementById('magnitudeChartWrap').classList.remove('hidden');
-                createMagnitudeChart(data.chart_data.magnitude_chart);
-            } else {
-                document.getElementById('magnitudeChartWrap').classList.add('hidden');
-            }
-
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Resultdecimal_9: '{% trans "Result (decimal)" %}',
+        trans_Scientific_10: '{% trans "Scientific:" %}',
+        trans_Resultscientific_11: '{% trans "Result (scientific)" %}',
+        trans_Decimal_12: '{% trans "Decimal:" %}',
+        trans_Networkorservererror_13: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'math_calculators/js/scientific_notation_calculator.js' %}"></script>
 {% endblock %}

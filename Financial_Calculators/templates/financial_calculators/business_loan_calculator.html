@@ -1,8 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Business Loan Calculator - Calculate Commercial Financing" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate business loan payments for term loans, SBA loans, and lines of credit. Compare rates and financing options." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/business_loan_calculator.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
@@ -303,138 +307,16 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    const initialState = document.getElementById('initialState');
-    const resultsSection = document.getElementById('resultsSection');
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const termFields = document.getElementById('term_loan_fields');
-            const locFields = document.getElementById('loc_fields');
-            if (this.value === 'line_of_credit') {
-                termFields.classList.add('hidden');
-                locFields.classList.remove('hidden');
-            } else {
-                termFields.classList.remove('hidden');
-                locFields.classList.add('hidden');
-            }
-        });
-    });
-
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-    }
-
-    function parseNum(val) {
-        if (val == null || val === '') return 0;
-        const s = String(val).replace(/,/g, '').replace(/\$/g, '').replace(/%/g, '').trim();
-        return s === '' ? 0 : parseFloat(s) || 0;
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        const calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        const formData = {
-            calc_type: calcType,
-            loan_amount: document.getElementById('loan_amount').value,
-            interest_rate: document.getElementById('interest_rate').value,
-            loan_term: document.getElementById('loan_term').value,
-            origination_fee: document.getElementById('origination_fee').value,
-            payment_frequency: document.getElementById('payment_frequency').value,
-            credit_limit: document.getElementById('credit_limit').value,
-            current_balance: document.getElementById('current_balance').value,
-            monthly_payment: document.getElementById('monthly_payment_loc').value
-        };
-        if (calcType === 'line_of_credit') {
-            formData.interest_rate = document.getElementById('interest_rate_loc').value;
-        }
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            if (data.calc_type === 'compare_options') {
-                document.getElementById('comparison_section').classList.remove('hidden');
-                document.getElementById('loc_results').classList.add('hidden');
-                document.getElementById('comparison_amount').textContent = formatCurrency(data.loan_amount);
-                const tbody = document.getElementById('comparison_table');
-                tbody.innerHTML = '';
-                data.comparisons.forEach(comp => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-3 text-gray-900">' + comp.name + '</td><td class="px-4 py-3 text-right">' + comp.rate + '%</td><td class="px-4 py-3 text-right">' + comp.term_years + ' yr</td><td class="px-4 py-3 text-right">' + formatCurrency(comp.monthly_payment) + '</td><td class="px-4 py-3 text-right">' + formatCurrency(comp.total_cost) + '</td>';
-                    tbody.appendChild(tr);
-                });
-                document.getElementById('payment_display').textContent = '—';
-                document.getElementById('apr_display').textContent = '';
-                document.getElementById('loan_display').textContent = formatCurrency(data.loan_amount);
-                document.getElementById('interest_display').textContent = '—';
-                document.getElementById('fee_display').textContent = '—';
-                document.getElementById('total_display').textContent = '—';
-            } else if (data.calc_type === 'line_of_credit') {
-                document.getElementById('comparison_section').classList.add('hidden');
-                document.getElementById('loc_results').classList.remove('hidden');
-                document.getElementById('available_credit').textContent = formatCurrency(data.available_credit);
-                document.getElementById('utilization_display').textContent = data.utilization + '%';
-                document.getElementById('months_payoff').textContent = data.months_to_payoff;
-                document.getElementById('payment_display').textContent = formatCurrency(data.monthly_payment);
-                document.getElementById('apr_display').textContent = '';
-                document.getElementById('loan_display').textContent = formatCurrency(data.credit_limit);
-                document.getElementById('interest_display').textContent = formatCurrency(data.total_interest);
-                document.getElementById('fee_display').textContent = '$0';
-                document.getElementById('total_display').textContent = formatCurrency(data.total_cost);
-            } else {
-                document.getElementById('comparison_section').classList.add('hidden');
-                document.getElementById('loc_results').classList.add('hidden');
-                document.getElementById('payment_display').textContent = formatCurrency(data.monthly_payment || data.periodic_payment);
-                document.getElementById('apr_display').textContent = (data.apr != null ? '{% trans "Effective APR:" %} ' + data.apr + '%' : '');
-                document.getElementById('loan_display').textContent = formatCurrency(data.loan_amount);
-                document.getElementById('interest_display').textContent = formatCurrency(data.total_interest);
-                document.getElementById('fee_display').textContent = formatCurrency(data.origination_fee || data.guarantee_fee || 0);
-                document.getElementById('total_display').textContent = formatCurrency(data.total_cost);
-                document.getElementById('label_1').textContent = '{% trans "Loan Amount" %}';
-                document.getElementById('label_fee').textContent = data.calc_type === 'sba_loan' ? '{% trans "Guarantee Fee" %}' : '{% trans "Origination Fee" %}';
-            }
-        } catch (error) {
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_EffectiveAPR_3: '{% trans "Effective APR:" %}',
+        trans_LoanAmount_4: '{% trans "Loan Amount" %}',
+        trans_GuaranteeFee_5: '{% trans "Guarantee Fee" %}',
+        trans_OriginationFee_6: '{% trans "Origination Fee" %}',
+        trans_AnerroroccurredPleas_8: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/business_loan_calculator.js' %}"></script>
 {% endblock %}

@@ -6,6 +6,10 @@
 
 {% block meta_description %}Analyze rental property investments. Calculate cash flow, ROI, cap rate, and key investment metrics.{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/rental_calculator.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-emerald-900 py-8 px-4 sm:px-6 lg:px-8">
     <div class="max-w-6xl mx-auto">
@@ -243,99 +247,11 @@
 </div>
 
 <script>
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-}
-
-document.getElementById('calculator-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    document.getElementById('loading').classList.remove('hidden');
-    
-    const formData = {
-        purchase_price: document.getElementById('purchase_price').value,
-        down_payment: document.getElementById('down_payment').value,
-        down_payment_type: 'percent',
-        interest_rate: document.getElementById('interest_rate').value,
-        closing_costs: document.getElementById('closing_costs').value,
-        renovation_costs: document.getElementById('renovation_costs').value,
-        monthly_rent: document.getElementById('monthly_rent').value,
-        vacancy_rate: document.getElementById('vacancy_rate').value,
-        property_tax: document.getElementById('property_tax').value,
-        insurance: document.getElementById('insurance').value,
-        hoa_fees: document.getElementById('hoa_fees').value,
-        property_management: document.getElementById('property_management').value,
-        maintenance: document.getElementById('maintenance').value,
-        utilities: document.getElementById('utilities').value
+window.djangoContext = {
+        url_rental_calculator_0: '{% url "rental_calculator" %}',
+        var_csrf_token_0: '{{ csrf_token }}',
     };
-
-    try {
-        const response = await fetch('{% url "rental_calculator" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const data = await response.json();
-        document.getElementById('loading').classList.add('hidden');
-
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert(data.error || 'Calculation error');
-        }
-    } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        alert('An error occurred');
-    }
-});
-
-function updateResults(data) {
-    // Cash flow card color
-    const cashflowCard = document.getElementById('cashflow_card');
-    if (data.analysis.monthly_cash_flow >= 0) {
-        cashflowCard.className = 'bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl p-6 shadow-2xl';
-    } else {
-        cashflowCard.className = 'bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl p-6 shadow-2xl';
-    }
-    
-    document.getElementById('monthly_cash_flow').textContent = formatCurrency(data.analysis.monthly_cash_flow);
-    document.getElementById('cap_rate').textContent = data.metrics.cap_rate + '%';
-    document.getElementById('cash_on_cash').textContent = data.metrics.cash_on_cash_return + '%';
-    document.getElementById('grm').textContent = data.metrics.gross_rent_multiplier;
-    document.getElementById('dscr').textContent = data.metrics.dscr;
-    
-    // Rules badges
-    const onePercent = document.getElementById('one_percent_badge');
-    const twoPercent = document.getElementById('two_percent_badge');
-    
-    if (data.rules.one_percent_rule) {
-        onePercent.className = 'px-2 py-1 rounded text-xs font-medium bg-green-500/30 text-green-200';
-        onePercent.textContent = 'Pass ✓';
-    } else {
-        onePercent.className = 'px-2 py-1 rounded text-xs font-medium bg-red-500/30 text-red-200';
-        onePercent.textContent = 'Fail';
-    }
-    
-    if (data.rules.two_percent_rule) {
-        twoPercent.className = 'px-2 py-1 rounded text-xs font-medium bg-green-500/30 text-green-200';
-        twoPercent.textContent = 'Pass ✓';
-    } else {
-        twoPercent.className = 'px-2 py-1 rounded text-xs font-medium bg-red-500/30 text-red-200';
-        twoPercent.textContent = 'Fail';
-    }
-    
-    document.getElementById('fifty_rule').textContent = formatCurrency(data.rules.fifty_percent_rule_cash_flow);
-    document.getElementById('effective_income').textContent = formatCurrency(data.income.effective_income);
-    document.getElementById('operating_expenses').textContent = '-' + formatCurrency(data.expenses.total_operating);
-    document.getElementById('mortgage_payment').textContent = '-' + formatCurrency(data.expenses.mortgage);
-    document.getElementById('net_cash_flow').textContent = formatCurrency(data.analysis.monthly_cash_flow);
-    document.getElementById('total_investment').textContent = formatCurrency(data.property.total_investment);
-}
-
-document.getElementById('calculator-form').dispatchEvent(new Event('submit'));
 </script>
+<script src="{% static 'financial_calculators/js/rental_calculator.js' %}"></script>
 {% endblock %}
 

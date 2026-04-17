@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Molecular Weight Calculator - Calculate Molar Mass from Chemical Formula Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free molecular weight calculator. Calculate molar mass from any chemical formula. Supports simple formulas (H2O, NaCl), parentheses (Ca(OH)2), hydrates (CuSO4·5H2O), and complex compounds. Shows element breakdown, mass percentages, and step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate molar mass from chemical formulas. Supports parentheses, hydrates, complex compounds. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/molecular_weight_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Molecular Weight Calculator - Molar Mass from Formula Free" %}","description":"{% trans "Free molecular weight calculator. Calculate molar mass from any chemical formula. Supports simple, parenthesized, and hydrated formulas with element breakdown and step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"1750"},"featureList":["{% trans 'Calculate molecular weight from formula' %}","{% trans 'Element breakdown with mass percentages' %}","{% trans 'Supports parentheses and hydrates' %}","{% trans 'Pie and bar chart visualizations' %}","{% trans 'Step-by-step solutions' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Molecular Weight Calculator - Molar Mass from Formula Free" %}',"description":'{% trans "Free molecular weight calculator. Calculate molar mass from any chemical formula. Supports simple, parenthesized, and hydrated formulas with element breakdown and step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"1750"},"featureList":["{% trans 'Calculate molecular weight from formula' %}","{% trans 'Element breakdown with mass percentages' %}","{% trans 'Supports parentheses and hydrates' %}","{% trans 'Pie and bar chart visualizations' %}","{% trans 'Step-by-step solutions' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -185,88 +186,14 @@
 </div>
 
 <script>
-let pieChartInst = null, barChartInst = null;
-
-function setFormula(f) { document.getElementById('formula').value = f; }
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('mwForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        const formula = document.getElementById('formula').value.trim();
-        if (!formula) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Molecular Weight' %}";
-            errMsg.textContent = "{% trans 'Please enter a chemical formula.' %}";
-            err?.classList.remove('hidden');
-            return;
-        }
-
-        try {
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify({calc_type:'calculate_mw',formula:formula})});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Molecular Weight' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            // Result card
-            document.getElementById('resultFormula').textContent = r.formula;
-            document.getElementById('resultValue').textContent = r.molecular_weight.toLocaleString('en-US', {maximumFractionDigits: 4});
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Molecular Weight' %}";
-
-            // Element breakdown table
-            const tbody = document.getElementById('breakdownBody');
-            tbody.innerHTML = '';
-            if (r.element_details) {
-                r.element_details.forEach((det, i) => {
-                    const tr = document.createElement('tr');
-                    tr.className = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                    const cnt = det.count === Math.floor(det.count) ? Math.floor(det.count) : det.count.toFixed(2);
-                    tr.innerHTML = `
-                        <td class="px-4 py-3 text-sm font-bold text-gray-900">${det.element}</td>
-                        <td class="px-4 py-3 text-sm text-gray-700">${cnt}</td>
-                        <td class="px-4 py-3 text-sm text-gray-700">${det.atomic_weight.toFixed(3)} g/mol</td>
-                        <td class="px-4 py-3 text-sm text-gray-700">${det.mass.toFixed(4)} g/mol</td>
-                        <td class="px-4 py-3 text-sm text-gray-700">${det.percentage.toFixed(2)}%</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-indigo-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            // Charts
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                if (pieChartInst) { pieChartInst.destroy(); pieChartInst = null; }
-                if (barChartInst) { barChartInst.destroy(); barChartInst = null; }
-                if (r.chart_data.pie_chart) pieChartInst = new Chart(document.getElementById('pieChart'), r.chart_data.pie_chart);
-                if (r.chart_data.bar_chart) barChartInst = new Chart(document.getElementById('barChart'), r.chart_data.bar_chart);
-            }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Molecular Weight' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateMolecularWe_1: "{% trans 'Calculate Molecular Weight' %}",
+        trans_Pleaseenterachemical_2: "{% trans 'Please enter a chemical formula.' %}",
+        trans_Anerroroccurred_4: "{% trans 'An error occurred.' %}",
+        trans_MolecularWeight_5: "{% trans 'Molecular Weight' %}",
+        trans_Anetworkerroroccurre_7: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/molecular_weight_calculator.js' %}"></script>
 {% endblock %}

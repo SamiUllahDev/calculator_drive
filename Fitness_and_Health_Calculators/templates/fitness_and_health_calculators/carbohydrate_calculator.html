@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Carbohydrate Calculator" %} - {% trans "Daily Carb Needs Calculator" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate your daily carbohydrate needs based on total calories and macro percentages. Get personalized carb recommendations for your diet." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/carbohydrate_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "carbohydrate calculator, carb calculator, daily carbs, carb intake, macro calculator" %}">
+<meta name="keywords" content='{% trans "carbohydrate calculator, carb calculator, daily carbs, carb intake, macro calculator" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Carbohydrate Calculator" %} - {% trans "Daily Carb Needs Calculator" %}">
-<meta property="og:description" content="{% trans "Calculate your daily carbohydrate needs based on total calories and macro percentages." %}">
+<meta property="og:title" content='{% trans "Carbohydrate Calculator" %} - {% trans "Daily Carb Needs Calculator" %}'>
+<meta property="og:description" content='{% trans "Calculate your daily carbohydrate needs based on total calories and macro percentages." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Carbohydrate Calculator" %}",
-    "description": "{% trans "Calculate your daily carbohydrate needs based on total calories and macro percentages." %}",
+    "name": '{% trans "Carbohydrate Calculator" %}',
+    "description": '{% trans "Calculate your daily carbohydrate needs based on total calories and macro percentages." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Carbohydrate Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -509,384 +498,22 @@
 </div>
 
 <script>
-// Chart instances
-let macroChart = null;
-let mealChart = null;
-let recommendationsChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const methodPercentage = document.getElementById('methodPercentage');
-    const methodRemaining = document.getElementById('methodRemaining');
-    const percentageMethod = document.getElementById('percentageMethod');
-    const remainingMethod = document.getElementById('remainingMethod');
-    const carbSlider = document.getElementById('carb_slider');
-    const carbInput = document.getElementById('carb_percent');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Toggle calculation method
-    methodPercentage.addEventListener('change', function() {
-        if (this.checked) {
-            percentageMethod.classList.remove('hidden');
-            remainingMethod.classList.add('hidden');
-        }
-    });
-
-    methodRemaining.addEventListener('change', function() {
-        if (this.checked) {
-            percentageMethod.classList.add('hidden');
-            remainingMethod.classList.remove('hidden');
-        }
-    });
-
-    // Slider sync
-    carbSlider.addEventListener('input', function() {
-        carbInput.value = this.value;
-    });
-
-    carbInput.addEventListener('input', function() {
-        const value = parseFloat(carbInput.value) || 0;
-        if (value >= 0 && value <= 100) {
-            carbSlider.value = value;
-        }
-    });
-
-    // Reset button
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        form.reset();
-        document.getElementById('total_calories').value = '2000';
-        document.getElementById('carb_percent').value = '40';
-        carbSlider.value = '40';
-        methodPercentage.checked = true;
-        percentageMethod.classList.remove('hidden');
-        remainingMethod.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    });
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const formData = {
-            total_calories: parseFloat(document.getElementById('total_calories').value),
-            carb_percent: parseFloat(carbInput.value) || 0,
-            protein_percent: parseFloat(document.getElementById('protein_percent').value) || 0,
-            fat_percent: parseFloat(document.getElementById('fat_percent').value) || 0
-        };
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Carbs" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const carbGramsEl = document.getElementById('carbGrams');
-            const carbPercentEl = document.getElementById('carbPercent');
-            const carbCaloriesEl = document.getElementById('carbCalories');
-            const lowCarbEl = document.getElementById('lowCarb');
-            const modCarbEl = document.getElementById('modCarb');
-            const highCarbEl = document.getElementById('highCarb');
-
-            if (carbGramsEl) carbGramsEl.textContent = Math.round(data.carb_grams).toLocaleString() + 'g';
-            if (carbPercentEl) carbPercentEl.textContent = data.carb_percent.toFixed(1) + '%';
-            if (carbCaloriesEl) carbCaloriesEl.textContent = Math.round(data.carb_calories).toLocaleString() + ' {% trans "kcal" %}';
-            if (lowCarbEl) lowCarbEl.textContent = data.recommendations.low_carb.toLocaleString() + 'g';
-            if (modCarbEl) modCarbEl.textContent = data.recommendations.moderate.toLocaleString() + 'g';
-            if (highCarbEl) highCarbEl.textContent = data.recommendations.high_carb.toLocaleString() + 'g';
-
-            // Update meal distribution
-            const breakfastGramsEl = document.getElementById('breakfastGrams');
-            const lunchGramsEl = document.getElementById('lunchGrams');
-            const dinnerGramsEl = document.getElementById('dinnerGrams');
-            const snacksGramsEl = document.getElementById('snacksGrams');
-            const breakfastCalEl = document.getElementById('breakfastCal');
-            const lunchCalEl = document.getElementById('lunchCal');
-            const dinnerCalEl = document.getElementById('dinnerCal');
-            const snacksCalEl = document.getElementById('snacksCal');
-
-            if (breakfastGramsEl) breakfastGramsEl.textContent = data.meals.breakfast.grams.toFixed(1) + 'g';
-            if (lunchGramsEl) lunchGramsEl.textContent = data.meals.lunch.grams.toFixed(1) + 'g';
-            if (dinnerGramsEl) dinnerGramsEl.textContent = data.meals.dinner.grams.toFixed(1) + 'g';
-            if (snacksGramsEl) snacksGramsEl.textContent = data.meals.snacks.grams.toFixed(1) + 'g';
-            if (breakfastCalEl) breakfastCalEl.textContent = data.meals.breakfast.calories + ' {% trans "kcal" %}';
-            if (lunchCalEl) lunchCalEl.textContent = data.meals.lunch.calories + ' {% trans "kcal" %}';
-            if (dinnerCalEl) dinnerCalEl.textContent = data.meals.dinner.calories + ' {% trans "kcal" %}';
-            if (snacksCalEl) snacksCalEl.textContent = data.meals.snacks.calories + ' {% trans "kcal" %}';
-
-            // Update result card color
-            const colors = {
-                'red': 'bg-gradient-to-br from-red-600 to-red-700',
-                'green': 'bg-gradient-to-br from-green-600 to-teal-600',
-                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700'
-            };
-            const resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.carb_level_color] || 'bg-gradient-to-br from-green-600 to-teal-600');
-            }
-
-            // Update carb sources table
-            const tableBody = document.getElementById('carbSourcesTable');
-            if (tableBody) {
-                const sourceNames = {
-                    'rice': '{% trans "Rice" %}',
-                    'oats': '{% trans "Oats" %}',
-                    'bread': '{% trans "Bread" %}',
-                    'pasta': '{% trans "Pasta" %}',
-                    'potato': '{% trans "Potato" %}',
-                    'banana': '{% trans "Banana" %}',
-                    'sweet_potato': '{% trans "Sweet Potato" %}',
-                    'quinoa': '{% trans "Quinoa" %}'
-                };
-
-                tableBody.innerHTML = '';
-                Object.entries(data.carb_sources).forEach(([key, info]) => {
-                    const servings = data.servings_needed[key];
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-gray-50';
-                    row.innerHTML = `
-                        <td class="py-2 px-3 text-sm text-gray-900">${sourceNames[key] || key}</td>
-                        <td class="py-2 px-3 text-sm text-gray-900 text-right font-medium">${info.grams}g</td>
-                        <td class="py-2 px-3 text-sm text-gray-500 text-right">${info.serving}</td>
-                        <td class="py-2 px-3 text-sm text-green-600 text-right font-semibold">${servings.toFixed(1)}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.macro_chart) {
-                    createMacroChart(data.chart_data.macro_chart);
-                }
-                if (data.chart_data.meal_chart) {
-                    createMealChart(data.chart_data.meal_chart);
-                }
-                if (data.chart_data.recommendations_chart) {
-                    createRecommendationsChart(data.chart_data.recommendations_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createMacroChart(chartData) {
-        const ctx = document.getElementById('macroChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (macroChart) macroChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            macroChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return `${label}: ${value.toFixed(1)}%`;
-                                }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating macro chart:', error);
-        }
-    }
-
-    function createMealChart(chartData) {
-        const ctx = document.getElementById('mealChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (mealChart) mealChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            mealChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toFixed(1)}g`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(0) + 'g';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating meal chart:', error);
-        }
-    }
-
-    function createRecommendationsChart(chartData) {
-        const ctx = document.getElementById('recommendationsChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (recommendationsChart) recommendationsChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            recommendationsChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${Math.round(context.parsed.y).toLocaleString()}g`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value).toLocaleString() + 'g';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating recommendations chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_CalculateCarbs_0: '{% trans "Calculate Carbs" %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_3: '{% trans "A network error occurred. Please try again." %}',
+        trans_kcal_4: '{% trans "kcal" %}',
+        trans_Rice_9: '{% trans "Rice" %}',
+        trans_Oats_10: '{% trans "Oats" %}',
+        trans_Bread_11: '{% trans "Bread" %}',
+        trans_Pasta_12: '{% trans "Pasta" %}',
+        trans_Potato_13: '{% trans "Potato" %}',
+        trans_Banana_14: '{% trans "Banana" %}',
+        trans_SweetPotato_15: '{% trans "Sweet Potato" %}',
+        trans_Quinoa_16: '{% trans "Quinoa" %}',
+        trans_Errordisplayingresul_17: '{% trans "Error displaying results. Please try again." %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/carbohydrate_calculator.js' %}"></script>
 {% endblock %}

@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "CD Calculator - Certificate of Deposit Calculator" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate CD returns and interest earned. Compare different CD terms and see how your money grows with our free CD calculator." %}{% endblock %}
 {% block meta_keywords %}{% trans "CD calculator, certificate of deposit calculator, CD interest calculator, CD rates, CD returns" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/cd_calculator.css' %}">
 <meta property="og:title" content="{% trans 'CD Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate CD returns and compare different terms.' %}">
 <meta property="og:type" content="website">
@@ -25,18 +26,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "CD Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <div class="text-center mb-6 sm:mb-8">
+<div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -333,123 +323,13 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var breakdownChartInstance = null;
-    var growthChartInstance = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    document.getElementById('deposit').addEventListener('input', function() { formatInput(this); });
-
-    function showLoading(show) {
-        form.style.display = show ? 'none' : 'block';
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        form.style.display = 'block';
-        errorState.classList.remove('hidden');
-        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function buildChartFromBackend(canvasId, chartSpec) {
-        if (!chartSpec || !window.Chart) return null;
-        var ctx = document.getElementById(canvasId);
-        if (!ctx) return null;
-        var opts = chartSpec.options || {};
-        if (canvasId === 'growthChart' && chartSpec.type === 'line') {
-            opts.scales = opts.scales || {};
-            opts.scales.y = opts.scales.y || {};
-            opts.scales.y.ticks = opts.scales.y.ticks || {};
-            opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v); };
-        }
-        return new Chart(ctx.getContext('2d'), {
-            type: chartSpec.type || 'doughnut',
-            data: chartSpec.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var btn = document.getElementById('calculateBtn');
-        if (btn) btn.disabled = true;
-        showLoading(true);
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify({
-                    deposit: document.getElementById('deposit').value.replace(/,/g, ''),
-                    apy: document.getElementById('apy').value.replace(/,/g, ''),
-                    term_months: document.getElementById('term_months').value,
-                    compound_frequency: document.getElementById('compound_frequency').value
-                })
-            });
-            var data = await response.json();
-
-            if (!data.success) {
-                showError(data.error || '{% trans "An error occurred." %}');
-                if (btn) btn.disabled = false;
-                return;
-            }
-
-            showLoading(false);
-            if (btn) btn.disabled = false;
-
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsSection').classList.remove('hidden');
-
-            document.getElementById('finalAmountResult').textContent = formatCurrency(data.summary.final_amount);
-            document.getElementById('interestEarnedResult').textContent = formatCurrency(data.summary.interest_earned);
-            document.getElementById('effectiveApyResult').textContent = (data.summary.effective_apy != null ? data.summary.effective_apy.toFixed(2) : '0') + '%';
-            document.getElementById('termResult').textContent = data.summary.term_months + ' {% trans "months" %}';
-
-            var tbody = document.getElementById('comparisonBody');
-            tbody.innerHTML = '';
-            if (data.comparison && data.comparison.length) {
-                data.comparison.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = row.months === data.summary.term_months ? 'bg-blue-50' : 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 font-medium">' + row.term + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.final_amount) + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.interest) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (breakdownChartInstance) breakdownChartInstance.destroy();
-            if (growthChartInstance) growthChartInstance.destroy();
-            if (data.chart_data && data.chart_data.breakdown_chart) {
-                breakdownChartInstance = buildChartFromBackend('breakdownChart', data.chart_data.breakdown_chart);
-            }
-            if (data.chart_data && data.chart_data.growth_chart) {
-                growthChartInstance = buildChartFromBackend('growthChart', data.chart_data.growth_chart);
-            }
-
-            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred. Please try again." %}');
-            if (btn) btn.disabled = false;
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_months_5: '{% trans "months" %}',
+        trans_AnerroroccurredPleas_6: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/cd_calculator.js' %}"></script>
 {% endblock %}

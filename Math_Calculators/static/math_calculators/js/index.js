@@ -1,0 +1,1 @@
+document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll('a[href^="#"]').forEach(function(t){t.addEventListener("click",function(t){const e=document.querySelector(this.getAttribute("href"));e&&(t.preventDefault(),e.scrollIntoView({behavior:"smooth",block:"start"}),e.setAttribute("tabindex","-1"),e.focus())})})});

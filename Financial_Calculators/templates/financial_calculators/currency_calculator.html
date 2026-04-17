@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "currency converter, exchange rate calculator, USD EUR converter, money converter, forex calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/currency_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -228,151 +229,17 @@
 </div>
 
 <script>
-var crossChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatNum(n, decimals) {
-    var d = decimals != null ? decimals : 2;
-    return new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var swapBtn = document.getElementById('swapBtn');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    swapBtn.addEventListener('click', function() {
-        var fromSelect = document.getElementById('from_currency');
-        var toSelect = document.getElementById('to_currency');
-        var temp = fromSelect.value;
-        fromSelect.value = toSelect.value;
-        toSelect.value = temp;
-    });
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Converting..." %}' : '{% trans "Convert" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Convert" %}';
-    }
-
-    function createCrossChart(chartData) {
-        var canvas = document.getElementById('crossChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (crossChart) crossChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return typeof v === 'number' && v >= 1000 ? (v/1000).toFixed(1) + 'k' : v; };
-        crossChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var amountVal = (document.getElementById('amount').value || '').replace(/,/g, '');
-        var payload = {
-            amount: amountVal,
-            from_currency: document.getElementById('from_currency').value,
-            to_currency: document.getElementById('to_currency').value
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            var fmt = data.formatted || {};
-            document.getElementById('heroValue').textContent = (s.to_symbol || '') + formatNum(s.converted_amount);
-            document.getElementById('heroFrom').textContent = fmt.from || (s.from_symbol + formatNum(s.amount) + ' ' + s.from_currency);
-            document.getElementById('heroRate').textContent = fmt.rate || ('1 ' + s.from_currency + ' = ' + formatNum(s.exchange_rate, 4) + ' ' + s.to_currency);
-
-            document.getElementById('detailAmount').textContent = (s.from_symbol || '') + formatNum(s.amount);
-            document.getElementById('detailRate').textContent = '1 ' + s.from_currency + ' = ' + formatNum(s.exchange_rate, 4) + ' ' + s.to_currency;
-            document.getElementById('detailInverse').textContent = '1 ' + s.to_currency + ' = ' + formatNum(s.inverse_rate, 4) + ' ' + s.from_currency;
-            document.getElementById('detailResult').textContent = (s.to_symbol || '') + formatNum(s.converted_amount);
-
-            var tableDiv = document.getElementById('conversionTable');
-            tableDiv.innerHTML = '';
-            if (data.conversion_table && data.conversion_table.length) {
-                data.conversion_table.forEach(function(row) {
-                    var div = document.createElement('div');
-                    div.className = 'p-3 bg-gray-50 rounded-lg text-center';
-                    div.innerHTML = '<p class="text-xs text-gray-500">' + row.from_formatted + '</p><p class="text-sm font-bold text-gray-900">' + row.to_formatted + '</p>';
-                    tableDiv.appendChild(div);
-                });
-            }
-
-            var tbody = document.getElementById('crossRatesBody');
-            tbody.innerHTML = '';
-            if (data.cross_rates) {
-                data.cross_rates.forEach(function(r) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-3 py-2"><span class="font-medium text-gray-900">' + r.currency + '</span> <span class="text-gray-500 ml-1">' + (r.name || '') + '</span></td><td class="px-3 py-2 text-right text-gray-700">' + formatNum(r.rate, 4) + '</td><td class="px-3 py-2 text-right font-medium text-gray-900">' + (r.symbol || '') + formatNum(r.converted) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (data.chart_data && data.chart_data.cross_chart && checkChartJS()) {
-                createCrossChart(data.chart_data.cross_chart);
-            }
-
-            initialState.classList.add('hidden');
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Converting_0: '{% trans "Converting..." %}',
+        trans_Convert_1: '{% trans "Convert" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Networkorservererror_9: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/currency_calculator.js' %}"></script>
 {% endblock %}

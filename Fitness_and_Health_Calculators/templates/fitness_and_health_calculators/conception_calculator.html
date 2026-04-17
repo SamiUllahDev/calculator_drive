@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Conception Calculator" %} - {% trans "Calculate Conception Date" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate your conception date based on due date or last menstrual period. Free online conception date calculator." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/conception_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "conception calculator, conception date, pregnancy calculator, ovulation calculator" %}">
+<meta name="keywords" content='{% trans "conception calculator, conception date, pregnancy calculator, ovulation calculator" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Conception Calculator" %} - {% trans "Calculate Conception Date" %}">
-<meta property="og:description" content="{% trans "Calculate your conception date based on due date or last menstrual period." %}">
+<meta property="og:title" content='{% trans "Conception Calculator" %} - {% trans "Calculate Conception Date" %}'>
+<meta property="og:description" content='{% trans "Calculate your conception date based on due date or last menstrual period." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Conception Calculator" %}",
-    "description": "{% trans "Calculate your conception date based on due date or last menstrual period." %}",
+    "name": '{% trans "Conception Calculator" %}',
+    "description": '{% trans "Calculate your conception date based on due date or last menstrual period." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Conception Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,376 +468,17 @@
 </div>
 
 <script>
-// Chart instances
-let progressChart = null;
-let trimesterChart = null;
-let timelineChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const calcDueDate = document.getElementById('calcDueDate');
-    const calcLastPeriod = document.getElementById('calcLastPeriod');
-    const dueDateGroup = document.getElementById('dueDateGroup');
-    const lastPeriodGroup = document.getElementById('lastPeriodGroup');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Toggle input groups based on calculation type
-    calcDueDate.addEventListener('change', function() {
-        if (this.checked) {
-            dueDateGroup.classList.remove('hidden');
-            lastPeriodGroup.classList.add('hidden');
-            document.getElementById('due_date').required = true;
-            document.getElementById('last_period').required = false;
-        }
-    });
-
-    calcLastPeriod.addEventListener('change', function() {
-        if (this.checked) {
-            dueDateGroup.classList.add('hidden');
-            lastPeriodGroup.classList.remove('hidden');
-            document.getElementById('due_date').required = false;
-            document.getElementById('last_period').required = true;
-        }
-    });
-
-    // Reset button
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        form.reset();
-        calcDueDate.checked = true;
-        document.getElementById('cycle_length').value = '28';
-        dueDateGroup.classList.remove('hidden');
-        lastPeriodGroup.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    });
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        const formData = { calc_type: calcType };
-
-        if (calcType === 'from_due_date') {
-            formData.due_date = document.getElementById('due_date').value;
-            if (!formData.due_date) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = '{% trans "Please enter a due date." %}';
-                    errorState.classList.remove('hidden');
-                }
-                if (loadingState) loadingState.classList.add('hidden');
-                return;
-            }
-        } else {
-            formData.last_period = document.getElementById('last_period').value;
-            formData.cycle_length = parseInt(document.getElementById('cycle_length').value) || 28;
-            if (!formData.last_period) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = '{% trans "Please enter your last menstrual period date." %}';
-                    errorState.classList.remove('hidden');
-                }
-                if (loadingState) loadingState.classList.add('hidden');
-                return;
-            }
-        }
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    }
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const conceptionDateEl = document.getElementById('conceptionDate');
-            const conceptionDateFormattedEl = document.getElementById('conceptionDateFormatted');
-            const conceptionDateCardEl = document.getElementById('conceptionDateCard');
-            const lastPeriodCardEl = document.getElementById('lastPeriodCard');
-            const dueDateCardEl = document.getElementById('dueDateCard');
-
-            if (conceptionDateEl) {
-                const date = new Date(data.conception_date);
-                conceptionDateEl.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            }
-            if (conceptionDateFormattedEl) {
-                conceptionDateFormattedEl.textContent = formatDate(data.conception_date);
-            }
-            if (conceptionDateCardEl) {
-                conceptionDateCardEl.textContent = new Date(data.conception_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }
-            if (lastPeriodCardEl) {
-                lastPeriodCardEl.textContent = new Date(data.last_period).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }
-            if (dueDateCardEl) {
-                dueDateCardEl.textContent = new Date(data.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }
-
-            // Update pregnancy status
-            const weeksPregnantEl = document.getElementById('weeksPregnant');
-            const daysPregnantEl = document.getElementById('daysPregnant');
-            const trimesterEl = document.getElementById('trimester');
-            const progressPercentageEl = document.getElementById('progressPercentage');
-            const weeksRemainingEl = document.getElementById('weeksRemaining');
-            const daysRemainingEl = document.getElementById('daysRemaining');
-
-            if (weeksPregnantEl) weeksPregnantEl.textContent = data.weeks_pregnant;
-            if (daysPregnantEl) daysPregnantEl.textContent = data.days_pregnant;
-            if (trimesterEl) trimesterEl.textContent = data.trimester_name + ' (' + data.trimester + ')';
-            if (progressPercentageEl) progressPercentageEl.textContent = data.progress_percentage.toFixed(1) + '%';
-            if (weeksRemainingEl) weeksRemainingEl.textContent = data.weeks_remaining;
-            if (daysRemainingEl) daysRemainingEl.textContent = data.days_remaining;
-
-            // Update result card color
-            const colors = {
-                'blue': 'bg-gradient-to-br from-blue-600 to-blue-700',
-                'green': 'bg-gradient-to-br from-green-600 to-green-700',
-                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700'
-            };
-            const resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.trimester_color] || 'bg-gradient-to-br from-blue-600 to-indigo-600');
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.progress_chart) {
-                    createProgressChart(data.chart_data.progress_chart);
-                }
-                if (data.chart_data.trimester_chart) {
-                    createTrimesterChart(data.chart_data.trimester_chart);
-                }
-                if (data.chart_data.timeline_chart) {
-                    createTimelineChart(data.chart_data.timeline_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createProgressChart(chartData) {
-        const ctx = document.getElementById('progressChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (progressChart) progressChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            progressChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return `${label}: ${value.toFixed(1)}%`;
-                                }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating progress chart:', error);
-        }
-    }
-
-    function createTrimesterChart(chartData) {
-        const ctx = document.getElementById('trimesterChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (trimesterChart) trimesterChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            trimesterChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.parsed.y === 0) return '';
-                                    return '{% trans "Current Trimester" %}';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating trimester chart:', error);
-        }
-    }
-
-    function createTimelineChart(chartData) {
-        const ctx = document.getElementById('timelineChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (timelineChart) timelineChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            timelineChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.parsed.y === 0) return '';
-                                    return '{% trans "Completed" %}';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating timeline chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_Pleaseenteraduedate_0: '{% trans "Please enter a due date." %}',
+        trans_Pleaseenteryourlastm_1: '{% trans "Please enter your last menstrual period date." %}',
+        trans_Calculate_2: '{% trans "Calculate" %}',
+        trans_Calculating_3: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_5: '{% trans "A network error occurred. Please try again." %}',
+        trans_Errordisplayingresul_6: '{% trans "Error displaying results. Please try again." %}',
+        trans_CurrentTrimester_7: '{% trans "Current Trimester" %}',
+        trans_Completed_8: '{% trans "Completed" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/conception_calculator.js' %}"></script>
 {% endblock %}

@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Debt Payoff Calculator - Pay Off Debt Faster" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate how long to pay off debt and how much interest you'll pay. See how extra payments can save you money and time." %}{% endblock %}
 {% block meta_keywords %}{% trans "debt payoff calculator, debt repayment, pay off debt faster, debt calculator, interest savings" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/debt_payoff_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Debt Payoff Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate your debt payoff timeline and interest savings.' %}">
 <meta property="og:type" content="website">
@@ -310,129 +311,16 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculator-form');
-    const resultsSection = document.getElementById('resultsSection');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    let pieChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency', currency: 'USD',
-            minimumFractionDigits: 0, maximumFractionDigits: 0
-        }).format(num);
-    }
-
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    ['debt_amount', 'monthly_payment', 'extra_payment'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() { formatInput(this); });
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    debt_amount: document.getElementById('debt_amount').value.replace(/,/g, ''),
-                    interest_rate: document.getElementById('interest_rate').value,
-                    monthly_payment: document.getElementById('monthly_payment').value.replace(/,/g, ''),
-                    extra_payment: document.getElementById('extra_payment').value.replace(/,/g, '') || 0
-                })
-            });
-
-            const data = await response.json();
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate Payoff" %}';
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Payoff" %}';
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            document.getElementById('payoffDateResult').textContent = data.summary.payoff_date;
-            document.getElementById('payoffMonthsResult').textContent = data.summary.payoff_months;
-            document.getElementById('payoffYearsResult').textContent = data.summary.payoff_years;
-            document.getElementById('totalInterestResult').textContent = formatCurrency(data.summary.total_interest);
-            document.getElementById('totalPaidResult').textContent = formatCurrency(data.summary.total_paid);
-            document.getElementById('timeSavedResult').textContent = data.summary.time_saved + ' {% trans "mo" %}';
-            document.getElementById('interestSavedResult').textContent = formatCurrency(data.summary.interest_saved);
-
-            var scenariosBody = document.getElementById('scenariosBody');
-            scenariosBody.innerHTML = '';
-            (data.scenarios || []).forEach(function(s) {
-                var tr = document.createElement('tr');
-                tr.className = s.extra === data.summary.extra_payment ? 'bg-blue-50' : 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-2 py-2">+$' + s.extra + '</td><td class="px-2 py-2 text-right">' + s.years + ' {% trans "yr" %}</td><td class="px-2 py-2 text-right text-green-600">' + formatCurrency(s.interest_saved) + '</td>';
-                scenariosBody.appendChild(tr);
-            });
-
-            var scheduleBody = document.getElementById('scheduleBody');
-            scheduleBody.innerHTML = '';
-            (data.schedule || []).forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-4 py-2">' + row.date + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.payment) + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-4 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.balance) + '</td>';
-                scheduleBody.appendChild(tr);
-            });
-
-            if (pieChart) pieChart.destroy();
-            pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['{% trans "Principal" %}', '{% trans "Interest" %}'],
-                    datasets: [{
-                        data: [data.chart_data.breakdown.principal, data.chart_data.breakdown.interest],
-                        backgroundColor: ['#3b82f6', '#ef4444'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
-
-        } catch (err) {
-            console.error(err);
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Payoff" %}';
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_1: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_CalculatePayoff_2: '{% trans "Calculate Payoff" %}',
+        trans_mo_4: '{% trans "mo" %}',
+        trans_yr_5: '{% trans "yr" %}',
+        trans_Principal_6: '{% trans "Principal" %}',
+        trans_Interest_7: '{% trans "Interest" %}',
+        trans_AnerroroccurredPleas_8: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/debt_payoff_calculator.js' %}"></script>
 {% endblock %}

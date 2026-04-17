@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Circle Skirt Calculator - Free Sewing Pattern Measurements, Waist Radius, Fabric Yardage" %}{% endblock %}
 {% block meta_description %}{% trans "Free circle skirt calculator. Get waist radius, outer radius, fabric yardage, cutting instructions for full, half, three-quarter, and quarter circle skirts. Inches and centimeters. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate circle skirt radius, fabric yardage, cutting patterns. Free online step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/circle_skirt_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Circle Skirt Calculator - Free Online Tool" %}","description":"{% trans "Free circle skirt calculator. Waist radius, fabric yardage, cutting patterns for full, half, ¾, quarter circle skirts." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"2800"},"featureList":["{% trans 'Full/half/¾/quarter circle skirt patterns' %}","{% trans 'Waist radius and outer radius calculation' %}","{% trans 'Fabric yardage and cutting instructions' %}","{% trans 'Compare all 4 skirt types side-by-side' %}","{% trans 'Yardage chart for multiple lengths' %}","{% trans 'Inches and centimeters support' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Circle Skirt Calculator - Free Online Tool" %}',"description":'{% trans "Free circle skirt calculator. Waist radius, fabric yardage, cutting patterns for full, half, ¾, quarter circle skirts." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"2800"},"featureList":["{% trans 'Full/half/¾/quarter circle skirt patterns' %}","{% trans 'Waist radius and outer radius calculation' %}","{% trans 'Fabric yardage and cutting instructions' %}","{% trans 'Compare all 4 skirt types side-by-side' %}","{% trans 'Yardage chart for multiple lengths' %}","{% trans 'Inches and centimeters support' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -236,120 +237,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => {
-        document.getElementById('results')?.classList.add('hidden');
-        document.getElementById('initialState')?.classList.remove('hidden');
-    });
-
-    document.getElementById('skirtForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Pattern' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = r.result || '-';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Detail cards
-            const dc = document.getElementById('detailCards'); dc.innerHTML = '';
-            if (r.detail_cards) r.detail_cards.forEach(card => {
-                const d = document.createElement('div');
-                d.className = `bg-${card.color}-50 rounded-lg p-3 text-center border-2 border-${card.color}-200`;
-                d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${card.label}</p><p class="text-sm font-bold text-${card.color}-600">${card.value}</p>`;
-                dc.appendChild(d);
-            });
-
-            // Fold instruction (pattern mode)
-            const fc = document.getElementById('foldCard');
-            const fi = document.getElementById('foldInstruction');
-            if (r.fold_instruction) { fi.textContent = r.fold_instruction; fc?.classList.remove('hidden'); }
-            else { fc?.classList.add('hidden'); }
-
-            // Compare table
-            const ct = document.getElementById('compareTable');
-            const cb = document.getElementById('compareBody');
-            if (r.rows && r.calc_type === 'compare') {
-                cb.innerHTML = '';
-                r.rows.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b hover:bg-fuchsia-50';
-                    tr.innerHTML = `<td class="py-2 px-3 font-medium text-sm">${row.type}</td><td class="py-2 px-3 text-center font-mono text-sm">${row.waist_r}</td><td class="py-2 px-3 text-center font-mono text-sm">${row.outer_r}</td><td class="py-2 px-3 text-center font-mono text-sm font-bold text-fuchsia-700">${row.yardage}</td><td class="py-2 px-3 text-center text-sm">${row.panels}</td>`;
-                    cb.appendChild(tr);
-                });
-                ct?.classList.remove('hidden');
-            } else { ct?.classList.add('hidden'); }
-
-            // Yardage table
-            const yt = document.getElementById('yardageTable');
-            const yb = document.getElementById('yardageBody');
-            if (r.rows && r.calc_type === 'yardage') {
-                yb.innerHTML = '';
-                r.rows.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b hover:bg-fuchsia-50';
-                    tr.innerHTML = `<td class="py-2 px-3 font-medium text-sm">${row.length}</td><td class="py-2 px-3 text-center font-mono text-sm font-bold text-fuchsia-700">${row.yardage}</td>`;
-                    yb.appendChild(tr);
-                });
-                yt?.classList.remove('hidden');
-            } else { yt?.classList.add('hidden'); }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-fuchsia-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-fuchsia-700 mt-2 bg-fuchsia-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Pattern' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function collectData() {
-    return {
-        calc_type: document.getElementById('calc-type').value,
-        unit: (document.querySelector('input[name="unit"]:checked') || {value:'inches'}).value,
-        waist: parseFloat(document.getElementById('waist').value) || 28,
-        skirt_length: parseFloat(document.getElementById('skirtLength').value) || 22,
-        skirt_type: (document.querySelector('input[name="skirt_type"]:checked') || {value:'full'}).value,
-        seam_allowance: parseFloat(document.getElementById('seamAllowance').value) || 0.625,
-        hem_allowance: parseFloat(document.getElementById('hemAllowance').value) || 0.5,
-        fabric_width: parseFloat(document.getElementById('fabricWidth').value) || 45,
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculatePattern_1: "{% trans 'Calculate Pattern' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
     };
-}
 </script>
+<script src="{% static 'other_calculators/js/circle_skirt_calculator.js' %}"></script>
 {% endblock %}

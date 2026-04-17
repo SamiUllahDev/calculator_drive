@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Calculate your pension benefits for defined benefit plans. Compare lump sum vs annuity options and evaluate service credit purchases." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/pension_calculator.css' %}">
 <meta name="keywords" content="{% trans 'pension calculator, defined benefit pension, retirement benefits, lump sum vs annuity, pension plan' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
@@ -16,17 +17,7 @@
     <div class="max-w-7xl mx-auto">
 
         <!-- Breadcrumb -->
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Pension Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header (BMI-style) -->
+<!-- Header (BMI-style) -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,171 +378,14 @@
 </div>
 
     <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    let benefitsChart = null;
-    let balanceChart = null;
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            const mode = this.value;
-            document.getElementById('definedBenefitFields').classList.toggle('hidden', mode !== 'defined_benefit');
-            document.getElementById('lumpSumFields').classList.toggle('hidden', mode !== 'lump_sum_vs_annuity');
-            document.getElementById('initialState').classList.remove('hidden');
-            document.getElementById('definedBenefitResults').classList.add('hidden');
-            document.getElementById('lumpSumResults').classList.add('hidden');
-        });
-    });
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function showState(state) {
-        document.getElementById('initialState').classList.add('hidden');
-        if (loadingState) loadingState.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        document.getElementById('definedBenefitResults').classList.add('hidden');
-        document.getElementById('lumpSumResults').classList.add('hidden');
-        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
-        else if (state === 'loading' && loadingState) loadingState.classList.remove('hidden');
-        else if (state === 'error' && errorState) errorState.classList.remove('hidden');
-        else if (state === 'defined_benefit') document.getElementById('definedBenefitResults').classList.remove('hidden');
-        else if (state === 'lump_sum') document.getElementById('lumpSumResults').classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        document.getElementById('initialState').classList.add('hidden');
-        document.getElementById('definedBenefitResults').classList.add('hidden');
-        document.getElementById('lumpSumResults').classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-        if (calculateBtn) calculateBtn.disabled = true;
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        const calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        let data = { calc_type: calcType };
-        if (calcType === 'defined_benefit') {
-            data.final_salary = parseNumber(document.getElementById('final_salary').value);
-            data.years_of_service = parseInt(document.getElementById('years_of_service').value, 10);
-            data.benefit_multiplier = parseFloat(document.getElementById('benefit_multiplier').value);
-            data.current_age = parseInt(document.getElementById('current_age').value, 10);
-            data.retirement_age = parseInt(document.getElementById('retirement_age').value, 10);
-            data.cola_rate = parseFloat(document.getElementById('cola_rate').value);
-        } else {
-            data.monthly_annuity = parseNumber(document.getElementById('monthly_annuity').value);
-            data.lump_sum_offer = parseNumber(document.getElementById('lump_sum_offer').value);
-            data.ls_retirement_age = parseInt(document.getElementById('ls_retirement_age').value, 10);
-            data.life_expectancy = parseInt(document.getElementById('life_expectancy').value, 10);
-            data.expected_return = parseFloat(document.getElementById('expected_return').value);
-        }
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(data)
-            });
-            const result = await response.json();
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate Pension" %}';
-
-            if (result.success) {
-                if (calcType === 'defined_benefit') {
-                    displayDefinedBenefitResults(result);
-                    showState('defined_benefit');
-                } else {
-                    displayLumpSumResults(result);
-                    showState('lump_sum');
-                }
-                var resultsEl = calcType === 'defined_benefit' ? document.getElementById('definedBenefitResults') : document.getElementById('lumpSumResults');
-                if (resultsEl) setTimeout(function() { resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-            } else {
-                document.getElementById('errorMessage').textContent = result.error || '{% trans "An error occurred. Please try again." %}';
-                if (errorState) errorState.classList.remove('hidden');
-            }
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate Pension" %}';
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-            if (errorState) errorState.classList.remove('hidden');
-        }
-    });
-
-    function displayDefinedBenefitResults(result) {
-        document.getElementById('annualPension').textContent = formatCurrency(result.pension.annual);
-        document.getElementById('monthlyPension').textContent = formatCurrency(result.pension.monthly);
-        document.getElementById('replacementRatio').textContent = result.pension.replacement_ratio + '%';
-        document.getElementById('totalBenefits').textContent = formatCurrency(result.projection.total_benefits);
-        document.getElementById('presentValue').textContent = formatCurrency(result.projection.present_value);
-        document.getElementById('formulaDisplay').textContent = result.formula;
-        if (result.chart_data && result.chart_data.benefits_chart && typeof Chart !== 'undefined') {
-            var ctx = document.getElementById('benefitsChart');
-            if (ctx) {
-                if (benefitsChart) { benefitsChart.destroy(); benefitsChart = null; }
-                var cfg = result.chart_data.benefits_chart;
-                benefitsChart = new Chart(ctx.getContext('2d'), {
-                    type: cfg.type,
-                    data: cfg.data,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return formatCurrency(c.raw); } } } },
-                        scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return v >= 1000 ? '$' + (v/1000).toFixed(0) + 'K' : '$' + v; } } } }
-                    }
-                });
-            }
-        }
-    }
-
-    function displayLumpSumResults(result) {
-        document.getElementById('annuityMonthly').textContent = formatCurrency(result.annuity.monthly);
-        document.getElementById('annuityAnnual').textContent = formatCurrency(result.annuity.annual);
-        document.getElementById('annuityLifetime').textContent = formatCurrency(result.annuity.total_lifetime);
-        document.getElementById('lumpSumAmount').textContent = formatCurrency(result.lump_sum.offer);
-        document.getElementById('lumpSumReturn').textContent = result.lump_sum.expected_return + '%';
-        document.getElementById('lumpSumFinal').textContent = formatCurrency(result.lump_sum.final_balance);
-
-        var recInfo = result.recommendation_info;
-        var recCard = document.getElementById('recommendationCard');
-        var recTitle = document.getElementById('recommendation');
-        if (recCard && recInfo && recInfo.color_info) {
-            recCard.className = 'rounded-xl p-6 text-center border-2 ' + (recInfo.color_info.tailwind_classes || '');
-        }
-        if (recTitle) recTitle.className = 'text-lg font-semibold';
-        if (recTitle) recTitle.textContent = recInfo && recInfo.recommendation === 'lump_sum' ? '{% trans "Lump Sum May Be Better" %}' : '{% trans "Annuity May Be Better" %}';
-        document.getElementById('recommendationReason').textContent = result.comparison ? result.comparison.reason : '';
-
-        if (result.chart_data && result.chart_data.balance_chart && typeof Chart !== 'undefined') {
-            var ctx = document.getElementById('balanceChart');
-            if (ctx) {
-                if (balanceChart) { balanceChart.destroy(); balanceChart = null; }
-                var cfg = result.chart_data.balance_chart;
-                balanceChart = new Chart(ctx.getContext('2d'), {
-                    type: cfg.type,
-                    data: cfg.data,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return formatCurrency(c.raw); } } } },
-                        scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return v >= 1000000 ? '$' + (v/1e6).toFixed(1) + 'M' : (v >= 1000 ? '$' + (v/1000).toFixed(0) + 'K' : '$' + v); } } } }
-                    }
-                });
-            }
-        }
-    }
-});
-    </script>
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculatePension_1: '{% trans "Calculate Pension" %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_4: '{% trans "A network error occurred. Please try again." %}',
+        trans_LumpSumMayBeBetter_5: '{% trans "Lump Sum May Be Better" %}',
+        trans_AnnuityMayBeBetter_6: '{% trans "Annuity May Be Better" %}',
+    };
+</script>
+<script src="{% static 'financial_calculators/js/pension_calculator.js' %}"></script>
 {% endblock %}

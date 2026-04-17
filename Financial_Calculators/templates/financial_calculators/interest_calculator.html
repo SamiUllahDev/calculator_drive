@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Interest Calculator - Simple & Compound Interest" %}{% endblock %}
 {% block meta_description %}{% trans "Free interest calculator. Calculate simple or compound interest and see how your money grows. Get instant results with charts and year-by-year breakdown." %}{% endblock %}
 {% block meta_keywords %}{% trans "interest calculator, compound interest, simple interest, interest rate calculator, money growth calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/interest_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Interest Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate simple and compound interest with detailed breakdowns.' %}">
@@ -340,160 +341,15 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var pieChart = null;
-    var growthChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    document.getElementById('principal').addEventListener('input', function() { formatInput(this); });
-    document.querySelectorAll('input[name="interest_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            document.getElementById('compoundOptions').style.display = this.value === 'compound' ? 'block' : 'none';
-        });
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var formData = {
-            principal: document.getElementById('principal').value.replace(/,/g, ''),
-            interest_rate: document.getElementById('interest_rate').value,
-            time_period: document.getElementById('time_period').value,
-            time_unit: document.getElementById('time_unit').value,
-            interest_type: document.querySelector('input[name="interest_type"]:checked').value,
-            compound_frequency: document.getElementById('compound_frequency').value
-        };
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            var data = await response.json();
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Interest" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            document.getElementById('finalAmountResult').textContent = formatCurrency(data.summary.final_amount);
-            document.getElementById('interestEarnedResult').textContent = formatCurrency(data.summary.interest_earned);
-            document.getElementById('effectiveRateResult').textContent = data.summary.effective_rate.toFixed(2) + '%';
-
-            document.getElementById('simpleResult').textContent = formatCurrency(data.comparison.simple);
-            document.getElementById('compoundResult').textContent = formatCurrency(data.comparison.compound);
-            document.getElementById('differenceResult').textContent = formatCurrency(data.comparison.difference);
-
-            var yearlyBody = document.getElementById('yearlyBody');
-            yearlyBody.innerHTML = '';
-            data.yearly_data.forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-4 py-2 font-medium">' + row.year + '</td>' +
-                    '<td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.interest) + '</td>' +
-                    '<td class="px-4 py-2 text-right">' + formatCurrency(row.total_interest) + '</td>' +
-                    '<td class="px-4 py-2 text-right font-medium">' + formatCurrency(row.balance) + '</td>';
-                yearlyBody.appendChild(tr);
-            });
-
-            var chartData = data.chart_data;
-            if (pieChart) pieChart.destroy();
-            if (growthChart) growthChart.destroy();
-
-            var pieCtx = document.getElementById('pieChart');
-            if (pieCtx) {
-                pieCtx = pieCtx.getContext('2d');
-                pieChart = new Chart(pieCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['{% trans "Principal" %}', '{% trans "Interest" %}'],
-                        datasets: [{
-                            data: [chartData.breakdown.principal, chartData.breakdown.interest],
-                            backgroundColor: ['#3b82f6', '#10b981'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
-                });
-            }
-
-            var growthCtx = document.getElementById('growthChart');
-            if (growthCtx) {
-                growthCtx = growthCtx.getContext('2d');
-                growthChart = new Chart(growthCtx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.growth.labels,
-                        datasets: [{
-                            label: '{% trans "Balance" %}',
-                            data: chartData.growth.balances,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true,
-                            tension: 0.3
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: false,
-                                ticks: { callback: function(v) { return '$' + (v/1000).toFixed(0) + 'k'; } }
-                            }
-                        }
-                    }
-                });
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Interest" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateInterest_1: '{% trans "Calculate Interest" %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_Principal_3: '{% trans "Principal" %}',
+        trans_Interest_4: '{% trans "Interest" %}',
+        trans_Balance_5: '{% trans "Balance" %}',
+        trans_AnerroroccurredPleas_7: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/interest_calculator.js' %}"></script>
 {% endblock %}

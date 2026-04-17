@@ -68,7 +68,7 @@ def download_social_avatar(profile, url):
         return False
     
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         if response.status_code != 200:
             logger.error(f"Failed to download avatar from {url}. Status code: {response.status_code}")
             return False

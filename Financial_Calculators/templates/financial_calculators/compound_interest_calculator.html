@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Compound Interest Calculator - Free Investment Growth Calculator" %}{% endblock %}
 {% block meta_description %}{% trans "Free compound interest calculator. See how your money grows with regular contributions and various compounding frequencies. Get instant results with growth charts and year-by-year breakdown." %}{% endblock %}
 {% block meta_keywords %}{% trans "compound interest, investment calculator, savings growth, interest calculator, compound frequency, investment returns" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/compound_interest_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Compound Interest Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate how your investments grow with compound interest. Free online calculator.' %}">
@@ -394,234 +395,17 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-
-    var growthChart = null;
-    var breakdownChart = null;
-    var annualChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    ['principal', 'contribution_amount'].forEach(function(id) {
-        var input = document.getElementById(id);
-        if (input) input.addEventListener('input', function() { formatInput(input); });
-    });
-    document.querySelectorAll('input[type="text"]').forEach(function(input) {
-        input.addEventListener('blur', function() {
-            var v = parseNumber(this.value);
-            if (!isNaN(v) && v !== 0) this.value = v.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
-        });
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var formData = {
-            principal: parseNumber(document.getElementById('principal').value),
-            interest_rate: parseNumber(document.getElementById('interest_rate').value),
-            time_years: parseNumber(document.getElementById('time_years').value),
-            compound_frequency: document.getElementById('compound_frequency').value,
-            contribution_amount: parseNumber(document.getElementById('contribution_amount').value),
-            contribution_frequency: document.getElementById('contribution_frequency').value,
-            contribution_timing: document.getElementById('contribution_timing').value,
-        };
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            var data = await response.json();
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            document.getElementById('finalBalanceResult').textContent = formatCurrency(data.results.final_balance);
-            document.getElementById('totalInterestResult').textContent = formatCurrency(data.results.total_interest);
-            document.getElementById('totalDepositsResult').textContent = formatCurrency(data.results.total_deposits);
-            var interestPercent = data.results.total_deposits > 0 ? ((data.results.total_interest / data.results.total_deposits) * 100).toFixed(1) : '0';
-            document.getElementById('interestPercentResult').textContent = interestPercent + '%';
-
-            renderBreakdownTable(data.yearly_breakdown);
-            renderCharts(data);
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-    
-    function renderBreakdownTable(breakdown) {
-        var tbody = document.getElementById('breakdownTableBody');
-        tbody.innerHTML = '';
-        breakdown.forEach(function(row) {
-            var tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50';
-            tr.innerHTML = '<td class="px-4 py-2 text-gray-900 font-medium">' + row.year + '</td>' +
-                '<td class="px-4 py-2 text-right text-gray-700">' + formatCurrency(row.start_balance) + '</td>' +
-                '<td class="px-4 py-2 text-right text-blue-600">' + formatCurrency(row.contributions) + '</td>' +
-                '<td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.interest) + '</td>' +
-                '<td class="px-4 py-2 text-right text-gray-900 font-bold">' + formatCurrency(row.end_balance) + '</td>';
-            tbody.appendChild(tr);
-        });
-    }
-
-    function renderCharts(data) {
-        if (growthChart) growthChart.destroy();
-        if (breakdownChart) breakdownChart.destroy();
-        if (annualChart) annualChart.destroy();
-
-        var chartData = data.chart_data;
-        var growthCtx = document.getElementById('growthChart');
-        if (!growthCtx) return;
-        growthCtx = growthCtx.getContext('2d');
-        growthChart = new Chart(growthCtx, {
-            type: 'line',
-            data: {
-                labels: chartData.labels,
-                datasets: [
-                    {
-                        label: '{% trans "Total Balance" %}',
-                        data: chartData.balance,
-                        borderColor: '#22c55e',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: '{% trans "Total Deposits" %}',
-                        data: chartData.contributions,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        var breakdownEl = document.getElementById('breakdownChart');
-        if (!breakdownEl) return;
-        breakdownChart = new Chart(breakdownEl.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: ['{% trans "Initial Investment" %}', '{% trans "Contributions" %}', '{% trans "Interest Earned" %}'],
-                datasets: [{
-                    data: [
-                        data.results.total_principal,
-                        data.results.total_contributions,
-                        data.results.total_interest
-                    ],
-                    backgroundColor: ['#3b82f6', '#8b5cf6', '#22c55e'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-        
-        var annualCtx = document.getElementById('annualChart');
-        if (!annualCtx) return;
-        annualCtx = annualCtx.getContext('2d');
-        var annualInterest = data.yearly_breakdown.map(function(y) { return y.interest; });
-        var yearLabels = data.yearly_breakdown.map(function(y) { return 'Year ' + y.year; });
-        
-        annualChart = new Chart(annualCtx, {
-            type: 'bar',
-            data: {
-                labels: yearLabels,
-                datasets: [{
-                    label: '{% trans "Interest Earned" %}',
-                    data: annualInterest,
-                    backgroundColor: '#22c55e'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please try again." %}',
+        trans_TotalBalance_5: '{% trans "Total Balance" %}',
+        trans_TotalDeposits_6: '{% trans "Total Deposits" %}',
+        trans_InitialInvestment_7: '{% trans "Initial Investment" %}',
+        trans_Contributions_8: '{% trans "Contributions" %}',
+        trans_InterestEarned_9: '{% trans "Interest Earned" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/compound_interest_calculator.js' %}"></script>
 {% endblock %}

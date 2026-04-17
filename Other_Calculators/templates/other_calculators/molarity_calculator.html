@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Molarity Calculator - Calculate Molarity Moles Volume Mass Dilution Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free molarity calculator. Calculate molarity from moles and volume, find moles from molarity, calculate mass from molecular weight, and perform dilution calculations with M1V1=M2V2. Instant results with step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate molarity, moles, volume, mass, and dilutions. Free calculator with step-by-step solutions for chemistry students and professionals." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/molarity_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Molarity Calculator - Concentration Moles Dilution Free" %}","description":"{% trans "Free molarity calculator. Calculate molarity from moles and volume, find moles, calculate mass from molecular weight, and dilution calculations with M1V1=M2V2. Step-by-step solutions and charts." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"2100"},"featureList":["{% trans 'Calculate molarity from moles and volume' %}","{% trans 'Calculate moles from molarity and volume' %}","{% trans 'Calculate volume from molarity and moles' %}","{% trans 'Calculate molarity from mass and molecular weight' %}","{% trans 'Calculate mass from molarity and molecular weight' %}","{% trans 'Dilution calculations with M1V1=M2V2' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Molarity Calculator - Concentration Moles Dilution Free" %}',"description":'{% trans "Free molarity calculator. Calculate molarity from moles and volume, find moles, calculate mass from molecular weight, and dilution calculations with M1V1=M2V2. Step-by-step solutions and charts." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"2100"},"featureList":["{% trans 'Calculate molarity from moles and volume' %}","{% trans 'Calculate moles from molarity and volume' %}","{% trans 'Calculate volume from molarity and moles' %}","{% trans 'Calculate molarity from mass and molecular weight' %}","{% trans 'Calculate mass from molarity and molecular weight' %}","{% trans 'Dilution calculations with M1V1=M2V2' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -320,131 +321,15 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctSel = document.getElementById('calc-type');
-    ctSel.addEventListener('change', e => switchForm(e.target.value));
-
-    const dilMode = document.getElementById('dil_mode');
-    if (dilMode) dilMode.addEventListener('change', e => switchDilMode(e.target.value));
-
-    document.getElementById('molForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const extra = document.getElementById('resultExtra');
-            extra.innerHTML = '';
-            if (r.moles != null) extra.innerHTML += `<p>{% trans "Moles" %}: ${fnum(r.moles)} mol</p>`;
-            if (r.solvent_to_add_L != null) extra.innerHTML += `<p>{% trans "Solvent to add" %}: ${fnum(r.solvent_to_add_L)} L</p>`;
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-teal-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                const cc = document.getElementById('chartCard'); cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function switchDilMode(mode) {
-    document.getElementById('dil_v2_fields')?.classList.add('hidden');
-    document.getElementById('dil_m2_fields')?.classList.add('hidden');
-    if (mode === 'find_v2') document.getElementById('dil_v2_fields')?.classList.remove('hidden');
-    else document.getElementById('dil_m2_fields')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 6}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'molarity_from_moles') {
-        d.moles = parseFloat(document.getElementById('mm_moles').value);
-        d.volume = parseFloat(document.getElementById('mm_vol').value);
-        d.volume_unit = document.getElementById('mm_vu').value;
-    } else if (ct === 'moles_from_molarity') {
-        d.molarity = parseFloat(document.getElementById('mfm_mol').value);
-        d.volume = parseFloat(document.getElementById('mfm_vol').value);
-        d.volume_unit = document.getElementById('mfm_vu').value;
-    } else if (ct === 'volume_from_molarity') {
-        d.molarity = parseFloat(document.getElementById('vfm_mol').value);
-        d.moles = parseFloat(document.getElementById('vfm_moles').value);
-        d.result_unit = document.getElementById('vfm_ru').value;
-    } else if (ct === 'molarity_from_mass') {
-        d.mass = parseFloat(document.getElementById('mfma_mass').value);
-        d.mass_unit = document.getElementById('mfma_mu').value;
-        d.molecular_weight = parseFloat(document.getElementById('mfma_mw').value);
-        d.volume = parseFloat(document.getElementById('mfma_vol').value);
-        d.volume_unit = document.getElementById('mfma_vu').value;
-    } else if (ct === 'mass_from_molarity') {
-        d.molarity = parseFloat(document.getElementById('mafm_mol').value);
-        d.molecular_weight = parseFloat(document.getElementById('mafm_mw').value);
-        d.volume = parseFloat(document.getElementById('mafm_vol').value);
-        d.volume_unit = document.getElementById('mafm_vu').value;
-        d.result_unit = document.getElementById('mafm_ru').value;
-    } else if (ct === 'dilution') {
-        const mode = document.getElementById('dil_mode').value;
-        d.dilution_mode = mode;
-        if (mode === 'find_v2') {
-            d.m1 = parseFloat(document.getElementById('dv_m1').value);
-            d.v1 = parseFloat(document.getElementById('dv_v1').value);
-            d.v1_unit = document.getElementById('dv_v1u').value;
-            d.m2 = parseFloat(document.getElementById('dv_m2').value);
-            d.result_unit = document.getElementById('dv_ru').value;
-        } else {
-            d.m1 = parseFloat(document.getElementById('dm_m1').value);
-            d.v1 = parseFloat(document.getElementById('dm_v1').value);
-            d.v1_unit = document.getElementById('dm_v1u').value;
-            d.v2 = parseFloat(document.getElementById('dm_v2').value);
-            d.v2_unit = document.getElementById('dm_v2u').value;
-        }
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Moles_4: '{% trans "Moles" %}',
+        trans_Solventtoadd_5: '{% trans "Solvent to add" %}',
+        trans_Anetworkerroroccurre_7: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/molarity_calculator.js' %}"></script>
 {% endblock %}

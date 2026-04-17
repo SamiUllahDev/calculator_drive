@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Rent vs Buy Calculator - Should You Buy or Rent?" %}{% endblock %}
 {% block meta_description %}{% trans "Compare the true costs of renting vs buying a home. See which option builds more wealth over time with our comprehensive calculator." %}{% endblock %}
 {% block meta_keywords %}{% trans "rent vs buy calculator, should I buy a house, rent or buy decision, home buying calculator, real estate calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/rent_vs_buy_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Rent vs Buy Calculator' %}">
 <meta property="og:description" content="{% trans 'Compare renting vs buying to make the right housing decision.' %}">
 <meta property="og:type" content="website">
@@ -424,139 +425,17 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    const initialState = document.getElementById('initialState');
-    const resultsSection = document.getElementById('resultsSection');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const loadingState = document.getElementById('loadingState');
-    let lineChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-
-    function parseInput(id) {
-        const el = document.getElementById(id);
-        if (!el) return null;
-        const v = (el.value || '').replace(/,/g, '').replace(/\$/g, '').replace(/%/g, '').trim();
-        return v === '' ? null : (el.type === 'number' ? parseInt(v, 10) : parseFloat(v));
-    }
-
-    function showError(msg) {
-        errorMessage.textContent = msg || '{% trans "Please check your inputs." %}';
-        errorState.classList.remove('hidden');
-        initialState.classList.remove('hidden');
-        resultsSection.classList.add('hidden');
-    }
-
-    function hideError() {
-        errorState.classList.add('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        hideError();
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-        loadingState.classList.remove('hidden');
-        initialState.classList.add('hidden');
-        resultsSection.classList.add('hidden');
-
-        const payload = {
-            home_price: parseInput('home_price') || 0,
-            down_payment_pct: parseInput('down_payment_pct') ?? 20,
-            interest_rate: parseInput('interest_rate') ?? 6.5,
-            loan_term: parseInput('loan_term') ?? 30,
-            property_tax_rate: parseInput('property_tax_rate') ?? 1.2,
-            home_insurance: parseInput('home_insurance') ?? 1200,
-            hoa: parseInput('hoa') ?? 0,
-            maintenance_rate: parseInput('maintenance_rate') ?? 1,
-            home_appreciation: parseInput('home_appreciation') ?? 3,
-            monthly_rent: parseInput('monthly_rent') || 0,
-            rent_increase: parseInput('rent_increase') ?? 3,
-            renters_insurance: parseInput('renters_insurance') ?? 200,
-            investment_return: parseInput('investment_return') ?? 7,
-            years: parseInput('years') ?? 7
-        };
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                showError(data.error || '{% trans "An error occurred. Please try again." %}');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            const isBuy = data.summary.advantage === 'buy';
-            const winnerCard = document.getElementById('winnerCard');
-            winnerCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (isBuy ? 'from-blue-600 to-blue-700' : 'from-amber-500 to-amber-600');
-            document.getElementById('winnerResult').textContent = isBuy ? '{% trans "Buying" %}' : '{% trans "Renting" %}';
-            document.getElementById('differenceResult').textContent = formatCurrency(data.summary.difference);
-
-            const breakevenNote = document.getElementById('breakevenNote');
-            if (data.summary.breakeven_year) {
-                breakevenNote.textContent = '{% trans "Breakeven around year" %} ' + data.summary.breakeven_year;
-                breakevenNote.classList.remove('hidden');
-            } else {
-                breakevenNote.classList.add('hidden');
-            }
-
-            document.getElementById('breakevenResult').textContent = data.summary.breakeven_year ? String(data.summary.breakeven_year) : '—';
-            document.getElementById('buyMonthlyResult').textContent = formatCurrency(data.summary.buy.monthly_payment);
-            document.getElementById('rentInitialResult').textContent = formatCurrency(data.summary.rent.initial_rent);
-            document.getElementById('differenceStatResult').textContent = formatCurrency(data.summary.difference);
-            document.getElementById('buyMonthlyDetailResult').textContent = formatCurrency(data.summary.buy.monthly_payment);
-            document.getElementById('buyEquityResult').textContent = formatCurrency(data.summary.buy.final_equity);
-            document.getElementById('buyTotalCostResult').textContent = formatCurrency(data.summary.buy.total_cost);
-            document.getElementById('buyNetResult').textContent = formatCurrency(data.summary.buy.net_position);
-            document.getElementById('rentInitialDetailResult').textContent = formatCurrency(data.summary.rent.initial_rent);
-            document.getElementById('rentInvestmentResult').textContent = formatCurrency(data.summary.rent.investment_value);
-            document.getElementById('rentTotalCostResult').textContent = formatCurrency(data.summary.rent.total_cost);
-            document.getElementById('rentNetResult').textContent = formatCurrency(data.summary.rent.net_position);
-
-            if (lineChart) lineChart.destroy();
-            const chartConfig = data.chart_data.wealth_chart || {
-                type: 'line',
-                data: {
-                    labels: data.chart_data.labels,
-                    datasets: [
-                        { label: '{% trans "Home Equity (Buy)" %}', data: data.chart_data.buy_equity, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true, tension: 0.3 },
-                        { label: '{% trans "Investments (Rent)" %}', data: data.chart_data.rent_investment, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.3 }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
-            };
-            const merged = {
-                type: chartConfig.type,
-                data: chartConfig.data,
-                options: Object.assign({ responsive: true, maintainAspectRatio: false }, chartConfig.options || {})
-            };
-            lineChart = new Chart(document.getElementById('lineChart').getContext('2d'), merged);
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred. Please try again." %}');
-        } finally {
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Compare Rent vs Buy" %}';
-            loadingState.classList.add('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Pleasecheckyourinput_0: '{% trans "Please check your inputs." %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Buying_3: '{% trans "Buying" %}',
+        trans_Renting_4: '{% trans "Renting" %}',
+        trans_Breakevenaroundyear_5: '{% trans "Breakeven around year" %}',
+        trans_HomeEquityBuy_6: '{% trans "Home Equity (Buy)" %}',
+        trans_InvestmentsRent_7: '{% trans "Investments (Rent)" %}',
+        trans_CompareRentvsBuy_9: '{% trans "Compare Rent vs Buy" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/rent_vs_buy_calculator.js' %}"></script>
 {% endblock %}

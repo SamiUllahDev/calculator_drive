@@ -1,8 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Starbucks Calorie Calculator - Know Your Order" %}{% endblock %}
 {% block meta_description %}{% trans "Free Starbucks Calorie Calculator. Customize your drink size, milk, and extras to instantly see calories, sugar, caffeine, and full nutritional facts with charts." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/starbucks_calorie_calculator.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
@@ -405,142 +409,22 @@
 </script>
 
 <script>
-/* ── Menu data for dynamic category → drink mapping ── */
-const MENU_DATA = JSON.parse(document.getElementById('menuData').textContent);
-
-let macroC=null, dvC=null, itemsC=null, compC=null;
-function ck(){ return typeof Chart!=='undefined'; }
-
-document.addEventListener('DOMContentLoaded', function(){
-    const catSel  = document.getElementById('drinkCategory');
-    const drkSel  = document.getElementById('drinkSelect');
-    const form    = document.getElementById('calculatorForm');
-    const init    = document.getElementById('initialState');
-    const load    = document.getElementById('loadingState');
-    const errEl   = document.getElementById('errorState');
-    const res     = document.getElementById('results');
-    const resCard = document.getElementById('resultCard');
-
-    /* Populate drink dropdown from category */
-    function fillDrinks(cat){
-        drkSel.innerHTML = '';
-        (MENU_DATA[cat]||[]).forEach(d => {
-            const o = document.createElement('option');
-            o.value = d.key; o.textContent = `${d.name} (${d.cal} cal)`;
-            drkSel.appendChild(o);
-        });
-    }
-    catSel.addEventListener('change', ()=> fillDrinks(catSel.value));
-    fillDrinks(catSel.value);
-
-    /* Form submit */
-    form.addEventListener('submit', async function(e){
-        e.preventDefault();
-        if(init) init.classList.add('hidden');
-        if(res)  res.classList.add('hidden');
-        if(errEl) errEl.classList.add('hidden');
-        if(load) load.classList.remove('hidden');
-
-        const extras = Array.from(document.querySelectorAll('.extra-cb:checked')).map(c=>c.value);
-        const payload = {
-            drink_category: catSel.value,
-            drink: drkSel.value,
-            size: (document.querySelector('input[name="size"]:checked')||{value:'grande'}).value,
-            milk: document.getElementById('milkSelect').value,
-            food: document.getElementById('foodSelect').value,
-            extras: extras,
-        };
-
-        const btn=document.getElementById('calcBtnText');
-        const orig=btn?btn.textContent:'';
-        if(btn) btn.textContent="{% trans 'Calculating...' %}";
-
-        try {
-            const r = await fetch(window.location.href, {
-                method:'POST',
-                headers: {'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},
-                body: JSON.stringify(payload)
-            });
-            const d = await r.json();
-            if(load) load.classList.add('hidden');
-            if(btn) btn.textContent=orig;
-            if(!d.success){ if(errEl){document.getElementById('errorMessage').textContent=d.error||'Error'; errEl.classList.remove('hidden');} return; }
-            show(d);
-        } catch(ex){
-            if(load) load.classList.add('hidden');
-            if(btn) btn.textContent=orig;
-            if(errEl){document.getElementById('errorMessage').textContent="{% trans 'Network error.' %}"; errEl.classList.remove('hidden');}
-        }
-    });
-
-    function show(d){
-        try{
-            const t=d.totals;
-            document.getElementById('totalCalories').textContent=Math.round(t.calories);
-            document.getElementById('ratingText').textContent=d.rating.label;
-            document.getElementById('ratingDesc').textContent=d.rating.description;
-            const bg=document.getElementById('ratingBadge');
-            if(bg&&d.color_info) bg.className='inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 '+d.color_info.tailwind;
-            const grads={green:'from-green-600 to-green-700',blue:'from-blue-600 to-blue-700',yellow:'from-yellow-500 to-yellow-600',orange:'from-orange-500 to-orange-600',red:'from-red-600 to-red-700'};
-            if(resCard) resCard.className='bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white '+(grads[d.rating.color]||'from-green-700 to-emerald-600');
-
-            document.getElementById('sFat').textContent=Math.round(t.total_fat)+'g';
-            document.getElementById('sCarbs').textContent=Math.round(t.carbs)+'g';
-            document.getElementById('sProtein').textContent=Math.round(t.protein)+'g';
-            document.getElementById('sSugar').textContent=Math.round(t.sugar)+'g';
-            document.getElementById('sCaffeine').textContent=Math.round(t.caffeine)+'mg';
-            document.getElementById('sSodium').textContent=Math.round(t.sodium)+'mg';
-
-            /* Table */
-            const tb=document.getElementById('nBody'); tb.innerHTML='';
-            const rows=[
-                ['{% trans "Calories" %}',Math.round(t.calories),d.daily_values.calories+'%'],
-                ['{% trans "Total Fat" %}',t.total_fat+'g',d.daily_values.total_fat+'%'],
-                ['{% trans "Sat Fat" %}',t.sat_fat+'g',d.daily_values.sat_fat+'%'],
-                ['{% trans "Cholesterol" %}',t.cholesterol+'mg',d.daily_values.cholesterol+'%'],
-                ['{% trans "Sodium" %}',t.sodium+'mg',d.daily_values.sodium+'%'],
-                ['{% trans "Carbs" %}',t.carbs+'g',d.daily_values.carbs+'%'],
-                ['{% trans "Fiber" %}',t.fiber+'g',d.daily_values.fiber+'%'],
-                ['{% trans "Sugars" %}',t.sugar+'g',d.daily_values.sugar+'%'],
-                ['{% trans "Protein" %}',t.protein+'g',d.daily_values.protein+'%'],
-                ['{% trans "Caffeine" %}',t.caffeine+'mg',d.daily_values.caffeine+'%'],
-            ];
-            rows.forEach(r=>{const tr=document.createElement('tr');tr.className='hover:bg-gray-50';tr.innerHTML=`<td class="px-4 py-2 text-sm text-gray-700 font-medium">${r[0]}</td><td class="px-4 py-2 text-sm text-center">${r[1]}</td><td class="px-4 py-2 text-sm text-center font-semibold">${r[2]}</td>`;tb.appendChild(tr);});
-
-            /* Order list */
-            const ul=document.getElementById('orderList'); ul.innerHTML='';
-            d.items.forEach(n=>{const li=document.createElement('li');li.className='flex items-center';li.innerHTML=`<svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>${n}`;ul.appendChild(li);});
-
-            /* Charts */
-            if(d.chart_data&&ck()){
-                if(d.chart_data.macro_chart) mkMacro(d.chart_data.macro_chart);
-                if(d.chart_data.dv_chart) mkDV(d.chart_data.dv_chart);
-                if(d.chart_data.items_chart) mkItems(d.chart_data.items_chart);
-                if(d.chart_data.compare_chart) mkCompare(d.chart_data.compare_chart);
-            }
-            if(res){res.classList.remove('hidden');setTimeout(()=>res.scrollIntoView({behavior:'smooth',block:'nearest'}),100);}
-        }catch(e){console.error(e);}
-    }
-
-    /* Charts */
-    function mkMacro(cd){
-        const ctx=document.getElementById('macroChart');if(!ctx||!ck())return;if(macroC)macroC.destroy();
-        const ct=cd.center_text;
-        try{macroC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{padding:16,usePointStyle:true,font:{size:12}}},tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw}%`}}},animation:{animateRotate:true,duration:1500}},plugins:[{id:'mc',afterDraw(ch){const c=ch.ctx;const x=ch.chartArea.left+(ch.chartArea.right-ch.chartArea.left)/2;const y=ch.chartArea.top+(ch.chartArea.bottom-ch.chartArea.top)/2;c.save();c.font='bold 28px Inter,Arial';c.fillStyle=ct.color;c.textAlign='center';c.textBaseline='middle';c.fillText(ct.value,x,y-10);c.font='13px Inter,Arial';c.fillStyle='#6b7280';c.fillText(ct.label,x,y+16);c.restore();}}]});}catch(e){console.error(e);}
-    }
-    function mkDV(cd){
-        const ctx=document.getElementById('dvChart');if(!ctx||!ck())return;if(dvC)dvC.destroy();
-        try{dvC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(1)}% {% trans "DV" %}`}}},scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>v+'%',font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:11,weight:'bold'}}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-    function mkItems(cd){
-        const ctx=document.getElementById('itemsChart');if(!ctx||!ck())return;if(itemsC)itemsC.destroy();
-        try{itemsC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.x} {% trans "cal" %}`}}},scales:{x:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{font:{size:11}}},y:{grid:{display:false},ticks:{font:{size:10,weight:'bold'}}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-    function mkCompare(cd){
-        const ctx=document.getElementById('compareChart');if(!ctx||!ck())return;if(compC)compC.destroy();
-        const units=cd.units||['g','mg'];
-        try{compC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return `${c.parsed.x} ${units[c.dataIndex]||''}`;}}}},scales:{x:{beginAtZero:true,grid:{color:'#f3f4f6'}},y:{grid:{display:false},ticks:{font:{size:12,weight:'bold'}}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Networkerror_1: "{% trans 'Network error.' %}",
+        trans_Calories_2: '{% trans "Calories" %}',
+        trans_TotalFat_3: '{% trans "Total Fat" %}',
+        trans_SatFat_4: '{% trans "Sat Fat" %}',
+        trans_Cholesterol_5: '{% trans "Cholesterol" %}',
+        trans_Sodium_6: '{% trans "Sodium" %}',
+        trans_Carbs_7: '{% trans "Carbs" %}',
+        trans_Fiber_8: '{% trans "Fiber" %}',
+        trans_Sugars_9: '{% trans "Sugars" %}',
+        trans_Protein_10: '{% trans "Protein" %}',
+        trans_Caffeine_11: '{% trans "Caffeine" %}',
+        trans_DV_12: '{% trans "DV" %}',
+        trans_cal_13: '{% trans "cal" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/starbucks_calorie_calculator.js' %}"></script>
 {% endblock %}

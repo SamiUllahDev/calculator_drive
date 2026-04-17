@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Estimate your Social Security retirement benefits. See how your benefit changes at different retirement ages from 62 to 70." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/social_security_calculator.css' %}">
 <meta name="keywords" content="{% trans 'social security calculator, retirement benefits, SS benefits, PIA calculator, full retirement age' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
@@ -16,17 +17,7 @@
     <div class="max-w-7xl mx-auto">
 
         <!-- Breadcrumb -->
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Social Security Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header (BMI-style) -->
+<!-- Header (BMI-style) -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,131 +253,15 @@
 </div>
 
     <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var benefitsChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function showState(state) {
-        document.getElementById('initialState').classList.add('hidden');
-        if (loadingState) loadingState.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        document.getElementById('resultsState').classList.add('hidden');
-        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
-        else if (state === 'loading' && loadingState) loadingState.classList.remove('hidden');
-        else if (state === 'error' && errorState) errorState.classList.remove('hidden');
-        else if (state === 'results') document.getElementById('resultsState').classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        document.getElementById('initialState').classList.add('hidden');
-        document.getElementById('resultsState').classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-        if (calculateBtn) calculateBtn.disabled = true;
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculating..." %}';
-        var data = {
-            birth_year: parseInt(document.getElementById('birth_year').value, 10),
-            birth_month: parseInt(document.getElementById('birth_month').value, 10),
-            current_annual_earnings: parseNumber(document.getElementById('current_annual_earnings').value),
-            years_worked: parseInt(document.getElementById('years_worked').value, 10),
-            planned_retirement_age: parseInt(document.getElementById('planned_retirement_age').value, 10)
-        };
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(data)
-            });
-            var result = await response.json();
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate Benefits" %}';
-            if (result.success) {
-                displayResults(result);
-                showState('results');
-                setTimeout(function() { document.getElementById('resultsState').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-            } else {
-                document.getElementById('errorMessage').textContent = result.error || '{% trans "An error occurred. Please try again." %}';
-                if (errorState) errorState.classList.remove('hidden');
-            }
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate Benefits" %}';
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-            if (errorState) errorState.classList.remove('hidden');
-        }
-    });
-
-    function displayResults(result) {
-        document.getElementById('plannedAge').textContent = result.planned_retirement.age;
-        document.getElementById('monthlyBenefit').textContent = formatCurrency(result.planned_retirement.monthly_benefit);
-        document.getElementById('annualBenefit').textContent = formatCurrency(result.planned_retirement.annual_benefit);
-        document.getElementById('fraDisplay').textContent = result.full_retirement_age.display;
-        if (document.getElementById('aimeDisplay')) document.getElementById('aimeDisplay').textContent = formatCurrency(result.aime);
-        if (document.getElementById('piaDisplay')) document.getElementById('piaDisplay').textContent = formatCurrency(result.pia);
-
-        var tbody = document.getElementById('benefitsTable');
-        tbody.innerHTML = '';
-        for (var age = 62; age <= 70; age++) {
-            var benefit = result.benefits_by_age[age];
-            var isFRA = age === result.full_retirement_age.years;
-            var isPlanned = age === result.planned_retirement.age;
-            var tr = document.createElement('tr');
-            tr.className = isPlanned ? 'bg-blue-50' : (isFRA ? 'bg-green-50' : '');
-            tr.innerHTML = '<td class="px-3 py-2 font-medium ' + (isPlanned ? 'text-blue-700' : '') + '">' + age + (isFRA ? ' (FRA)' : '') + (isPlanned ? ' ✓' : '') + '</td><td class="px-3 py-2 text-right font-bold">' + formatCurrency(benefit.monthly) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(benefit.annual) + '</td><td class="px-3 py-2 text-sm text-gray-600">' + benefit.adjustment + '</td>';
-            tbody.appendChild(tr);
-        }
-
-        var lifetimeDiv = document.getElementById('lifetimeComparison');
-        lifetimeDiv.innerHTML = '';
-        [62, result.planned_retirement.age, 70].forEach(function(age) {
-            if (result.lifetime_benefits[age]) {
-                var lb = result.lifetime_benefits[age];
-                var div = document.createElement('div');
-                div.className = 'text-center p-3 bg-gray-50 rounded-lg';
-                div.innerHTML = '<p class="text-sm text-gray-600">Age ' + age + '</p><p class="text-xl font-bold text-gray-900">' + formatCurrency(lb.total) + '</p><p class="text-xs text-gray-500">' + lb.years_collecting + ' years</p>';
-                lifetimeDiv.appendChild(div);
-            }
-        });
-
-        var breakevenDiv = document.getElementById('breakevenInfo');
-        if (result.breakeven_age) {
-            breakevenDiv.innerHTML = '<strong>{% trans "Break-even age:" %}</strong> {% trans "If you live past age" %} ' + result.breakeven_age + ', {% trans "waiting until 70 pays more total than claiming at 62." %}';
-            breakevenDiv.classList.remove('hidden');
-        } else {
-            breakevenDiv.classList.add('hidden');
-        }
-
-        if (result.chart_data && result.chart_data.benefits_chart && typeof Chart !== 'undefined') {
-            var ctx = document.getElementById('benefitsChart');
-            if (ctx) {
-                if (benefitsChart) { benefitsChart.destroy(); benefitsChart = null; }
-                var cfg = result.chart_data.benefits_chart;
-                benefitsChart = new Chart(ctx.getContext('2d'), {
-                    type: cfg.type,
-                    data: cfg.data,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return formatCurrency(c.raw); } } } },
-                        scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return formatCurrency(v); } } } }
-                    }
-                });
-            }
-        }
-    }
-});
-    </script>
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateBenefits_1: '{% trans "Calculate Benefits" %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_4: '{% trans "A network error occurred. Please try again." %}',
+        trans_Breakevenage_5: '{% trans "Break-even age:" %}',
+        trans_Ifyoulivepastage_6: '{% trans "If you live past age" %}',
+        trans_waitinguntil70paysmo_7: '{% trans "waiting until 70 pays more total than claiming at 62." %}',
+    };
+</script>
+<script src="{% static 'financial_calculators/js/social_security_calculator.js' %}"></script>
 {% endblock %}

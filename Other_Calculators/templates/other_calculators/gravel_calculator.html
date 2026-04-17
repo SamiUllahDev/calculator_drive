@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Gravel Calculator - Calculate Volume, Weight & Cost Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free gravel calculator. Calculate gravel volume for rectangular, circular, and triangular areas. Get weight, cost, coverage estimates. Supports cu ft, cu yd, m³, tons, lbs. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate gravel for any project. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/gravel_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Gravel Calculator - Free Online Tool" %}","description":"{% trans "Free gravel calculator. Calculate volume for rectangular, circular, and triangular areas. Get weight, cost, coverage. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1850"},"featureList":["{% trans 'Rectangular, circular, triangular volume' %}","{% trans 'Weight from volume (custom density)' %}","{% trans 'Cost estimation' %}","{% trans 'Coverage area calculation' %}","{% trans 'Volume & weight unit conversions' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Gravel Calculator - Free Online Tool" %}',"description":'{% trans "Free gravel calculator. Calculate volume for rectangular, circular, and triangular areas. Get weight, cost, coverage. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1850"},"featureList":["{% trans 'Rectangular, circular, triangular volume' %}","{% trans 'Weight from volume (custom density)' %}","{% trans 'Cost estimation' %}","{% trans 'Coverage area calculation' %}","{% trans 'Volume & weight unit conversions' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -239,119 +240,16 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('gvForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        document.getElementById('volGrid')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            const isUsd = r.result_unit_symbol === '$';
-            document.getElementById('resultValue').textContent = isUsd ? ('$' + Number(r.result).toLocaleString('en-US',{maximumFractionDigits:2})) : Number(r.result).toLocaleString('en-US',{maximumFractionDigits:4});
-            document.getElementById('resultUnit').textContent = isUsd ? '' : (r.result_unit_symbol || '');
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Volume grid
-            if (r.volume) {
-                const gc = document.getElementById('volGridContent'); gc.innerHTML = '';
-                [['{% trans "Cubic Feet" %}', r.volume.cubic_feet, 'stone'],['{% trans "Cubic Yards" %}', r.volume.cubic_yards, 'emerald'],['{% trans "Cubic Meters" %}', r.volume.cubic_meters, 'amber']].forEach(([lbl,val,clr]) => {
-                    const cell = document.createElement('div');
-                    cell.className = `bg-${clr}-50 rounded-lg p-4 text-center border-2 border-${clr}-200`;
-                    cell.innerHTML = `<p class="text-sm text-gray-600 mb-1">${lbl}</p><p class="text-xl font-bold text-${clr}-600">${Number(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4})}</p>`;
-                    gc.appendChild(cell);
-                });
-                document.getElementById('volGrid')?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-stone-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'rectangular') {
-        d.length = parseFloat(document.getElementById('r_l').value); d.length_unit = document.getElementById('r_lu').value;
-        d.width = parseFloat(document.getElementById('r_w').value); d.width_unit = document.getElementById('r_wu').value;
-        d.depth = parseFloat(document.getElementById('r_d').value); d.depth_unit = document.getElementById('r_du').value;
-        d.result_unit = document.getElementById('r_ru').value;
-    } else if (ct === 'circular') {
-        d.diameter = parseFloat(document.getElementById('c_d').value); d.diameter_unit = document.getElementById('c_du').value;
-        d.depth = parseFloat(document.getElementById('c_dp').value); d.depth_unit = document.getElementById('c_dpu').value;
-        d.result_unit = document.getElementById('c_ru').value;
-    } else if (ct === 'triangular') {
-        d.base = parseFloat(document.getElementById('t_b').value); d.base_unit = document.getElementById('t_bu').value;
-        d.height = parseFloat(document.getElementById('t_h').value); d.height_unit = document.getElementById('t_hu').value;
-        d.depth = parseFloat(document.getElementById('t_d').value); d.depth_unit = document.getElementById('t_du').value;
-        d.result_unit = document.getElementById('t_ru').value;
-    } else if (ct === 'weight') {
-        d.volume = parseFloat(document.getElementById('w_v').value); d.volume_unit = document.getElementById('w_vu').value;
-        d.density = parseFloat(document.getElementById('w_dn').value); d.result_unit = document.getElementById('w_ru').value;
-    } else if (ct === 'cost') {
-        d.volume = parseFloat(document.getElementById('co_v').value); d.volume_unit = document.getElementById('co_vu').value;
-        d.price_per_unit = parseFloat(document.getElementById('co_p').value);
-    } else if (ct === 'coverage') {
-        d.volume = parseFloat(document.getElementById('cv_v').value); d.volume_unit = document.getElementById('cv_vu').value;
-        d.depth = parseFloat(document.getElementById('cv_d').value); d.depth_unit = document.getElementById('cv_du').value;
-        d.result_unit = document.getElementById('cv_ru').value;
-    } else if (ct === 'convert_volume') {
-        d.value = parseFloat(document.getElementById('vv_v').value);
-        d.from_unit = document.getElementById('vv_fu').value; d.to_unit = document.getElementById('vv_tu').value;
-    } else if (ct === 'convert_weight') {
-        d.value = parseFloat(document.getElementById('ww_v').value);
-        d.from_unit = document.getElementById('ww_fu').value; d.to_unit = document.getElementById('ww_tu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_CubicFeet_4: '{% trans "Cubic Feet" %}',
+        trans_CubicYards_5: '{% trans "Cubic Yards" %}',
+        trans_CubicMeters_6: '{% trans "Cubic Meters" %}',
+        trans_Anetworkerroroccurre_8: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/gravel_calculator.js' %}"></script>
 {% endblock %}

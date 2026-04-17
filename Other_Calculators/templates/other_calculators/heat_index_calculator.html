@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Heat Index Calculator - Calculate Feels Like Temperature Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free heat index calculator. Calculate feels-like temperature from air temperature and relative humidity using the NWS Rothfusz equation. Find temperature or humidity from heat index. Risk categories with step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate feels-like temperature, find risk categories, reverse-solve for temperature or humidity. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/heat_index_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Heat Index Calculator - Feels Like Temperature Free" %}","description":"{% trans "Free heat index calculator using the NWS Rothfusz equation. Calculate feels-like temperature, find risk categories, reverse-solve for temperature or humidity. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1950"},"featureList":["{% trans 'Calculate heat index from temperature and humidity' %}","{% trans 'Find temperature from heat index and humidity' %}","{% trans 'Find humidity from heat index and temperature' %}","{% trans 'Convert Fahrenheit and Celsius' %}","{% trans 'Heat risk category assessment' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Heat Index Calculator - Feels Like Temperature Free" %}',"description":'{% trans "Free heat index calculator using the NWS Rothfusz equation. Calculate feels-like temperature, find risk categories, reverse-solve for temperature or humidity. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1950"},"featureList":["{% trans 'Calculate heat index from temperature and humidity' %}","{% trans 'Find temperature from heat index and humidity' %}","{% trans 'Find humidity from heat index and temperature' %}","{% trans 'Convert Fahrenheit and Celsius' %}","{% trans 'Heat risk category assessment' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -223,106 +224,14 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctSel = document.getElementById('calc-type');
-    ctSel.addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('hiForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            let display = fnum(r.result) + ' ' + (r.result_unit_symbol || '');
-            if (r.result_c != null && r.result_unit_symbol === '°F') display += '  (' + fnum(r.result_c) + ' °C)';
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const badge = document.getElementById('categoryBadge');
-            if (r.category) {
-                document.getElementById('catText').textContent = r.category + ' — ' + r.risk_level + " {% trans 'risk' %}";
-                badge?.classList.remove('hidden');
-            } else {
-                badge?.classList.add('hidden');
-            }
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-red-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            } else {
-                cc?.classList.add('hidden');
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-    document.getElementById('categoryBadge')?.classList.add('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 1}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'heat_index') {
-        d.temperature = parseFloat(document.getElementById('hi_temp').value);
-        d.temp_unit = document.getElementById('hi_tu').value;
-        d.humidity = parseFloat(document.getElementById('hi_hum').value);
-    } else if (ct === 'temperature') {
-        d.heat_index = parseFloat(document.getElementById('t_hi').value);
-        d.temp_unit = document.getElementById('t_tu').value;
-        d.humidity = parseFloat(document.getElementById('t_hum').value);
-    } else if (ct === 'humidity') {
-        d.heat_index = parseFloat(document.getElementById('h_hi').value);
-        d.temperature = parseFloat(document.getElementById('h_temp').value);
-        d.temp_unit = document.getElementById('h_tu1').value;
-    } else if (ct === 'convert_temperature') {
-        d.value = parseFloat(document.getElementById('cv_val').value);
-        d.from_unit = document.getElementById('cv_fu').value;
-        d.to_unit = document.getElementById('cv_tu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_risk_4: "{% trans 'risk' %}",
+        trans_Anetworkerroroccurre_6: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/heat_index_calculator.js' %}"></script>
 {% endblock %}

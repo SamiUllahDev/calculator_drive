@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "BAC Calculator" %} - {% trans "Blood Alcohol Content" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate blood alcohol content (BAC) based on drinks consumed, weight, gender, and time. Estimate when you'll be safe to drive." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/bac_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "bac calculator, blood alcohol content, alcohol calculator, drunk driving, widmark formula" %}">
+<meta name="keywords" content='{% trans "bac calculator, blood alcohol content, alcohol calculator, drunk driving, widmark formula" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "BAC Calculator" %} - {% trans "Blood Alcohol Content" %}">
-<meta property="og:description" content="{% trans "Calculate your estimated blood alcohol content using the Widmark formula. Know when it's safe to drive." %}">
+<meta property="og:title" content='{% trans "BAC Calculator" %} - {% trans "Blood Alcohol Content" %}'>
+<meta property="og:description" content='{% trans "Calculate your estimated blood alcohol content using the Widmark formula. Know when it's safe to drive." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "BAC Calculator" %}",
-    "description": "{% trans "Calculate blood alcohol content (BAC) based on drinks consumed, weight, gender, and time." %}",
+    "name": '{% trans "BAC Calculator" %}',
+    "description": '{% trans "Calculate blood alcohol content (BAC) based on drinks consumed, weight, gender, and time." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "BAC Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,409 +543,17 @@
 </div>
 
 <script>
-// Chart instances
-let bacGaugeChart = null;
-let effectsChart = null;
-let comparisonChart = null;
-let timeChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-    const resultCard = document.getElementById('resultCard');
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const formData = {
-            gender: document.querySelector('input[name="gender"]:checked').value,
-            weight_unit: document.querySelector('input[name="weight_unit"]:checked').value,
-            weight: parseFloat(document.getElementById('weight').value),
-            drinks: parseFloat(document.getElementById('drinks').value),
-            drink_type: document.getElementById('drink_type').value,
-            hours: parseFloat(document.getElementById('hours').value)
-        };
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : 'Calculate BAC';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update BAC result
-            const bacResultEl = document.getElementById('bacResult');
-            if (bacResultEl) bacResultEl.textContent = data.bac_percent.toFixed(3) + '%';
-
-            // Update effect badge
-            const effectBadge = document.getElementById('effectBadge');
-            const effectText = document.getElementById('effectText');
-            if (effectText) effectText.textContent = data.effect;
-            if (effectBadge && data.color_info) {
-                effectBadge.className = 'inline-block mt-4 px-4 py-2 rounded-full text-sm font-semibold shadow-md border-2 ' + data.color_info.tailwind_classes;
-            }
-
-            // Update stats
-            const categoryEl = document.getElementById('category');
-            const timeToZeroEl = document.getElementById('timeToZero');
-            const overLimitStatusEl = document.getElementById('overLimitStatus');
-
-            if (categoryEl && data.category) categoryEl.textContent = data.category;
-            if (timeToZeroEl) {
-                if (data.hours_to_zero > 0) {
-                    timeToZeroEl.textContent = data.hours_to_zero.toFixed(1) + ' {% trans "hrs" %}';
-                } else {
-                    timeToZeroEl.textContent = '{% trans "Zero" %}';
-                }
-            }
-            if (overLimitStatusEl) {
-                if (data.over_limit) {
-                    overLimitStatusEl.textContent = '{% trans "Over Limit" %}';
-                    overLimitStatusEl.className = 'text-xs font-bold text-red-700';
-                } else {
-                    overLimitStatusEl.textContent = '{% trans "Under Limit" %}';
-                    overLimitStatusEl.className = 'text-xs font-bold text-green-700';
-                }
-            }
-
-            // Update result card color
-            const colors = {
-                'green': 'bg-gradient-to-br from-green-600 to-green-700',
-                'yellow': 'bg-gradient-to-br from-yellow-500 to-yellow-600',
-                'orange': 'bg-gradient-to-br from-orange-600 to-orange-700',
-                'red': 'bg-gradient-to-br from-red-600 to-red-700'
-            };
-            if (resultCard) {
-                resultCard.className = 'bg-gradient-to-br rounded-xl p-6 sm:p-8 shadow-xl text-white ' + (colors[data.effect_color] || 'bg-gradient-to-br from-gray-600 to-gray-700');
-            }
-
-            // Update BAC scale indicator
-            const bacIndicator = document.getElementById('bacIndicator');
-            const scaleDescription = document.getElementById('scaleDescription');
-            
-            if (bacIndicator && data.scale_position !== undefined) {
-                bacIndicator.style.left = data.scale_position + '%';
-            }
-            if (scaleDescription) {
-                scaleDescription.textContent = `Your BAC: ${data.bac_percent.toFixed(3)}% | Legal Limit: ${(data.legal_limit * 100).toFixed(2)}%`;
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.gauge_chart) {
-                    createBACGaugeChart(data.chart_data.gauge_chart);
-                }
-                if (data.chart_data.effects_chart) {
-                    createEffectsChart(data.chart_data.effects_chart);
-                }
-                if (data.chart_data.comparison_chart) {
-                    createComparisonChart(data.chart_data.comparison_chart);
-                }
-                if (data.chart_data.time_chart) {
-                    createTimeChart(data.chart_data.time_chart);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createBACGaugeChart(chartData) {
-        const ctx = document.getElementById('bacGaugeChart');
-        if (!ctx) return;
-
-        if (!checkChartJS()) return;
-
-        if (bacGaugeChart) {
-            bacGaugeChart.destroy();
-        }
-
-        if (!chartData || !chartData.center_text) return;
-
-        const centerText = chartData.center_text;
-        const bacColor = centerText.color;
-
-        try {
-            bacGaugeChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: false }
-                    },
-                    animation: {
-                        animateRotate: true,
-                        duration: 1500
-                    }
-                },
-                plugins: [{
-                    id: 'centerText',
-                    afterDraw: function(chart) {
-                        const ctx = chart.ctx;
-                        const centerX = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
-                        const centerY = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
-                        
-                        ctx.save();
-                        ctx.font = 'bold 32px Arial';
-                        ctx.fillStyle = bacColor;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(centerText.value, centerX, centerY - 10);
-                        ctx.font = '14px Arial';
-                        ctx.fillStyle = '#6b7280';
-                        ctx.fillText(centerText.label, centerX, centerY + 18);
-                        ctx.restore();
-                    }
-                }]
-            });
-        } catch (error) {
-            console.error('Error creating gauge chart:', error);
-        }
-    }
-
-    function createEffectsChart(chartData) {
-        const ctx = document.getElementById('effectsChart');
-        if (!ctx) return;
-
-        if (!checkChartJS()) return;
-
-        if (effectsChart) {
-            effectsChart.destroy();
-        }
-
-        if (!chartData || !chartData.data || !chartData.data.datasets) return;
-
-        try {
-            effectsChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.parsed.x === 0) return '';
-                                    return `BAC: ${context.parsed.x.toFixed(2)}%`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            max: 0.20 * 100,
-                            grid: { color: '#f3f4f6' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating effects chart:', error);
-        }
-    }
-
-    function createComparisonChart(chartData) {
-        const ctx = document.getElementById('comparisonChart');
-        if (!ctx) return;
-
-        if (!checkChartJS()) return;
-
-        if (comparisonChart) {
-            comparisonChart.destroy();
-        }
-
-        if (!chartData || !chartData.data) return;
-
-        try {
-            comparisonChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `BAC: ${context.parsed.y.toFixed(2)}%`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 0.20 * 100,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating comparison chart:', error);
-        }
-    }
-
-    function createTimeChart(chartData) {
-        const ctx = document.getElementById('timeChart');
-        if (!ctx) return;
-
-        if (!checkChartJS()) return;
-
-        if (timeChart) {
-            timeChart.destroy();
-        }
-
-        if (!chartData || !chartData.data) return;
-
-        try {
-            timeChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toFixed(1)} {% trans "hours" %}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1) + ' {% trans "hrs" %}';
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating time chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_1: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_2: '{% trans "A network error occurred. Please try again." %}',
+        trans_hrs_3: '{% trans "hrs" %}',
+        trans_Zero_4: '{% trans "Zero" %}',
+        trans_OverLimit_5: '{% trans "Over Limit" %}',
+        trans_UnderLimit_6: '{% trans "Under Limit" %}',
+        trans_Errordisplayingresul_7: '{% trans "Error displaying results. Please try again." %}',
+        trans_hours_8: '{% trans "hours" %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/bac_calculator.js' %}"></script>
 {% endblock %}

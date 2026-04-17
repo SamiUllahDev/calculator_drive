@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Interest Rate Calculator - Find APR, APY & Effective Rates" %}{% endblock %}
 {% block meta_description %}{% trans "Free interest rate calculator. Find APR from payment and term, convert APR to APY, calculate effective rate with fees, and compare loan rates. Get instant results." %}{% endblock %}
 {% block meta_keywords %}{% trans "interest rate calculator, APR calculator, APY calculator, effective rate, rate comparison, loan rate" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/interest_rate_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Interest Rate Calculator' %}">
 <meta property="og:description" content="{% trans 'Find APR, convert APR/APY, and compare loan rates.' %}">
@@ -398,277 +399,22 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-
-    var findRateFields = document.getElementById('find_rate_fields');
-    var conversionFields = document.getElementById('conversion_fields');
-    var effectiveRateFields = document.getElementById('effective_rate_fields');
-    var compareRatesFields = document.getElementById('compare_rates_fields');
-    var rateLabel = document.getElementById('rate_label');
-
-    var findRateChart = null;
-    var conversionChart = null;
-    var effectiveRateChart = null;
-    var compareRatesChart = null;
-
-    function destroyCharts() {
-        if (findRateChart) { findRateChart.destroy(); findRateChart = null; }
-        if (conversionChart) { conversionChart.destroy(); conversionChart = null; }
-        if (effectiveRateChart) { effectiveRateChart.destroy(); effectiveRateChart = null; }
-        if (compareRatesChart) { compareRatesChart.destroy(); compareRatesChart = null; }
-    }
-
-    function parseNum(str) {
-        return parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    }
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function formatInput(input) {
-        var v = input.value.replace(/[^\d.]/g, '');
-        var parts = v.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            findRateFields.classList.add('hidden');
-            conversionFields.classList.add('hidden');
-            effectiveRateFields.classList.add('hidden');
-            compareRatesFields.classList.add('hidden');
-            if (this.value === 'find_rate') findRateFields.classList.remove('hidden');
-            else if (this.value === 'apr_to_apy' || this.value === 'apy_to_apr') {
-                conversionFields.classList.remove('hidden');
-                rateLabel.textContent = this.value === 'apr_to_apy' ? '{% trans "APR (%)" %}' : '{% trans "APY (%)" %}';
-            } else if (this.value === 'effective_rate') effectiveRateFields.classList.remove('hidden');
-            else if (this.value === 'compare_rates') compareRatesFields.classList.remove('hidden');
-        });
-    });
-
-    ['loan_amount', 'monthly_payment', 'eff_loan_amount', 'comp_loan_amount', 'origination_fee', 'other_fees'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() { formatInput(this); });
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var formData = { calc_type: calcType };
-
-        if (calcType === 'find_rate') {
-            formData.loan_amount = document.getElementById('loan_amount').value.replace(/,/g, '');
-            formData.monthly_payment = document.getElementById('monthly_payment').value.replace(/,/g, '');
-            formData.loan_term = document.getElementById('loan_term').value;
-        } else if (calcType === 'apr_to_apy' || calcType === 'apy_to_apr') {
-            formData.rate = document.getElementById('rate_input').value;
-            formData.compounding_frequency = document.getElementById('compounding_frequency').value;
-            formData.direction = calcType === 'apy_to_apr' ? 'apy_to_apr' : 'apr_to_apy';
-            formData.calc_type = 'apr_to_apy';
-        } else if (calcType === 'effective_rate') {
-            formData.loan_amount = document.getElementById('eff_loan_amount').value.replace(/,/g, '');
-            formData.nominal_rate = document.getElementById('nominal_rate').value;
-            formData.loan_term = document.getElementById('eff_loan_term').value;
-            formData.origination_fee = document.getElementById('origination_fee').value.replace(/,/g, '');
-            formData.points = document.getElementById('points').value;
-            formData.other_fees = document.getElementById('other_fees').value.replace(/,/g, '');
-        } else if (calcType === 'compare_rates') {
-            formData.loan_amount = document.getElementById('comp_loan_amount').value.replace(/,/g, '');
-            formData.loan_term = document.getElementById('comp_loan_term').value;
-            var ratesStr = document.getElementById('rates_list').value || '5,6,7,8,9';
-            formData.rates = ratesStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        }
-
-        try {
-            var response = await fetch('{% url "financial_calculators:interest_rate_calculator" %}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            var data = await response.json();
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            destroyCharts();
-
-            document.getElementById('result_find_rate').classList.add('hidden');
-            document.getElementById('result_apr_to_apy').classList.add('hidden');
-            document.getElementById('result_effective_rate').classList.add('hidden');
-            document.getElementById('result_compare_rates').classList.add('hidden');
-
-            if (data.calc_type === 'find_rate') {
-                document.getElementById('result_find_rate').classList.remove('hidden');
-                document.getElementById('find_annual_rate').textContent = data.annual_rate.toFixed(2) + '%';
-                document.getElementById('find_monthly_rate').textContent = data.monthly_rate.toFixed(4) + '%';
-                document.getElementById('find_total_payments').textContent = formatCurrency(data.total_payments);
-                document.getElementById('find_total_interest').textContent = formatCurrency(data.total_interest);
-                document.getElementById('find_loan_term').textContent = data.loan_term_months + ' {% trans "months" %}';
-                var findRateEl = document.getElementById('findRateChart');
-                if (findRateEl && typeof Chart !== 'undefined') {
-                    findRateChart = new Chart(findRateEl.getContext('2d'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['{% trans "Principal" %}', '{% trans "Total Interest" %}'],
-                            datasets: [{
-                                data: [data.loan_amount, data.total_interest],
-                                backgroundColor: ['#3b82f6', '#10b981'],
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { position: 'bottom' } }
-                        }
-                    });
-                }
-            } else if (data.calc_type === 'apr_to_apy') {
-                document.getElementById('result_apr_to_apy').classList.remove('hidden');
-                document.getElementById('conversion_direction_label').textContent = data.direction;
-                document.getElementById('conversion_main_result').textContent = (data.direction === 'APY to APR' ? data.apr : data.apy).toFixed(2) + '%';
-                document.getElementById('conv_apr').textContent = data.apr.toFixed(2) + '%';
-                document.getElementById('conv_apy').textContent = data.apy.toFixed(2) + '%';
-                document.getElementById('conv_difference').textContent = (data.difference >= 0 ? '+' : '') + data.difference.toFixed(4) + '%';
-                document.getElementById('conv_formula').textContent = data.formula || '';
-                var convEl = document.getElementById('conversionChart');
-                if (convEl && typeof Chart !== 'undefined') {
-                    conversionChart = new Chart(convEl.getContext('2d'), {
-                        type: 'bar',
-                        data: {
-                            labels: ['APR', 'APY'],
-                            datasets: [{
-                                label: '%',
-                                data: [data.apr, data.apy],
-                                backgroundColor: ['#3b82f6', '#10b981'],
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                y: { beginAtZero: true, ticks: { callback: function(v) { return v + '%'; } } }
-                            }
-                        }
-                    });
-                }
-            } else if (data.calc_type === 'effective_rate') {
-                document.getElementById('result_effective_rate').classList.remove('hidden');
-                document.getElementById('eff_rate_value').textContent = data.effective_rate.toFixed(2) + '%';
-                document.getElementById('eff_rate_diff').textContent = '{% trans "vs nominal" %} ' + data.nominal_rate + '% (+' + data.rate_difference.toFixed(2) + '%)';
-                document.getElementById('eff_nominal').textContent = data.nominal_rate + '%';
-                document.getElementById('eff_payment').textContent = formatCurrency(data.monthly_payment);
-                document.getElementById('eff_fees').textContent = formatCurrency(data.fees.total);
-                document.getElementById('eff_net').textContent = formatCurrency(data.net_proceeds);
-                document.getElementById('eff_total_cost').textContent = formatCurrency(data.total_cost);
-                var effEl = document.getElementById('effectiveRateChart');
-                if (effEl && typeof Chart !== 'undefined' && data.fees) {
-                    var principal = data.loan_amount;
-                    var interest = data.total_interest;
-                    var fees = data.fees.total;
-                    effectiveRateChart = new Chart(effEl.getContext('2d'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['{% trans "Principal" %}', '{% trans "Interest" %}', '{% trans "Fees" %}'],
-                            datasets: [{
-                                data: [principal, interest, fees],
-                                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { position: 'bottom' } }
-                        }
-                    });
-                }
-            } else if (data.calc_type === 'compare_rates') {
-                document.getElementById('result_compare_rates').classList.remove('hidden');
-                var tbody = document.getElementById('compare_table_body');
-                tbody.innerHTML = '';
-                data.comparisons.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 font-medium">' + row.rate + '%</td>' +
-                        '<td class="px-4 py-2 text-right">' + formatCurrency(row.monthly_payment) + '</td>' +
-                        '<td class="px-4 py-2 text-right">' + formatCurrency(row.total_interest) + '</td>' +
-                        '<td class="px-4 py-2 text-right font-medium">' + formatCurrency(row.total_cost) + '</td>';
-                    tbody.appendChild(tr);
-                });
-                var savingsBlock = document.getElementById('compare_savings_block');
-                if (data.savings) {
-                    savingsBlock.classList.remove('hidden');
-                    document.getElementById('savings_monthly').textContent = formatCurrency(data.savings.monthly);
-                    document.getElementById('savings_interest').textContent = formatCurrency(data.savings.total_interest);
-                } else {
-                    savingsBlock.classList.add('hidden');
-                }
-                var compEl = document.getElementById('compareRatesChart');
-                if (compEl && typeof Chart !== 'undefined' && data.comparisons && data.comparisons.length) {
-                    var labels = data.comparisons.map(function(r) { return r.rate + '%'; });
-                    var payments = data.comparisons.map(function(r) { return r.monthly_payment; });
-                    compareRatesChart = new Chart(compEl.getContext('2d'), {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: '{% trans "Monthly Payment" %}',
-                                data: payments,
-                                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                                borderColor: '#3b82f6',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: function(v) { return '$' + v.toLocaleString(); } }
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_APR_0: '{% trans "APR (%)" %}',
+        trans_APY_1: '{% trans "APY (%)" %}',
+        trans_Calculating_2: '{% trans "Calculating..." %}',
+        trans_Calculate_3: '{% trans "Calculate" %}',
+        trans_AnerroroccurredPleas_4: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_months_5: '{% trans "months" %}',
+        trans_Principal_6: '{% trans "Principal" %}',
+        trans_TotalInterest_7: '{% trans "Total Interest" %}',
+        trans_vsnominal_8: '{% trans "vs nominal" %}',
+        trans_Interest_10: '{% trans "Interest" %}',
+        trans_Fees_11: '{% trans "Fees" %}',
+        trans_MonthlyPayment_12: '{% trans "Monthly Payment" %}',
+        trans_AnerroroccurredPleas_14: '{% trans "An error occurred. Please try again." %}',
+        url_financial_calculator_0: '{% url "financial_calculators:interest_rate_calculator" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/interest_rate_calculator.js' %}"></script>
 {% endblock %}

@@ -1,16 +1,17 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Healthy Weight Calculator" %} - {% trans "Calculate Healthy Weight Range" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate your healthy weight range based on BMI categories. Get ideal weight recommendations for your height." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'fitness_and_health_calculators/css/healthy_weight_calculator.css' %}">
 <!-- Chart.js CDN -->
-<meta name="keywords" content="{% trans "healthy weight calculator, ideal weight, BMI calculator, weight range, healthy weight range" %}">
+<meta name="keywords" content='{% trans "healthy weight calculator, ideal weight, BMI calculator, weight range, healthy weight range" %}'>
 <meta name="robots" content="index, follow">
 
-<meta property="og:title" content="{% trans "Healthy Weight Calculator" %} - {% trans "Calculate Healthy Weight Range" %}">
-<meta property="og:description" content="{% trans "Calculate your healthy weight range based on BMI categories. Get ideal weight recommendations for your height." %}">
+<meta property="og:title" content='{% trans "Healthy Weight Calculator" %} - {% trans "Calculate Healthy Weight Range" %}'>
+<meta property="og:description" content='{% trans "Calculate your healthy weight range based on BMI categories. Get ideal weight recommendations for your height." %}'>
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ canonical_url }}">
 
@@ -18,8 +19,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "{% trans "Healthy Weight Calculator" %}",
-    "description": "{% trans "Calculate your healthy weight range based on BMI categories." %}",
+    "name": '{% trans "Healthy Weight Calculator" %}',
+    "description": '{% trans "Calculate your healthy weight range based on BMI categories." %}',
     "url": "{{ canonical_url }}",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "All",
@@ -31,19 +32,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6" aria-label="{% trans "Breadcrumb" %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="{% url 'core:index' %}" class="hover:text-blue-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'fitness_and_health_calculators:index' %}" class="hover:text-blue-600">{% trans "Health Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Healthy Weight Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header Section -->
+<!-- Header Section -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,336 +447,17 @@
 </div>
 
 <script>
-// Chart instances
-let rangesChart = null;
-let bmiDistributionChart = null;
-let comparisonChart = null;
-
-// Check if Chart.js is loaded
-function checkChartJS() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded. Please ensure the CDN script is included.');
-        return false;
-    }
-    return true;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const unitMetric = document.getElementById('unitMetric');
-    const unitImperial = document.getElementById('unitImperial');
-    const heightMetric = document.getElementById('heightMetric');
-    const heightImperial = document.getElementById('heightImperial');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    // Unit system toggle
-    function updateUnitInputs() {
-        if (unitImperial.checked) {
-            heightMetric.classList.add('hidden');
-            heightImperial.classList.remove('hidden');
-        } else {
-            heightMetric.classList.remove('hidden');
-            heightImperial.classList.add('hidden');
-        }
-        // Clear results when switching units
-        if (results) results.classList.add('hidden');
-        if (initialState) initialState.classList.remove('hidden');
-    }
-
-    unitMetric.addEventListener('change', updateUnitInputs);
-    unitImperial.addEventListener('change', updateUnitInputs);
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Hide previous states
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        const unitSystem = document.querySelector('input[name="unit_system"]:checked').value;
-        const formData = {
-            unit_system: unitSystem
-        };
-
-        if (unitSystem === 'imperial') {
-            formData.height = parseFloat(document.getElementById('height_ft').value);
-            formData.height_in = parseFloat(document.getElementById('height_in').value) || 0;
-        } else {
-            formData.height = parseFloat(document.getElementById('height').value);
-        }
-
-        // Update button state
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : '{% trans "Calculate Weight Range" %}';
-        if (submitBtn) submitBtn.textContent = '{% trans "Calculating..." %}';
-        document.getElementById('calculateBtn').disabled = true;
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-
-            if (!data.success) {
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                    errorState.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Display results
-            displayResults(data);
-
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            document.getElementById('calculateBtn').disabled = false;
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-            console.error('Error:', err);
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            // Update main result
-            const idealRangeEl = document.getElementById('idealRange');
-            const idealUnitEl = document.getElementById('idealUnit');
-            const underweightRangeEl = document.getElementById('underweightRange');
-            const normalRangeEl = document.getElementById('normalRange');
-            const overweightRangeEl = document.getElementById('overweightRange');
-            const obeseRangeEl = document.getElementById('obeseRange');
-
-            if (idealRangeEl) idealRangeEl.textContent = `${data.ideal_range.min.toLocaleString()} - ${data.ideal_range.max.toLocaleString()}`;
-            if (idealUnitEl) idealUnitEl.textContent = data.unit;
-            if (underweightRangeEl) underweightRangeEl.textContent = `${data.weight_ranges.underweight.min.toLocaleString()} - ${data.weight_ranges.underweight.max.toLocaleString()} ${data.unit}`;
-            if (normalRangeEl) normalRangeEl.textContent = `${data.weight_ranges.normal.min.toLocaleString()} - ${data.weight_ranges.normal.max.toLocaleString()} ${data.unit}`;
-            if (overweightRangeEl) overweightRangeEl.textContent = `${data.weight_ranges.overweight.min.toLocaleString()} - ${data.weight_ranges.overweight.max.toLocaleString()} ${data.unit}`;
-            if (obeseRangeEl) obeseRangeEl.textContent = `${data.weight_ranges.obese.min.toLocaleString()} - ${data.weight_ranges.obese.max.toLocaleString()} ${data.unit}`;
-
-            // Update weight ranges table
-            const tableBody = document.getElementById('weightRangesTable');
-            if (tableBody) {
-                const categoryNames = {
-                    'underweight': '{% trans "Underweight" %}',
-                    'normal': '{% trans "Normal" %}',
-                    'overweight': '{% trans "Overweight" %}',
-                    'obese': '{% trans "Obese" %}'
-                };
-
-                tableBody.innerHTML = '';
-                Object.entries(data.weight_ranges).forEach(([category, range]) => {
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-gray-50';
-                    const bmiRange = category === 'underweight' ? '&lt; 18.5' : 
-                                    category === 'normal' ? '18.5 - 24.9' :
-                                    category === 'overweight' ? '25 - 29.9' : '≥ 30';
-                    row.innerHTML = `
-                        <td class="py-2 px-3 font-medium text-gray-900">${categoryNames[category]}</td>
-                        <td class="py-2 px-3 text-gray-700 text-right">${bmiRange}</td>
-                        <td class="py-2 px-3 text-gray-900 text-right font-semibold">${range.min.toLocaleString()} - ${range.max.toLocaleString()} ${data.unit}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            }
-
-            // Create/Update Charts
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.ranges_chart) {
-                    createRangesChart(data.chart_data.ranges_chart, data.unit);
-                }
-                if (data.chart_data.bmi_distribution) {
-                    createBMIDistributionChart(data.chart_data.bmi_distribution);
-                }
-                if (data.chart_data.comparison_chart) {
-                    createComparisonChart(data.chart_data.comparison_chart, data.unit);
-                }
-            }
-
-            // Show results
-            if (results) {
-                results.classList.remove('hidden');
-                setTimeout(() => {
-                    results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error displaying results:', error);
-            if (errorState) {
-                document.getElementById('errorMessage').textContent = '{% trans "Error displaying results. Please try again." %}';
-                errorState.classList.remove('hidden');
-            }
-        }
-    }
-
-    function createRangesChart(chartData, unit) {
-        const ctx = document.getElementById('rangesChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (rangesChart) rangesChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            rangesChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} ${unit}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value).toLocaleString() + ' ' + unit;
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating ranges chart:', error);
-        }
-    }
-
-    function createBMIDistributionChart(chartData) {
-        const ctx = document.getElementById('bmiDistributionChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (bmiDistributionChart) bmiDistributionChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            bmiDistributionChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 12,
-                                font: { size: 11 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return `${label}: ${value.toFixed(1)}`;
-                                }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating BMI distribution chart:', error);
-        }
-    }
-
-    function createComparisonChart(chartData, unit) {
-        const ctx = document.getElementById('comparisonChart');
-        if (!ctx) return;
-        if (!checkChartJS()) return;
-        if (comparisonChart) comparisonChart.destroy();
-        if (!chartData || !chartData.data) return;
-
-        try {
-            comparisonChart = new Chart(ctx, {
-                type: chartData.type,
-                data: chartData.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toFixed(1)} ${unit}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value).toLocaleString() + ' ' + unit;
-                                },
-                                font: { size: 11 }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: 'bold' }
-                            }
-                        }
-                    },
-                    animation: { duration: 1500 }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating comparison chart:', error);
-        }
-    }
-});
+window.djangoContext = {
+        trans_CalculateWeightRange_0: '{% trans "Calculate Weight Range" %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please try again." %}',
+        trans_Anetworkerroroccurre_3: '{% trans "A network error occurred. Please try again." %}',
+        trans_Underweight_4: '{% trans "Underweight" %}',
+        trans_Normal_5: '{% trans "Normal" %}',
+        trans_Overweight_6: '{% trans "Overweight" %}',
+        trans_Obese_7: '{% trans "Obese" %}',
+        trans_Errordisplayingresul_8: '{% trans "Error displaying results. Please try again." %}',
+    };
 </script>
+<script src="{% static 'fitness_and_health_calculators/js/healthy_weight_calculator.js' %}"></script>
 {% endblock %}

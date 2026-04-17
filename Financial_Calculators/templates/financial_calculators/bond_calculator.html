@@ -1,11 +1,12 @@
 {% extends 'core/base.html' %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Bond Calculator - Price, Yield & Duration" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate bond price, yield to maturity, current yield, and duration. Analyze bond investments." %}{% endblock %}
 {% block meta_keywords %}{% trans "bond calculator, yield to maturity, bond price, current yield, duration" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/bond_calculator.css' %}">
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -22,18 +23,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Bond Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <div class="text-center mb-6 sm:mb-8">
+<div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-emerald-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
@@ -389,159 +379,18 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var breakdownChartInstance = null;
-
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-    }
-
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-
-    ['face_value', 'bond_price'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() { formatInput(this); });
-    });
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var isPrice = this.value === 'price';
-            document.getElementById('ytm_input').classList.toggle('hidden', !isPrice);
-            document.getElementById('price_input').classList.toggle('hidden', isPrice);
-        });
-    });
-
-    function showLoading(show) {
-        form.style.display = show ? 'none' : 'block';
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        form.style.display = 'block';
-        errorState.classList.remove('hidden');
-        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function buildChartFromBackend(canvasId, chartSpec) {
-        if (!chartSpec || !window.Chart) return;
-        var ctx = document.getElementById(canvasId);
-        if (!ctx) return;
-        if (breakdownChartInstance) breakdownChartInstance.destroy();
-        breakdownChartInstance = new Chart(ctx.getContext('2d'), {
-            type: chartSpec.type || 'doughnut',
-            data: chartSpec.data || {},
-            options: chartSpec.options || {}
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var btn = document.getElementById('calculateBtn');
-        if (btn) btn.disabled = true;
-        showLoading(true);
-
-        var formData = {
-            calc_type: document.querySelector('input[name="calc_type"]:checked').value,
-            face_value: document.getElementById('face_value').value.replace(/,/g, ''),
-            coupon_rate: document.getElementById('coupon_rate').value.replace(/,/g, ''),
-            years_to_maturity: document.getElementById('years_to_maturity').value.replace(/,/g, ''),
-            payment_frequency: document.getElementById('payment_frequency').value,
-            yield_to_maturity: document.getElementById('yield_to_maturity').value.replace(/,/g, ''),
-            bond_price: document.getElementById('bond_price').value.replace(/,/g, '')
-        };
-
-        try {
-            var response = await fetch('{% url "financial_calculators:bond_calculator" %}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            var data = await response.json();
-
-            if (!data.success) {
-                showError(data.error || '{% trans "An error occurred." %}');
-                if (btn) btn.disabled = false;
-                return;
-            }
-
-            showLoading(false);
-            if (btn) btn.disabled = false;
-
-            document.getElementById('initialState').classList.add('hidden');
-            document.getElementById('resultsSection').classList.remove('hidden');
-
-            if (data.calc_type === 'price') {
-                document.getElementById('resultLabel').textContent = '{% trans "Bond Price" %}';
-                document.getElementById('mainResult').textContent = formatCurrency(data.bond_price);
-                document.getElementById('ytmDisplay').textContent = (data.input && data.input.yield_to_maturity != null) ? data.input.yield_to_maturity + '%' : '—';
-            } else {
-                document.getElementById('resultLabel').textContent = '{% trans "Yield to Maturity" %}';
-                document.getElementById('mainResult').textContent = (data.yield_to_maturity != null ? data.yield_to_maturity.toFixed(2) : '0') + '%';
-                document.getElementById('ytmDisplay').textContent = (data.yield_to_maturity != null ? data.yield_to_maturity.toFixed(2) : '0') + '%';
-            }
-
-            var badge = document.getElementById('statusBadge');
-            if (data.bond_status === 'Premium') {
-                badge.className = 'mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium bg-green-500/30 text-green-800';
-                badge.textContent = '{% trans "Trading at Premium" %}';
-            } else if (data.bond_status === 'Discount') {
-                badge.className = 'mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium bg-red-500/30 text-red-800';
-                badge.textContent = '{% trans "Trading at Discount" %}';
-            } else {
-                badge.className = 'mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium bg-gray-500/30 text-gray-700';
-                badge.textContent = '{% trans "Trading at Par" %}';
-            }
-
-            document.getElementById('currentYield').textContent = (data.current_yield != null ? data.current_yield + '%' : '—');
-            document.getElementById('duration').textContent = (data.macaulay_duration != null ? data.macaulay_duration + ' years' : '—');
-            document.getElementById('modDuration').textContent = (data.modified_duration != null ? data.modified_duration.toFixed(2) : '—');
-
-            var faceVal = (data.input && data.input.face_value != null) ? data.input.face_value : 0;
-            var totalIncome = data.total_income != null ? data.total_income : null;
-            var annualIncome = data.annual_income != null ? data.annual_income : null;
-            var totalCouponsOnly = (totalIncome != null && faceVal != null) ? totalIncome - faceVal : null;
-            document.getElementById('annualIncome').textContent = annualIncome != null ? formatCurrency(annualIncome) : '—';
-            document.getElementById('totalCoupons').textContent = totalCouponsOnly != null ? formatCurrency(totalCouponsOnly) : '—';
-            document.getElementById('principalAtMaturity').textContent = faceVal != null ? formatCurrency(faceVal) : '—';
-            document.getElementById('totalReturn').textContent = totalIncome != null ? formatCurrency(totalIncome) : '—';
-
-            var chartWrapper = document.getElementById('chartWrapper');
-            if (data.chart_data && data.chart_data.breakdown_chart) {
-                chartWrapper.classList.remove('hidden');
-                buildChartFromBackend('breakdownChart', data.chart_data.breakdown_chart);
-            } else {
-                chartWrapper.classList.add('hidden');
-            }
-
-            var tbody = document.getElementById('cashFlowTable');
-            if (data.cash_flows && data.cash_flows.length > 0) {
-                tbody.innerHTML = data.cash_flows.map(function(cf) {
-                    return '<tr class="border-b border-gray-100"><td class="py-2">' + cf.period + '</td><td class="text-right">' + formatCurrency(cf.coupon) + '</td><td class="text-right">' + formatCurrency(cf.principal) + '</td><td class="text-right">' + formatCurrency(cf.present_value) + '</td></tr>';
-                }).join('');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">{% trans "No cash flow schedule for this calculation." %}</td></tr>';
-            }
-
-            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showError('{% trans "An error occurred." %}');
-            if (btn) btn.disabled = false;
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_BondPrice_5: '{% trans "Bond Price" %}',
+        trans_YieldtoMaturity_6: '{% trans "Yield to Maturity" %}',
+        trans_TradingatPremium_7: '{% trans "Trading at Premium" %}',
+        trans_TradingatDiscount_8: '{% trans "Trading at Discount" %}',
+        trans_TradingatPar_9: '{% trans "Trading at Par" %}',
+        trans_Nocashflowschedulefo_10: '{% trans "No cash flow schedule for this calculation." %}',
+        url_financial_calculator_0: '{% url "financial_calculators:bond_calculator" %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/bond_calculator.js' %}"></script>
 {% endblock %}

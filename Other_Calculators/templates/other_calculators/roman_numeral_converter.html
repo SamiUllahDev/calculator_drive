@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Roman Numeral Converter | Convert Numbers to Roman Numerals Instantly - Free Online Tool" %}{% endblock %}
 {% block meta_description %}{% trans "Use our free Roman numeral converter to instantly convert any number to Roman numerals or Roman numerals to numbers. Enter a value and get results in seconds — supports 1 to 3999 with step-by-step breakdown, charts, and copy-paste output." %}{% endblock %}
@@ -12,6 +12,7 @@
 {% block twitter_description %}{% trans "Need to convert a number to Roman numerals? Use our free converter — enter any number from 1 to 3999 and get instant results with step-by-step breakdown." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/roman_numeral_converter.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -352,199 +353,22 @@
 </div>
 
 <script>
-let placeValueChartInstance = null;
-let breakdownChartInstance = null;
-let comparisonChartInstance = null;
-let currentConversionType = 'to_roman';
-
-function switchConversionType(type) {
-    currentConversionType = type;
-    const numGroup = document.getElementById('numberInputGroup');
-    const romGroup = document.getElementById('romanInputGroup');
-    const btnToRoman = document.getElementById('btnToRoman');
-    const btnToArabic = document.getElementById('btnToArabic');
-    const qsNumbers = document.getElementById('quickSelectNumbers');
-    const qsRomans = document.getElementById('quickSelectRomans');
-    if (type === 'to_roman') {
-        numGroup.classList.remove('hidden'); romGroup.classList.add('hidden');
-        qsNumbers.classList.remove('hidden'); qsRomans.classList.add('hidden');
-        btnToRoman.className = 'flex-1 px-3 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 bg-indigo-600 text-white shadow-sm';
-        btnToArabic.className = 'flex-1 px-3 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-gray-600 bg-gray-100 hover:text-gray-800';
-        document.getElementById('numberInput').required = true;
-    } else {
-        numGroup.classList.add('hidden'); romGroup.classList.remove('hidden');
-        qsNumbers.classList.add('hidden'); qsRomans.classList.remove('hidden');
-        btnToArabic.className = 'flex-1 px-3 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 bg-indigo-600 text-white shadow-sm';
-        btnToRoman.className = 'flex-1 px-3 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-gray-600 bg-gray-100 hover:text-gray-800';
-        document.getElementById('numberInput').required = false;
-    }
-    const res = document.getElementById('results');
-    const init = document.getElementById('initialState');
-    if (res) res.classList.add('hidden');
-    if (init) init.classList.remove('hidden');
-}
-
-function quickSelect(num) { document.getElementById('numberInput').value = num; }
-function quickSelectRoman(r) { document.getElementById('romanInput').value = r; }
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const initialState = document.getElementById('initialState');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const results = document.getElementById('results');
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (initialState) initialState.classList.add('hidden');
-        if (results) results.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-
-        let inputValue;
-        if (currentConversionType === 'to_roman') {
-            inputValue = document.getElementById('numberInput').value;
-        } else {
-            inputValue = document.getElementById('romanInput').value;
-        }
-
-        const formData = { conversion_type: currentConversionType, input_value: inputValue };
-        const submitBtn = document.getElementById('calculateBtnText');
-        const originalText = submitBtn ? submitBtn.textContent : "{% trans 'Convert' %}";
-        if (submitBtn) submitBtn.textContent = "{% trans 'Converting...' %}";
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            if (!data.success) {
-                if (errorState) { document.getElementById('errorMessage').textContent = data.error || "{% trans 'An error occurred.' %}"; errorState.classList.remove('hidden'); }
-                return;
-            }
-            displayResults(data);
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (submitBtn) submitBtn.textContent = originalText;
-            if (errorState) { document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}"; errorState.classList.remove('hidden'); }
-        }
-    });
-
-    function displayResults(data) {
-        try {
-            const isToRoman = data.conversion_type === 'to_roman';
-            document.getElementById('resultLabel').textContent = isToRoman ? "{% trans 'Roman Numeral' %}" : "{% trans 'Arabic Number' %}";
-            document.getElementById('resultValue').textContent = isToRoman ? data.result : data.result;
-            document.getElementById('inputDisplay').textContent = String(data.input_value);
-            document.getElementById('outputDisplay').textContent = String(data.result);
-
-            // Stats
-            const a = data.analysis;
-            if (a) {
-                document.getElementById('statLength').textContent = a.length;
-                document.getElementById('statUnique').textContent = a.unique_characters;
-                document.getElementById('statEvenOdd').textContent = a.is_even ? "{% trans 'Even' %}" : "{% trans 'Odd' %}";
-                document.getElementById('statPrime').textContent = a.is_prime ? "{% trans 'Yes' %}" : "{% trans 'No' %}";
-            }
-
-            // Breakdown
-            const bc = document.getElementById('breakdownContent');
-            bc.innerHTML = '';
-            if (data.breakdown) {
-                data.breakdown.forEach(function(item) {
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5 border border-gray-200';
-                    div.innerHTML = '<span class="font-bold text-indigo-600 text-lg">' + item.numeral + '</span><span class="text-sm text-gray-700">' + item.description + '</span>';
-                    bc.appendChild(div);
-                });
-            }
-
-            // Place values
-            const pvc = document.getElementById('placeValuesContent');
-            pvc.innerHTML = '';
-            if (data.place_values && data.place_values.length > 0) {
-                const table = document.createElement('table');
-                table.className = 'min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg';
-                table.innerHTML = '<thead class="bg-indigo-50"><tr><th class="px-4 py-2 text-left text-xs font-semibold text-gray-700">{% trans "Place" %}</th><th class="px-4 py-2 text-left text-xs font-semibold text-gray-700">{% trans "Digit" %}</th><th class="px-4 py-2 text-left text-xs font-semibold text-gray-700">{% trans "Value" %}</th><th class="px-4 py-2 text-left text-xs font-semibold text-gray-700">{% trans "Roman" %}</th></tr></thead>';
-                const tbody = document.createElement('tbody');
-                tbody.className = 'bg-white divide-y divide-gray-200';
-                data.place_values.forEach(function(pv) {
-                    const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-4 py-2 text-sm">' + pv.place + '</td><td class="px-4 py-2 text-sm font-bold">' + pv.digit + '</td><td class="px-4 py-2 text-sm">' + pv.value + '</td><td class="px-4 py-2 text-sm font-bold text-indigo-600">' + pv.roman + '</td>';
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
-                pvc.appendChild(table);
-            }
-
-            // Charts
-            if (data.chart_data && checkChartJS()) {
-                createPlaceValueChart(data.chart_data.place_value_chart);
-                createBreakdownChart(data.chart_data.breakdown_chart);
-                createComparisonChart(data.chart_data.comparison_chart);
-            }
-
-            // Fun facts
-            const ffs = document.getElementById('funFactsSection');
-            const ffl = document.getElementById('funFactsList');
-            if (data.fun_facts && data.fun_facts.length > 0) {
-                ffl.innerHTML = '';
-                data.fun_facts.forEach(function(fact) {
-                    const li = document.createElement('li');
-                    li.className = 'flex items-start text-sm text-indigo-800';
-                    li.innerHTML = '<svg class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' + fact;
-                    ffl.appendChild(li);
-                });
-                ffs.classList.remove('hidden');
-            } else {
-                ffs.classList.add('hidden');
-            }
-
-            if (results) { results.classList.remove('hidden'); setTimeout(function() { results.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100); }
-        } catch (error) { console.error('Error displaying results:', error); }
-    }
-
-    function createPlaceValueChart(cd) {
-        const ctx = document.getElementById('placeValueChart'); if (!ctx || !cd) return;
-        if (placeValueChartInstance) placeValueChartInstance.destroy();
-        const ct = cd.center_text;
-        try {
-            placeValueChartInstance = new Chart(ctx, {
-                type: cd.type, data: cd.data,
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }, tooltip: { enabled: true } }, animation: { animateRotate: true, duration: 1500 } },
-                plugins: [{ id: 'centerText', afterDraw: function(chart) { const c = chart.ctx; const cx = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2; const cy = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2; c.save(); c.font = 'bold 28px Arial'; c.fillStyle = ct.color; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(ct.value, cx, cy - 10); c.font = '13px Arial'; c.fillStyle = '#6b7280'; c.fillText(ct.label, cx, cy + 14); c.restore(); } }]
-            });
-        } catch (e) { console.error('Error creating place value chart:', e); }
-    }
-
-    function createBreakdownChart(cd) {
-        const ctx = document.getElementById('breakdownChart'); if (!ctx || !cd) return;
-        if (breakdownChartInstance) breakdownChartInstance.destroy();
-        try {
-            breakdownChartInstance = new Chart(ctx, {
-                type: cd.type, data: cd.data,
-                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } }, y: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' } } } }, animation: { duration: 1500 } }
-            });
-        } catch (e) { console.error('Error creating breakdown chart:', e); }
-    }
-
-    function createComparisonChart(cd) {
-        const ctx = document.getElementById('comparisonChart'); if (!ctx || !cd) return;
-        if (comparisonChartInstance) comparisonChartInstance.destroy();
-        try {
-            comparisonChartInstance = new Chart(ctx, {
-                type: cd.type, data: cd.data,
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.parsed.y; } } } }, scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } }, x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } } }, animation: { duration: 1500 } }
-            });
-        } catch (e) { console.error('Error creating comparison chart:', e); }
-    }
-});
+window.djangoContext = {
+        trans_Convert_0: "{% trans 'Convert' %}",
+        trans_Converting_1: "{% trans 'Converting...' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Anetworkerroroccurre_3: "{% trans 'A network error occurred. Please try again.' %}",
+        trans_RomanNumeral_4: "{% trans 'Roman Numeral' %}",
+        trans_ArabicNumber_5: "{% trans 'Arabic Number' %}",
+        trans_Even_6: "{% trans 'Even' %}",
+        trans_Odd_7: "{% trans 'Odd' %}",
+        trans_Yes_8: "{% trans 'Yes' %}",
+        trans_No_9: "{% trans 'No' %}",
+        trans_Place_10: '{% trans "Place" %}',
+        trans_Digit_11: '{% trans "Digit" %}',
+        trans_Value_12: '{% trans "Value" %}',
+        trans_Roman_13: '{% trans "Roman" %}',
+    };
 </script>
+<script src="{% static 'other_calculators/js/roman_numeral_converter.js' %}"></script>
 {% endblock %}

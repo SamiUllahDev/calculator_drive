@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Auto Lease Calculator - Car Lease Payments" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate car lease payments using money factor and residual value. See monthly payment, due at signing, and cost breakdown." %}{% endblock %}
 {% block meta_keywords %}{% trans "auto lease calculator, car lease, money factor, residual value, lease payment" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/auto_lease_calculator.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -272,150 +273,17 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var scheduleChart = null;
-
-function checkChartJS() {
-    if (typeof Chart === 'undefined') { console.error('Chart.js is not loaded.'); return false; }
-    return true;
-}
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    document.getElementById('money_factor').addEventListener('input', function() {
-        var mf = parseFloat(this.value) || 0;
-        document.getElementById('apr_equiv').textContent = '≈ ' + (mf * 2400).toFixed(2) + '% APR';
-    });
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Lease" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Lease" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createScheduleChart(chartData) {
-        var container = document.getElementById('scheduleChartContainer');
-        var canvas = document.getElementById('scheduleChart');
-        if (!canvas || !chartData || !checkChartJS()) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (scheduleChart) scheduleChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.plugins = opts.plugins || {};
-        opts.plugins.tooltip = opts.plugins.tooltip || {};
-        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
-        opts.plugins.tooltip.callbacks.label = function(c) { return (c.dataset.label || '') + ': $' + (c.raw != null ? Number(c.raw).toLocaleString('en-US', { minimumFractionDigits: 2 }) : ''); };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
-        scheduleChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-        if (container) container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            calc_type: 'calculate_payment',
-            msrp: (document.getElementById('msrp').value || '').replace(/,/g, ''),
-            negotiated_price: (document.getElementById('negotiated_price').value || '').replace(/,/g, ''),
-            down_payment: (document.getElementById('down_payment').value || '').replace(/,/g, ''),
-            lease_term: document.getElementById('lease_term').value,
-            residual_percent: document.getElementById('residual_percent').value,
-            money_factor: document.getElementById('money_factor').value,
-            sales_tax_rate: document.getElementById('sales_tax_rate').value,
-            acquisition_fee: (document.getElementById('acquisition_fee').value || '').replace(/,/g, '')
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            document.getElementById('heroValue').textContent = formatCurrency(s.monthly_payment);
-            document.getElementById('heroDueAtSigning').textContent = formatCurrency(s.total_due_at_signing);
-            document.getElementById('heroCostPerMile').textContent = (s.cost_per_mile != null ? '$' + Number(s.cost_per_mile).toFixed(4) : '$0');
-            document.getElementById('detailTotalCost').textContent = formatCurrency(s.total_lease_cost);
-            document.getElementById('detailDueAtSigning').textContent = formatCurrency(s.total_due_at_signing);
-            document.getElementById('detailDepreciation').textContent = formatCurrency(s.total_depreciation);
-            document.getElementById('detailFinanceTax').textContent = formatCurrency((s.total_finance_charges || 0) + (s.total_taxes || 0));
-            document.getElementById('firstPayment').textContent = formatCurrency(s.first_payment);
-            document.getElementById('downPaymentDisp').textContent = formatCurrency(s.down_payment);
-            document.getElementById('acqFeeDisp').textContent = formatCurrency(s.acquisition_fee);
-            document.getElementById('dueAtSigning').textContent = formatCurrency(s.total_due_at_signing);
-            document.getElementById('adjustedCap').textContent = formatCurrency(s.adjusted_cap_cost);
-            document.getElementById('residualVal').textContent = formatCurrency(s.residual_value);
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.schedule_chart) createScheduleChart(data.chart_data.schedule_chart);
-            }
-            resultsWrapper.classList.remove('hidden');
-            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateLease_1: '{% trans "Calculate Lease" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Networkorservererror_9: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/auto_lease_calculator.js' %}"></script>
 {% endblock %}

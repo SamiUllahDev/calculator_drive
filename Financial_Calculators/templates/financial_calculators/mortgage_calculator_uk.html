@@ -8,26 +8,14 @@
 {% trans "Free UK mortgage calculator to estimate monthly repayments for repayment and interest-only mortgages. Supports property price, deposit, interest rate and term." %}
 {% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/mortgage_calculator_uk.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="min-h-screen bg-gray-50">
     <!-- Breadcrumb -->
-    <nav class="bg-white border-b border-gray-200" aria-label="{% trans 'Breadcrumb' %}">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ol class="flex items-center space-x-2 py-3 text-sm overflow-x-auto">
-                <li class="flex-shrink-0">
-                    <a href="{% url 'core:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Home" %}</a>
-                </li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="flex-shrink-0">
-                    <a href="{% url 'financial_calculators:index' %}" class="text-blue-600 hover:text-blue-800">{% trans "Financial Calculators" %}</a>
-                </li>
-                <li class="text-gray-400 flex-shrink-0">/</li>
-                <li class="text-gray-600 flex-shrink-0" aria-current="page">{% trans "UK Mortgage Calculator" %}</li>
-            </ol>
-        </div>
-    </nav>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <!-- Header -->
         <header class="mb-6 lg:mb-8">
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
@@ -516,219 +504,15 @@
 </div>
 
 <script>
-    (function() {
-        const form = document.getElementById('calculatorForm');
-        const propertyPriceInput = document.getElementById('property_price');
-        const depositInput = document.getElementById('deposit');
-        const depositPctInput = document.getElementById('deposit_pct');
-        const ltvText = document.getElementById('ltvText');
-        const interestRateInput = document.getElementById('interest_rate');
-        const termSelect = document.getElementById('term_years');
-        const clearBtn = document.getElementById('clearBtn');
-
-        const monthlyPaymentEl = document.getElementById('monthlyPayment');
-        const totalInterestEl = document.getElementById('totalInterest');
-        const totalPaidEl = document.getElementById('totalPaid');
-        const payoffDateEl = document.getElementById('payoffDate');
-        const scheduleBody = document.getElementById('scheduleBody');
-
-        const chartContainer = document.getElementById('chartContainer');
-        const paymentCanvas = document.getElementById('paymentChart');
-        let paymentChart = null;
-
-        function parseMoney(value) {
-            if (!value) return 0;
-            const cleaned = String(value).replace(/[,£$]/g, '');
-            const num = parseFloat(cleaned);
-            return isNaN(num) ? 0 : num;
-        }
-
-        function formatMoney(value) {
-            return '£' + (Number(value) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-        }
-
-        function updateDepositFromPct() {
-            const price = parseMoney(propertyPriceInput.value);
-            const pct = parseFloat(depositPctInput.value) || 0;
-            if (price > 0 && pct >= 0) {
-                const deposit = price * (pct / 100);
-                depositInput.value = deposit.toLocaleString(undefined, { maximumFractionDigits: 0 });
-                updateLtv();
-            }
-        }
-
-        function updateDepositPct() {
-            const price = parseMoney(propertyPriceInput.value);
-            const deposit = parseMoney(depositInput.value);
-            if (price > 0) {
-                const pct = (deposit / price) * 100;
-                depositPctInput.value = pct.toFixed(1);
-                updateLtv();
-            }
-        }
-
-        function updateLtv() {
-            const price = parseMoney(propertyPriceInput.value);
-            const deposit = parseMoney(depositInput.value);
-            if (price > 0) {
-                const loan = price - deposit;
-                const ltv = (loan / price) * 100;
-                ltvText.textContent = isFinite(ltv)
-                    ? `LTV: ${ltv.toFixed(1)}%`
-                    : '';
-            } else {
-                ltvText.textContent = '';
-            }
-        }
-
-        function updateChart(principal, interest) {
-            if (!chartContainer || !paymentCanvas) return;
-            
-            chartContainer.classList.remove('hidden');
-
-            const total = principal + interest;
-            const principalPct = total > 0 ? (principal / total) * 100 : 0;
-            const interestPct = total > 0 ? (interest / total) * 100 : 0;
-
-            // Update Legend Bars
-            document.getElementById('legendPrincipal').textContent = formatMoney(principal);
-            document.getElementById('barPrincipal').style.width = `${principalPct}%`;
-            
-            document.getElementById('legendInterest').textContent = formatMoney(interest);
-            document.getElementById('barInterest').style.width = `${interestPct}%`;
-
-            // Chart.js
-            if (paymentChart) {
-                paymentChart.destroy();
-            }
-
-            paymentChart = new Chart(paymentCanvas, {
-                type: 'doughnut',
-                data: {
-                    labels: ['{% trans "Principal" %}', '{% trans "Total Interest" %}'],
-                    datasets: [{
-                        data: [principal, interest],
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)', // blue-500
-                            'rgba(99, 102, 241, 0.8)'  // indigo-500
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false // Use custom legend
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += formatMoney(context.parsed);
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
-                    },
-                    cutout: '70%',
-                }
-            });
-        }
-
-        propertyPriceInput.addEventListener('blur', updateDepositPct);
-        depositInput.addEventListener('blur', updateDepositPct);
-        depositPctInput.addEventListener('change', updateDepositFromPct);
-
-        clearBtn.addEventListener('click', function() {
-            propertyPriceInput.value = '350,000';
-            depositInput.value = '70,000';
-            depositPctInput.value = '20';
-            interestRateInput.value = '5.5';
-            termSelect.value = '30';
-            updateLtv();
-
-            monthlyPaymentEl.textContent = '£0';
-            totalInterestEl.textContent = '£0';
-            totalPaidEl.textContent = '£0';
-            payoffDateEl.textContent = '';
-            scheduleBody.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-gray-400 text-sm">{% trans "Run a calculation to view the schedule." %}</td></tr>';
-            
-            if (chartContainer) chartContainer.classList.add('hidden');
-            if (paymentChart) paymentChart.destroy();
-        });
-
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const formData = new FormData(form);
-            const payload = {
-                property_price: parseMoney(formData.get('property_price')),
-                deposit: parseMoney(formData.get('deposit')),
-                interest_rate: parseFloat(formData.get('interest_rate')) || 0,
-                term_years: parseInt(formData.get('term_years'), 10) || 0,
-                mortgage_type: formData.get('mortgage_type') || 'repayment',
-            };
-
-            fetch("{% url 'financial_calculators:mortgage_calculator_uk' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
-                },
-                body: JSON.stringify(payload),
-            })
-            .then(response => response.json().then(data => ({ ok: response.ok, data })))
-            .then(({ ok, data }) => {
-                if (!ok || !data.success) {
-                    const message = data && data.error ? data.error : 'Calculation error.';
-                    alert(message);
-                    return;
-                }
-
-                updateLtv();
-
-                monthlyPaymentEl.textContent = formatMoney(data.payment.monthly);
-                totalInterestEl.textContent = formatMoney(data.payment.total_interest);
-                totalPaidEl.textContent = formatMoney(data.payment.total_paid);
-                payoffDateEl.textContent = data.payment.payoff_date
-                    ? "{% trans 'Expected payoff' %}: " + data.payment.payoff_date
-                    : '';
-
-                // Breakdown Logic for Chart
-                const loanPrincipal = payload.property_price - payload.deposit;
-                const totalInterest = data.payment.total_interest;
-                updateChart(loanPrincipal, totalInterest);
-
-                if (Array.isArray(data.schedule) && data.schedule.length) {
-                    scheduleBody.innerHTML = data.schedule.map(row => `
-                        <tr>
-                            <td class="px-3 py-2 text-gray-700">${row.month}</td>
-                            <td class="px-3 py-2 text-right text-gray-900">${formatMoney(row.payment)}</td>
-                            <td class="px-3 py-2 text-right text-gray-700">${formatMoney(row.principal)}</td>
-                            <td class="px-3 py-2 text-right text-gray-700">${formatMoney(row.interest)}</td>
-                            <td class="px-3 py-2 text-right text-gray-700">${formatMoney(row.balance)}</td>
-                        </tr>
-                    `).join('');
-                } else {
-                    scheduleBody.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-gray-400 text-sm">{% trans "No schedule available for this mortgage type." %}</td></tr>';
-                }
-            })
-            .catch(() => {
-                alert('Network error. Please try again.');
-            });
-        });
-
-        // Initialize LTV text on load
-        updateLtv();
-    })();
+window.djangoContext = {
+        trans_Principal_0: '{% trans "Principal" %}',
+        trans_TotalInterest_1: '{% trans "Total Interest" %}',
+        trans_Runacalculationtovie_2: '{% trans "Run a calculation to view the schedule." %}',
+        trans_Expectedpayoff_3: "{% trans 'Expected payoff' %}",
+        trans_Noscheduleavailablef_4: '{% trans "No schedule available for this mortgage type." %}',
+        url_financial_calculator_0: "{% url 'financial_calculators:mortgage_calculator_uk' %}",
+    };
 </script>
+<script src="{% static 'financial_calculators/js/mortgage_calculator_uk.js' %}"></script>
 
 {% endblock %}

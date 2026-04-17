@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "GDP Calculator - Calculate Gross Domestic Product, Growth Rate, Per Capita, Real GDP, Debt Ratio Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free GDP calculator. Calculate GDP using expenditure and income approaches, growth rate, per capita, GDP deflator, Real GDP, GDP projection, debt-to-GDP ratio, output gap. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate GDP, growth rate, per capita, deflator. Free online step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/gdp_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "GDP Calculator - Free Online Tool" %}","description":"{% trans "Free GDP calculator. Expenditure and income approaches, growth rate, per capita, deflator, unit conversion." %}","applicationCategory":"FinanceApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3800"},"featureList":["{% trans 'Expenditure approach: GDP = C + I + G + (X−M)' %}","{% trans 'Income approach: GDP = W + R + I + P' %}","{% trans 'GDP growth rate calculation' %}","{% trans 'GDP per capita' %}","{% trans 'GDP deflator & inflation indicator' %}","{% trans 'Unit conversion (millions/billions/trillions)' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "GDP Calculator - Free Online Tool" %}',"description":'{% trans "Free GDP calculator. Expenditure and income approaches, growth rate, per capita, deflator, unit conversion." %}',"applicationCategory":"FinanceApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3800"},"featureList":["{% trans 'Expenditure approach: GDP = C + I + G + (X−M)' %}","{% trans 'Income approach: GDP = W + R + I + P' %}","{% trans 'GDP growth rate calculation' %}","{% trans 'GDP per capita' %}","{% trans 'GDP deflator & inflation indicator' %}","{% trans 'Unit conversion (millions/billions/trillions)' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -280,143 +281,17 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('gdpForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            const rv = r.result;
-            let resultUnitText = '';
-            if (['growth_rate','debt_ratio','output_gap'].includes(r.calc_type)) resultUnitText = '%';
-            else if (r.calc_type === 'per_capita') resultUnitText = "{% trans 'per person' %}";
-            else if (['deflator','convert'].includes(r.calc_type)) resultUnitText = '';
-            else if (r.calc_type === 'projection') resultUnitText = r.unit ? (r.unit === 'millions' ? "{% trans 'Million' %}" : r.unit === 'trillions' ? "{% trans 'Trillion' %}" : "{% trans 'Billion' %}") : '';
-            else resultUnitText = r.result_unit ? (r.result_unit === 'millions' ? "{% trans 'Million' %}" : r.result_unit === 'trillions' ? "{% trans 'Trillion' %}" : "{% trans 'Billion' %}") : '';
-
-            document.getElementById('resultValue').textContent = (r.calc_type === 'per_capita' ? '$' : '') + Number(rv).toLocaleString('en-US', {maximumFractionDigits:4});
-            document.getElementById('resultUnit').textContent = resultUnitText;
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Detail cards
-            const dc = document.getElementById('detailCards'); dc.innerHTML = '';
-            if (r.detail_cards) r.detail_cards.forEach(card => {
-                const d = document.createElement('div');
-                d.className = `bg-${card.color}-50 rounded-lg p-3 text-center border-2 border-${card.color}-200`;
-                d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${card.label}</p><p class="text-sm font-bold text-${card.color}-600">${card.value}</p>`;
-                dc.appendChild(d);
-            });
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-blue-700 mt-2 bg-blue-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'expenditure') {
-        d.consumption = parseFloat(document.getElementById('ex_c').value);
-        d.investment = parseFloat(document.getElementById('ex_i').value);
-        d.government = parseFloat(document.getElementById('ex_g').value);
-        d.exports = parseFloat(document.getElementById('ex_x').value);
-        d.imports = parseFloat(document.getElementById('ex_m').value);
-        d.unit = document.getElementById('ex_unit').value;
-        d.result_unit = document.getElementById('ex_runit').value;
-    } else if (ct === 'income') {
-        d.wages = parseFloat(document.getElementById('in_w').value);
-        d.rent = parseFloat(document.getElementById('in_r').value);
-        d.interest = parseFloat(document.getElementById('in_i').value);
-        d.profit = parseFloat(document.getElementById('in_p').value);
-        d.unit = document.getElementById('in_unit').value;
-        d.result_unit = document.getElementById('in_runit').value;
-    } else if (ct === 'growth_rate') {
-        d.gdp_current = parseFloat(document.getElementById('gr_cur').value);
-        d.gdp_previous = parseFloat(document.getElementById('gr_prev').value);
-        d.unit = document.getElementById('gr_unit').value;
-    } else if (ct === 'per_capita') {
-        d.gdp = parseFloat(document.getElementById('pc_gdp').value);
-        d.population = parseFloat(document.getElementById('pc_pop').value);
-        d.gdp_unit = document.getElementById('pc_gdp_unit').value;
-        d.population_unit = document.getElementById('pc_pop_unit').value;
-    } else if (ct === 'deflator') {
-        d.nominal_gdp = parseFloat(document.getElementById('df_nom').value);
-        d.real_gdp = parseFloat(document.getElementById('df_real').value);
-        d.unit = document.getElementById('df_unit').value;
-    } else if (ct === 'convert') {
-        d.value = parseFloat(document.getElementById('cv_val').value);
-        d.from_unit = document.getElementById('cv_from').value;
-        d.to_unit = document.getElementById('cv_to').value;
-    } else if (ct === 'real_gdp') {
-        d.nominal_gdp = parseFloat(document.getElementById('rg_nom').value);
-        d.deflator_value = parseFloat(document.getElementById('rg_defl').value);
-        d.unit = document.getElementById('rg_unit').value;
-        d.result_unit = document.getElementById('rg_runit').value;
-    } else if (ct === 'projection') {
-        d.current_gdp = parseFloat(document.getElementById('pj_gdp').value);
-        d.growth_rate = parseFloat(document.getElementById('pj_rate').value);
-        d.years = parseInt(document.getElementById('pj_years').value);
-        d.unit = document.getElementById('pj_unit').value;
-    } else if (ct === 'debt_ratio') {
-        d.national_debt = parseFloat(document.getElementById('dr_debt').value);
-        d.gdp = parseFloat(document.getElementById('dr_gdp').value);
-        d.unit = document.getElementById('dr_unit').value;
-    } else if (ct === 'output_gap') {
-        d.actual_gdp = parseFloat(document.getElementById('og_actual').value);
-        d.potential_gdp = parseFloat(document.getElementById('og_pot').value);
-        d.unit = document.getElementById('og_unit').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_perperson_4: "{% trans 'per person' %}",
+        trans_Million_5: "{% trans 'Million' %}",
+        trans_Trillion_6: "{% trans 'Trillion' %}",
+        trans_Billion_7: "{% trans 'Billion' %}",
+        trans_Anetworkerroroccurre_12: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/gdp_calculator.js' %}"></script>
 {% endblock %}

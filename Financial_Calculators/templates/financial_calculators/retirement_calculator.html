@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Retirement Calculator - Plan Your Retirement Savings" %}{% endblock %}
 {% block meta_description %}{% trans "Plan your retirement with our free calculator. See how much you need to save, calculate sustainable withdrawals, and check your retirement readiness score." %}{% endblock %}
 {% block meta_keywords %}{% trans "retirement calculator, retirement planning, 401k calculator, retirement savings, pension calculator, retirement income" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/retirement_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Retirement Calculator' %}">
 <meta property="og:description" content="{% trans 'Plan your retirement and see if you are on track to meet your goals.' %}">
@@ -296,154 +297,17 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var growthChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-    function formatInput(input) {
-        var value = (input.value || '').replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = (parts[0] || '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.length > 1 ? parts.join('.') : parts[0];
-    }
-    ['current_savings', 'monthly_contribution', 'employer_match_limit', 'desired_income', 'social_security', 'other_income'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() { formatInput(this); });
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl) {
-            errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-            return;
-        }
-
-        var formData = {
-            current_age: document.getElementById('current_age').value,
-            retirement_age: document.getElementById('retirement_age').value,
-            life_expectancy: document.getElementById('life_expectancy').value || 90,
-            current_savings: (document.getElementById('current_savings').value || '').replace(/,/g, ''),
-            monthly_contribution: (document.getElementById('monthly_contribution').value || '').replace(/,/g, ''),
-            employer_match: document.getElementById('employer_match').value || 0,
-            employer_match_limit: (document.getElementById('employer_match_limit').value || '').replace(/,/g, ''),
-            pre_retirement_return: document.getElementById('pre_retirement_return').value || 7,
-            post_retirement_return: document.getElementById('post_retirement_return').value || 5,
-            inflation_rate: document.getElementById('inflation_rate').value || 3,
-            desired_income: (document.getElementById('desired_income').value || '').replace(/,/g, ''),
-            social_security: (document.getElementById('social_security').value || '').replace(/,/g, ''),
-            other_income: (document.getElementById('other_income').value || '').replace(/,/g, '')
-        };
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(formData)
-            });
-            var data;
-            try {
-                data = await response.json();
-            } catch (parseErr) {
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            var score = data.analysis.readiness_score;
-            var readinessCard = document.getElementById('readinessCard');
-            if (score >= 80) readinessCard.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white text-center bg-gradient-to-br from-green-600 to-green-700';
-            else if (score >= 60) readinessCard.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white text-center bg-gradient-to-br from-yellow-500 to-yellow-600';
-            else readinessCard.className = 'rounded-xl p-6 sm:p-8 shadow-xl text-white text-center bg-gradient-to-br from-red-600 to-red-700';
-
-            document.getElementById('readinessScore').textContent = score.toFixed(0);
-            document.getElementById('statusMessage').textContent = data.analysis.status_message || '';
-
-            document.getElementById('retirementBalanceResult').textContent = formatCurrency(data.summary.retirement_balance);
-            document.getElementById('monthlyIncomeResult').textContent = formatCurrency(data.retirement_income.monthly_sustainable);
-            document.getElementById('yearsToRetireResult').textContent = data.summary.years_to_retirement;
-            document.getElementById('fundsLastResult').textContent = data.analysis.years_funds_last + ' {% trans "years" %}';
-
-            document.getElementById('withdrawalIncome').textContent = formatCurrency(data.retirement_income.sustainable_withdrawal);
-            document.getElementById('ssIncome').textContent = formatCurrency(data.retirement_income.social_security_annual);
-            document.getElementById('otherIncomeResult').textContent = formatCurrency(data.retirement_income.other_income_annual);
-            document.getElementById('totalIncomeResult').textContent = formatCurrency(data.retirement_income.total_annual_income);
-
-            var accBody = document.getElementById('accumulationBody');
-            accBody.innerHTML = '';
-            (data.accumulation_breakdown || []).forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-3 py-2 text-gray-900">' + row.age + '</td><td class="px-3 py-2 text-right text-green-600 font-medium">' + formatCurrency(row.balance) + '</td>';
-                accBody.appendChild(tr);
-            });
-            var distBody = document.getElementById('distributionBody');
-            distBody.innerHTML = '';
-            (data.distribution_breakdown || []).forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-3 py-2 text-gray-900">' + row.age + '</td><td class="px-3 py-2 text-right ' + (row.balance > 0 ? 'text-green-600' : 'text-red-600') + ' font-medium">' + formatCurrency(row.balance) + '</td>';
-                distBody.appendChild(tr);
-            });
-
-            var ctx = document.getElementById('growthChart');
-            if (ctx && typeof Chart !== 'undefined') {
-                if (growthChart) growthChart.destroy();
-                growthChart = new Chart(ctx.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: (data.chart_data && data.chart_data.labels) || [],
-                        datasets: [{ label: '{% trans "Savings Balance" %}', data: (data.chart_data && data.chart_data.balance) || [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return '$' + Number(v).toLocaleString(); } } } } }
-                });
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_SessionexpiredPlease_1: '{% trans "Session expired. Please refresh the page." %}',
+        trans_Calculate_2: '{% trans "Calculate" %}',
+        trans_Invalidresponsefroms_4: '{% trans "Invalid response from server." %}',
+        trans_Servererror_5: '{% trans "Server error." %}',
+        trans_AnerroroccurredPleas_7: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_years_8: '{% trans "years" %}',
+        trans_SavingsBalance_9: '{% trans "Savings Balance" %}',
+        trans_AnerroroccurredPleas_11: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/retirement_calculator.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Tire Size Calculator - Calculate Tire Dimensions, Compare Sizes & Speedometer Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free tire size calculator. Calculate tire dimensions (diameter, circumference, sidewall, width), convert metric to imperial sizes, compare two tires side-by-side, and check speedometer accuracy. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate tire dimensions, compare sizes, and check speedometer. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/tire_size_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Tire Size Calculator - Free Online Tool" %}","description":"{% trans "Free tire size calculator. Calculate dimensions, convert metric/imperial, compare two tires, and check speedometer accuracy after a tire swap. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1800"},"featureList":["{% trans 'Calculate tire diameter, circumference, sidewall, width' %}","{% trans 'Convert metric (205/55R16) ↔ imperial (31x10.5R15)' %}","{% trans 'Compare two tire sizes side-by-side' %}","{% trans 'Speedometer difference after tire swap' %}","{% trans 'Revolutions per mile / km' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Tire Size Calculator - Free Online Tool" %}',"description":'{% trans "Free tire size calculator. Calculate dimensions, convert metric/imperial, compare two tires, and check speedometer accuracy after a tire swap. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1800"},"featureList":["{% trans 'Calculate tire diameter, circumference, sidewall, width' %}","{% trans 'Convert metric (205/55R16) ↔ imperial (31x10.5R15)' %}","{% trans 'Compare two tire sizes side-by-side' %}","{% trans 'Speedometer difference after tire swap' %}","{% trans 'Revolutions per mile / km' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -211,132 +212,24 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('tsForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        document.getElementById('dimGrid')?.classList.add('hidden');
-        document.getElementById('cmpGrid')?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = typeof r.result === 'number' ? r.result.toLocaleString('en-US',{maximumFractionDigits:2}) : r.result;
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Dimensions grid
-            if (r.calc_type === 'dimensions' && r.dimensions) {
-                const d = r.dimensions;
-                const gc = document.getElementById('dimGridContent'); gc.innerHTML = '';
-                const specs = [
-                    ['{% trans "Width" %}', d.width_mm + ' mm (' + d.width_in + '")'],
-                    ['{% trans "Aspect Ratio" %}', d.aspect + '%'],
-                    ['{% trans "Rim Diameter" %}', d.rim + '"'],
-                    ['{% trans "Sidewall Height" %}', d.sidewall + '"'],
-                    ['{% trans "Overall Diameter" %}', d.diameter + '"'],
-                    ['{% trans "Circumference" %}', d.circumference + '"'],
-                    ['{% trans "Rev/Mile" %}', Math.round(d.rpm).toLocaleString()],
-                    ['{% trans "Rev/Km" %}', Math.round(d.rpk).toLocaleString()],
-                ];
-                specs.forEach(([lbl,val]) => {
-                    const cell = document.createElement('div');
-                    cell.className = 'bg-slate-50 rounded-lg p-3 border border-slate-200 text-center';
-                    cell.innerHTML = '<p class="text-xs text-gray-500 mb-1">' + lbl + '</p><p class="text-lg font-bold text-gray-900">' + val + '</p>';
-                    gc.appendChild(cell);
-                });
-                document.getElementById('dimGrid')?.classList.remove('hidden');
-            }
-
-            // Compare grid
-            if (r.calc_type === 'compare' && r.tire1 && r.tire2) {
-                const gc = document.getElementById('cmpGridContent'); gc.innerHTML = '';
-                const d1 = r.tire1.dimensions, d2 = r.tire2.dimensions, df = r.differences;
-                let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200 text-sm">';
-                html += '<thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left text-xs font-bold text-gray-500"></th><th class="px-3 py-2 text-center text-xs font-bold text-gray-500">' + r.tire1.size + '</th><th class="px-3 py-2 text-center text-xs font-bold text-gray-500">' + r.tire2.size + '</th><th class="px-3 py-2 text-center text-xs font-bold text-gray-500">{% trans "Diff" %}</th></tr></thead><tbody>';
-                html += row('{% trans "Diameter" %}', d1.diameter+'"', d2.diameter+'"', s(df.diameter_diff)+'" ('+s(df.diameter_diff_percent)+'%)');
-                html += row('{% trans "Circumference" %}', d1.circumference+'"', d2.circumference+'"', s(df.circumference_diff)+'"');
-                html += row('{% trans "Width" %}', d1.width_in+'"', d2.width_in+'"', '');
-                html += row('{% trans "Speed Δ" %}', '', '', s(df.speed_diff)+'%');
-                html += '</tbody></table></div>';
-                gc.innerHTML = html;
-                document.getElementById('cmpGrid')?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s2 => {
-                const d2 = document.createElement('div');
-                if (s2 === '') { d2.className = 'my-2'; }
-                else if (s2.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-cyan-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s2.trim(); }
-                else if (s2.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s2.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s2; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            } else {
-                cc?.classList.add('hidden');
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-function s(v) { return (v > 0 ? '+' : '') + Number(v).toFixed(2); }
-function row(lbl, v1, v2, diff) { return '<tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium text-gray-900">' + lbl + '</td><td class="px-3 py-2 text-center text-gray-700">' + v1 + '</td><td class="px-3 py-2 text-center text-gray-700">' + v2 + '</td><td class="px-3 py-2 text-center font-semibold text-gray-900">' + diff + '</td></tr>'; }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'dimensions') {
-        d.tire_size = document.getElementById('dim_ts').value.trim();
-    } else if (ct === 'convert') {
-        d.tire_size = document.getElementById('cnv_ts').value.trim();
-        d.target_format = document.getElementById('cnv_fmt').value;
-    } else if (ct === 'compare') {
-        d.tire1 = document.getElementById('cmp_t1').value.trim();
-        d.tire2 = document.getElementById('cmp_t2').value.trim();
-    } else if (ct === 'speedometer') {
-        d.original_tire = document.getElementById('spd_orig').value.trim();
-        d.new_tire = document.getElementById('spd_new').value.trim();
-        d.speed = parseFloat(document.getElementById('spd_val').value) || 60;
-        d.speed_unit = document.getElementById('spd_unit').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Width_4: '{% trans "Width" %}',
+        trans_AspectRatio_5: '{% trans "Aspect Ratio" %}',
+        trans_RimDiameter_6: '{% trans "Rim Diameter" %}',
+        trans_SidewallHeight_7: '{% trans "Sidewall Height" %}',
+        trans_OverallDiameter_8: '{% trans "Overall Diameter" %}',
+        trans_Circumference_9: '{% trans "Circumference" %}',
+        trans_RevMile_10: '{% trans "Rev/Mile" %}',
+        trans_RevKm_11: '{% trans "Rev/Km" %}',
+        trans_Diff_12: '{% trans "Diff" %}',
+        trans_Diameter_13: '{% trans "Diameter" %}',
+        trans_Speed_16: '{% trans "Speed Δ" %}',
+        trans_Anetworkerroroccurre_18: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/tire_size_calculator.js' %}"></script>
 {% endblock %}

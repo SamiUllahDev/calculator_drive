@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Stair Calculator - Calculate Stair Dimensions, Stringer & Code Compliance Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free stair calculator. Design stairs from total rise, calculate riser height, tread depth, stringer length, angle, and check building code compliance (IRC/IBC). Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate stair dimensions and stringer length. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/stair_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Stair Calculator - Free Online Tool" %}","description":"{% trans "Free stair calculator. Design stairs, calculate riser, tread, stringer, angle. Code compliance. Step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"1850"},"featureList":["{% trans 'Design from total rise (auto risers/tread)' %}","{% trans 'Riser & tread → rise, run, stringer' %}","{% trans 'Stringer length from rise + run' %}","{% trans 'Building code compliance (4–7.75\" riser, 10–14\" tread)' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Stair Calculator - Free Online Tool" %}',"description":'{% trans "Free stair calculator. Design stairs, calculate riser, tread, stringer, angle. Code compliance. Step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"1850"},"featureList":["{% trans 'Design from total rise (auto risers/tread)' %}","{% trans 'Riser & tread → rise, run, stringer' %}","{% trans 'Stringer length from rise + run' %}","{% trans 'Building code compliance (4–7.75\" riser, 10–14\" tread)' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -198,143 +199,25 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('scForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        document.getElementById('extraGrid')?.classList.add('hidden');
-        document.getElementById('complianceCard')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = Number(r.result).toLocaleString('en-US',{maximumFractionDigits:3});
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Extra grid
-            const eg = document.getElementById('extraGrid'), egc = document.getElementById('extraGridContent');
-            egc.innerHTML = '';
-            let extras = [];
-            if (r.calc_type === 'design') {
-                extras = [
-                    ['{% trans "Risers" %}', r.num_risers, 'sky'],
-                    ['{% trans "Riser (in)" %}', r.riser_height, 'cyan'],
-                    ['{% trans "Tread (in)" %}', r.tread_depth, 'emerald'],
-                    ['{% trans "Angle" %}', r.angle + '°', 'amber'],
-                    ['{% trans "Rise (in)" %}', r.total_rise_in, 'sky'],
-                    ['{% trans "Run (in)" %}', r.total_run, 'cyan'],
-                    ['{% trans "Stringer (in)" %}', r.stringer_length, 'emerald'],
-                ];
-            } else if (r.calc_type === 'riser_tread') {
-                extras = [
-                    ['{% trans "Steps" %}', r.num_steps, 'sky'],
-                    ['{% trans "Rise (in)" %}', r.total_rise, 'cyan'],
-                    ['{% trans "Run (in)" %}', r.total_run, 'emerald'],
-                    ['{% trans "Angle" %}', r.angle + '°', 'amber'],
-                ];
-            } else if (r.calc_type === 'stringer') {
-                extras = [
-                    ['{% trans "Rise (in)" %}', r.total_rise_in, 'sky'],
-                    ['{% trans "Run (in)" %}', r.total_run_in, 'cyan'],
-                    ['{% trans "Angle" %}', r.angle + '°', 'amber'],
-                ];
-            }
-            if (extras.length) {
-                extras.forEach(([l,v,c]) => {
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-3 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${l}</p><p class="text-lg font-bold text-${c}-600">${typeof v === 'number' ? Number(v).toLocaleString('en-US',{maximumFractionDigits:3}) : v}</p>`;
-                    egc.appendChild(d);
-                });
-                eg?.classList.remove('hidden');
-            }
-
-            // Compliance
-            if (r.compliance) {
-                const cc = document.getElementById('complianceCard');
-                const ct = document.getElementById('compTitle');
-                const cco = document.getElementById('compContent');
-                const ok = r.compliance.overall;
-                cc.className = ok ? 'rounded-xl p-4 sm:p-6 border-2 shadow-lg bg-green-50 border-green-300' : 'rounded-xl p-4 sm:p-6 border-2 shadow-lg bg-red-50 border-red-300';
-                ct.className = ok ? 'text-lg font-bold mb-3 text-green-800' : 'text-lg font-bold mb-3 text-red-800';
-                ct.textContent = ok ? "{% trans '✓ Code Compliant' %}" : "{% trans '✗ Not Code Compliant' %}";
-                cco.innerHTML = `<p class="${r.compliance.riser_ok ? 'text-green-700' : 'text-red-700'}">${r.compliance.riser_ok ? '✓' : '✗'} {% trans "Riser" %}: ${r.riser_height || r.riser_height_in} in (4–7.75)</p>` +
-                    `<p class="${r.compliance.tread_ok ? 'text-green-700' : 'text-red-700'}">${r.compliance.tread_ok ? '✓' : '✗'} {% trans "Tread" %}: ${r.tread_depth || r.tread_depth_in} in (10–14)</p>` +
-                    `<p class="${r.compliance.formula_ok ? 'text-green-700' : 'text-red-700'}">${r.compliance.formula_ok ? '✓' : '✗'} 2R + T = ${r.compliance.riser_tread_sum} (24–25)</p>`;
-                cc?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-sky-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const chc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                chc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { chc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'design') {
-        d.total_rise = parseFloat(document.getElementById('ds_tr').value);
-        d.length_unit = document.getElementById('ds_lu').value;
-        d.preferred_riser = parseFloat(document.getElementById('ds_pr').value) || 7.0;
-    } else if (ct === 'riser_tread') {
-        d.riser_height = parseFloat(document.getElementById('rt_rh').value);
-        d.tread_depth = parseFloat(document.getElementById('rt_td').value);
-        d.num_steps = parseInt(document.getElementById('rt_ns').value);
-        d.length_unit = document.getElementById('rt_lu').value;
-    } else if (ct === 'stringer') {
-        d.total_rise = parseFloat(document.getElementById('st_tr').value);
-        d.total_run = parseFloat(document.getElementById('st_trun').value);
-        d.length_unit = document.getElementById('st_lu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Risers_4: '{% trans "Risers" %}',
+        trans_Riserin_5: '{% trans "Riser (in)" %}',
+        trans_Treadin_6: '{% trans "Tread (in)" %}',
+        trans_Angle_7: '{% trans "Angle" %}',
+        trans_Risein_8: '{% trans "Rise (in)" %}',
+        trans_Runin_9: '{% trans "Run (in)" %}',
+        trans_Stringerin_10: '{% trans "Stringer (in)" %}',
+        trans_Steps_11: '{% trans "Steps" %}',
+        trans_CodeCompliant_18: "{% trans '✓ Code Compliant' %}",
+        trans_NotCodeCompliant_19: "{% trans '✗ Not Code Compliant' %}",
+        trans_Riser_20: '{% trans "Riser" %}',
+        trans_Tread_21: '{% trans "Tread" %}',
+        trans_Anetworkerroroccurre_23: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/stair_calculator.js' %}"></script>
 {% endblock %}

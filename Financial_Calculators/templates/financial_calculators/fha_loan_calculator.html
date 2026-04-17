@@ -7,6 +7,7 @@
 {% block meta_description %}Calculate FHA loan payments including Upfront MIP, Annual MIP, and taxes. See if you qualify with our FHA mortgage calculator.{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/fha_loan_calculator.css' %}">
 <!-- Chart.js CDN -->
 {% endblock %}
 
@@ -385,157 +386,12 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Elements
-        const form = document.getElementById('calculatorForm');
-        const initialState = document.getElementById('initialState');
-        const loadingState = document.getElementById('loadingState');
-        const results = document.getElementById('results');
-        const costsToggle = document.getElementById('toggleCosts');
-        const costsSection = document.getElementById('costsSection');
-        const slider = document.getElementById('down_payment_slider');
-        const downInput = document.getElementById('down_payment');
-        const typeSelect = document.getElementById('down_payment_type');
-
-        // Toggle Costs
-        if (costsToggle) {
-            costsToggle.addEventListener('click', function() {
-                costsSection.classList.toggle('hidden');
-                document.getElementById('costsArrow').classList.toggle('rotate-180');
-            });
-        }
-
-        // Slider Sync
-        if (slider) {
-            slider.addEventListener('input', function() {
-                downInput.value = this.value;
-                typeSelect.value = 'percent';
-            });
-            downInput.addEventListener('input', function() {
-                if(typeSelect.value === 'percent') slider.value = this.value;
-            });
-        }
-
-        let paymentBreakdownChart = null;
-        let totalCostChart = null;
-        function formatMoney(val) {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
-        }
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            initialState.classList.add('hidden');
-            results.classList.add('hidden');
-            const errorState = document.getElementById('errorState');
-            if (errorState) errorState.classList.add('hidden');
-            loadingState.classList.remove('hidden');
-
-            const submitBtnText = document.getElementById('calculateBtnText');
-            if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculating...' %}";
-
-            const payload = {
-                home_price: parseFloat(String(document.getElementById('home_price').value).replace(/[,$\s]/g, '')) || 0,
-                down_payment: parseFloat(String(downInput.value).replace(/[,$\s]/g, '')) || 0,
-                down_payment_type: typeSelect ? typeSelect.value : 'percent',
-                interest_rate: parseFloat(document.getElementById('interest_rate').value) || 0,
-                loan_term: parseInt(document.getElementById('loan_term').value, 10) || 360,
-                property_tax: parseFloat(String(document.getElementById('property_tax').value).replace(/[,$\s]/g, '')) || 0,
-                home_insurance: parseFloat(String(document.getElementById('home_insurance').value).replace(/[,$\s]/g, '')) || 0,
-                hoa: parseFloat(String(document.getElementById('hoa').value).replace(/[,$\s]/g, '')) || 0
-            };
-
-            try {
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                    },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate FHA Loan' %}";
-
-                if (!data.success) {
-                    document.getElementById('errorMessage').textContent = data.error || "{% trans 'An error occurred. Please try again.' %}";
-                    if (errorState) errorState.classList.remove('hidden');
-                    initialState.classList.remove('hidden');
-                    return;
-                }
-
-                updateUI(data);
-                results.classList.remove('hidden');
-                setTimeout(function() { results.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-            } catch (err) {
-                loadingState.classList.add('hidden');
-                if (submitBtnText) submitBtnText.textContent = "{% trans 'Calculate FHA Loan' %}";
-                if (errorState) {
-                    document.getElementById('errorMessage').textContent = "{% trans 'A network error occurred. Please try again.' %}";
-                    errorState.classList.remove('hidden');
-                }
-                initialState.classList.remove('hidden');
-                console.error(err);
-            }
-        });
-
-        function updateUI(data) {
-            const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-
-            setText('monthly_payment_display', formatMoney(data.monthly_payment.total));
-            setText('total_loan', formatMoney(data.loan_details.total_loan_amount));
-            setText('upfront_mip', formatMoney(data.mip_details.upfront_mip));
-            setText('annual_mip_rate', data.mip_details.annual_mip_rate + '%');
-            setText('mip_duration', data.mip_details.mip_duration_note);
-
-            setText('pi_display', formatMoney(data.monthly_payment.principal_interest));
-            setText('mip_display', formatMoney(data.monthly_payment.mip));
-            setText('tax_display', formatMoney(data.monthly_payment.property_tax));
-            setText('insurance_display', formatMoney(data.monthly_payment.home_insurance));
-
-            setText('total_interest_display', formatMoney(data.totals.total_interest));
-            setText('total_mip_display', formatMoney(data.totals.total_mip));
-            setText('total_cost_display', formatMoney(data.totals.total_cost));
-            setText('down_payment_display', formatMoney(data.property.down_payment));
-
-            var hoaRow = document.getElementById('hoa_row');
-            var hoaDisplay = document.getElementById('hoa_display');
-            if (data.monthly_payment.hoa && parseFloat(data.monthly_payment.hoa) > 0) {
-                if (hoaRow) { hoaRow.classList.remove('hidden'); hoaRow.classList.add('flex'); }
-                if (hoaDisplay) hoaDisplay.textContent = formatMoney(data.monthly_payment.hoa);
-            } else {
-                if (hoaRow) hoaRow.classList.add('hidden');
-            }
-
-            if (data.chart_data && typeof Chart !== 'undefined') {
-                if (data.chart_data.payment_breakdown_chart) {
-                    if (paymentBreakdownChart) paymentBreakdownChart.destroy();
-                    var ctx1 = document.getElementById('paymentBreakdownChart');
-                    if (ctx1) {
-                        var cfg = data.chart_data.payment_breakdown_chart;
-                        paymentBreakdownChart = new Chart(ctx1, {
-                            type: cfg.type,
-                            data: cfg.data,
-                            options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg.options || {})
-                        });
-                    }
-                }
-                if (data.chart_data.total_cost_chart) {
-                    if (totalCostChart) totalCostChart.destroy();
-                    var ctx2 = document.getElementById('totalCostChart');
-                    if (ctx2) {
-                        var cfg2 = data.chart_data.total_cost_chart;
-                        totalCostChart = new Chart(ctx2, {
-                            type: cfg2.type,
-                            data: cfg2.data,
-                            options: Object.assign({ responsive: true, maintainAspectRatio: false }, cfg2.options || {})
-                        });
-                    }
-                }
-            }
-        }
-    });
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateFHALoan_1: "{% trans 'Calculate FHA Loan' %}",
+        trans_AnerroroccurredPleas_2: "{% trans 'An error occurred. Please try again.' %}",
+        trans_Anetworkerroroccurre_4: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'financial_calculators/js/fha_loan_calculator.js' %}"></script>
 {% endblock %}

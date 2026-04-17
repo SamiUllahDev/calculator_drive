@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Dice Roller - Roll Dice Online Free | D4 D6 D8 D10 D12 D20 D100" %}{% endblock %}
 {% block meta_description %}{% trans "Free online dice roller. Roll D4, D6, D8, D10, D12, D20, D100 or custom dice. Single die, multiple dice, custom modifier. Statistics and step-by-step. Perfect for D&D, RPGs, board games. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Roll any dice online. D4, D6, D8, D10, D12, D20, D100, custom. Free." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/dice_roller.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Dice Roller - Free Online Tool" %}","description":"{% trans "Free online dice roller. Roll D4–D100 or custom dice. Single, multiple, custom with modifier. Statistics." %}","applicationCategory":"GameApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3100"},"featureList":["{% trans '7 standard dice: D4, D6, D8, D10, D12, D20, D100' %}","{% trans 'Custom dice: 2–1000 sides' %}","{% trans 'Roll up to 100 dice at once' %}","{% trans 'Modifier support (+/-)' %}","{% trans 'Statistics: min, max, mean, median, mode, std dev' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Dice Roller - Free Online Tool" %}',"description":'{% trans "Free online dice roller. Roll D4–D100 or custom dice. Single, multiple, custom with modifier. Statistics." %}',"applicationCategory":"GameApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"3100"},"featureList":["{% trans '7 standard dice: D4, D6, D8, D10, D12, D20, D100' %}","{% trans 'Custom dice: 2–1000 sides' %}","{% trans 'Roll up to 100 dice at once' %}","{% trans 'Modifier support (+/-)' %}","{% trans 'Statistics: min, max, mean, median, mode, std dev' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -209,136 +210,22 @@
 </div>
 
 <script>
-let resultChart = null;
-
-function quickDie(selId, val) {
-    const sel = document.getElementById(selId);
-    sel.value = val;
-    sel.dispatchEvent(new Event('change'));
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('roll-type').addEventListener('change', e => switchForm(e.target.value));
-    document.getElementById('sg_type').addEventListener('change', e => {
-        document.getElementById('sg_custom').classList.toggle('hidden', e.target.value !== 'custom');
-    });
-    document.getElementById('ml_type').addEventListener('change', e => {
-        document.getElementById('ml_custom').classList.toggle('hidden', e.target.value !== 'custom');
-    });
-
-    document.getElementById('diceForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Rolling...' %}";
-        document.getElementById('extraGrid')?.classList.add('hidden');
-        document.getElementById('rollsCard')?.classList.add('hidden');
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Roll Dice' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = r.result;
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Individual rolls display
-            const rc = document.getElementById('rollsCard'), rcContent = document.getElementById('rollsContent');
-            rcContent.innerHTML = '';
-            if (r.results && r.results.length > 1) {
-                r.results.forEach((v, i) => {
-                    const d = document.createElement('span');
-                    d.className = 'inline-flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-sm border-2 border-indigo-300';
-                    d.textContent = v;
-                    rcContent.appendChild(d);
-                });
-                rc?.classList.remove('hidden');
-            }
-
-            // Stats grid
-            const eg = document.getElementById('extraGrid'), egc = document.getElementById('extraGridContent');
-            egc.innerHTML = '';
-            let extras = [];
-            if (r.roll_type === 'single') {
-                extras = [['{% trans "Result" %}', r.result, 'indigo'],['{% trans "Sides" %}', r.sides, 'purple'],['{% trans "Probability" %}', r.probability+'%', 'pink']];
-            } else if (r.statistics) {
-                const s = r.statistics;
-                extras = [
-                    ['{% trans "Total" %}', r.total, 'indigo'],['{% trans "Average" %}', r.average, 'purple'],['{% trans "Min" %}', s.min, 'pink'],
-                    ['{% trans "Max" %}', s.max, 'fuchsia'],['{% trans "Std Dev" %}', s.std_dev, 'violet'],['{% trans "Count" %}', s.count, 'blue'],
-                ];
-            }
-            if (extras.length) {
-                extras.forEach(([l,v,c]) => {
-                    const d = document.createElement('div');
-                    d.className = `bg-${c}-50 rounded-lg p-3 text-center border-2 border-${c}-200`;
-                    d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${l}</p><p class="text-lg font-bold text-${c}-600">${v}</p>`;
-                    egc.appendChild(d);
-                });
-                eg?.classList.remove('hidden');
-            }
-
-            // Steps
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-indigo-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-indigo-700 mt-2 bg-indigo-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Roll Dice' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const rt = document.getElementById('roll-type').value;
-    const d = {roll_type: rt};
-    if (rt === 'single') {
-        d.dice_type = document.getElementById('sg_type').value;
-        if (d.dice_type === 'custom') d.sides = parseInt(document.getElementById('sg_sides').value);
-    } else if (rt === 'multiple') {
-        d.dice_type = document.getElementById('ml_type').value;
-        if (d.dice_type === 'custom') d.sides = parseInt(document.getElementById('ml_sides').value);
-        d.count = parseInt(document.getElementById('ml_count').value);
-    } else if (rt === 'custom') {
-        d.sides = parseInt(document.getElementById('cu_sides').value);
-        d.count = parseInt(document.getElementById('cu_count').value);
-        d.modifier = parseInt(document.getElementById('cu_mod').value) || 0;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Rolling_0: "{% trans 'Rolling...' %}",
+        trans_RollDice_1: "{% trans 'Roll Dice' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Result_4: '{% trans "Result" %}',
+        trans_Sides_5: '{% trans "Sides" %}',
+        trans_Probability_6: '{% trans "Probability" %}',
+        trans_Total_7: '{% trans "Total" %}',
+        trans_Average_8: '{% trans "Average" %}',
+        trans_Min_9: '{% trans "Min" %}',
+        trans_Max_10: '{% trans "Max" %}',
+        trans_StdDev_11: '{% trans "Std Dev" %}',
+        trans_Count_12: '{% trans "Count" %}',
+        trans_Anetworkerroroccurre_14: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/dice_roller.js' %}"></script>
 {% endblock %}

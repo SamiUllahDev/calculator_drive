@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "VAT calculator, value added tax, GST calculator, VAT remover, net to gross, tax calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/vat_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -241,142 +242,23 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-    var amountLabel = document.getElementById('amountLabel');
-    var breakdownChart = null;
-
-    document.querySelectorAll('.quick-rate').forEach(function(btn) {
-        btn.addEventListener('click', function() { document.getElementById('vat_rate').value = this.getAttribute('data-rate'); });
-    });
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var mode = this.value;
-            if (mode === 'add_vat' || mode === 'find_vat_only') amountLabel.textContent = '{% trans "Net Amount (excluding VAT)" %}';
-            else amountLabel.textContent = '{% trans "Gross Amount (including VAT)" %}';
-            initialState.classList.remove('hidden');
-            resultsWrapper.classList.add('hidden');
-        });
-    });
-
-    function formatCurrency(n) {
-        var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-        return '£' + num.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-    function renderChart(chartData) {
-        var container = document.getElementById('chartContainer');
-        var canvas = document.getElementById('breakdownChart');
-        if (!chartData || !chartData.breakdown_chart || !canvas) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (breakdownChart) breakdownChart.destroy();
-        var config = chartData.breakdown_chart;
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: config.type || 'doughnut',
-            data: config.data || {},
-            options: config.options || { responsive: true, maintainAspectRatio: false }
-        });
-        container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            calc_type: document.querySelector('input[name="calc_type"]:checked').value,
-            amount: document.getElementById('amount').value,
-            vat_rate: document.getElementById('vat_rate').value
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            try {
-                initialState.classList.add('hidden');
-                resultsWrapper.classList.remove('hidden');
-
-                var calcType = data.calc_type || 'add_vat';
-                var heroLabel = document.getElementById('heroLabel');
-                var heroValue = document.getElementById('heroValue');
-                var heroSub = document.getElementById('heroSub');
-                if (calcType === 'add_vat' || calcType === 'find_vat_only') {
-                    if (heroLabel) heroLabel.textContent = '{% trans "Gross" %}';
-                    if (heroValue) heroValue.textContent = formatCurrency(data.gross_amount);
-                    if (heroSub) heroSub.textContent = '{% trans "Net" %}: ' + formatCurrency(data.net_amount) + ' • {% trans "VAT" %}: ' + formatCurrency(data.vat_amount);
-                } else {
-                    if (heroLabel) heroLabel.textContent = '{% trans "Net" %}';
-                    if (heroValue) heroValue.textContent = formatCurrency(data.net_amount);
-                    if (heroSub) heroSub.textContent = '{% trans "Gross" %}: ' + formatCurrency(data.gross_amount) + ' • {% trans "VAT" %}: ' + formatCurrency(data.vat_amount);
-                }
-
-                var el = function(id) { return document.getElementById(id); };
-                if (el('detailNet')) el('detailNet').textContent = formatCurrency(data.net_amount);
-                if (el('detailVat')) el('detailVat').textContent = formatCurrency(data.vat_amount);
-                if (el('detailGross')) el('detailGross').textContent = formatCurrency(data.gross_amount);
-                if (el('formulaDisplay')) el('formulaDisplay').textContent = data.formula || '';
-
-                if (data.chart_data) renderChart(data.chart_data);
-                else { var cc = document.getElementById('chartContainer'); if (cc) cc.classList.add('hidden'); }
-
-                if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } catch (displayErr) {
-                showError('{% trans "Could not display results. Please try again." %}');
-            }
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_NetAmountexcludingVA_0: '{% trans "Net Amount (excluding VAT)" %}',
+        trans_GrossAmountincluding_1: '{% trans "Gross Amount (including VAT)" %}',
+        trans_Calculating_2: '{% trans "Calculating..." %}',
+        trans_Calculate_3: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_4: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_6: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_7: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_8: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_9: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_10: '{% trans "Invalid response." %}',
+        trans_Gross_11: '{% trans "Gross" %}',
+        trans_Net_12: '{% trans "Net" %}',
+        trans_VAT_13: '{% trans "VAT" %}',
+        trans_Couldnotdisplayresul_17: '{% trans "Could not display results. Please try again." %}',
+        trans_Networkorservererror_18: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/vat_calculator.js' %}"></script>
 {% endblock %}

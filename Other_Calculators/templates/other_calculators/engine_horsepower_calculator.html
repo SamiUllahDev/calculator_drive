@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Engine Horsepower Calculator - Calculate Engine HP Torque RPM Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free engine horsepower calculator. Calculate engine HP from torque and RPM, find engine torque from HP, calculate RPM, and convert power units (HP, kW, PS, BHP) and torque units (lb·ft, N·m, kg·m). Instant results with step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate engine HP from torque and RPM. Supports HP, kW, PS, BHP power units and lb·ft, N·m, kg·m torque units. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/engine_horsepower_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Engine Horsepower Calculator - HP Torque RPM Free" %}","description":"{% trans "Free engine horsepower calculator. Calculate engine HP from torque and RPM, find engine torque from HP, convert between HP, kW, PS, BHP, and convert torque between lb·ft, N·m, kg·m with step-by-step solutions." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1950"},"featureList":["{% trans 'Calculate engine HP from torque and RPM' %}","{% trans 'Calculate engine torque from HP and RPM' %}","{% trans 'Calculate RPM from HP and torque' %}","{% trans 'Convert between HP, kW, PS, and BHP' %}","{% trans 'Convert between lb·ft, N·m, and kg·m' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Engine Horsepower Calculator - HP Torque RPM Free" %}',"description":'{% trans "Free engine horsepower calculator. Calculate engine HP from torque and RPM, find engine torque from HP, convert between HP, kW, PS, BHP, and convert torque between lb·ft, N·m, kg·m with step-by-step solutions." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1950"},"featureList":["{% trans 'Calculate engine HP from torque and RPM' %}","{% trans 'Calculate engine torque from HP and RPM' %}","{% trans 'Calculate RPM from HP and torque' %}","{% trans 'Convert between HP, kW, PS, and BHP' %}","{% trans 'Convert between lb·ft, N·m, and kg·m' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -283,113 +284,16 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctSel = document.getElementById('calc-type');
-    ctSel.addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('ehpForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Conversions grid
-            const convCard = document.getElementById('conversionsCard');
-            const convGrid = document.getElementById('conversionsGrid');
-            if (r.calc_type === 'horsepower' && r.hp != null) {
-                convCard?.classList.remove('hidden');
-                convGrid.innerHTML = `
-                    <div class="bg-blue-50 rounded-lg p-3 text-center border border-blue-200"><p class="text-xs text-gray-600 mb-1">{% trans "HP" %}</p><p class="text-lg font-bold text-blue-600">${fnum(r.hp)}</p></div>
-                    <div class="bg-green-50 rounded-lg p-3 text-center border border-green-200"><p class="text-xs text-gray-600 mb-1">{% trans "kW" %}</p><p class="text-lg font-bold text-green-600">${fnum(r.kw)}</p></div>
-                    <div class="bg-amber-50 rounded-lg p-3 text-center border border-amber-200"><p class="text-xs text-gray-600 mb-1">{% trans "PS" %}</p><p class="text-lg font-bold text-amber-600">${fnum(r.ps)}</p></div>
-                `;
-            } else {
-                convCard?.classList.add('hidden');
-            }
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d = document.createElement('div');
-                if (s === '') { d.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d.className='ml-4 text-sm text-gray-700 border-l-4 border-blue-400 pl-3 py-1 bg-white rounded-r'; d.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d.textContent = s.trim(); }
-                else { d.className='text-sm font-bold text-gray-900 mt-2'; d.textContent = s; }
-                sc.appendChild(d);
-            });
-
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                const cc = document.getElementById('chartCard'); cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 6}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'horsepower') {
-        d.torque = parseFloat(document.getElementById('hp_torque').value);
-        d.rpm = parseFloat(document.getElementById('hp_rpm').value);
-        d.torque_unit = document.getElementById('hp_tu').value;
-        d.result_unit = document.getElementById('hp_ru').value;
-    } else if (ct === 'torque') {
-        d.horsepower = parseFloat(document.getElementById('tq_hp').value);
-        d.rpm = parseFloat(document.getElementById('tq_rpm').value);
-        d.power_unit = document.getElementById('tq_pu').value;
-        d.result_unit = document.getElementById('tq_ru').value;
-    } else if (ct === 'rpm') {
-        d.horsepower = parseFloat(document.getElementById('rpm_hp').value);
-        d.torque = parseFloat(document.getElementById('rpm_torque').value);
-        d.power_unit = document.getElementById('rpm_pu').value;
-        d.torque_unit = document.getElementById('rpm_tu').value;
-    } else if (ct === 'convert_power') {
-        d.value = parseFloat(document.getElementById('cp_val').value);
-        d.from_unit = document.getElementById('cp_from').value;
-        d.to_unit = document.getElementById('cp_to').value;
-    } else if (ct === 'convert_torque') {
-        d.value = parseFloat(document.getElementById('ct_val').value);
-        d.from_unit = document.getElementById('ct_from').value;
-        d.to_unit = document.getElementById('ct_to').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_HP_4: '{% trans "HP" %}',
+        trans_kW_5: '{% trans "kW" %}',
+        trans_PS_6: '{% trans "PS" %}',
+        trans_Anetworkerroroccurre_8: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/engine_horsepower_calculator.js' %}"></script>
 {% endblock %}

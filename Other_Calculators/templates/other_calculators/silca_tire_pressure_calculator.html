@@ -1,8 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Silca Tire Pressure Calculator - Optimal Cycling Pressure" %}{% endblock %}
 {% block meta_description %}{% trans "Free tire pressure calculator for cycling. Get personalized front and rear tire pressures based on your weight, tire size, surface, and conditions." %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/silca_tire_pressure_calculator.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
@@ -346,125 +350,10 @@
 </div>
 
 <script>
-let compC=null, rangeC=null, perfC=null;
-function ck(){return typeof Chart!=='undefined';}
-
-document.addEventListener('DOMContentLoaded', function(){
-    const form=document.getElementById('calculatorForm');
-    const init=document.getElementById('initialState');
-    const load=document.getElementById('loadingState');
-    const err=document.getElementById('errorState');
-    const res=document.getElementById('results');
-
-    form.addEventListener('submit', async function(e){
-        e.preventDefault();
-        if(init) init.classList.add('hidden');
-        if(res) res.classList.add('hidden');
-        if(err) err.classList.add('hidden');
-        if(load) load.classList.remove('hidden');
-
-        const payload = {
-            rider_weight: parseFloat(document.getElementById('riderWeight').value)||75,
-            weight_unit: document.getElementById('weightUnit').value,
-            bike_weight: parseFloat(document.getElementById('bikeWeight').value)||8.5,
-            tire_width: parseInt(document.getElementById('tireWidth').value)||25,
-            wheel_size: document.getElementById('wheelSize').value,
-            tire_type: (document.querySelector('input[name="tire_type"]:checked')||{value:'clincher'}).value,
-            surface: document.getElementById('surface').value,
-            position: document.getElementById('position').value,
-            weather: (document.querySelector('input[name="weather"]:checked')||{value:'dry'}).value,
-        };
-
-        const btn=document.getElementById('calcBtnText');
-        const orig=btn?btn.textContent:'';
-        if(btn) btn.textContent="{% trans 'Calculating...' %}";
-
-        try {
-            const r = await fetch(window.location.href, {
-                method:'POST',
-                headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},
-                body: JSON.stringify(payload)
-            });
-            const d = await r.json();
-            if(load) load.classList.add('hidden');
-            if(btn) btn.textContent=orig;
-            if(!d.success){if(err){document.getElementById('errorMessage').textContent=d.error||'Error';err.classList.remove('hidden');}return;}
-            show(d);
-        } catch(ex){
-            if(load) load.classList.add('hidden');
-            if(btn) btn.textContent=orig;
-            if(err){document.getElementById('errorMessage').textContent="{% trans 'Network error.' %}";err.classList.remove('hidden');}
-        }
-    });
-
-    function show(d){
-        try {
-            document.getElementById('frontPsi').textContent=d.front.psi;
-            document.getElementById('frontBar').textContent=d.front.bar+' bar';
-            document.getElementById('frontRange').textContent=d.front.range.low+'–'+d.front.range.high+' PSI';
-            document.getElementById('rearPsi').textContent=d.rear.psi;
-            document.getElementById('rearBar').textContent=d.rear.bar+' bar';
-            document.getElementById('rearRange').textContent=d.rear.range.low+'–'+d.rear.range.high+' PSI';
-
-            document.getElementById('comfortLabel').textContent=d.comfort.label;
-            document.getElementById('comfortScore').textContent=d.comfort.score;
-            document.getElementById('comfortBar').style.width=d.comfort.score+'%';
-            document.getElementById('speedLabel').textContent=d.speed.label;
-            document.getElementById('speedScore').textContent=d.speed.score;
-            document.getElementById('speedBar').style.width=d.speed.score+'%';
-
-            document.getElementById('sysTotalW').textContent=d.system.total_weight_kg+' kg';
-            document.getElementById('sysFrontW').textContent=d.system.front_load_kg+' kg';
-            document.getElementById('sysRearW').textContent=d.system.rear_load_kg+' kg';
-            document.getElementById('sysPos').textContent=d.system.position;
-
-            /* Adjustments */
-            const adjSec=document.getElementById('adjustmentsSection');
-            const adjList=document.getElementById('adjustmentsList');
-            if(d.adjustments&&d.adjustments.length>0){
-                adjList.innerHTML='';
-                d.adjustments.forEach(a=>{
-                    const li=document.createElement('li');
-                    li.className='flex items-center';
-                    const arrow=a.direction==='down'?'↓':'↑';
-                    const color=a.direction==='down'?'text-blue-600':'text-red-600';
-                    li.innerHTML=`<span class="${color} font-bold mr-2">${arrow}</span> <span class="font-medium">${a.factor}</span>: <span class="ml-1 font-bold">${a.effect}</span>`;
-                    adjList.appendChild(li);
-                });
-                adjSec.classList.remove('hidden');
-            } else { adjSec.classList.add('hidden'); }
-
-            /* Tips */
-            const tipsList=document.getElementById('tipsList');
-            tipsList.innerHTML='';
-            d.tips.forEach(t=>{
-                const li=document.createElement('li');li.className='flex items-start';
-                li.innerHTML=`<svg class="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span>${t}</span>`;
-                tipsList.appendChild(li);
-            });
-
-            /* Charts */
-            if(d.chart_data&&ck()){
-                if(d.chart_data.compare_chart) mkCompare(d.chart_data.compare_chart);
-                if(d.chart_data.range_chart) mkRange(d.chart_data.range_chart);
-                if(d.chart_data.performance_chart) mkPerf(d.chart_data.performance_chart);
-            }
-            if(res){res.classList.remove('hidden');setTimeout(()=>res.scrollIntoView({behavior:'smooth',block:'nearest'}),100);}
-        }catch(e){console.error(e);}
-    }
-
-    function mkCompare(cd){
-        const ctx=document.getElementById('compareChart');if(!ctx||!ck())return;if(compC)compC.destroy();
-        try{compC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y} PSI`}}},scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>v+' PSI',font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:13,weight:'bold'}}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-    function mkRange(cd){
-        const ctx=document.getElementById('rangeChart');if(!ctx||!ck())return;if(rangeC)rangeC.destroy();
-        try{rangeC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{padding:12,usePointStyle:true,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y} PSI`}}},scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>v+' PSI',font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:13,weight:'bold'}}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-    function mkPerf(cd){
-        const ctx=document.getElementById('perfChart');if(!ctx||!ck())return;if(perfC)perfC.destroy();
-        try{perfC=new Chart(ctx,{type:cd.type,data:cd.data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{beginAtZero:true,max:100,ticks:{stepSize:20,backdropColor:'transparent',font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'},pointLabels:{font:{size:11,weight:'bold'}}}},animation:{duration:1500}}});}catch(e){console.error(e);}
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Networkerror_1: "{% trans 'Network error.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/silca_tire_pressure_calculator.js' %}"></script>
 {% endblock %}

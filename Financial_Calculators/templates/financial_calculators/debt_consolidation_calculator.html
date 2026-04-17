@@ -6,6 +6,7 @@
 {% block meta_description %}{% trans "Calculate if debt consolidation will save you money. Compare your current debts vs a consolidation loan." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/debt_consolidation_calculator.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -317,166 +318,24 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var i18n = {
-        addDebt: "{% trans 'Add Debt' %}",
-        remove: "{% trans 'Remove' %}",
-        name: "{% trans 'Name' %}",
-        balance: "{% trans 'Balance' %}",
-        rate: "{% trans 'Rate %' %}",
-        monthlyPmt: "{% trans 'Monthly Pmt' %}",
-        months: "{% trans 'months' %}",
-        currentDebts: "{% trans 'Current Debts' %}",
-        consolidated: "{% trans 'Consolidated' %}",
-        principal: "{% trans 'Principal' %}",
-        interest: "{% trans 'Interest' %}"
+window.djangoContext = {
+        trans_AddDebt_0: "{% trans 'Add Debt' %}",
+        trans_Remove_1: "{% trans 'Remove' %}",
+        trans_Name_2: "{% trans 'Name' %}",
+        trans_Balance_3: "{% trans 'Balance' %}",
+        trans_Rate_4: "{% trans 'Rate %' %}",
+        trans_MonthlyPmt_5: "{% trans 'Monthly Pmt' %}",
+        trans_months_6: "{% trans 'months' %}",
+        trans_CurrentDebts_7: "{% trans 'Current Debts' %}",
+        trans_Consolidated_8: "{% trans 'Consolidated' %}",
+        trans_Principal_9: "{% trans 'Principal' %}",
+        trans_Interest_10: "{% trans 'Interest' %}",
+        trans_Calculating_11: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_12: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_CalculateConsolidati_13: '{% trans "Calculate Consolidation Savings" %}',
+        trans_AnerroroccurredPleas_15: '{% trans "An error occurred. Please try again." %}',
+        url_financial_calculator_0: '{% url "financial_calculators:debt_consolidation_calculator" %}',
     };
-    var form = document.getElementById('calculator-form');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var comparisonChart = null;
-
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-    }
-
-    document.getElementById('add_debt').addEventListener('click', function() {
-        var container = document.getElementById('debts_container');
-        var newDebt = document.createElement('div');
-        newDebt.className = 'debt-item p-4 bg-gray-50 rounded-lg border-2 border-gray-200';
-        newDebt.innerHTML = '<div class="grid grid-cols-3 gap-2">' +
-            '<input type="text" placeholder="' + i18n.name + '" class="debt-name w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm">' +
-            '<div class="relative col-span-2"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>' +
-            '<input type="text" placeholder="' + i18n.balance + '" class="debt-balance w-full pl-6 pr-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-right"></div></div>' +
-            '<div class="grid grid-cols-3 gap-2 mt-2">' +
-            '<div class="relative"><input type="text" placeholder="' + i18n.rate + '" class="debt-rate w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right">' +
-            '<span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span></div>' +
-            '<div class="relative"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>' +
-            '<input type="text" placeholder="' + i18n.monthlyPmt + '" class="debt-payment w-full pl-6 pr-2 py-2 border-2 border-gray-300 rounded-lg text-sm text-right"></div>' +
-            '<button type="button" class="remove-debt text-red-600 hover:text-red-700 text-sm font-medium">' + i18n.remove + '</button></div>';
-        container.appendChild(newDebt);
-    });
-
-    document.getElementById('debts_container').addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-debt')) {
-            var items = document.querySelectorAll('.debt-item');
-            if (items.length > 1) e.target.closest('.debt-item').remove();
-        }
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var debts = [];
-        document.querySelectorAll('.debt-item').forEach(function(item) {
-            var name = item.querySelector('.debt-name').value;
-            var balance = item.querySelector('.debt-balance').value.replace(/,/g, '');
-            var rate = item.querySelector('.debt-rate').value.replace(/,/g, '').replace('%', '');
-            var payment = item.querySelector('.debt-payment').value.replace(/,/g, '');
-            if (balance && (rate || rate === '0') && payment) {
-                debts.push({ name: name || '', balance: balance, rate: rate || 0, payment: payment });
-            }
-        });
-
-        var formData = {
-            debts: debts,
-            consolidation_rate: document.getElementById('consolidation_rate').value.replace(/,/g, '').replace('%', ''),
-            consolidation_term: document.getElementById('consolidation_term').value,
-            consolidation_fees: document.getElementById('consolidation_fees').value.replace(/,/g, '')
-        };
-
-        try {
-            var response = await fetch('{% url "financial_calculators:debt_consolidation_calculator" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(formData)
-            });
-            var data = await response.json();
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate Consolidation Savings" %}';
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Consolidation Savings" %}';
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            var recCard = document.getElementById('recommendation_card');
-            recCard.className = 'rounded-lg p-6 text-center shadow-lg ';
-            if (data.recommendation_class === 'positive') recCard.classList.add('bg-gradient-to-br', 'from-green-600', 'to-emerald-600', 'text-white');
-            else if (data.recommendation_class === 'negative') recCard.classList.add('bg-gradient-to-br', 'from-red-600', 'to-orange-600', 'text-white');
-            else recCard.classList.add('bg-gradient-to-br', 'from-yellow-500', 'to-orange-500', 'text-white');
-            document.getElementById('recommendation_text').textContent = data.recommendation;
-
-            document.getElementById('monthly_savings').textContent = formatCurrency(data.comparison.monthly_savings);
-            document.getElementById('interest_savings').textContent = formatCurrency(data.comparison.total_interest_savings);
-            document.getElementById('current_payment').textContent = formatCurrency(data.current_debts.total_monthly_payment);
-            document.getElementById('current_payment_2').textContent = formatCurrency(data.current_debts.total_monthly_payment);
-            document.getElementById('consol_payment').textContent = formatCurrency(data.consolidation_loan.monthly_payment);
-            document.getElementById('consol_payment_2').textContent = formatCurrency(data.consolidation_loan.monthly_payment);
-            document.getElementById('current_balance').textContent = formatCurrency(data.current_debts.total_balance);
-            document.getElementById('current_interest').textContent = formatCurrency(data.current_debts.total_interest);
-            document.getElementById('current_payoff').textContent = data.current_debts.longest_payoff_months + ' ' + i18n.months;
-            document.getElementById('consol_balance').textContent = formatCurrency(data.consolidation_loan.total_balance);
-            document.getElementById('consol_interest').textContent = formatCurrency(data.consolidation_loan.total_interest);
-            document.getElementById('consol_term').textContent = data.consolidation_loan.term_months + ' ' + i18n.months;
-
-            var scheduleBody = document.getElementById('scheduleBody');
-            scheduleBody.innerHTML = '';
-            (data.schedule || []).forEach(function(row) {
-                var tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50';
-                tr.innerHTML = '<td class="px-4 py-2">' + row.month + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.payment) + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.principal) + '</td><td class="px-4 py-2 text-right text-red-600">' + formatCurrency(row.interest) + '</td><td class="px-4 py-2 text-right">' + formatCurrency(row.balance) + '</td>';
-                scheduleBody.appendChild(tr);
-            });
-
-            if (comparisonChart) comparisonChart.destroy();
-            var ctx = document.getElementById('comparisonChart').getContext('2d');
-            comparisonChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: [i18n.currentDebts, i18n.consolidated],
-                    datasets: [
-                        { label: i18n.principal, data: [data.chart_data.current_principal, data.chart_data.consolidation_principal], backgroundColor: '#3b82f6' },
-                        { label: i18n.interest, data: [data.chart_data.current_interest, data.chart_data.consolidation_interest], backgroundColor: '#ef4444' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
-                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
-                }
-            });
-        } catch (err) {
-            console.error(err);
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Consolidation Savings" %}';
-        }
-    });
-});
 </script>
+<script src="{% static 'financial_calculators/js/debt_consolidation_calculator.js' %}"></script>
 {% endblock %}

@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "IRR Calculator - Internal Rate of Return" %}{% endblock %}
 {% block meta_description %}{% trans "Free IRR calculator. Calculate Internal Rate of Return, NPV, payback period, and profitability index. Get instant results with cash flow analysis and sensitivity chart." %}{% endblock %}
 {% block meta_keywords %}{% trans "IRR calculator, internal rate of return, NPV calculator, payback period, investment analysis" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/irr_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'IRR Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate IRR, NPV, and investment metrics from cash flows.' %}">
@@ -321,171 +322,19 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var sensitivityChart = null;
-    var yearCount = 5;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-
-    document.getElementById('add_year').addEventListener('click', function() {
-        yearCount++;
-        var container = document.getElementById('cash_flows_container');
-        var row = document.createElement('div');
-        row.className = 'cash-flow-row flex items-center gap-3';
-        row.innerHTML = '<span class="text-gray-700 text-sm font-medium w-14 shrink-0">Year ' + yearCount + '</span><div class="relative flex-1 max-w-[8rem]"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span><input type="text" class="cash-flow w-full pl-7 pr-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0" placeholder="0" aria-label="Cash flow year ' + yearCount + '"></div><button type="button" class="remove-year p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded text-lg leading-none">×</button>';
-        container.appendChild(row);
-    });
-
-    document.getElementById('cash_flows_container').addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-year')) {
-            var rows = document.querySelectorAll('.cash-flow-row');
-            if (rows.length > 1) {
-                e.target.closest('.cash-flow-row').remove();
-                document.querySelectorAll('.cash-flow-row').forEach(function(row, i) {
-                    row.querySelector('span').textContent = 'Year ' + (i + 1);
-                });
-                yearCount = rows.length - 1;
-            }
-        }
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl) {
-            errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
-            return;
-        }
-
-        var cashFlows = [];
-        document.querySelectorAll('.cash-flow').forEach(function(input) {
-            cashFlows.push((input.value || '').replace(/,/g, '').replace(/\$/g, ''));
-        });
-
-        var payload = {
-            calc_type: 'irr',
-            initial_investment: document.getElementById('initial_investment').value.replace(/,/g, '').replace(/\$/g, ''),
-            cash_flows: cashFlows,
-            discount_rate: document.getElementById('discount_rate').value
-        };
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var data;
-            try {
-                data = await response.json();
-            } catch (parseErr) {
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
-                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            document.getElementById('irr_display').textContent = data.irr != null ? data.irr.toFixed(2) + '%' : 'N/A';
-            document.getElementById('decision_text').textContent = data.decision || '';
-            var badge = document.getElementById('decision_badge');
-            if (data.decision_class === 'positive') {
-                document.getElementById('decision_card').className = 'bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-                badge.textContent = '{% trans "Accept" %}';
-            } else if (data.decision_class === 'negative') {
-                document.getElementById('decision_card').className = 'bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-                badge.textContent = '{% trans "Reject" %}';
-            } else {
-                document.getElementById('decision_card').className = 'bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-                badge.textContent = '{% trans "Consider" %}';
-            }
-
-            document.getElementById('npv_display').textContent = formatCurrency(data.npv);
-            document.getElementById('pi_display').textContent = data.profitability_index != null ? data.profitability_index.toFixed(2) : '-';
-            document.getElementById('payback_display').textContent = data.payback_period != null ? data.payback_period.toFixed(2) + ' {% trans "years" %}' : 'N/A';
-            document.getElementById('return_display').textContent = data.total_return_percent != null ? data.total_return_percent.toFixed(1) + '%' : '-';
-
-            var tbody = document.getElementById('analysis_table');
-            tbody.innerHTML = '';
-            var initialRow = document.createElement('tr');
-            initialRow.className = 'border-b border-gray-100';
-            initialRow.innerHTML = '<td class="py-2">0</td><td class="text-right text-red-600">(' + formatCurrency(data.initial_investment) + ')</td><td class="text-right text-red-600">(' + formatCurrency(data.initial_investment) + ')</td><td class="text-right text-red-600">(' + formatCurrency(data.initial_investment) + ')</td>';
-            tbody.appendChild(initialRow);
-            (data.cash_flow_analysis || []).forEach(function(cf) {
-                var row = document.createElement('tr');
-                row.className = 'border-b border-gray-100';
-                var cumCls = cf.cumulative_discounted >= 0 ? 'text-green-600' : 'text-red-600';
-                row.innerHTML = '<td class="py-2">' + cf.period + '</td><td class="text-right">' + formatCurrency(cf.cash_flow) + '</td><td class="text-right">' + formatCurrency(cf.discounted_cf) + '</td><td class="text-right ' + cumCls + '">' + formatCurrency(cf.cumulative_discounted) + '</td>';
-                tbody.appendChild(row);
-            });
-
-            var ctx = document.getElementById('sensitivityChart');
-            if (ctx && typeof Chart !== 'undefined') {
-                if (sensitivityChart) sensitivityChart.destroy();
-                var rates = [0, 5, 10, 15, 20, 25, 30];
-                var npvValues = [];
-                var initial = data.initial_investment;
-                var cfs = (data.cash_flow_analysis || []).map(function(cf) { return cf.cash_flow; });
-                rates.forEach(function(rate) {
-                    var npv = -initial;
-                    cfs.forEach(function(cf, i) {
-                        npv += cf / Math.pow(1 + rate/100, i + 1);
-                    });
-                    npvValues.push(npv);
-                });
-                sensitivityChart = new Chart(ctx.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: rates.map(function(r) { return r + '%'; }),
-                        datasets: [{ label: 'NPV', data: npvValues, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { x: {}, y: {} } }
-                });
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate IRR & NPV" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_SessionexpiredPlease_1: '{% trans "Session expired. Please refresh the page." %}',
+        trans_CalculateIRRNPV_2: '{% trans "Calculate IRR & NPV" %}',
+        trans_Invalidresponsefroms_4: '{% trans "Invalid response from server." %}',
+        trans_Servererror_5: '{% trans "Server error." %}',
+        trans_AnerroroccurredPleas_7: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_Accept_8: '{% trans "Accept" %}',
+        trans_Reject_9: '{% trans "Reject" %}',
+        trans_Consider_10: '{% trans "Consider" %}',
+        trans_years_11: '{% trans "years" %}',
+        trans_AnerroroccurredPleas_13: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/irr_calculator.js' %}"></script>
 {% endblock %}

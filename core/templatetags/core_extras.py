@@ -50,7 +50,7 @@ def path_without_language(request):
     current_language = translation.get_language()
     
     # Remove language prefix if it exists
-    for lang_code, _ in settings.LANGUAGES:
+    for lang_code, lang_name in settings.LANGUAGES:
         if path.startswith(f'/{lang_code}/'):
             path = path[len(f'/{lang_code}/'):]
             if not path.startswith('/'):
@@ -66,3 +66,46 @@ def path_without_language(request):
         path = f'{path}?{query_string}'
     
     return path
+
+@register.simple_tag(takes_context=True)
+def get_breadcrumbs(context):
+    request = context.get('request')
+    if not request:
+        return []
+
+    from django.urls import resolve, Resolver404
+    from django.utils.translation import gettext as _
+    
+    path = request.path
+    # Try to strip language prefix
+    from django.conf import settings
+    from django.utils import translation
+    for lang_code, lang_name in settings.LANGUAGES:
+        if path.startswith(f'/{lang_code}/'):
+            path = path[len(f'/{lang_code}/'):]
+            if not path.startswith('/'):
+                path = '/' + path
+            break
+        elif path == f'/{lang_code}':
+            path = '/'
+            break
+            
+    paths = [p for p in path.split('/') if p]
+    breadcrumbs = []
+    
+    # Root is Home
+    # But we don't return it here, template handles it explicitly
+    current_url = '/'
+    for p in paths:
+        current_url += p + '/'
+        
+        # Clean the name: e.g., sales-tax-calculator -> Sales Tax Calculator
+        clean_name = p.replace('-', ' ').replace('_', ' ').title()
+        
+        # We can try to use resolver to check if valid, or just yield it
+        breadcrumbs.append({
+            'name': _(clean_name),
+            'url': current_url
+        })
+        
+    return breadcrumbs

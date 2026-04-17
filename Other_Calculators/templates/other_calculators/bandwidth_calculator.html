@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Bandwidth Calculator - Calculate Transfer Time, Download Speed, File Size Free Online" %}{% endblock %}
 {% block meta_description %}{% trans "Free bandwidth calculator. Calculate data transfer time, required bandwidth, file size, real-world speed with protocol overhead, compare connections, get recommendations. Step-by-step solutions. No sign-up." %}{% endblock %}
@@ -12,11 +12,12 @@
 {% block twitter_description %}{% trans "Calculate transfer time, bandwidth, real-world speed. Free online step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/bandwidth_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Bandwidth Calculator - Free Online Tool" %}","description":"{% trans "Free bandwidth calculator. Transfer time, required bandwidth, file size, real-world speed, connection comparison, bandwidth recommendation." %}","applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"3500"},"featureList":["{% trans 'Transfer time calculation' %}","{% trans 'Required bandwidth analysis' %}","{% trans 'File size calculation' %}","{% trans 'Real-world speed with protocol overhead' %}","{% trans 'Connection type comparison' %}","{% trans 'Bandwidth recommendations' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Bandwidth Calculator - Free Online Tool" %}',"description":'{% trans "Free bandwidth calculator. Transfer time, required bandwidth, file size, real-world speed, connection comparison, bandwidth recommendation." %}',"applicationCategory":"UtilityApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"3500"},"featureList":["{% trans 'Transfer time calculation' %}","{% trans 'Required bandwidth analysis' %}","{% trans 'File size calculation' %}","{% trans 'Real-world speed with protocol overhead' %}","{% trans 'Connection type comparison' %}","{% trans 'Bandwidth recommendations' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
@@ -286,142 +287,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('bwForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = r.result || '-';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            // Detail cards
-            const dc = document.getElementById('detailCards'); dc.innerHTML = '';
-            if (r.detail_cards) r.detail_cards.forEach(card => {
-                const d = document.createElement('div');
-                d.className = `bg-${card.color}-50 rounded-lg p-3 text-center border-2 border-${card.color}-200`;
-                d.innerHTML = `<p class="text-xs text-gray-600 mb-1">${card.label}</p><p class="text-sm font-bold text-${card.color}-600">${card.value}</p>`;
-                dc.appendChild(d);
-            });
-
-            // Connection table for comparison
-            const ct = document.getElementById('connTable');
-            const ctBody = document.getElementById('connTableBody');
-            if (r.connections && r.connections.length > 0) {
-                ctBody.innerHTML = '';
-                r.connections.forEach(c => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b hover:bg-gray-50';
-                    tr.innerHTML = `<td class="py-2 px-3 font-medium">${c.name}</td><td class="py-2 px-3 text-center text-sm">${c.speed}</td><td class="py-2 px-3 text-center font-mono text-sm">${c.time}</td>`;
-                    ctBody.appendChild(tr);
-                });
-                ct?.classList.remove('hidden');
-            } else { ct?.classList.add('hidden'); }
-
-            // Suitable connections for recommendation
-            const sc = document.getElementById('suitableCard');
-            const scContent = document.getElementById('suitableContent');
-            if (r.suitable && r.suitable.length > 0) {
-                scContent.innerHTML = '';
-                r.suitable.forEach(s => {
-                    const d = document.createElement('div');
-                    d.className = 'flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200 text-sm';
-                    d.innerHTML = `<span class="text-green-600 font-bold">✓</span> <span class="font-medium">${s.name}</span> <span class="text-gray-500">(${s.speed})</span>`;
-                    scContent.appendChild(d);
-                });
-                sc?.classList.remove('hidden');
-            } else { sc?.classList.add('hidden'); }
-
-            // Steps
-            const stc = document.getElementById('stepsContent'); stc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •') || s.startsWith('  ✓')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-violet-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else if (s.startsWith('Result')) { d2.className='text-sm font-bold text-violet-700 mt-2 bg-violet-50 p-2 rounded'; d2.textContent = s; }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                stc.appendChild(d2);
-            });
-
-            // Chart
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && r.chart_data.main_chart && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                resultChart = new Chart(document.getElementById('resultChart'), r.chart_data.main_chart);
-            } else { cc?.classList.add('hidden'); }
-
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('connTable')?.classList.add('hidden');
-    document.getElementById('suitableCard')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-}
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-    if (ct === 'transfer_time') {
-        d.file_size = parseFloat(document.getElementById('tt_fs').value);
-        d.file_size_unit = document.getElementById('tt_fu').value;
-        d.bandwidth = parseFloat(document.getElementById('tt_bw').value);
-        d.bandwidth_unit = document.getElementById('tt_bu').value;
-    } else if (ct === 'bandwidth_req') {
-        d.file_size = parseFloat(document.getElementById('br_fs').value);
-        d.file_size_unit = document.getElementById('br_fu').value;
-        d.time_value = parseFloat(document.getElementById('br_tv').value);
-        d.time_unit = document.getElementById('br_tu').value;
-    } else if (ct === 'file_size') {
-        d.bandwidth = parseFloat(document.getElementById('fz_bw').value);
-        d.bandwidth_unit = document.getElementById('fz_bu').value;
-        d.time_value = parseFloat(document.getElementById('fz_tv').value);
-        d.time_unit = document.getElementById('fz_tu').value;
-    } else if (ct === 'real_world') {
-        d.file_size = parseFloat(document.getElementById('rw_fs').value);
-        d.file_size_unit = document.getElementById('rw_fu').value;
-        d.bandwidth = parseFloat(document.getElementById('rw_bw').value);
-        d.bandwidth_unit = document.getElementById('rw_bu').value;
-        d.protocol = document.getElementById('rw_proto').value;
-    } else if (ct === 'comparison') {
-        d.file_size = parseFloat(document.getElementById('cc_fs').value);
-        d.file_size_unit = document.getElementById('cc_fu').value;
-    } else if (ct === 'recommendation') {
-        d.use_case = document.getElementById('rc_uc').value;
-        d.num_users = parseInt(document.getElementById('rc_users').value);
-        d.concurrent_streams = parseInt(document.getElementById('rc_streams').value);
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_Calculate_1: "{% trans 'Calculate' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/bandwidth_calculator.js' %}"></script>
 {% endblock %}

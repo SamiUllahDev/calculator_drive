@@ -7,6 +7,7 @@
 {% block meta_description %}{% trans "Free income tax calculator for 2024. Estimate your federal income tax, FICA, state tax, and take-home pay. Includes all filing statuses, deductions, and tax credits." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/income_tax_calculator.css' %}">
 <meta name="keywords" content="{% trans 'income tax calculator, federal tax calculator, 2024 tax brackets, tax estimator, take home pay calculator, effective tax rate, marginal tax rate, FICA calculator' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Income Tax Calculator 2024' %}">
@@ -380,199 +381,18 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    let breakdownChartInstance = null;
-    let taxChartInstance = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
-    }
-    function parseNumber(val) {
-        return parseFloat(String(val).replace(/[,$\s%]/g, '')) || 0;
-    }
-    function formatInput(input) {
-        let value = input.value.replace(/[^\d.]/g, '');
-        let parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-    ['gross_income', 'retirement_401k', 'hsa_contribution', 'other_pretax', 'itemized_deductions', 'child_tax_credit', 'other_credits'].forEach(id => {
-        const input = document.getElementById(id);
-        if (input) input.addEventListener('input', () => formatInput(input));
-    });
-
-    function setupToggle(btnId, sectionId, iconId) {
-        document.getElementById(btnId).addEventListener('click', function() {
-            document.getElementById(sectionId).classList.toggle('hidden');
-            document.getElementById(iconId).classList.toggle('rotate-180');
-        });
-    }
-    setupToggle('togglePretax', 'pretaxSection', 'pretaxIcon');
-    setupToggle('toggleDeductions', 'deductionsSection', 'deductionsIcon');
-    setupToggle('toggleCredits', 'creditsSection', 'creditsIcon');
-
-    document.getElementById('standardBtn').addEventListener('click', function() {
-        document.getElementById('deduction_type').value = 'standard';
-        this.classList.add('bg-blue-600', 'text-white');
-        this.classList.remove('bg-gray-200', 'text-gray-700');
-        document.getElementById('itemizedBtn').classList.remove('bg-blue-600', 'text-white');
-        document.getElementById('itemizedBtn').classList.add('bg-gray-200', 'text-gray-700');
-        document.getElementById('itemizedInput').classList.add('hidden');
-        document.getElementById('standardNote').classList.remove('hidden');
-    });
-    document.getElementById('itemizedBtn').addEventListener('click', function() {
-        document.getElementById('deduction_type').value = 'itemized';
-        this.classList.add('bg-blue-600', 'text-white');
-        this.classList.remove('bg-gray-200', 'text-gray-700');
-        document.getElementById('standardBtn').classList.remove('bg-blue-600', 'text-white');
-        document.getElementById('standardBtn').classList.add('bg-gray-200', 'text-gray-700');
-        document.getElementById('itemizedInput').classList.remove('hidden');
-        document.getElementById('standardNote').classList.add('hidden');
-    });
-
-    function showState(state) {
-        document.getElementById('initialState').classList.add('hidden');
-        document.getElementById('resultsWrapper').classList.add('hidden');
-        document.getElementById('loadingState').classList.add('hidden');
-        document.getElementById('errorState').classList.add('hidden');
-        if (state === 'initial') document.getElementById('initialState').classList.remove('hidden');
-        else if (state === 'loading') document.getElementById('loadingState').classList.remove('hidden');
-        else if (state === 'error') document.getElementById('errorState').classList.remove('hidden');
-        else if (state === 'results') document.getElementById('resultsWrapper').classList.remove('hidden');
-    }
-
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        form.reset();
-        document.getElementById('gross_income').value = '75,000';
-        document.getElementById('deduction_type').value = 'standard';
-        document.getElementById('itemizedInput').classList.add('hidden');
-        document.getElementById('standardNote').classList.remove('hidden');
-        showState('initial');
-    });
-
-    function renderBreakdownChart(chartData) {
-        const wrapper = document.getElementById('chartWrapper');
-        const canvas = document.getElementById('breakdownChart');
-        if (!chartData || !chartData.breakdown_chart) {
-            wrapper.classList.add('hidden');
-            return;
-        }
-        if (breakdownChartInstance) {
-            breakdownChartInstance.destroy();
-            breakdownChartInstance = null;
-        }
-        const config = chartData.breakdown_chart;
-        wrapper.classList.remove('hidden');
-        breakdownChartInstance = new Chart(canvas.getContext('2d'), {
-            type: config.type,
-            data: config.data,
-            options: config.options || {}
-        });
-    }
-
-    function renderTaxChart(data) {
-        const canvas = document.getElementById('taxChart');
-        if (taxChartInstance) taxChartInstance.destroy();
-        taxChartInstance = new Chart(canvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: ['{% trans "Federal" %}', '{% trans "Social Security" %}', '{% trans "Medicare" %}', '{% trans "State" %}'],
-                datasets: [{
-                    label: '{% trans "Tax Amount" %}',
-                    data: [data.federal_tax.after_credits, data.fica.social_security, data.fica.medicare, data.state_tax.amount],
-                    backgroundColor: ['#ef4444', '#f97316', '#fb923c', '#8b5cf6']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { callback: function(value) { return '$' + value.toLocaleString(); } }
-                    }
-                }
-            }
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const submitBtnText = document.getElementById('calculateBtnText');
-        const originalBtnText = submitBtnText ? submitBtnText.textContent : '';
-        if (submitBtnText) submitBtnText.textContent = '{% trans "Calculating..." %}';
-        showState('loading');
-
-        const formData = {
-            gross_income: parseNumber(document.getElementById('gross_income').value),
-            filing_status: document.getElementById('filing_status').value,
-            retirement_401k: parseNumber(document.getElementById('retirement_401k').value),
-            hsa_contribution: parseNumber(document.getElementById('hsa_contribution').value),
-            other_pretax: parseNumber(document.getElementById('other_pretax').value),
-            deduction_type: document.getElementById('deduction_type').value,
-            itemized_deductions: parseNumber(document.getElementById('itemized_deductions').value),
-            child_tax_credit: parseNumber(document.getElementById('child_tax_credit').value),
-            other_credits: parseNumber(document.getElementById('other_credits').value),
-            state_tax_rate: parseNumber(document.getElementById('state_tax_rate').value),
-        };
-
-        try {
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-
-            if (submitBtnText) submitBtnText.textContent = originalBtnText;
-            if (!data.success) {
-                document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please try again." %}';
-                showState('error');
-                return;
-            }
-
-            document.getElementById('heroAmount').textContent = formatCurrency(data.take_home.annual);
-            document.getElementById('heroMonthly').textContent = formatCurrency(data.take_home.monthly);
-            document.getElementById('heroBiweekly').textContent = formatCurrency(data.take_home.biweekly);
-            document.getElementById('federalTax').textContent = formatCurrency(data.federal_tax.after_credits);
-            document.getElementById('ficaTax').textContent = formatCurrency(data.fica.total);
-            document.getElementById('stateTax').textContent = formatCurrency(data.state_tax.amount);
-            document.getElementById('totalTax').textContent = formatCurrency(data.totals.total_with_fica);
-            document.getElementById('marginalRate').textContent = data.rates.marginal + '%';
-            document.getElementById('effectiveFederal').textContent = data.rates.effective_federal.toFixed(1) + '%';
-            document.getElementById('effectiveTotal').textContent = data.rates.effective_total.toFixed(1) + '%';
-            document.getElementById('summaryGross').textContent = formatCurrency(data.income.gross);
-            document.getElementById('summaryPretax').textContent = '-' + formatCurrency(data.income.pretax_deductions);
-            document.getElementById('summaryAgi').textContent = formatCurrency(data.income.agi);
-            document.getElementById('deductionLabel').textContent = data.income.deduction_type === 'standard' ? '{% trans "Standard Deduction" %}' : '{% trans "Itemized Deductions" %}';
-            document.getElementById('summaryDeduction').textContent = '-' + formatCurrency(data.income.deduction);
-            document.getElementById('summaryTaxable').textContent = formatCurrency(data.income.taxable_income);
-            document.getElementById('socialSecurity').textContent = formatCurrency(data.fica.social_security);
-            document.getElementById('medicare').textContent = formatCurrency(data.fica.medicare);
-            document.getElementById('totalFica').textContent = formatCurrency(data.fica.total);
-
-            const bracketBody = document.getElementById('bracketTable');
-            bracketBody.innerHTML = data.federal_tax.breakdown.map(b =>
-                `<tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-900">${b.bracket}</td>
-                    <td class="px-4 py-3 text-sm text-center font-medium text-blue-600">${b.rate}</td>
-                    <td class="px-4 py-3 text-sm text-right text-gray-700">${formatCurrency(b.income)}</td>
-                    <td class="px-4 py-3 text-sm text-right font-medium text-red-600">${formatCurrency(b.tax)}</td>
-                </tr>`
-            ).join('');
-
-            renderBreakdownChart(data.chart_data);
-            renderTaxChart(data);
-            showState('results');
-            document.getElementById('resultsWrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            if (submitBtnText) submitBtnText.textContent = originalBtnText;
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-            showState('error');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Federal_0: '{% trans "Federal" %}',
+        trans_SocialSecurity_1: '{% trans "Social Security" %}',
+        trans_Medicare_2: '{% trans "Medicare" %}',
+        trans_State_3: '{% trans "State" %}',
+        trans_TaxAmount_4: '{% trans "Tax Amount" %}',
+        trans_Calculating_5: '{% trans "Calculating..." %}',
+        trans_AnerroroccurredPleas_6: '{% trans "An error occurred. Please try again." %}',
+        trans_StandardDeduction_7: '{% trans "Standard Deduction" %}',
+        trans_ItemizedDeductions_8: '{% trans "Itemized Deductions" %}',
+        trans_Anetworkerroroccurre_9: '{% trans "A network error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/income_tax_calculator.js' %}"></script>
 {% endblock %}

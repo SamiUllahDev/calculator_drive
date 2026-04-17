@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "college cost calculator, education savings, 529, college tuition calculator" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/college_cost_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -263,173 +264,18 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var yearlyChart = null;
-var savingsChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate College Costs" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate College Costs" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createYearlyChart(chartData) {
-        var canvas = document.getElementById('yearlyChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (yearlyChart) yearlyChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
-        yearlyChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'bar',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    function createSavingsChart(chartData) {
-        var container = document.getElementById('savingsChartContainer');
-        var canvas = document.getElementById('savingsChart');
-        if (!canvas || !checkChartJS()) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (!chartData) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (savingsChart) savingsChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + Number(v).toLocaleString(); };
-        savingsChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'line',
-            data: chartData.data || {},
-            options: opts
-        });
-        if (container) container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            child_age: document.getElementById('child_age').value,
-            college_type: document.getElementById('college_type').value,
-            years_in_college: document.getElementById('years_in_college').value,
-            inflation_rate: document.getElementById('inflation_rate').value,
-            current_savings: (document.getElementById('current_savings').value || '').replace(/,/g, ''),
-            expected_return: document.getElementById('expected_return').value
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var s = data.summary || {};
-            document.getElementById('heroValue').textContent = formatCurrency(s.total_projected_cost);
-            document.getElementById('heroYears').textContent = s.years_in_college || 4;
-            document.getElementById('heroCollegeType').textContent = s.college_type_display || '';
-
-            document.getElementById('detailYearsUntil').textContent = (s.years_until_college != null ? s.years_until_college : 0) + ' {% trans "years" %}';
-            document.getElementById('detailFirstYear').textContent = formatCurrency(s.first_year_cost);
-            document.getElementById('detailMonthlySave').textContent = formatCurrency(s.monthly_savings_needed != null ? s.monthly_savings_needed : 0);
-            document.getElementById('detailGap').textContent = formatCurrency(s.funding_gap != null ? s.funding_gap : 0);
-
-            var tbody = document.getElementById('yearlyCostsBody');
-            if (tbody && data.yearly_costs) {
-                tbody.innerHTML = '';
-                data.yearly_costs.forEach(function(r) {
-                    var tr = document.createElement('tr');
-                    tr.className = 'hover:bg-gray-50';
-                    tr.innerHTML = '<td class="px-3 py-2 text-gray-700">' + (r.college_year || r.year) + '</td><td class="px-3 py-2 text-right font-medium">' + formatCurrency(r.projected_cost) + '</td>';
-                    tbody.appendChild(tr);
-                });
-            }
-
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.yearly_chart) createYearlyChart(data.chart_data.yearly_chart);
-                if (data.chart_data.savings_chart) createSavingsChart(data.chart_data.savings_chart);
-                else document.getElementById('savingsChartContainer').classList.add('hidden');
-            }
-
-            initialState.classList.add('hidden');
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateCollegeCost_1: '{% trans "Calculate College Costs" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_years_9: '{% trans "years" %}',
+        trans_Networkorservererror_10: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/college_cost_calculator.js' %}"></script>
 {% endblock %}

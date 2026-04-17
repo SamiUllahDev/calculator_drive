@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Dew Point Calculator - Calculate Dew Point & Humidity Online Free" %}{% endblock %}
 {% block meta_description %}{% trans "Free dew point calculator. Calculate dew point from temperature and humidity, find relative humidity, or find temperature using the Magnus formula. Supports °C, °F, K. Comfort levels with step-by-step solutions. No sign-up needed." %}{% endblock %}
@@ -12,28 +12,19 @@
 {% block twitter_description %}{% trans "Calculate dew point, humidity, or temperature. Magnus formula with comfort levels. Free with step-by-step solutions." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/dew_point_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"{% trans "Dew Point Calculator - Free Online Tool" %}","description":"{% trans "Free dew point calculator using the Magnus formula. Calculate dew point from temperature and humidity, find relative humidity, or find temperature. Supports °C, °F, K. Comfort levels and step-by-step solutions." %}","applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1850"},"featureList":["{% trans 'Calculate dew point from temperature and humidity' %}","{% trans 'Find relative humidity from temperature and dew point' %}","{% trans 'Find temperature from dew point and humidity' %}","{% trans 'Convert °C, °F, K' %}","{% trans 'Comfort level assessment' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
+{"@context":"https://schema.org","@type":"WebApplication","name":'{% trans "Dew Point Calculator - Free Online Tool" %}',"description":'{% trans "Free dew point calculator using the Magnus formula. Calculate dew point from temperature and humidity, find relative humidity, or find temperature. Supports °C, °F, K. Comfort levels and step-by-step solutions." %}',"applicationCategory":"EducationalApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1850"},"featureList":["{% trans 'Calculate dew point from temperature and humidity' %}","{% trans 'Find relative humidity from temperature and dew point' %}","{% trans 'Find temperature from dew point and humidity' %}","{% trans 'Convert °C, °F, K' %}","{% trans 'Comfort level assessment' %}","{% trans 'Step-by-step solutions with charts' %}","{% trans 'Free online tool — no sign-up needed' %}"]}
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-blue-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6">
     <div class="max-w-7xl mx-auto">
-        <!-- Breadcrumb Navigation -->
-        <nav class="mb-6">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-cyan-600">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'other_calculators:index' %}" class="hover:text-cyan-600">{% trans "Other Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Dew Point Calculator" %}</li>
-            </ol>
-        </nav>
-        <header class="text-center mb-6 sm:mb-8">
+<header class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-cyan-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
             </div>
@@ -256,106 +247,13 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('calc-type').addEventListener('change', e => switchForm(e.target.value));
-
-    document.getElementById('dpForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const err = document.getElementById('errorState'), errMsg = document.getElementById('errorMsg');
-        const loading = document.getElementById('loadingState'), init = document.getElementById('initialState'), res = document.getElementById('results');
-        const btn = document.getElementById('calcBtnText');
-        err?.classList.add('hidden'); res?.classList.add('hidden'); init?.classList.add('hidden');
-        loading?.classList.remove('hidden');
-        if (btn) btn.textContent = "{% trans 'Calculating...' %}";
-        try {
-            const data = collectData();
-            const resp = await fetch(window.location.href, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(data)});
-            const r = await resp.json();
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            if (!r.success) { errMsg.textContent = r.error || "{% trans 'An error occurred.' %}"; err?.classList.remove('hidden'); return; }
-
-            document.getElementById('resultLabel').textContent = r.result_label || "{% trans 'Result' %}";
-            document.getElementById('resultValue').textContent = fnum(r.result);
-            document.getElementById('resultUnit').textContent = r.result_unit_symbol || '';
-            document.getElementById('resultFormula').textContent = r.formula || '';
-
-            const badge = document.getElementById('comfortBadge');
-            if (r.comfort) {
-                document.getElementById('comfortText').textContent = r.comfort;
-                badge?.classList.remove('hidden');
-            } else {
-                badge?.classList.add('hidden');
-            }
-
-            const sc = document.getElementById('stepsContent'); sc.innerHTML = '';
-            if (r.step_by_step) r.step_by_step.forEach(s => {
-                const d2 = document.createElement('div');
-                if (s === '') { d2.className = 'my-2'; }
-                else if (s.startsWith('  •')) { d2.className='ml-4 text-sm text-gray-700 border-l-4 border-cyan-400 pl-3 py-1 bg-white rounded-r'; d2.textContent = s.trim(); }
-                else if (s.startsWith('  ')) { d2.className='ml-4 p-2 bg-gray-900 text-green-400 rounded font-mono text-xs'; d2.textContent = s.trim(); }
-                else { d2.className='text-sm font-bold text-gray-900 mt-2'; d2.textContent = s; }
-                sc.appendChild(d2);
-            });
-
-            const cc = document.getElementById('chartCard');
-            if (r.chart_data && typeof Chart !== 'undefined') {
-                cc?.classList.remove('hidden');
-                if (resultChart) { resultChart.destroy(); resultChart = null; }
-                const key = Object.keys(r.chart_data)[0];
-                const cfg = r.chart_data[key];
-                if (cfg) resultChart = new Chart(document.getElementById('resultChart'), cfg);
-            } else {
-                cc?.classList.add('hidden');
-            }
-            res?.classList.remove('hidden');
-            setTimeout(() => res?.scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
-        } catch(e2) {
-            loading?.classList.add('hidden');
-            if (btn) btn.textContent = "{% trans 'Calculate Now' %}";
-            errMsg.textContent = "{% trans 'A network error occurred. Please try again.' %}";
-            err?.classList.remove('hidden');
-        }
-    });
-});
-
-function switchForm(type) {
-    document.querySelectorAll('.calc-form').forEach(el => el.classList.add('hidden'));
-    document.getElementById('form-' + type)?.classList.remove('hidden');
-    document.getElementById('results')?.classList.add('hidden');
-    document.getElementById('initialState')?.classList.remove('hidden');
-    document.getElementById('comfortBadge')?.classList.add('hidden');
-}
-
-function fnum(n) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {maximumFractionDigits: 1}); }
-
-function collectData() {
-    const ct = document.getElementById('calc-type').value;
-    const d = {calc_type: ct};
-
-    if (ct === 'dew_point') {
-        d.temperature = parseFloat(document.getElementById('dp_temp').value);
-        d.temp_unit = document.getElementById('dp_tu').value;
-        d.relative_humidity = parseFloat(document.getElementById('dp_rh').value);
-        d.result_unit = document.getElementById('dp_ru').value;
-    } else if (ct === 'relative_humidity') {
-        d.temperature = parseFloat(document.getElementById('rh_temp').value);
-        d.temp_unit = document.getElementById('rh_tu').value;
-        d.dew_point = parseFloat(document.getElementById('rh_dp').value);
-        d.dew_point_unit = document.getElementById('rh_du').value;
-    } else if (ct === 'temperature') {
-        d.dew_point = parseFloat(document.getElementById('t_dp').value);
-        d.dew_point_unit = document.getElementById('t_du').value;
-        d.relative_humidity = parseFloat(document.getElementById('t_rh').value);
-        d.result_unit = document.getElementById('t_ru').value;
-    } else if (ct === 'convert') {
-        d.value = parseFloat(document.getElementById('cv_val').value);
-        d.from_unit = document.getElementById('cv_fu').value;
-        d.to_unit = document.getElementById('cv_tu').value;
-    }
-    return d;
-}
+window.djangoContext = {
+        trans_Calculating_0: "{% trans 'Calculating...' %}",
+        trans_CalculateNow_1: "{% trans 'Calculate Now' %}",
+        trans_Anerroroccurred_2: "{% trans 'An error occurred.' %}",
+        trans_Result_3: "{% trans 'Result' %}",
+        trans_Anetworkerroroccurre_5: "{% trans 'A network error occurred. Please try again.' %}",
+    };
 </script>
+<script src="{% static 'other_calculators/js/dew_point_calculator.js' %}"></script>
 {% endblock %}

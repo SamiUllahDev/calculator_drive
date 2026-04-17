@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Average Return Calculator - CAGR & Investment Performance" %}{% endblock %}
 {% block meta_description %}{% trans "Free average return calculator. CAGR, arithmetic and geometric mean, risk metrics. Compare start/end values or annual returns. Get instant results with growth chart." %}{% endblock %}
 {% block meta_keywords %}{% trans "average return calculator, CAGR calculator, compound annual growth rate, investment performance, geometric mean" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/average_return_calculator.css' %}">
 <meta name="robots" content="index, follow">
 <meta property="og:title" content="{% trans 'Average Return Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate CAGR and investment performance from start/end values or annual returns.' %}">
@@ -469,195 +470,20 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var growthChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    }
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            if (this.value === 'simple') {
-                document.getElementById('simple_fields').classList.remove('hidden');
-                document.getElementById('periodic_fields').classList.add('hidden');
-            } else {
-                document.getElementById('simple_fields').classList.add('hidden');
-                document.getElementById('periodic_fields').classList.remove('hidden');
-            }
-        });
-    });
-
-    document.getElementById('add_return').addEventListener('click', function() {
-        var container = document.getElementById('returns_container');
-        var count = container.querySelectorAll('.annual-return').length + 1;
-        var row = document.createElement('div');
-        row.className = 'flex items-center gap-3';
-        row.innerHTML = '<span class="text-gray-700 text-sm font-medium w-14 shrink-0">Year ' + count + '</span><div class="relative flex-1 max-w-[8rem]"><input type="number" class="annual-return w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0" step="0.1" placeholder="0" aria-label="Return year ' + count + '"><span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-sm">%</span></div>';
-        container.appendChild(row);
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        errorState.classList.add('hidden');
-        loadingState.classList.remove('hidden');
-        calculateBtn.disabled = true;
-        calculateBtnText.textContent = '{% trans "Calculating..." %}';
-
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl) {
-            errorMessage.textContent = '{% trans "Session expired. Please refresh the page." %}';
-            errorState.classList.remove('hidden');
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
-            return;
-        }
-
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var payload = { calc_type: calcType };
-
-        if (calcType === 'simple') {
-            payload.initial_value = document.getElementById('initial_value').value;
-            payload.final_value = document.getElementById('final_value').value;
-            payload.years = document.getElementById('years').value;
-        } else {
-            var returns = [];
-            document.querySelectorAll('.annual-return').forEach(function(input) {
-                returns.push(parseFloat(input.value) || 0);
-            });
-            payload.returns = returns;
-        }
-
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfEl.value },
-                body: JSON.stringify(payload)
-            });
-            var data;
-            try {
-                data = await response.json();
-            } catch (parseErr) {
-                loadingState.classList.add('hidden');
-                calculateBtn.disabled = false;
-                calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
-                errorMessage.textContent = response.ok ? '{% trans "Invalid response from server." %}' : ('{% trans "Server error." %} ( ' + response.status + ' )');
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
-
-            if (!data.success) {
-                errorMessage.textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                errorState.classList.remove('hidden');
-                return;
-            }
-
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-
-            var cagrVal = data.cagr != null ? data.cagr : 0;
-            var resultCard = document.getElementById('resultCard');
-            if (resultCard) {
-                if (typeof cagrVal === 'number' && cagrVal >= 0) {
-                    resultCard.className = 'bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-                } else if (typeof cagrVal === 'number' && cagrVal < 0) {
-                    resultCard.className = 'bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-                } else {
-                    resultCard.className = 'bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-                }
-            }
-            var yearsVal = data.years != null ? data.years : data.num_years || 0;
-            var totalRet = data.total_return != null ? data.total_return : 0;
-            var absGain = data.absolute_gain != null ? data.absolute_gain : 0;
-
-            document.getElementById('cagr_display').textContent = (typeof cagrVal === 'number' ? cagrVal.toFixed(2) : cagrVal) + '%';
-            document.getElementById('cagr_detail').textContent = '{% trans "Your investment grew" %} ' + (typeof totalRet === 'number' ? totalRet.toFixed(1) : totalRet) + '% {% trans "over" %} ' + yearsVal + ' {% trans "years" %}';
-
-            document.getElementById('arithmetic_mean').textContent = data.arithmetic_mean != null ? data.arithmetic_mean.toFixed(2) + '%' : '-';
-            document.getElementById('geometric_mean').textContent = data.geometric_mean != null ? data.geometric_mean.toFixed(2) + '%' : (cagrVal != null ? cagrVal.toFixed(2) + '%' : '-');
-            document.getElementById('total_return').textContent = (typeof totalRet === 'number' ? totalRet.toFixed(2) : totalRet) + '%';
-            document.getElementById('absolute_gain').textContent = typeof absGain === 'number' ? formatCurrency(absGain) : '-';
-
-            document.getElementById('your_bar_label').textContent = (typeof cagrVal === 'number' ? cagrVal.toFixed(2) : cagrVal) + '%';
-            document.getElementById('your_bar').style.width = Math.min(100, Math.max(0, (typeof cagrVal === 'number' ? cagrVal : 0) * 6.7)) + '%';
-
-            if (data.std_dev !== undefined && data.std_dev !== null) {
-                document.getElementById('risk_section').classList.remove('hidden');
-                document.getElementById('std_dev').textContent = data.std_dev.toFixed(2) + '%';
-                document.getElementById('best_year').textContent = (data.best_year != null ? data.best_year.toFixed(1) : '-') + '%';
-                document.getElementById('worst_year').textContent = (data.worst_year != null ? data.worst_year.toFixed(1) : '-') + '%';
-                document.getElementById('positive_years').textContent = (data.positive_years != null ? data.positive_years : '-') + '/' + (data.num_years != null ? data.num_years : '-');
-            } else {
-                document.getElementById('risk_section').classList.add('hidden');
-            }
-
-            var ctx = document.getElementById('growthChart');
-            if (ctx && typeof Chart !== 'undefined') {
-                if (growthChart) growthChart.destroy();
-                var labels = [];
-                var values = [];
-                if (data.growth_data && data.growth_data.length) {
-                    data.growth_data.forEach(function(d) {
-                        labels.push('{% trans "Year" %} ' + d.year);
-                        values.push(d.value);
-                    });
-                } else if (data.initial_value != null && data.final_value != null && yearsVal > 0) {
-                    var rate = 1 + (cagrVal / 100);
-                    for (var i = 0; i <= yearsVal; i++) {
-                        labels.push('{% trans "Year" %} ' + i);
-                        values.push(data.initial_value * Math.pow(rate, i));
-                    }
-                }
-                if (values.length) {
-                    growthChart = new Chart(ctx.getContext('2d'), {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: '{% trans "Portfolio Value" %}',
-                                data: values,
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                fill: true,
-                                tension: 0.4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: true } },
-                            scales: {
-                                x: { ticks: { maxRotation: 45 } },
-                                y: { beginAtZero: false }
-                            }
-                        }
-                    });
-                }
-            }
-
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            console.error(err);
-            loadingState.classList.add('hidden');
-            calculateBtn.disabled = false;
-            calculateBtnText.textContent = '{% trans "Calculate Returns" %}';
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_SessionexpiredPlease_1: '{% trans "Session expired. Please refresh the page." %}',
+        trans_CalculateReturns_2: '{% trans "Calculate Returns" %}',
+        trans_Invalidresponsefroms_4: '{% trans "Invalid response from server." %}',
+        trans_Servererror_5: '{% trans "Server error." %}',
+        trans_AnerroroccurredPleas_7: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_Yourinvestmentgrew_8: '{% trans "Your investment grew" %}',
+        trans_over_9: '{% trans "over" %}',
+        trans_years_10: '{% trans "years" %}',
+        trans_Year_11: '{% trans "Year" %}',
+        trans_PortfolioValue_13: '{% trans "Portfolio Value" %}',
+        trans_AnerroroccurredPleas_15: '{% trans "An error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/average_return_calculator.js' %}"></script>
 {% endblock %}

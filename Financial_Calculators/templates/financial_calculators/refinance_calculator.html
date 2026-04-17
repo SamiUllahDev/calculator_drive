@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "refinance calculator, mortgage refinance, break-even, refinance savings" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/refinance_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -313,151 +314,18 @@
 </div>
 
 <script>
-var breakdownChart = null;
-var balanceChart = null;
-
-function checkChartJS() {
-    return typeof Chart !== 'undefined';
-}
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate Refinance Savings" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate Refinance Savings" %}';
-    }
-
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'doughnut',
-            data: chartData.data || {},
-            options: chartData.options || { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function createBalanceChart(chartData) {
-        var canvas = document.getElementById('balanceChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (balanceChart) balanceChart.destroy();
-        var opts = chartData.options || { responsive: true, maintainAspectRatio: false };
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : Number(v).toLocaleString()); };
-        balanceChart = new Chart(canvas.getContext('2d'), {
-            type: chartData.type || 'line',
-            data: chartData.data || {},
-            options: opts
-        });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var payload = {
-            current_balance: (document.getElementById('current_balance').value || '').replace(/,/g, ''),
-            current_rate: document.getElementById('current_rate').value,
-            current_payment: (document.getElementById('current_payment').value || '').replace(/,/g, ''),
-            months_remaining: document.getElementById('months_remaining').value,
-            new_rate: document.getElementById('new_rate').value,
-            new_term: document.getElementById('new_term').value,
-            closing_costs: (document.getElementById('closing_costs').value || '').replace(/,/g, ''),
-            points: document.getElementById('points').value,
-            roll_costs_into_loan: document.getElementById('roll_costs').checked,
-            cash_out: (document.getElementById('cash_out').value || '').replace(/,/g, '')
-        };
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            var hero = document.getElementById('resultHero');
-            var savings = data.savings || {};
-            var rec = data.recommendation || '';
-            document.getElementById('heroValue').textContent = rec;
-            document.getElementById('heroMonthlySavings').textContent = formatCurrency(savings.monthly_savings);
-            document.getElementById('detailMonthlySavings').textContent = formatCurrency(savings.monthly_savings);
-            document.getElementById('detailBreakEven').textContent = savings.break_even_months > 0 ? savings.break_even_months + ' {% trans "months" %}' : (savings.break_even_months === 0 ? '—' : 'N/A');
-            document.getElementById('detailLifetimeSavings').textContent = formatCurrency(savings.lifetime_savings);
-            document.getElementById('detailInterestSavings').textContent = formatCurrency(savings.interest_savings);
-            if (savings.lifetime_savings > 0 && savings.break_even_months >= 0) {
-                hero.className = 'bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-            } else {
-                hero.className = 'bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-6 sm:p-8 shadow-xl text-white';
-            }
-            var cur = data.current_loan || {};
-            var newL = data.new_loan || {};
-            document.getElementById('current_pmt').textContent = formatCurrency(cur.payment);
-            document.getElementById('new_pmt').textContent = formatCurrency(newL.payment);
-            document.getElementById('current_rate_display').textContent = (cur.rate != null ? cur.rate : 0) + '%';
-            document.getElementById('new_rate_display').textContent = (newL.rate != null ? newL.rate : 0) + '%';
-            document.getElementById('current_int').textContent = formatCurrency(cur.remaining_interest);
-            document.getElementById('new_int').textContent = formatCurrency(newL.total_interest);
-            if (data.chart_data && checkChartJS()) {
-                if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                if (data.chart_data.balance_chart) createBalanceChart(data.chart_data.balance_chart);
-            }
-            initialState.classList.add('hidden');
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_CalculateRefinanceSa_1: '{% trans "Calculate Refinance Savings" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_months_9: '{% trans "months" %}',
+        trans_Networkorservererror_10: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/refinance_calculator.js' %}"></script>
 {% endblock %}

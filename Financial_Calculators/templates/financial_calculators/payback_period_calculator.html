@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "payback period calculator, investment payback, discounted payback, recovery period" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/payback_period_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -260,175 +261,32 @@
 </div>
 
 <script>
-var valueChart = null;
-var breakdownChart = null;
-
-function checkChartJS() { return typeof Chart !== 'undefined'; }
-
-function formatCurrency(n) {
-    var num = (n !== undefined && n !== null && !isNaN(n)) ? Number(n) : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-}
-
-function getVal(id) {
-    var el = document.getElementById(id);
-    return (el && el.value ? el.value.replace(/,/g, '').trim() : '') || '0';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var errorMessage = document.getElementById('errorMessage');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var initialState = document.getElementById('initialState');
-    var resultsWrapper = document.getElementById('resultsWrapper');
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var v = this.value;
-            document.getElementById('simpleFields').classList.toggle('hidden', v !== 'simple');
-            document.getElementById('unevenFields').classList.toggle('hidden', v !== 'uneven');
-            document.getElementById('targetFields').classList.toggle('hidden', v !== 'target');
-        });
-    });
-
-    document.getElementById('addYear').addEventListener('click', function() {
-        var container = document.getElementById('cashFlowsContainer');
-        var n = container.querySelectorAll('.cash-flow-row').length + 1;
-        var row = document.createElement('div');
-        row.className = 'cash-flow-row flex gap-2 items-center';
-        row.innerHTML = '<span class="text-gray-600 w-14 text-sm">{% trans "Year" %} ' + n + '</span><div class="relative flex-1"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span><input type="text" class="cash-flow w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-right" value="0"></div>';
-        container.appendChild(row);
-    });
-
-    function showLoading(show) {
-        loadingState.classList.toggle('hidden', !show);
-        errorState.classList.add('hidden');
-        calculateBtn.disabled = show;
-        calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        loadingState.classList.add('hidden');
-        errorState.classList.remove('hidden');
-        errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        calculateBtn.disabled = false;
-        calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-
-    function createValueChart(chartData) {
-        var canvas = document.getElementById('valueChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (valueChart) valueChart.destroy();
-        var opts = chartData.options || {};
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); };
-        valueChart = new Chart(canvas.getContext('2d'), { type: chartData.type || 'line', data: chartData.data || {}, options: opts });
-    }
-    function createBreakdownChart(chartData) {
-        var canvas = document.getElementById('breakdownChart');
-        if (!canvas || !chartData || !checkChartJS()) return;
-        if (breakdownChart) breakdownChart.destroy();
-        var opts = chartData.options || {};
-        opts.scales = opts.scales || {};
-        opts.scales.y = opts.scales.y || {};
-        opts.scales.y.ticks = opts.scales.y.ticks || {};
-        opts.scales.y.ticks.callback = function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); };
-        breakdownChart = new Chart(canvas.getContext('2d'), { type: chartData.type || 'bar', data: chartData.data || {}, options: opts });
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var payload = {
-            calc_type: calcType,
-            initial_investment: getVal('initial_investment')
-        };
-        if (calcType === 'simple') {
-            payload.annual_cash_flow = getVal('annual_cash_flow');
-        } else if (calcType === 'uneven') {
-            var flows = [];
-            document.querySelectorAll('.cash-flow').forEach(function(inp) { flows.push((inp.value || '').replace(/,/g, '').trim() || '0'); });
-            payload.cash_flows = flows;
-            payload.discount_rate = getVal('discount_rate');
-        } else if (calcType === 'target') {
-            payload.target_payback = getVal('target_payback');
-            payload.discount_rate = getVal('discount_rate_target');
-        }
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) { showError('{% trans "Session expired. Please refresh the page and try again." %}'); return; }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrfEl.value }, body: JSON.stringify(payload) });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try { data = text ? JSON.parse(text) : {}; } catch (err) {
-                if (resp.status === 403) showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                else if (resp.status >= 500) showError('{% trans "Server error. Please try again later." %}');
-                else showError('{% trans "Invalid response from server. Please try again." %}');
-                return;
-            }
-            if (!data.success) { showError(data.error || '{% trans "Invalid response." %}'); return; }
-
-            var ct = data.calc_type;
-            document.getElementById('targetResultBlock').classList.add('hidden');
-            document.getElementById('timelineWrap').classList.remove('hidden');
-            document.getElementById('valueChartWrap').classList.remove('hidden');
-            document.getElementById('breakdownChartWrap').classList.remove('hidden');
-
-            if (ct === 'target') {
-                document.getElementById('heroLabel').textContent = '{% trans "Required cash flow" %}';
-                document.getElementById('heroValue').textContent = formatCurrency(data.required_annual_simple);
-                document.getElementById('heroDetail').textContent = '{% trans "per year (simple)" %} • ' + formatCurrency(data.required_annual_discounted) + ' {% trans "discounted" %}';
-                document.getElementById('detailInitial').textContent = formatCurrency(data.initial_investment);
-                document.getElementById('detailSimple').textContent = formatCurrency(data.required_annual_simple) + ' {% trans "/yr" %}';
-                document.getElementById('detailDiscounted').textContent = formatCurrency(data.required_annual_discounted) + ' {% trans "/yr" %}';
-                document.getElementById('detailNet').textContent = '—';
-                document.getElementById('targetResultBlock').classList.remove('hidden');
-                document.getElementById('targetResultBody').innerHTML = '<p>{% trans "To recover" %} ' + formatCurrency(data.initial_investment) + ' {% trans "in" %} ' + data.target_payback_years + ' {% trans "years" %}:</p><p><strong>{% trans "Simple:" %}</strong> ' + formatCurrency(data.required_annual_simple) + ' {% trans "per year" %} (' + formatCurrency(data.required_monthly_simple) + ' {% trans "per month" %})</p><p><strong>{% trans "Discounted" %} (' + data.discount_rate + '%):</strong> ' + formatCurrency(data.required_annual_discounted) + ' {% trans "per year" %} (' + formatCurrency(data.required_monthly_discounted) + ' {% trans "per month" %})</p>';
-                document.getElementById('timelineWrap').classList.add('hidden');
-                document.getElementById('valueChartWrap').classList.add('hidden');
-                document.getElementById('breakdownChartWrap').classList.add('hidden');
-            } else {
-                var payback = data.payback_years != null ? data.payback_years : data.simple_payback;
-                var years = payback != null ? Math.floor(payback) : 0;
-                var months = payback != null ? Math.round((payback - years) * 12) : 0;
-                document.getElementById('heroLabel').textContent = '{% trans "Payback period" %}';
-                document.getElementById('heroValue').textContent = (payback != null ? payback.toFixed(1) : '—') + ' {% trans "years" %}';
-                document.getElementById('heroDetail').textContent = years + ' {% trans "years" %}, ' + months + ' {% trans "months" %}';
-                document.getElementById('detailInitial').textContent = formatCurrency(data.initial_investment);
-                document.getElementById('detailSimple').textContent = (data.simple_payback != null ? data.simple_payback.toFixed(2) : (data.payback_years != null ? data.payback_years.toFixed(2) : '—')) + ' {% trans "yr" %}';
-                document.getElementById('detailDiscounted').textContent = data.discounted_payback != null ? data.discounted_payback.toFixed(2) + ' {% trans "yr" %}' : 'N/A';
-                document.getElementById('detailNet').textContent = formatCurrency(data.net_return != null ? data.net_return : (data.total_return != null ? data.total_return : 0));
-                var tbody = document.getElementById('timelineBody');
-                tbody.innerHTML = '';
-                if (data.breakdown) {
-                    data.breakdown.forEach(function(row) {
-                        var tr = document.createElement('tr');
-                        tr.className = 'hover:bg-gray-50';
-                        tr.innerHTML = '<td class="px-3 py-2">' + row.year + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.cash_flow) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.cumulative) + '</td><td class="px-3 py-2 text-right">' + formatCurrency(row.remaining) + '</td><td class="px-3 py-2 text-right">' + (row.recovered_percent != null ? row.recovered_percent.toFixed(1) : 0) + '%</td>';
-                        tbody.appendChild(tr);
-                    });
-                }
-                if (data.chart_data && checkChartJS()) {
-                    if (data.chart_data.value_chart) createValueChart(data.chart_data.value_chart);
-                    if (data.chart_data.breakdown_chart) createBreakdownChart(data.chart_data.breakdown_chart);
-                }
-            }
-
-            resultsWrapper.classList.remove('hidden');
-            if (resultsWrapper) resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Year_0: '{% trans "Year" %}',
+        trans_Calculating_1: '{% trans "Calculating..." %}',
+        trans_Calculate_2: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_3: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_5: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_6: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_7: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_8: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_9: '{% trans "Invalid response." %}',
+        trans_Requiredcashflow_10: '{% trans "Required cash flow" %}',
+        trans_peryearsimple_11: '{% trans "per year (simple)" %}',
+        trans_discounted_12: '{% trans "discounted" %}',
+        trans_yr_13: '{% trans "/yr" %}',
+        trans_Torecover_15: '{% trans "To recover" %}',
+        trans_in_16: '{% trans "in" %}',
+        trans_years_17: '{% trans "years" %}',
+        trans_Simple_18: '{% trans "Simple:" %}',
+        trans_peryear_19: '{% trans "per year" %}',
+        trans_permonth_20: '{% trans "per month" %}',
+        trans_Discounted_21: '{% trans "Discounted" %}',
+        trans_Paybackperiod_24: '{% trans "Payback period" %}',
+        trans_months_27: '{% trans "months" %}',
+        trans_yr_28: '{% trans "yr" %}',
+        trans_Networkorservererror_30: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/payback_period_calculator.js' %}"></script>
 {% endblock %}

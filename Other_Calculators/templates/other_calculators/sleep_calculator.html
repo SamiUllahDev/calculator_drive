@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Sleep Calculator - Find Your Optimal Sleep & Wake Times" %}{% endblock %}
 {% block meta_description %}{% trans "Free online Sleep Calculator. Calculate the best time to sleep and wake up based on 90-minute sleep cycles. Get optimal rest by waking at the end of a sleep cycle." %}{% endblock %}
@@ -13,6 +13,7 @@
 {% block twitter_description %}{% trans "Calculate the best time to sleep and wake up based on 90-minute sleep cycles. Free online calculator." %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'other_calculators/css/sleep_calculator.css' %}">
 {% endblock %}
 
 {% block structured_data %}
@@ -335,232 +336,19 @@
 </div>
 
 <script>
-let resultChart = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const tabs = {
-        'tabWake': ['wakeSection', 'wake_time'],
-        'tabBed': ['bedSection', 'bed_time'],
-        'tabNow': ['nowSection', 'sleep_now']
+window.djangoContext = {
+        trans_Anerroroccurred_0: '{% trans "An error occurred." %}',
+        trans_Error_1: '{% trans "Error" %}',
+        trans_AnerroroccurredPleas_3: '{% trans "An error occurred. Please try again." %}',
+        trans_sleepcycles_5: '{% trans "sleep cycles" %}',
+        trans_hours_6: '{% trans "hours" %}',
+        trans_RecommendedWakeTime_7: '{% trans "Recommended Wake Time" %}',
+        trans_RecommendedBedTime_8: '{% trans "Recommended Bed Time" %}',
+        trans_AllWakeTimeOptions_9: '{% trans "All Wake Time Options" %}',
+        trans_AllBedTimeOptions_10: '{% trans "All Bed Time Options" %}',
+        trans_cycles_12: '{% trans "cycles" %}',
+        url_other_calculatorssle_0: '{% url "other_calculators:sleep_calculator" %}',
     };
-    
-    // Tab switching
-    Object.keys(tabs).forEach(tabId => {
-        document.getElementById(tabId).addEventListener('click', function() {
-            Object.entries(tabs).forEach(([id, [section]]) => {
-                document.getElementById(id).classList.remove('border-indigo-600', 'text-indigo-600');
-                document.getElementById(id).classList.add('border-transparent', 'text-gray-500');
-                document.getElementById(section).classList.add('hidden');
-            });
-            this.classList.add('border-indigo-600', 'text-indigo-600');
-            this.classList.remove('border-transparent', 'text-gray-500');
-            document.getElementById(tabs[tabId][0]).classList.remove('hidden');
-            
-            document.getElementById('errorMessage').classList.add('hidden');
-            document.getElementById('results').classList.add('hidden');
-            document.getElementById('chartSection').classList.add('hidden');
-            document.getElementById('tipsSection').classList.add('hidden');
-            if (resultChart) {
-                resultChart.destroy();
-                resultChart = null;
-            }
-        });
-    });
-    
-    // Form handlers
-    document.getElementById('wakeForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        calculate('wake_time', {
-            bed_hour: parseInt(document.getElementById('bed_hour').value),
-            bed_minute: parseInt(document.getElementById('bed_minute').value)
-        });
-    });
-    
-    document.getElementById('bedForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        calculate('bed_time', {
-            wake_hour: parseInt(document.getElementById('wake_hour').value),
-            wake_minute: parseInt(document.getElementById('wake_minute').value)
-        });
-    });
-    
-    document.getElementById('nowForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        calculate('sleep_now', {});
-    });
-    document.getElementById('resetBtn').addEventListener('click', resetSleep);
-    document.querySelectorAll('.resetBtnAlt').forEach(btn => btn.addEventListener('click', resetSleep));
-});
-
-function resetSleep() {
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('initialState').classList.remove('hidden');
-    document.getElementById('errorState').classList.add('hidden');
-    document.getElementById('chartSection').classList.add('hidden');
-    document.getElementById('tipsSection').classList.add('hidden');
-    if (resultChart) {
-        resultChart.destroy();
-        resultChart = null;
-    }
-    document.getElementById('tabWake').click();
-}
-
-async function calculate(calcType, data) {
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    if (errorState) errorState.classList.add('hidden');
-    try {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        const token = csrfToken ? csrfToken.value : getCookie('csrftoken');
-        const response = await fetch('{% url "other_calculators:sleep_calculator" %}', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRFToken': token
-            },
-            body: JSON.stringify({calc_type: calcType, ...data})
-        });
-        
-        const rawText = await response.text();
-        let result;
-        try {
-            result = JSON.parse(rawText);
-        } catch (e) {
-            if (!response.ok) throw new Error(rawText || 'HTTP ' + response.status);
-            throw e;
-        }
-        if (!response.ok) throw new Error(result.error || 'HTTP ' + response.status);
-        
-        if (!result.success) {
-            if (errorState && errorMessage) {
-                errorMessage.textContent = result.error || '{% trans "An error occurred." %}';
-                errorState.classList.remove('hidden');
-            } else {
-                alert('{% trans "Error" %}: ' + (result.error || '{% trans "An error occurred." %}'));
-            }
-            return;
-        }
-        
-        displayResults(result);
-        document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        
-    } catch (error) {
-        console.error('Error:', error);
-        if (errorState && errorMessage) {
-            errorMessage.textContent = '{% trans "An error occurred. Please try again." %}';
-            errorState.classList.remove('hidden');
-        } else {
-            alert('{% trans "An error occurred. Please try again." %}');
-        }
-    }
-}
-
-function displayResults(result) {
-    document.getElementById('initialState').classList.add('hidden');
-    document.getElementById('results').classList.remove('hidden');
-    
-    // Update recommended
-    const recommended = result.recommended;
-    document.getElementById('recommendedTime').textContent = recommended.time;
-    document.getElementById('recommendedInfo').textContent = 
-        `${recommended.cycles} {% trans "sleep cycles" %} • ${recommended.sleep_hours} {% trans "hours" %}`;
-    
-    // Determine which times to show
-    const times = result.wake_times || result.bed_times;
-    const isWakeTime = !!result.wake_times;
-    
-    document.getElementById('resultLabel').textContent = isWakeTime ? 
-        '{% trans "Recommended Wake Time" %}' : '{% trans "Recommended Bed Time" %}';
-    document.getElementById('optionsTitle').textContent = isWakeTime ?
-        '{% trans "All Wake Time Options" %}' : '{% trans "All Bed Time Options" %}';
-    
-    // Update options grid
-    const colors = {
-        'green': 'bg-green-50 border-green-200',
-        'blue': 'bg-blue-50 border-blue-200',
-        'yellow': 'bg-yellow-50 border-yellow-200',
-        'red': 'bg-red-50 border-red-200'
-    };
-    
-    document.getElementById('optionsGrid').innerHTML = times.map(t => `
-        <div class="border rounded-lg p-4 text-center ${colors[t.quality.color] || 'bg-gray-50'}">
-            <p class="text-2xl font-bold text-gray-900">${t.time}</p>
-            <p class="text-sm text-gray-600 mt-1">${t.sleep_hours} {% trans "hours" %}</p>
-            <p class="text-xs text-gray-500 mt-1">${t.cycles} {% trans "cycles" %} • ${t.quality.rating}</p>
-        </div>
-    `).join('');
-    
-    // Display step-by-step solution
-    if (result.step_by_step && result.step_by_step.length > 0) {
-        const stepByStepDiv = document.getElementById('stepByStep');
-        let stepNum = 0;
-        let stepsHtml = '';
-        result.step_by_step.forEach(step => {
-            if (step === '') {
-                stepsHtml += '<div class="my-3"></div>';
-            } else {
-                const isStepHeader = /^Step\s*\d+/i.test(step);
-                const escaped = step.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                if (isStepHeader) {
-                    stepNum++;
-                    stepsHtml += `<div class="flex items-start gap-3 mb-4 p-4 bg-white rounded-lg border-l-4 border-blue-500 shadow-sm"><div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${stepNum}</div><div class="flex-1"><p class="text-gray-800 leading-relaxed text-sm">${escaped}</p></div></div>`;
-                } else {
-                    stepsHtml += `<p class="text-sm text-gray-700 mb-2 pl-2">${escaped}</p>`;
-                }
-            }
-        });
-        stepByStepDiv.innerHTML = stepsHtml;
-    }
-    
-    // Update tips
-    if (result.tips && result.tips.length > 0) {
-        document.getElementById('tipsList').innerHTML = result.tips.map(tip => 
-            `<li class="flex items-start"><span class="text-green-500 mr-2">✓</span><span>${tip}</span></li>`
-        ).join('');
-        document.getElementById('tipsSection').classList.remove('hidden');
-    }
-    
-    // Display chart if available
-    if (result.chart_data) {
-        displayChart(result.chart_data);
-    }
-}
-
-function displayChart(chartData) {
-    const chartSection = document.getElementById('chartSection');
-    const canvas = document.getElementById('resultChart');
-    const ctx = canvas.getContext('2d');
-    
-    // Destroy existing chart
-    if (resultChart) {
-        resultChart.destroy();
-    }
-    
-    // Find the first chart config
-    const chartKey = Object.keys(chartData)[0];
-    const config = chartData[chartKey];
-    
-    if (config) {
-        resultChart = new Chart(ctx, config);
-        chartSection.classList.remove('hidden');
-    }
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
 </script>
+<script src="{% static 'other_calculators/js/sleep_calculator.js' %}"></script>
 {% endblock %}

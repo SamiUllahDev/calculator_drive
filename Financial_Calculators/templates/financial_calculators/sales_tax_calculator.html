@@ -7,6 +7,7 @@
 {% block meta_keywords %}{% trans "sales tax calculator, tax calculator, calculate sales tax, extract tax, tax rate" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/sales_tax_calculator.css' %}">
 <meta name="robots" content="index, follow">
 {% endblock %}
 
@@ -290,147 +291,24 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const loadingState = document.getElementById('loadingState');
-    const errorState = document.getElementById('errorState');
-    const errorMessage = document.getElementById('errorMessage');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const calculateBtnText = document.getElementById('calculateBtnText');
-    const initialState = document.getElementById('initialState');
-    const resultsWrapper = document.getElementById('resultsWrapper');
-    let breakdownChart = null;
-
-    document.querySelectorAll('input[name="calc_type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            const mode = this.value;
-            document.getElementById('addTaxFields').classList.toggle('hidden', mode !== 'add_tax');
-            document.getElementById('extractTaxFields').classList.toggle('hidden', mode !== 'extract_tax');
-            document.getElementById('findRateFields').classList.toggle('hidden', mode !== 'find_rate');
-            initialState.classList.remove('hidden');
-            resultsWrapper.classList.add('hidden');
-        });
-    });
-
-    function showLoading(show) {
-        if (loadingState) loadingState.classList.toggle('hidden', !show);
-        if (errorState) errorState.classList.add('hidden');
-        if (calculateBtn) calculateBtn.disabled = show;
-        if (calculateBtnText) calculateBtnText.textContent = show ? '{% trans "Calculating..." %}' : '{% trans "Calculate" %}';
-    }
-    function showError(msg) {
-        if (loadingState) loadingState.classList.add('hidden');
-        if (errorState) errorState.classList.remove('hidden');
-        if (errorMessage) errorMessage.textContent = msg || '{% trans "An error occurred." %}';
-        if (calculateBtn) calculateBtn.disabled = false;
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-    }
-    function formatMoney(n) { return '$' + Number(n).toFixed(2); }
-
-    function renderChart(chartData) {
-        var container = document.getElementById('chartContainer');
-        var canvas = document.getElementById('breakdownChart');
-        if (!chartData || !chartData.breakdown_chart || !canvas) {
-            if (container) container.classList.add('hidden');
-            return;
-        }
-        if (breakdownChart) breakdownChart.destroy();
-        var config = chartData.breakdown_chart;
-        breakdownChart = new Chart(canvas.getContext('2d'), {
-            type: config.type || 'doughnut',
-            data: config.data || {},
-            options: config.options || { responsive: true, maintainAspectRatio: false }
-        });
-        container.classList.remove('hidden');
-    }
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsWrapper.classList.add('hidden');
-        var calcType = document.querySelector('input[name="calc_type"]:checked').value;
-        var payload = { calc_type: calcType };
-        if (calcType === 'add_tax') {
-            payload.price = document.getElementById('price').value;
-            payload.tax_rate = document.getElementById('tax_rate').value;
-        } else if (calcType === 'extract_tax') {
-            payload.price = document.getElementById('total_price').value;
-            payload.tax_rate = document.getElementById('extract_tax_rate').value;
-        } else {
-            payload.before_tax = document.getElementById('before_tax').value;
-            payload.total = document.getElementById('total_after').value;
-        }
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfEl || !csrfEl.value) {
-            showError('{% trans "Session expired. Please refresh the page and try again." %}');
-            return;
-        }
-        showLoading(true);
-        try {
-            var resp = await fetch(window.location.href, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': csrfEl.value
-                },
-                body: JSON.stringify(payload)
-            });
-            var text = await resp.text();
-            showLoading(false);
-            var data = null;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (parseErr) {
-                if (resp.status === 403) {
-                    showError('{% trans "Session expired or forbidden. Please refresh the page and try again." %}');
-                } else if (resp.status >= 500) {
-                    showError('{% trans "Server error. Please try again later." %}');
-                } else {
-                    showError('{% trans "Invalid response from server. Please try again." %}');
-                }
-                return;
-            }
-            if (!data.success) {
-                showError(data.error || '{% trans "Invalid response." %}');
-                return;
-            }
-            initialState.classList.add('hidden');
-            resultsWrapper.classList.remove('hidden');
-
-            var heroLabel = document.getElementById('heroLabel');
-            var heroValue = document.getElementById('heroValue');
-            var heroSub = document.getElementById('heroSub');
-            if (calcType === 'add_tax') {
-                heroLabel.textContent = '{% trans "Total" %}';
-                heroValue.textContent = formatMoney(data.total);
-                heroSub.textContent = '{% trans "Before tax" %}: ' + formatMoney(data.before_tax) + ' • {% trans "Tax" %}: ' + formatMoney(data.tax_amount);
-            } else if (calcType === 'extract_tax') {
-                heroLabel.textContent = '{% trans "Before Tax" %}';
-                heroValue.textContent = formatMoney(data.before_tax);
-                heroSub.textContent = '{% trans "Total paid" %}: ' + formatMoney(data.total) + ' • {% trans "Tax" %}: ' + formatMoney(data.tax_amount);
-            } else {
-                heroLabel.textContent = '{% trans "Tax Rate" %}';
-                heroValue.textContent = Number(data.tax_rate).toFixed(2) + '%';
-                heroSub.textContent = '{% trans "Tax amount" %}: ' + formatMoney(data.tax_amount);
-            }
-
-            document.getElementById('detailBeforeTax').textContent = formatMoney(data.before_tax);
-            document.getElementById('detailTaxAmount').textContent = formatMoney(data.tax_amount);
-            document.getElementById('detailTotal').textContent = formatMoney(data.total);
-            document.getElementById('findRateExtra').classList.toggle('hidden', calcType !== 'find_rate');
-            if (calcType === 'find_rate') document.getElementById('detailTaxRate').textContent = Number(data.tax_rate).toFixed(2) + '%';
-
-            if (data.chart_data) renderChart(data.chart_data);
-            else document.getElementById('chartContainer').classList.add('hidden');
-
-            resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-            showLoading(false);
-            showError('{% trans "Network or server error. Please try again." %}');
-        }
-    });
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_Anerroroccurred_2: '{% trans "An error occurred." %}',
+        trans_SessionexpiredPlease_4: '{% trans "Session expired. Please refresh the page and try again." %}',
+        trans_Sessionexpiredorforb_5: '{% trans "Session expired or forbidden. Please refresh the page and try again." %}',
+        trans_ServererrorPleasetry_6: '{% trans "Server error. Please try again later." %}',
+        trans_Invalidresponsefroms_7: '{% trans "Invalid response from server. Please try again." %}',
+        trans_Invalidresponse_8: '{% trans "Invalid response." %}',
+        trans_Total_9: '{% trans "Total" %}',
+        trans_Beforetax_10: '{% trans "Before tax" %}',
+        trans_Tax_11: '{% trans "Tax" %}',
+        trans_BeforeTax_12: '{% trans "Before Tax" %}',
+        trans_Totalpaid_13: '{% trans "Total paid" %}',
+        trans_TaxRate_15: '{% trans "Tax Rate" %}',
+        trans_Taxamount_16: '{% trans "Tax amount" %}',
+        trans_Networkorservererror_17: '{% trans "Network or server error. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/sales_tax_calculator.js' %}"></script>
 {% endblock %}

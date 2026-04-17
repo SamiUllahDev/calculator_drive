@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Savings Calculator - Free Savings Goal Calculator" %}{% endblock %}
 {% block meta_description %}{% trans "Calculate how much you can save over time. Track your savings goals, see interest earnings, and plan for the future with our free savings calculator." %}{% endblock %}
 {% block meta_keywords %}{% trans "savings calculator, savings goal, interest calculator, money growth, financial planning, savings tracker" %}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'financial_calculators/css/savings_calculator.css' %}">
 <meta property="og:title" content="{% trans 'Savings Calculator' %}">
 <meta property="og:description" content="{% trans 'Calculate your savings growth and reach your financial goals faster.' %}">
 <meta property="og:type" content="website">
@@ -57,17 +58,7 @@
     <div class="max-w-7xl mx-auto">
 
         <!-- Breadcrumb -->
-        <nav class="mb-4 sm:mb-6" aria-label="{% trans 'Breadcrumb' %}">
-            <ol class="flex items-center space-x-2 text-sm text-gray-600">
-                <li><a href="/" class="hover:text-blue-600 transition">{% trans "Home" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li><a href="{% url 'financial_calculators:index' %}" class="hover:text-blue-600 transition">{% trans "Financial Calculators" %}</a></li>
-                <li><span class="mx-2">/</span></li>
-                <li class="text-gray-900 font-medium">{% trans "Savings Calculator" %}</li>
-            </ol>
-        </nav>
-
-        <!-- Header (BMI-style) -->
+<!-- Header (BMI-style) -->
         <div class="text-center mb-6 sm:mb-8">
             <div class="inline-block p-3 sm:p-4 bg-blue-100 rounded-full mb-4">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,190 +371,19 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var form = document.getElementById('calculatorForm');
-    var resultsSection = document.getElementById('resultsSection');
-    var initialState = document.getElementById('initialState');
-    var loadingState = document.getElementById('loadingState');
-    var errorState = document.getElementById('errorState');
-    var calculateBtn = document.getElementById('calculateBtn');
-    var calculateBtnText = document.getElementById('calculateBtnText');
-    var growthChart = null;
-    var breakdownChart = null;
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-    }
-    function formatInput(input) {
-        var value = input.value.replace(/[^\d.]/g, '');
-        var parts = value.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        input.value = parts.join('.');
-    }
-    ['initial_savings', 'monthly_deposit', 'savings_goal'].forEach(function(id) {
-        var input = document.getElementById(id);
-        if (input) input.addEventListener('input', function() { formatInput(input); });
-    });
-
-    document.querySelectorAll('input[name="calc_mode"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var mode = this.value;
-            var monthlyGroup = document.getElementById('monthlyDepositGroup');
-            var yearsGroup = document.getElementById('yearsGroup');
-            var goalOptional = document.getElementById('goalOptional');
-            if (mode === 'future_value') {
-                monthlyGroup.classList.remove('hidden');
-                yearsGroup.classList.remove('hidden');
-                if (goalOptional) goalOptional.classList.remove('hidden');
-            } else if (mode === 'monthly_deposit') {
-                monthlyGroup.classList.add('hidden');
-                yearsGroup.classList.remove('hidden');
-                if (goalOptional) goalOptional.classList.add('hidden');
-            } else {
-                monthlyGroup.classList.remove('hidden');
-                yearsGroup.classList.add('hidden');
-                if (goalOptional) goalOptional.classList.add('hidden');
-            }
-        });
-    });
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        initialState.classList.add('hidden');
-        resultsSection.classList.add('hidden');
-        if (errorState) errorState.classList.add('hidden');
-        if (loadingState) loadingState.classList.remove('hidden');
-        if (calculateBtn) calculateBtn.disabled = true;
-        if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculating..." %}';
-        var formData = {
-            calc_mode: document.querySelector('input[name="calc_mode"]:checked').value,
-            initial_savings: document.getElementById('initial_savings').value.replace(/,/g, '') || 0,
-            monthly_deposit: document.getElementById('monthly_deposit').value.replace(/,/g, '') || 0,
-            interest_rate: document.getElementById('interest_rate').value,
-            years: document.getElementById('years').value || 0,
-            savings_goal: document.getElementById('savings_goal').value.replace(/,/g, '') || 0,
-            compound_frequency: document.getElementById('compound_frequency').value,
-        };
-        try {
-            var response = await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: JSON.stringify(formData)
-            });
-            var data = await response.json();
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-            if (!data.success) {
-                document.getElementById('errorMessage').textContent = data.error || '{% trans "An error occurred. Please check your inputs." %}';
-                if (errorState) errorState.classList.remove('hidden');
-                return;
-            }
-            initialState.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            var heroLabel = document.getElementById('heroLabel');
-            var heroAmount = document.getElementById('heroAmount');
-            if (data.calc_mode === 'monthly_deposit' && data.required_monthly_deposit !== undefined) {
-                if (heroLabel) heroLabel.textContent = '{% trans "Required Monthly Deposit" %}';
-                if (heroAmount) heroAmount.textContent = formatCurrency(data.required_monthly_deposit);
-            } else if (data.calc_mode === 'time_to_goal' && data.years_to_goal !== undefined) {
-                if (heroLabel) heroLabel.textContent = '{% trans "Time to Goal" %}';
-                if (heroAmount) heroAmount.textContent = data.years_to_goal + ' {% trans "years" %}';
-            } else {
-                if (heroLabel) heroLabel.textContent = '{% trans "Final Balance" %}';
-                if (heroAmount) heroAmount.textContent = formatCurrency(data.final_balance);
-            }
-            document.getElementById('finalBalanceResult').textContent = formatCurrency(data.final_balance);
-            document.getElementById('totalInterestResult').textContent = formatCurrency(data.total_interest || 0);
-            document.getElementById('totalDepositsResult').textContent = formatCurrency(data.total_deposits || 0);
-            var timeLabel = document.getElementById('timeLabel');
-            var timeResult = document.getElementById('timeResult');
-            if (data.calc_mode === 'time_to_goal') {
-                if (timeLabel) timeLabel.textContent = '{% trans "Time to Goal" %}';
-                if (timeResult) timeResult.textContent = (data.years_to_goal !== undefined ? data.years_to_goal + ' {% trans "years" %}' : '--');
-            } else {
-                if (timeLabel) timeLabel.textContent = '{% trans "End Date" %}';
-                if (timeResult) timeResult.textContent = data.end_date || '--';
-            }
-            var goalAlert = document.getElementById('goalAlert');
-            if (data.goal_achieved) {
-                goalAlert.classList.remove('hidden');
-                document.getElementById('goalAlertText').textContent = '{% trans "You will reach your goal with" %} ' + formatCurrency(data.goal_surplus) + ' {% trans "extra!" %}';
-            } else {
-                goalAlert.classList.add('hidden');
-            }
-            var requiredDepositCard = document.getElementById('requiredDepositCard');
-            if (data.calc_mode === 'monthly_deposit' && data.required_monthly_deposit !== undefined) {
-                requiredDepositCard.classList.remove('hidden');
-                document.getElementById('requiredDepositAmount').textContent = formatCurrency(data.required_monthly_deposit);
-            } else {
-                requiredDepositCard.classList.add('hidden');
-            }
-            var total = data.final_balance || 1;
-            var initial = data.initial_savings || 0;
-            var contributions = (data.total_deposits || 0) - initial;
-            var interest = data.total_interest || 0;
-            document.getElementById('progressInitial').textContent = formatCurrency(initial);
-            document.getElementById('progressContributions').textContent = formatCurrency(contributions);
-            document.getElementById('progressInterest').textContent = formatCurrency(interest);
-            document.getElementById('progressInitialBar').style.width = ((initial / total) * 100) + '%';
-            document.getElementById('progressContributionsBar').style.width = ((contributions / total) * 100) + '%';
-            document.getElementById('progressInterestBar').style.width = ((interest / total) * 100) + '%';
-            if (data.yearly_breakdown) renderBreakdownTable(data.yearly_breakdown);
-            if (data.chart_data) renderCharts(data);
-            setTimeout(function() { resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-        } catch (err) {
-            if (loadingState) loadingState.classList.add('hidden');
-            if (calculateBtn) calculateBtn.disabled = false;
-            if (calculateBtnText) calculateBtnText.textContent = '{% trans "Calculate" %}';
-            document.getElementById('errorMessage').textContent = '{% trans "A network error occurred. Please try again." %}';
-            if (errorState) errorState.classList.remove('hidden');
-        }
-    });
-
-    function renderBreakdownTable(breakdown) {
-        var tbody = document.getElementById('breakdownTableBody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        breakdown.forEach(function(row) {
-            var tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50';
-            tr.innerHTML = '<td class="px-4 py-2 text-gray-900 font-medium">' + (row.year_num || row.year) + '</td><td class="px-4 py-2 text-right text-blue-600">' + formatCurrency(row.deposits) + '</td><td class="px-4 py-2 text-right text-green-600">' + formatCurrency(row.interest) + '</td><td class="px-4 py-2 text-right text-gray-900 font-bold">' + formatCurrency(row.end_balance) + '</td>';
-            tbody.appendChild(tr);
-        });
-    }
-
-    function renderCharts(data) {
-        if (growthChart) { growthChart.destroy(); growthChart = null; }
-        if (breakdownChart) { breakdownChart.destroy(); breakdownChart = null; }
-        var chartData = data.chart_data;
-        if (!chartData) return;
-        if (chartData.growth_chart && typeof Chart !== 'undefined') {
-            var growthCtx = document.getElementById('growthChart');
-            if (growthCtx) {
-                growthChart = new Chart(growthCtx.getContext('2d'), {
-                    type: chartData.growth_chart.type,
-                    data: chartData.growth_chart.data,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } },
-                        scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return '$' + Number(v).toLocaleString(); } } } }
-                    }
-                });
-            }
-        }
-        if (chartData.breakdown_chart && typeof Chart !== 'undefined') {
-            var breakdownCtx = document.getElementById('breakdownChart');
-            if (breakdownCtx) {
-                breakdownChart = new Chart(breakdownCtx.getContext('2d'), {
-                    type: chartData.breakdown_chart.type,
-                    data: chartData.breakdown_chart.data,
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-                });
-            }
-        }
-    }
-});
+window.djangoContext = {
+        trans_Calculating_0: '{% trans "Calculating..." %}',
+        trans_Calculate_1: '{% trans "Calculate" %}',
+        trans_AnerroroccurredPleas_2: '{% trans "An error occurred. Please check your inputs." %}',
+        trans_RequiredMonthlyDepos_3: '{% trans "Required Monthly Deposit" %}',
+        trans_TimetoGoal_4: '{% trans "Time to Goal" %}',
+        trans_years_5: '{% trans "years" %}',
+        trans_FinalBalance_6: '{% trans "Final Balance" %}',
+        trans_EndDate_9: '{% trans "End Date" %}',
+        trans_Youwillreachyourgoal_10: '{% trans "You will reach your goal with" %}',
+        trans_extra_11: '{% trans "extra!" %}',
+        trans_Anetworkerroroccurre_13: '{% trans "A network error occurred. Please try again." %}',
+    };
 </script>
+<script src="{% static 'financial_calculators/js/savings_calculator.js' %}"></script>
 {% endblock %}
