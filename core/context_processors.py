@@ -149,7 +149,7 @@ def seo_context(request):
     # Build hreflang alternate URLs for HIGH-VALUE languages only
     # (reduces hreflang tag count from 25 to ~10, focusing Google's attention)
     hreflang_tags = []
-    if not is_untranslated_content:
+    if not is_untranslated_content and not _is_low_value_path(base_path):
         for lang_code, lang_name in settings.LANGUAGES:
             # Only include high-value languages in hreflang
             if lang_code not in HIGH_VALUE_LANGUAGES:

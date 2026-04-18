@@ -64,6 +64,10 @@ def robots_txt(request):
         content = f.read()
     return HttpResponse(content, content_type='text/plain')
 
+# IndexNow key view
+def indexnow_txt(request):
+    return HttpResponse('5b2c8a149f3e4d7a8b6e2d1f0c5a9b8e', content_type='text/plain')
+
 # URLs that should NOT have language prefix
 urlpatterns = [
     # Legacy redirects to solve 404s in GSC
@@ -76,6 +80,7 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('ads.txt', ads_txt, name='ads_txt'),
     path('robots.txt', robots_txt, name='robots_txt'),
+    path('5b2c8a149f3e4d7a8b6e2d1f0c5a9b8e.txt', indexnow_txt, name='indexnow_txt'),
     # TinyMCE image upload (outside i18n so admin can always reach it)
     path('blog/tinymce/upload/', __import__('blog.views', fromlist=['tinymce_image_upload']).tinymce_image_upload, name='tinymce_image_upload'),
 ]

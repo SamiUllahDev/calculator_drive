@@ -122,9 +122,8 @@ class StaticViewSitemap(Sitemap):
         for url_name in self._english_only_pages:
             items.append((url_name, 'en'))
 
-        # Blog index for all high-value languages
-        for lang_code in HIGH_VALUE_LANGUAGES:
-            items.append(('blog:post_list', lang_code))
+        # Blog index (English only since content is untranslated)
+        items.append(('blog:post_list', 'en'))
 
         return items
 
