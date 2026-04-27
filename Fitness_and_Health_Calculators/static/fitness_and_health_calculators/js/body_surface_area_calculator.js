@@ -143,10 +143,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 ];
                 
                 formulasTable.innerHTML = formulas.map(formula => `
-                    <tr class="${formula.name === ${window.djangoContext.trans_Average_12} ? 'bg-blue-50' : ''}">
-                        <td class="py-2 px-3 font-medium ${formula.name === ${window.djangoContext.trans_Average_12} ? 'text-blue-900' : 'text-gray-900'}">${formula.name}</td>
-                        <td class="py-2 px-3 text-right font-bold ${formula.name === ${window.djangoContext.trans_Average_12} ? 'text-blue-900' : 'text-gray-900'}">${formula.value.toFixed(3)} m²</td>
-                        <td class="py-2 px-3 text-sm ${formula.name === ${window.djangoContext.trans_Average_12} ? 'text-blue-800' : 'text-gray-600'}">${formula.note}</td>
+                    <tr class="${formula.name === window.djangoContext.trans_Average_12 ? 'bg-blue-50' : ''}">
+                        <td class="py-2 px-3 font-medium ${formula.name === window.djangoContext.trans_Average_12 ? 'text-blue-900' : 'text-gray-900'}">${formula.name}</td>
+                        <td class="py-2 px-3 text-right font-bold ${formula.name === window.djangoContext.trans_Average_12 ? 'text-blue-900' : 'text-gray-900'}">${formula.value.toFixed(3)} m²</td>
+                        <td class="py-2 px-3 text-sm ${formula.name === window.djangoContext.trans_Average_12 ? 'text-blue-800' : 'text-gray-600'}">${formula.note}</td>
                     </tr>
                 `).join('');
             }

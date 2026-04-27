@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             document.getElementById('scenariosBody').innerHTML = data.scenarios.map(s => `
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${s.extra === 'biweekly' ? ${window.djangoContext.trans_Biweekly_4} : formatCurrency(s.extra)}</td>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${s.extra === 'biweekly' ? window.djangoContext.trans_Biweekly_4 : formatCurrency(s.extra)}</td>
                     <td class="px-4 py-3 text-sm text-gray-600 text-right">${s.payoff_time}</td>
                     <td class="px-4 py-3 text-sm text-purple-600 text-right font-medium">${s.time_saved}</td>
                     <td class="px-4 py-3 text-sm text-green-600 text-right font-medium">${formatCurrency(s.interest_saved)}</td>

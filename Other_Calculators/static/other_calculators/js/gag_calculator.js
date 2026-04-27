@@ -9,10 +9,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const res=document.getElementById('results');
     const card=document.getElementById('resultCard');
 
-    const attrKeys = [
-        {% for a in physical_attrs %}window.djangoContext.var_akey_0,{% endfor %}
-        {% for a in personality_attrs %}window.djangoContext.var_akey_0,{% endfor %}
-    ];
+    const attrKeys = window.djangoContext.attrKeys || [];
 
     form.addEventListener('submit', async function(e){
         e.preventDefault();

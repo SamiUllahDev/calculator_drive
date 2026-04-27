@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (ciInterpretation && resultData.confidence_level) {
                 const confidencePercent = (resultData.confidence_level * 100).toFixed(1);
-                ciInterpretation.textContent = `${window.djangoContext.trans_Weare_5} ${confidencePercent}% ${window.djangoContext.trans_confidentthatthetrue_6} ${calcType === 'mean' ? ${window.djangoContext.trans_mean_7} : ${window.djangoContext.trans_proportion_8}} ${window.djangoContext.trans_lieswithinthisinterv_9}`;
+                ciInterpretation.textContent = `${window.djangoContext.trans_Weare_5} ${confidencePercent}% ${window.djangoContext.trans_confidentthatthetrue_6} ${calcType === 'mean' ? window.djangoContext.trans_mean_7 : window.djangoContext.trans_proportion_8} ${window.djangoContext.trans_lieswithinthisinterv_9}`;
             }
             
             // Update detailed results

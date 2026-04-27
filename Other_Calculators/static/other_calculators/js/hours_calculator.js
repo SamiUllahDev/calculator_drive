@@ -217,7 +217,7 @@ async function calculateHours(event) {
             if (data.days !== 0) {
                 additionalInfo = `
                     <div class="mt-3 text-sm">
-                        <p>${Math.abs(data.days)} ${window.djangoContext.trans_days_15} ${data.days > 0 ? ${window.djangoContext.trans_later_16} : ${window.djangoContext.trans_earlier_17}}</p>
+                        <p>${Math.abs(data.days)} ${window.djangoContext.trans_days_15} ${data.days > 0 ? window.djangoContext.trans_later_16 : window.djangoContext.trans_earlier_17}</p>
                     </div>
                 `;
             }
