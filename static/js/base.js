@@ -138,6 +138,7 @@ function yieldToMain() {
     mobileMenu.classList.add('active');
     mobileMenuOverlay.classList.add('active');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
     if (mobileMenuButton) {
       mobileMenuButton.setAttribute('aria-expanded', 'true');
     }
@@ -147,6 +148,7 @@ function yieldToMain() {
     mobileMenu.classList.remove('active');
     mobileMenuOverlay.classList.remove('active');
     document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
     if (mobileMenuButton) {
       mobileMenuButton.setAttribute('aria-expanded', 'false');
     }
@@ -596,79 +598,6 @@ function togglePassword(inputId) {
     icon.classList.add('bi-eye');
   }
 }
-
-// GTM and AdSense Loader
-(function() {
-  function isSlowOrSaveData() {
-    try {
-      var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      if (!c) return false;
-      if (c.saveData) return true;
-      var et = c.effectiveType;
-      return et === '2g' || et === 'slow-2g' || et === '3g';
-    } catch (e) { return false; }
-  }
-
-  function isMobile() {
-    return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768;
-  }
-
-  function onFirstInteraction(cb) {
-    var done = false;
-    function once() {
-      if (done) return;
-      done = true;
-      window.removeEventListener('scroll', once, {passive:true});
-      window.removeEventListener('pointerdown', once);
-      window.removeEventListener('keydown', once);
-      cb();
-    }
-    window.addEventListener('scroll', once, {passive:true});
-    window.addEventListener('pointerdown', once, {passive:true});
-    window.addEventListener('keydown', once);
-  }
-
-  function loadGTM() {
-    if (window.__gtmLoaded) return;
-    window.__gtmLoaded = true;
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
-    var j = document.createElement('script');
-    j.async = true;
-    j.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-MJTF2ZS4';
-    document.head.appendChild(j);
-  }
-
-  function loadAdSense() {
-    if (window.__adsenseLoaded) return;
-    window.__adsenseLoaded = true;
-    var s = document.createElement('script');
-    s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1966824765779595';
-    s.async = true;
-    s.crossOrigin = 'anonymous';
-    document.head.appendChild(s);
-  }
-
-  function loadAll() {
-    loadGTM();
-    setTimeout(loadAdSense, 200);
-  }
-
-  window.addEventListener('load', function() {
-    if (isSlowOrSaveData() || isMobile()) {
-      onFirstInteraction(function() {
-        setTimeout(loadAll, 300);
-      });
-      setTimeout(loadAll, 12000);
-      return;
-    }
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(loadAll, {timeout: 6000});
-    } else {
-      setTimeout(loadAll, 2500);
-    }
-  });
-})();
 
 // Deferred OG/Twitter/Keyword meta sync
 window.addEventListener('load', function() {

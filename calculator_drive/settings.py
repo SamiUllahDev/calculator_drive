@@ -27,12 +27,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'development-fallback-pzxmmuvl_uvl=hhx
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-DEBUG = False
+DEBUG = True
 
 # Security: Set allowed hosts in production
 ALLOWED_HOSTS = [
     'calculatordrive.com',
     'www.calculatordrive.com',
+    '*'
 ]
 
 INTERNAL_IPS = [
@@ -62,7 +63,6 @@ INSTALLED_APPS = [
     'Other_Calculators',
     'blog',
     'user',
-    'google_adsense',
     'tinymce',
 ]
 
@@ -419,10 +419,6 @@ TINYMCE_COMMENT_CONFIG = {
         'color: #374151; padding: 8px; }'
     ),
 }
-
-# Google AdSense Configuration
-GOOGLE_ADSENSE_ENABLED = True  # Set to False to disable all ads globally
-GOOGLE_ADSENSE_TRACK_DISPLAYS = False  # Set to True to track ad displays (requires AdStatistic model)
 
 # Site Configuration for Sitemap
 # Set your actual domain here (without http:// or https://)

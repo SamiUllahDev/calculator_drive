@@ -95,39 +95,23 @@ class PerformanceHeadersMiddleware:
     
     Adds:
     - Link preload header for critical font (helps LCP by starting font download earlier)
-    - Link preconnect hints for third-party origins (reduces connection time for ads/analytics)
+    - Link preconnect hints for third-party origins when applicable
     - Cache-Control with stale-while-revalidate for CDN edge caching (reduces TTFB)
     - Content-Security-Policy (fixes Lighthouse "No CSP" High severity)
     - Permissions-Policy for security hardening
     """
 
-    # CSP directives — permissive enough for ads/analytics but blocks XSS injection
+    # CSP directives — first-party + fonts + optional Cloudflare RUM (no ads/GTM/widgets)
     CSP_POLICY = "; ".join([
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "https://pagead2.googlesyndication.com https://www.googletagmanager.com "
-        "https://www.google-analytics.com https://ssl.google-analytics.com "
-        "https://adservice.google.com https://www.google.com "
-        "https://fundingchoicesmessages.google.com "
-        "https://cdn.prod.uidapi.com "
-        "https://static.cloudflareinsights.com "
-        "https://faves.grow.me https://app.grow.me https://*.grow.me "
-        "https://tpc.googlesyndication.com",
+        "https://www.google.com "
+        "https://static.cloudflareinsights.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com data:",
         "img-src 'self' data: blob: https: http:",
-        "frame-src 'self' https://www.google.com https://tpc.googlesyndication.com "
-        "https://googleads.g.doubleclick.net https://fundingchoicesmessages.google.com "
-        "https://app.grow.me https://*.grow.me "
-        "https://td.doubleclick.net",
-        "connect-src 'self' https://pagead2.googlesyndication.com "
-        "https://www.google-analytics.com https://adservice.google.com "
-        "https://fundingchoicesmessages.google.com "
-        "https://static.cloudflareinsights.com "
-        "https://*.grow.me https://*.growplow.events "
-        "https://cdn.prod.uidapi.com "
-        "https://www.googletagmanager.com https://region1.google-analytics.com "
-        "https://uidapi.com",
+        "frame-src 'self' https://www.google.com",
+        "connect-src 'self' https://static.cloudflareinsights.com",
         "object-src 'none'",
         "base-uri 'self'",
     ])

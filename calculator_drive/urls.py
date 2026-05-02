@@ -50,17 +50,17 @@ sitemaps = {
     'blog-tags': BlogTagSitemap,
 }
 
-# ads.txt view for Google AdSense
-def ads_txt(request):
-    ads_txt_path = os.path.join(settings.BASE_DIR, 'ads.txt')
-    with open(ads_txt_path, 'r') as f:
-        content = f.read()
-    return HttpResponse(content, content_type='text/plain')
-
 # robots.txt view for search engine crawlers
 def robots_txt(request):
     robots_txt_path = os.path.join(settings.BASE_DIR, 'robots.txt')
     with open(robots_txt_path, 'r') as f:
+        content = f.read()
+    return HttpResponse(content, content_type='text/plain')
+
+# ads.txt view for ad network verification
+def ads_txt(request):
+    ads_txt_path = os.path.join(settings.BASE_DIR, 'ads.txt')
+    with open(ads_txt_path, 'r') as f:
         content = f.read()
     return HttpResponse(content, content_type='text/plain')
 
@@ -78,8 +78,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/setlang/', set_language, name='set_language'),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
-    path('ads.txt', ads_txt, name='ads_txt'),
     path('robots.txt', robots_txt, name='robots_txt'),
+    path('ads.txt', ads_txt, name='ads_txt'),
     path('5b2c8a149f3e4d7a8b6e2d1f0c5a9b8e.txt', indexnow_txt, name='indexnow_txt'),
     # TinyMCE image upload (outside i18n so admin can always reach it)
     path('blog/tinymce/upload/', __import__('blog.views', fromlist=['tinymce_image_upload']).tinymce_image_upload, name='tinymce_image_upload'),
@@ -94,7 +94,6 @@ urlpatterns += i18n_patterns(
     path('other/', include('Other_Calculators.urls')),
     path('blog/', include('blog.urls')),
     path('user/', include('user.urls')),
-    path('adsense/', include('google_adsense.urls')),
     path('accounts/', include('allauth.urls')),
     prefix_default_language=False,  # Don't prefix default language (en) - /blog/ not /en/blog/
 )

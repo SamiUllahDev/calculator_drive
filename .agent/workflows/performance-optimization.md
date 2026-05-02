@@ -29,12 +29,9 @@ These items cause **160ms render-blocking** and **258KB unused JS** that we CANN
   - Edge Cache TTL: 2 hours
   - Browser Cache TTL: 4 hours (for HTML)
 
-### 2. Remove/Optimize Grow.me (saves ~350KB)
+### 2. Third-party widgets (historical)
 
-If `grow.me` widget is installed via Cloudflare Apps or a third-party integration:
-- Consider removing it or lazy-loading it
-- It contributes ~350KB of unused JavaScript and causes long main-thread tasks
-- This is the single largest third-party contributor to TBT
+Grow.me / similar widgets are not referenced in this repo’s HTML or CSP. If you add one again at the edge (e.g. Cloudflare), update CSP in `core/middleware.py` to allow the new origins.
 
 ### 3. Deploy Code Changes
 
@@ -61,10 +58,7 @@ npx lighthouse https://calculatordrive.com --only-categories=performance --outpu
 - Search bar and button dimensions inlined
 
 ### LCP Fixes (was 4.7s → target <2.5s)  
-- GTM moved from `<head>` to deferred loader at bottom of `<body>`
-- GTM + AdSense consolidated into single script with interaction-first loading on mobile
-- On mobile/touchscreen devices: scripts only load after first user interaction (scroll/tap/keypress)
-- On slow networks (3G, slow 4G, save-data): interaction-first with 12s safety timeout
+- Google Tag Manager and AdSense removed (no GTM/ads scripts in `base.html` / `base.js`)
 - `site.min.css` made async (critical parts inlined)
 - FontAwesome made async (icons are decorative)
 - Only Inter-400 preloaded (was preloading 3 fonts = 330KB competing with LCP)
@@ -77,18 +71,15 @@ npx lighthouse https://calculatordrive.com --only-categories=performance --outpu
 - Orb animations disabled on mobile (<768px)
 - `prefers-reduced-motion` support added
 - Content-visibility: auto on below-fold sections
-- 200ms stagger between GTM and AdSense loading to avoid single huge main-thread task
-- 300ms delay after user interaction before loading scripts (lets browser process interaction first)
 
 ### Security Headers (Lighthouse Best Practices)
 - **HSTS**: Enabled with 1-year max-age, includeSubDomains, preload
-- **CSP**: Content-Security-Policy header with whitelist for ads/analytics
+- **CSP**: Content-Security-Policy header (no GTM, GA, or AdSense origins)
 - **Permissions-Policy**: camera, microphone, geolocation disabled
 - SESSION_COOKIE_SECURE and CSRF_COOKIE_SECURE enabled
 
 ### Network Optimization
-- Preconnect hints for pagead2.googlesyndication.com, www.googletagmanager.com
-- DNS-prefetch hints for fundingchoicesmessages, cloudflareinsights, grow.me
+- DNS-prefetch hints for cloudflareinsights (optional RUM)
 - Link header preconnect hints via middleware (works even before HTML parsing)
 
 ### Accessibility

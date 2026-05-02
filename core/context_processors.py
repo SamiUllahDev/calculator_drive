@@ -93,7 +93,6 @@ def seo_context(request):
         '/admin/',
         '/user/',
         '/i18n/',
-        '/adsense/',
     ]
     is_noindex_page = any(
         pattern in path for pattern in noindex_patterns
