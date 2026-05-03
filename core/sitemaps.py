@@ -13,8 +13,6 @@ Changes from previous version:
 5. Blog sitemap only includes English URLs (content is not translated)
 """
 from django.contrib.sitemaps import Sitemap
-from django.contrib.sites.shortcuts import get_current_site
-from django.contrib.sites.models import Site
 from django.urls import reverse, NoReverseMatch
 from django.conf import settings
 from django.utils import translation, timezone
@@ -33,6 +31,12 @@ from datetime import datetime
 # Selection criteria: search volume, translation quality, user traffic
 # ============================================================================
 HIGH_VALUE_LANGUAGES = ['en', 'es', 'fr', 'de', 'pt', 'ja', 'hi', 'it', 'ru', 'nl']
+
+
+def _reverse_for_language(viewname, lang_code, *args, **kwargs):
+    """reverse() respects the active locale; pin each sitemap row to its lang."""
+    with translation.override(lang_code):
+        return reverse(viewname, args=args, kwargs=kwargs)
 
 
 # Cache calculator lists since they're static
@@ -131,15 +135,7 @@ class StaticViewSitemap(Sitemap):
         """Build URL with language prefix for SEO-friendly URLs."""
         try:
             url_name, lang_code = item
-            base_url = reverse(url_name)
-            
-            if lang_code != settings.LANGUAGE_CODE:
-                if base_url.startswith('/'):
-                    base_url = f"/{lang_code}{base_url}"
-                else:
-                    base_url = f"/{lang_code}/{base_url}"
-            
-            return base_url
+            return _reverse_for_language(url_name, lang_code)
         except (NoReverseMatch, ValueError, TypeError):
             return '/'
 
@@ -183,23 +179,7 @@ class CalculatorIndexSitemap(Sitemap):
         """Build URL with language prefix."""
         try:
             url_name, lang_code = item
-            url_map = {
-                'math_calculators:index': '/math/',
-                'financial_calculators:index': '/finance/',
-                'fitness_and_health_calculators:index': '/health/',
-                'other_calculators:index': '/other/',
-            }
-            base_url = url_map.get(url_name)
-            if not base_url:
-                base_url = reverse(url_name)
-            
-            if lang_code != settings.LANGUAGE_CODE:
-                if base_url.startswith('/'):
-                    base_url = f"/{lang_code}{base_url}"
-                else:
-                    base_url = f"/{lang_code}/{base_url}"
-            
-            return base_url
+            return _reverse_for_language(url_name, lang_code)
         except (NoReverseMatch, ValueError, TypeError, Exception):
             return '/'
 
@@ -328,7 +308,8 @@ class BlogPostSitemap(Sitemap):
     def location(self, item):
         """Return blog URL without language prefix."""
         try:
-            base_url = item.get_absolute_url()
+            with translation.override(settings.LANGUAGE_CODE):
+                base_url = item.get_absolute_url()
             if not base_url:
                 return '/blog/'
             
@@ -377,7 +358,8 @@ class BlogCategorySitemap(Sitemap):
     def location(self, item):
         """Return blog category URL without language prefix."""
         try:
-            base_url = item.get_absolute_url()
+            with translation.override(settings.LANGUAGE_CODE):
+                base_url = item.get_absolute_url()
             if not base_url:
                 return '/blog/'
             
@@ -422,7 +404,8 @@ class BlogTagSitemap(Sitemap):
     def location(self, item):
         """Return blog tag URL without language prefix."""
         try:
-            base_url = item.get_absolute_url()
+            with translation.override(settings.LANGUAGE_CODE):
+                base_url = item.get_absolute_url()
             if not base_url:
                 return '/blog/'
             

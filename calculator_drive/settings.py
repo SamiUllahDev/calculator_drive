@@ -25,12 +25,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'zyi-6olLrs2agZXnGafVYR_SFwiYDQrDXkbSw
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Security: Set allowed hosts in production
-ALLOWED_HOSTS = [
-    'calculatordrive.com',
-    'www.calculatordrive.com',
-]
-
+ALLOWED_HOSTS = ['calculatordrive.com', 'www.calculatordrive.com']
 
 # Application definition
 
