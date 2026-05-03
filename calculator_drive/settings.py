@@ -26,8 +26,9 @@ _SECRET_KEY_FALLBACK = 'dev-only-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&r
 SECRET_KEY = os.environ.get('SECRET_KEY', 'zyi-6olLrs2agZXnGafVYR_SFwiYDQrDXkbSwTbSS3cWFfxnLENK1jsgZf_Hx7WTIkk')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Use environment variable: export DEBUG=False
-DEBUG = False
+# Local: do nothing → DEBUG is True. Production: set DJANGO_ENV=production (e.g. in systemd, Docker, or hosting panel).
+DJANGO_ENV = os.environ.get('DJANGO_ENV', 'development').lower()
+DEBUG = DJANGO_ENV != 'production'
 
 # SECURITY: Crash if SECRET_KEY fallback is used in production
 if not DEBUG and SECRET_KEY == _SECRET_KEY_FALLBACK:
@@ -40,6 +41,11 @@ if not DEBUG and SECRET_KEY == _SECRET_KEY_FALLBACK:
 ALLOWED_HOSTS = [
     'calculatordrive.com',
     'www.calculatordrive.com',
+]
+
+# Optional: comma-separated extra hosts (staging, raw IP, etc.)
+ALLOWED_HOSTS += [
+    h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()
 ]
 
 # Allow localhost in development only
@@ -235,6 +241,9 @@ STATICFILES_DIRS = [
 #   - Uses Django's default storage to avoid manifest errors.
 # ============================================================================
 
+# Production static files: run `collectstatic` after each deploy (and build Tailwind:
+# cd theme/static_src && npm run build:tailwind). Without a fresh collectstatic,
+# {% static %} + manifest storage can raise and every page returns 500.
 if not DEBUG:
     STORAGES = {
         'staticfiles': {
@@ -463,6 +472,9 @@ SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# django check --deploy W008: we rely on the CDN/proxy for HTTP→HTTPS, not Django.
+SILENCED_SYSTEM_CHECKS = [] if DEBUG else ['security.W008']
+
 # HTTP Strict Transport Security (HSTS)
 # Tells browsers to always use HTTPS — fixes Lighthouse "No HSTS header" (High severity)
 SECURE_HSTS_SECONDS = 31536000  # 1 year
@@ -483,6 +495,20 @@ SESSION_SAVE_EVERY_REQUEST = False  # Only save session if modified
 CSRF_COOKIE_HTTPONLY = False  # Must be False for allauth social login to work (JS needs CSRF cookie)
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF (default)
 CSRF_COOKIE_AGE = 31449600  # 1 year (default)
+
+# Trusted origins for CSRF (required behind HTTPS / some proxies; see Django deployment checklist)
+if not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        f'{SITE_PROTOCOL}://{SITE_URL}',
+        f'{SITE_PROTOCOL}://www.{SITE_URL}',
+    ]
+
+# TLS at edge only: set USE_X_FORWARDED_PROTO=1 so request.is_secure() and secure cookies match the browser.
+if (
+    not DEBUG
+    and os.environ.get('USE_X_FORWARDED_PROTO', '').lower() in ('1', 'true', 'yes')
+):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # File Upload Security
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB (default)
@@ -510,6 +536,11 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'ERROR',
             'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
         },
     },
 }
