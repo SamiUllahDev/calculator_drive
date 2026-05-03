@@ -8,7 +8,6 @@ from django.db.models import Count, Q
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.sites.shortcuts import get_current_site
 from django.utils.html import strip_tags
 import re
@@ -50,7 +49,6 @@ def sanitize_html(html_content):
     
     return cleaned_content
 
-@csrf_exempt
 @login_required
 def tinymce_image_upload(request):
     """Handle image uploads from TinyMCE editor with enhanced security"""
@@ -381,7 +379,7 @@ class PostDetailView(DetailView):
                     all_tools.append({
                         'name': calc.get('name', ''),
                         'description': calc.get('description', ''),
-                        'icon': 'bi bi-calculator',
+                        'icon': 'fa-solid fa-calculator',
                         'url_name': f"math_calculators:{url_name}",
                         'category': calc.get('category', 'Math')
                     })
@@ -401,7 +399,7 @@ class PostDetailView(DetailView):
                         all_tools.append({
                             'name': calc.get('name', ''),
                             'description': calc.get('description', ''),
-                            'icon': 'bi bi-calculator',
+                            'icon': 'fa-solid fa-chart-line',
                             'url_name': f"financial_calculators:{url_name}",
                             'category': calc.get('category', 'Finance')
                         })

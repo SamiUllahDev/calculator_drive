@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-Minify CSS and JS static assets for CalculatorDrive.
+Extract inline <style> from base.html for debugging only.
 
-Usage: python3 scripts/minify_assets.py
+Do not use this to build static/css/site.min.css — that file is produced by
+minifying static/css/site.css (see project docs or: python3 -c minify site.css).
 
-This script:
-1. Extracts all inline <style> blocks from base.html
-2. Minifies the combined CSS and writes to static/css/site.min.css
-3. Reports file sizes and compression ratios
+This script writes static/css/extracted-inline-from-base.min.css only.
 """
 import re
 import os
@@ -18,8 +16,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(SCRIPT_DIR)
 BASE_HTML = os.path.join(BASE_DIR, 'core', 'templates', 'core', 'base.html')
 CSS_DIR = os.path.join(BASE_DIR, 'static', 'css')
-CSS_OUTPUT = os.path.join(CSS_DIR, 'site.css')
-CSS_MIN_OUTPUT = os.path.join(CSS_DIR, 'site.min.css')
+CSS_MIN_OUTPUT = os.path.join(CSS_DIR, 'extracted-inline-from-base.min.css')
 
 
 def minify_css(css_text):
@@ -93,7 +90,6 @@ def main():
     # Ensure output directories exist
     os.makedirs(CSS_DIR, exist_ok=True)
 
-    # Step 1: Extract inline CSS from base.html
     print(f"\n📄 Extracting inline CSS from base.html...")
     combined_css = extract_inline_css(BASE_HTML)
 
@@ -101,15 +97,10 @@ def main():
         print("No CSS to extract. Exiting.")
         sys.exit(1)
 
-    # Write unminified version (for debugging)
-    with open(CSS_OUTPUT, 'w', encoding='utf-8') as f:
-        f.write(combined_css)
-
     orig_size = len(combined_css.encode('utf-8'))
-    print(f"  Combined CSS: {orig_size:,} bytes")
+    print(f"  Combined inline CSS: {orig_size:,} bytes")
 
-    # Step 2: Minify the combined CSS
-    print(f"\n🔧 Minifying CSS...")
+    print(f"\n🔧 Minifying...")
     minified_css = minify_css(combined_css)
 
     with open(CSS_MIN_OUTPUT, 'w', encoding='utf-8') as f:
@@ -117,7 +108,7 @@ def main():
 
     min_size = len(minified_css.encode('utf-8'))
     reduction = (1 - min_size / orig_size) * 100 if orig_size > 0 else 0
-    print(f"  site.css: {orig_size:,} → site.min.css: {min_size:,} bytes ({reduction:.1f}% reduction)")
+    print(f"  → {os.path.basename(CSS_MIN_OUTPUT)}: {min_size:,} bytes ({reduction:.1f}% smaller)")
 
     # Step 3: Report on vendor files
     print(f"\n📊 Vendor file sizes:")
@@ -139,10 +130,8 @@ def main():
         print(f"\n⚠️  Found source map: chart.umd.js.map ({size:,} bytes)")
         print(f"   This file is not needed in production and can be deleted.")
 
-    print(f"\n✅ Done! Add this to base.html <head>:")
-    print(f'   <link rel="stylesheet" href="{{% static \'css/site.min.css\' %}}">')
-    print(f"\n   Then remove all inline <style> blocks from base.html.")
-    print()
+    print(f"\n✅ Wrote {CSS_MIN_OUTPUT}")
+    print("   To refresh site.min.css, minify static/css/site.css separately.\n")
 
 
 if __name__ == '__main__':

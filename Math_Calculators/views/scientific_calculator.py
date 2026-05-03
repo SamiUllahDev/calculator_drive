@@ -23,13 +23,31 @@ class ScientificCalculator(View):
         }
         return render(request, self.template_name, context)
     
+    # Dangerous patterns that must never appear in expressions
+    _BLOCKED_PATTERNS = re.compile(
+        r'__|import|exec|eval|compile|globals|locals|getattr|setattr|delattr|'
+        r'hasattr|open|file|input|vars|dir|type|super|classmethod|staticmethod|'
+        r'property|breakpoint|memoryview|bytearray|bytes|chr|ord',
+        re.IGNORECASE,
+    )
+
     def _safe_eval(self, expression):
         """Safely evaluate mathematical expression"""
+        # Length limit to prevent DoS
+        if len(expression) > 500:
+            return None, "Expression is too long (max 500 characters)."
+
+        # Block dangerous Python patterns BEFORE any transformation
+        if self._BLOCKED_PATTERNS.search(expression):
+            return None, "Expression contains disallowed keywords."
+
         # Replace common functions and constants
         expression = expression.replace('π', str(math.pi))
-        expression = expression.replace('pi', str(math.pi))
-        expression = expression.replace('e', str(math.e))
-        expression = expression.replace('E', str(math.e))
+        # Replace standalone 'pi' (word boundary) — not 'pi' inside other words
+        expression = re.sub(r'\bpi\b', str(math.pi), expression)
+        # Replace standalone 'e' only when it's the mathematical constant
+        # (not part of 'exp', 'ceil', etc.)
+        expression = re.sub(r'(?<![a-zA-Z])e(?![a-zA-Z])', str(math.e), expression)
         
         # Replace function names with math module equivalents
         replacements = {
@@ -71,9 +89,18 @@ class ScientificCalculator(View):
                 else:
                     expression = re.sub(pattern, new + '(', expression)
         
-        # Only allow safe characters
-        allowed_chars = set('0123456789+-*/.()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_., ')
-        if not all(c in allowed_chars or c in 'math.' for c in expression):
+        # Block dangerous patterns again AFTER transformation
+        if self._BLOCKED_PATTERNS.search(expression):
+            return None, "Expression contains disallowed keywords."
+
+        # Only allow safe characters (no underscores — prevents dunder access)
+        allowed_chars = set('0123456789+-*/.() ,.')
+        # After replacements, 'math.xxx' and builtin function names are present
+        # Strip all known-safe tokens before checking remaining characters
+        check_expr = re.sub(r'math\.\w+', '', expression)
+        for safe_name in ('abs', 'round', 'pow', 'lambda', 'x'):
+            check_expr = check_expr.replace(safe_name, '')
+        if not all(c in allowed_chars for c in check_expr):
             return None, "Invalid characters in expression."
         
         try:

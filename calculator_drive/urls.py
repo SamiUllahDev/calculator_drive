@@ -53,14 +53,14 @@ sitemaps = {
 # robots.txt view for search engine crawlers
 def robots_txt(request):
     robots_txt_path = os.path.join(settings.BASE_DIR, 'robots.txt')
-    with open(robots_txt_path, 'r') as f:
+    with open(robots_txt_path, 'r', encoding='utf-8') as f:
         content = f.read()
     return HttpResponse(content, content_type='text/plain')
 
 # ads.txt view for ad network verification
 def ads_txt(request):
     ads_txt_path = os.path.join(settings.BASE_DIR, 'ads.txt')
-    with open(ads_txt_path, 'r') as f:
+    with open(ads_txt_path, 'r', encoding='utf-8') as f:
         content = f.read()
     return HttpResponse(content, content_type='text/plain')
 

@@ -112,6 +112,37 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') toggleSharePopup(false);
 });
 
+/* Share FAB: lock to viewport bottom-right (inline !important beats stray CSS/cache) */
+(function pinShareFabBottomRight() {
+  function apply() {
+    var fab = document.getElementById('shareFab');
+    if (!fab) return;
+    var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+    var narrow = window.matchMedia('(max-width: 475px)').matches;
+    var bottom = narrow ? '20px' : '24px';
+    var side = narrow ? '16px' : '24px';
+    fab.style.setProperty('position', 'fixed', 'important');
+    fab.style.setProperty('top', 'auto', 'important');
+    fab.style.setProperty('margin', '0', 'important');
+    fab.style.setProperty('float', 'none', 'important');
+    fab.style.setProperty('bottom', bottom, 'important');
+    fab.style.setProperty('z-index', '56', 'important');
+    if (rtl) {
+      fab.style.setProperty('left', side, 'important');
+      fab.style.setProperty('right', 'auto', 'important');
+    } else {
+      fab.style.setProperty('right', side, 'important');
+      fab.style.setProperty('left', 'auto', 'important');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+  window.addEventListener('resize', apply, { passive: true });
+})();
+
 // Footer Email Link
 !function(){var a='support',b='calculatordrive.com',e=a+'@'+b;var l=document.getElementById('footer-email-link');var t=document.getElementById('footer-email-text');if(l)l.href='mai'+'lto:'+e;if(t)t.textContent=e;}();
 
@@ -366,7 +397,13 @@ function toggleFavorite(button, event) {
   
   const isOnFavoritesPage = window.location.pathname.includes('/favorites/');
   const icon = button.querySelector('.favorite-icon');
-  const wasFavorite = icon && icon.classList.contains('bi-heart-fill');
+  if (!icon) {
+    button.disabled = false;
+    button.style.opacity = '1';
+    button.style.cursor = 'pointer';
+    return;
+  }
+  const wasFavorite = icon.classList.contains('fa-solid');
   const calculatorName = button.getAttribute('data-calculator-name');
   const calculatorUrl = button.getAttribute('data-calculator-url');
   const calculatorCategory = button.getAttribute('data-calculator-category') || '';
@@ -437,11 +474,11 @@ function toggleFavorite(button, event) {
     
     if (data.success) {
       if (data.is_favorite) {
-        icon.className = 'bi bi-heart-fill text-red-500 text-lg favorite-icon';
+        icon.className = 'fa-solid fa-heart text-red-500 text-lg favorite-icon';
         button.setAttribute('aria-label', window.DJANGO_VARS.trans.removeFromFavorites);
         showNotification(window.DJANGO_VARS.trans.addSuccess, 'success');
       } else {
-        icon.className = 'bi bi-heart text-gray-400 text-lg favorite-icon';
+        icon.className = 'fa-regular fa-heart text-gray-400 text-lg favorite-icon';
         button.setAttribute('aria-label', window.DJANGO_VARS.trans.addToFavorites);
         
         if (isOnFavoritesPage && wasFavorite) {
@@ -540,10 +577,10 @@ function checkFavorites() {
         if (!icon) return;
         
         if (isFavorite) {
-          icon.className = 'bi bi-heart-fill text-red-500 text-lg favorite-icon';
+          icon.className = 'fa-solid fa-heart text-red-500 text-lg favorite-icon';
           button.setAttribute('aria-label', window.DJANGO_VARS.trans.removeFromFavorites);
         } else {
-          icon.className = 'bi bi-heart text-gray-400 text-lg favorite-icon';
+          icon.className = 'fa-regular fa-heart text-gray-400 text-lg favorite-icon';
           button.setAttribute('aria-label', window.DJANGO_VARS.trans.addToFavorites);
         }
       });
@@ -588,14 +625,15 @@ function togglePassword(inputId) {
   var input = document.getElementById(inputId);
   var button = input.nextElementSibling;
   var icon = button.querySelector('i');
+  if (!icon) return;
   if (input.type === 'password') {
     input.type = 'text';
-    icon.classList.remove('bi-eye');
-    icon.classList.add('bi-eye-slash');
+    icon.classList.remove('fa-eye');
+    icon.classList.add('fa-eye-slash');
   } else {
     input.type = 'password';
-    icon.classList.remove('bi-eye-slash');
-    icon.classList.add('bi-eye');
+    icon.classList.remove('fa-eye-slash');
+    icon.classList.add('fa-eye');
   }
 }
 

@@ -103,6 +103,14 @@ class BasicCalculator(View):
         except Exception as e:
             return None, f"Calculation error: {str(e)}"
     
+    # Dangerous patterns that must never appear in user expressions
+    _BLOCKED_PATTERNS = re.compile(
+        r'__|import|exec|eval|compile|globals|locals|getattr|setattr|delattr|'
+        r'hasattr|open|file|input|vars|dir|type|super|classmethod|staticmethod|'
+        r'property|breakpoint|memoryview|bytearray|bytes|chr|ord',
+        re.IGNORECASE,
+    )
+
     def _evaluate_expression(self, expression):
         """Safely evaluate a mathematical expression"""
         # Remove whitespace
@@ -111,7 +119,16 @@ class BasicCalculator(View):
         if not expression:
             return None, "Empty expression"
         
+        # Length limit to prevent DoS
+        if len(expression) > 500:
+            return None, "Expression is too long (max 500 characters)"
+        
+        # Block dangerous Python patterns BEFORE any transformation
+        if self._BLOCKED_PATTERNS.search(expression):
+            return None, "Expression contains disallowed keywords"
+        
         # Validate expression contains only allowed characters and functions
+        # Note: no underscores allowed — prevents dunder attribute access
         allowed_chars = re.compile(r'^[0-9+\-*/().\s^%a-z]+$', re.IGNORECASE)
         if not allowed_chars.match(expression.replace(' ', '')):
             return None, "Expression contains invalid characters"
@@ -126,6 +143,10 @@ class BasicCalculator(View):
         expression = expression.replace('sqrt', 'math.sqrt')
         expression = expression.replace('abs', 'abs')
         expression = expression.replace('round', 'round')
+        
+        # Block dangerous patterns again AFTER transformation
+        if self._BLOCKED_PATTERNS.search(expression):
+            return None, "Expression contains disallowed keywords"
         
         try:
             # Use eval with limited scope including math functions
@@ -389,6 +410,7 @@ class BasicCalculator(View):
             result = None
             error = None
             step_by_step = []
+            display_data = {}
             
             # Handle expression evaluation
             if expression:

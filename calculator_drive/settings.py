@@ -16,25 +16,35 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Use environment variable in production: export SECRET_KEY='your-secret-key'
 # Generate a new key: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY = os.environ.get('SECRET_KEY', 'development-fallback-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&rmp=')
+_SECRET_KEY_FALLBACK = 'dev-only-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&rmp='
+SECRET_KEY = os.environ.get('SECRET_KEY', _SECRET_KEY_FALLBACK)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+# SECURITY: Crash if SECRET_KEY fallback is used in production
+if not DEBUG and SECRET_KEY == _SECRET_KEY_FALLBACK:
+    raise ValueError(
+        "SECURITY ERROR: You must set the SECRET_KEY environment variable in production! "
+        "Generate one with: python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\""
+    )
 
 # Security: Set allowed hosts in production
 ALLOWED_HOSTS = [
     'calculatordrive.com',
     'www.calculatordrive.com',
-    '*'
 ]
+
+# Allow localhost in development only
+if DEBUG:
+    ALLOWED_HOSTS += ['localhost', '127.0.0.1', '0.0.0.0']
 
 INTERNAL_IPS = [
     '127.0.0.1',
@@ -315,7 +325,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'samiullahkhialb@gmail.com'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'samiullahkhialb@gmail.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # Gmail App Password
 DEFAULT_FROM_EMAIL = 'noreply@CalculatorDrive.com'
 SERVER_EMAIL = 'noreply@CalculatorDrive.com'

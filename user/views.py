@@ -15,6 +15,7 @@ from django.contrib.auth.views import (
 )
 from django.http import JsonResponse, HttpResponseRedirect
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import ensure_csrf_cookie
 from allauth.account.models import EmailAddress
 from .forms import (
@@ -30,6 +31,19 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 from django.http import HttpResponse
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_redirect_url(url, request, fallback=None):
+    """Validate a redirect URL to prevent open redirect attacks.
+    Returns the URL if it's safe (relative or same-host), otherwise returns the fallback."""
+    if not url:
+        return fallback
+    if url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return url
+    return fallback
 
 
 def register(request):
@@ -293,9 +307,10 @@ def toggle_email_notifications(request):
                 'enabled': profile.email_notifications
             })
         except Exception as e:
+            logger.error(f"Error toggling email notifications: {e}")
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
+                'message': 'An error occurred while updating preferences'
             }, status=400)
     
     return JsonResponse({
@@ -316,18 +331,22 @@ def mark_notification_as_read(request, pk):
             return JsonResponse({'status': 'success'})
         
         # Check for next parameter in URL
-        next_url = request.GET.get('next')
+        next_url = _safe_redirect_url(request.GET.get('next'), request)
         
         # If there's a link in the notification and no next parameter, redirect to it
         if notification.link and not next_url:
-            return HttpResponseRedirect(notification.link)
+            safe_link = _safe_redirect_url(notification.link, request)
+            if safe_link:
+                return HttpResponseRedirect(safe_link)
         
         # Otherwise return to notifications page or next URL
-        return HttpResponseRedirect(next_url or request.META.get('HTTP_REFERER', reverse_lazy('user:notifications')))
+        fallback = _safe_redirect_url(request.META.get('HTTP_REFERER'), request, fallback=str(reverse_lazy('user:notifications')))
+        return HttpResponseRedirect(next_url or fallback)
     except Exception as e:
         # Log the error and redirect safely
+        logger.error(f"Error marking notification as read: {e}")
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'status': 'error', 'message': str(e)})
+            return JsonResponse({'status': 'error', 'message': 'An error occurred'})
         messages.error(request, _('There was an error processing your request.'))
         return HttpResponseRedirect(reverse_lazy('user:notifications'))
 
@@ -341,10 +360,11 @@ def mark_all_notifications_as_read(request):
         return JsonResponse({'status': 'success'})
     
     # Check for next parameter in URL
-    next_url = request.GET.get('next')
+    next_url = _safe_redirect_url(request.GET.get('next'), request)
     
     messages.success(request, _('All notifications marked as read'))
-    return HttpResponseRedirect(next_url or request.META.get('HTTP_REFERER', reverse_lazy('user:notifications')))
+    fallback = _safe_redirect_url(request.META.get('HTTP_REFERER'), request, fallback=str(reverse_lazy('user:notifications')))
+    return HttpResponseRedirect(next_url or fallback)
 
 
 @login_required
@@ -357,10 +377,11 @@ def delete_notification(request, pk):
         return JsonResponse({'status': 'success'})
     
     # Check for next parameter in URL
-    next_url = request.GET.get('next')
+    next_url = _safe_redirect_url(request.GET.get('next'), request)
     
     messages.success(request, _('Notification deleted'))
-    return HttpResponseRedirect(next_url or request.META.get('HTTP_REFERER', reverse_lazy('user:notifications')))
+    fallback = _safe_redirect_url(request.META.get('HTTP_REFERER'), request, fallback=str(reverse_lazy('user:notifications')))
+    return HttpResponseRedirect(next_url or fallback)
 
 
 @login_required
@@ -402,7 +423,7 @@ def clear_all_notifications(request):
         return JsonResponse({'status': 'success'})
     
     # Check for next parameter in URL
-    next_url = request.GET.get('next')
+    next_url = _safe_redirect_url(request.GET.get('next'), request)
     
     messages.success(request, _('All notifications cleared'))
     return HttpResponseRedirect(next_url or reverse_lazy('user:notifications'))
@@ -509,7 +530,12 @@ def privacy_settings(request):
     profile = request.user.profile
     
     if request.method == 'POST':
-        profile.profile_privacy = request.POST.get('profile_privacy', 'public')
+        # Validate profile_privacy against allowed choices
+        privacy_value = request.POST.get('profile_privacy', 'public')
+        valid_privacy_choices = [choice[0] for choice in Profile.PRIVACY_CHOICES]
+        if privacy_value not in valid_privacy_choices:
+            privacy_value = 'public'
+        profile.profile_privacy = privacy_value
         profile.show_email = request.POST.get('show_email') == 'on'
         profile.show_location = request.POST.get('show_location') == 'on'
         profile.show_birth_date = request.POST.get('show_birth_date') == 'on'
@@ -789,20 +815,19 @@ def toggle_favorite(request):
                     'message': 'Calculator added to favorites'
                 })
         except Exception as db_error:
+            logger.error(f"Database error in toggle_favorite: {db_error}")
             return JsonResponse({
                 'success': False, 
-                'error': f'Database error: {str(db_error)}'
+                'error': 'A database error occurred'
             }, status=500)
             
     except Exception as e:
         # Log the full error for debugging
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Error in toggle_favorite: {error_trace}")  # For debugging
+        logger.exception("Unexpected error in toggle_favorite")
         
         return JsonResponse({
             'success': False, 
-            'error': f'An unexpected error occurred: {str(e)}'
+            'error': 'An unexpected error occurred'
         }, status=500)
 
 

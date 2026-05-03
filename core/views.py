@@ -47,28 +47,28 @@ class SitemapView(View):
         calculators_by_app = {
             'math': {
                 'name': 'Mathematics Calculators',
-                'icon': 'bi-calculator',
+                'icon': 'fa-solid fa-calculator',
                 'color': 'purple',
                 'calculators': MathIndexView().get_context_data().get('calculators', []),
                 'base_url': '/math/',
             },
             'finance': {
                 'name': 'Financial Calculators',
-                'icon': 'bi-graph-up',
+                'icon': 'fa-solid fa-chart-line',
                 'color': 'blue',
                 'calculators': FinanceIndexView().get_context_data().get('calculators', []),
                 'base_url': '/finance/',
             },
             'health': {
                 'name': 'Health & Fitness Calculators',
-                'icon': 'bi-heart-pulse',
+                'icon': 'fa-solid fa-heart-pulse',
                 'color': 'green',
                 'calculators': HealthIndexView().get_context_data().get('calculators', []),
                 'base_url': '/health/',
             },
             'other': {
                 'name': 'Other Calculators',
-                'icon': 'bi-tools',
+                'icon': 'fa-solid fa-screwdriver-wrench',
                 'color': 'orange',
                 'calculators': OtherIndexView().get_context_data().get('calculators', []),
                 'base_url': '/other/',
