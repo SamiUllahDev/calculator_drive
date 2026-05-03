@@ -6,7 +6,9 @@ import logging
 import re
 
 from django.conf import settings
+from django.contrib.sites.models import Site
 from django.contrib.sitemaps.views import sitemap as django_sitemap
+from django.db import IntegrityError
 from django.http import HttpResponse, StreamingHttpResponse
 from django.template.response import TemplateResponse
 from django.utils import translation
@@ -23,13 +25,21 @@ def _canonical_scheme_and_host(request):
     if protocol not in ('http', 'https'):
         protocol = 'https' if request.is_secure() else 'http'
 
-    host = (getattr(settings, 'SITE_URL', '') or '').strip()
-    if host:
-        # SITE_URL must be hostname only (no scheme, no path)
-        host = host.split('/')[0].split('@')[-1]
-        if ':' in host:
-            host = host.split(':')[0]
-    else:
+    raw = (getattr(settings, 'SITE_URL', '') or '').strip()
+    host = ''
+    if raw:
+        low = raw.lower()
+        for prefix in ('https://', 'http://'):
+            if low.startswith(prefix):
+                raw = raw[len(prefix) :].lstrip()
+                low = raw.lower()
+                break
+        raw = raw.split('/')[0].split('@')[-1]
+        if ':' in raw:
+            raw = raw.split(':')[0]
+        host = raw.strip()
+
+    if not host:
         host = request.get_host().split(':')[0]
 
     return protocol, host
@@ -48,7 +58,7 @@ def _rewrite_sitemap_response(response, protocol, domain):
     ):
         return response
 
-    content = response.content.decode('utf-8')
+    content = response.content.decode('utf-8', errors='replace')
 
     placeholder_domains = [
         'example.com', 'www.example.com',
@@ -69,7 +79,15 @@ def _rewrite_sitemap_response(response, protocol, domain):
         return match.group(0)
 
     content = re.sub(r'<loc>(https?://[^<]+)</loc>', replace_domain_in_loc, content)
-    return HttpResponse(content.encode('utf-8'), content_type='application/xml; charset=utf-8')
+    out = HttpResponse(
+        content.encode('utf-8'),
+        content_type='application/xml; charset=utf-8',
+    )
+    for hdr in ('Last-Modified', 'X-Robots-Tag'):
+        val = response.get(hdr)
+        if val:
+            out[hdr] = val
+    return out
 
 
 def sitemap(request, sitemaps, **kwargs):
@@ -78,10 +96,21 @@ def sitemap(request, sitemaps, **kwargs):
     This ensures URLs always match the domain being accessed for proper SEO indexing.
     """
     protocol, domain = _canonical_scheme_and_host(request)
+    site_pk = getattr(settings, 'SITE_ID', None)
+    if site_pk and not Site.objects.filter(pk=site_pk).exists():
+        try:
+            Site.objects.create(pk=site_pk, domain=domain, name='CalculatorDrive')
+            logger.warning('Created missing django Site pk=%s domain=%s', site_pk, domain)
+        except IntegrityError:
+            pass
+
+    with translation.override(settings.LANGUAGE_CODE):
+        response = django_sitemap(request, sitemaps, **kwargs)
+
     try:
-        with translation.override(settings.LANGUAGE_CODE):
-            response = django_sitemap(request, sitemaps, **kwargs)
         return _rewrite_sitemap_response(response, protocol, domain)
     except Exception:
-        logger.exception('sitemap.xml generation failed')
-        raise
+        logger.exception('sitemap.xml loc rewrite failed; returning unmodified Django sitemap')
+        if isinstance(response, TemplateResponse):
+            response.render()
+        return response
