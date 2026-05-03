@@ -20,40 +20,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Use environment variable in production: export SECRET_KEY='your-secret-key'
-# Generate a new key: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-_SECRET_KEY_FALLBACK = 'dev-only-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&rmp='
 SECRET_KEY = os.environ.get('SECRET_KEY', 'zyi-6olLrs2agZXnGafVYR_SFwiYDQrDXkbSwTbSS3cWFfxnLENK1jsgZf_Hx7WTIkk')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Local: do nothing → DEBUG is True. Production: set DJANGO_ENV=production (e.g. in systemd, Docker, or hosting panel).
-DJANGO_ENV = os.environ.get('DJANGO_ENV', 'development').lower()
-DEBUG = DJANGO_ENV != 'production'
-
-# SECURITY: Crash if SECRET_KEY fallback is used in production
-if not DEBUG and SECRET_KEY == _SECRET_KEY_FALLBACK:
-    raise ValueError(
-        "SECURITY ERROR: You must set the SECRET_KEY environment variable in production! "
-        "Generate one with: python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\""
-    )
+DEBUG = False
 
 # Security: Set allowed hosts in production
 ALLOWED_HOSTS = [
     'calculatordrive.com',
     'www.calculatordrive.com',
-]
-
-# Optional: comma-separated extra hosts (staging, raw IP, etc.)
-ALLOWED_HOSTS += [
-    h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()
-]
-
-# Allow localhost in development only
-if DEBUG:
-    ALLOWED_HOSTS += ['localhost', '127.0.0.1', '0.0.0.0']
-
-INTERNAL_IPS = [
-    '127.0.0.1',
 ]
 
 
