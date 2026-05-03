@@ -97,24 +97,8 @@ class PerformanceHeadersMiddleware:
     - Link preload header for critical font (helps LCP by starting font download earlier)
     - Link preconnect hints for third-party origins when applicable
     - Cache-Control with stale-while-revalidate for CDN edge caching (reduces TTFB)
-    - Content-Security-Policy (fixes Lighthouse "No CSP" High severity)
     - Permissions-Policy for security hardening
     """
-
-    # CSP directives — first-party + fonts + optional Cloudflare RUM (no ads/GTM/widgets)
-    CSP_POLICY = "; ".join([
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "https://www.google.com "
-        "https://static.cloudflareinsights.com",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com data:",
-        "img-src 'self' data: blob: https: http:",
-        "frame-src 'self' https://www.google.com",
-        "connect-src 'self' https://static.cloudflareinsights.com",
-        "object-src 'none'",
-        "base-uri 'self'",
-    ])
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -146,9 +130,6 @@ class PerformanceHeadersMiddleware:
         if not request.user.is_authenticated and not response.get('Cache-Control'):
             response['Cache-Control'] = 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400'
 
-        # --- Content-Security-Policy (fixes Lighthouse "No CSP" — High severity) ---
-        if not response.get('Content-Security-Policy'):
-            response['Content-Security-Policy'] = self.CSP_POLICY
 
         # --- Permissions-Policy (restricts browser features for security) ---
         if not response.get('Permissions-Policy'):
