@@ -23,11 +23,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Use environment variable in production: export SECRET_KEY='your-secret-key'
 # Generate a new key: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 _SECRET_KEY_FALLBACK = 'dev-only-pzxmmuvl_uvl=hhxdl#&s+5pf7ykv31@kov5_86i0-9(v&rmp='
-SECRET_KEY = os.environ.get('SECRET_KEY', _SECRET_KEY_FALLBACK)
+SECRET_KEY = os.environ.get('SECRET_KEY', 'zyi-6olLrs2agZXnGafVYR_SFwiYDQrDXkbSwTbSS3cWFfxnLENK1jsgZf_Hx7WTIkk')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Use environment variable: export DEBUG=False
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = False
 
 # SECURITY: Crash if SECRET_KEY fallback is used in production
 if not DEBUG and SECRET_KEY == _SECRET_KEY_FALLBACK:
